@@ -8,7 +8,7 @@ module FunctionRecord : sig
   type a
   type s = (int * varkind) Var_Hashtbl.t
   type t = {
-      mutable args : (a * int) list;
+      mutable args : (a * int * bool) list;
       mutable graph : TaskGraph.t;
       scope : s;
       writes : Var_set.t;
@@ -16,7 +16,7 @@ module FunctionRecord : sig
     }
   val kind : typ -> varkind
   val create : (var * typ) list -> (var * typ) list -> Var_set.t -> trm -> t
-  val constify : bool list -> (a * int) list -> (a * int) list
+  val constify : bool list -> (a * int * bool) list -> (a * int * bool) list
   val is_rw : a -> bool
   val to_string : t -> string
 end = struct
@@ -47,7 +47,7 @@ end = struct
             argument refers to the current object instance, i.e. [this] in C++,
             the 1-st argument becomes the 0-th argument in the corresponding
             function record. In other terms, the [args] list skips [this]. *)
-        mutable args : (a * int) list;
+        mutable args : (a * int * bool) list;
         (** [graph]: the task candidate graph intermediate representation of the
             function (see [!module:TaskGraph]). *)
         mutable graph : TaskGraph.t;
@@ -152,12 +152,21 @@ end = struct
         List.mapi (fun i (arg, ty) ->
             (** determine its number of levels of indirection, *)
             let nli = Apac_miscellaneous.typ_get_nli ty in
+            (** determine whether its type [ty] is an atomic type or an alias to
+                an atomic type, *)
+            let atomic =
+              let inner = get_inner_const_type ty in
+              (is_atomic_typ inner) || (Apac_miscellaneous.typ_is_alias inner)
+            in
             (** add it to the hash table of function-local variables, *)
             Var_Hashtbl.add scope arg (nli, Var_immutable);
             (** classify its access (see [!FunctionRecords.classify]) and return
                 the classification together with the number of levels of
-                indirection. *)
-            (classify ty, nli)) args in
+                indirection and the flag telling whether we can consider this
+                argument for execution time profiling (see [!Apac_profiling]).
+                This is the case when the argument is a simple variable, i.e.
+                its [nli] is less than one, of [atomic] type. *)
+            (classify ty, nli, nli < 1 && atomic)) args in
       (** Add the global variables from [globs] to the [scope] of the function
           so as to make them available during dependency discovery (see
           [!Apac_task_candidate_discovery.trm_discover_dependencies]). *)
@@ -178,19 +187,20 @@ end = struct
       }
     
     (** [FunctionRecord.constify const args]: the function takes as argument a
-        list of booleans [const] having the same length as a list of argument
-        access classifications and numbers of levels of indirection [args]. Like
-        in the case of [args], the indices of [const] match the positions of the
-        arguments of the corresponding function. [true] values in [const] mean
-        we can change the access classification of the matching argument in
-        [args] from [ReadWrite] to [ReadOnly]. If [const] and [args] do not have
-        the same length, fail. *)
-    let constify (const : bool list) (args : (a * int) list) : (a * int) list =
+        list of booleans [const] having the same length as a list of arguments
+        [args] following the format of the [args] member of
+        [!type:FunctionRecord.t]. Like in the case of [args], the indices of
+        [const] match the positions of the arguments of the corresponding
+        function. [true] values in [const] mean we can change the access
+        classification of the matching argument in [args] from [ReadWrite] to
+        [ReadOnly]. If [const] and [args] do not have the same length, fail. *)
+    let constify (const : bool list)
+          (args : (a * int * bool) list) : (a * int * bool) list =
       if (List.length const) <> (List.length args) then
         failwith "Apac_records.FunctionRecord.constify: incompatible lists of \
                   arguments."
-      else List.map2 (fun c (a, nli)  ->
-               if c then (ReadOnly, nli) else (a, nli)
+      else List.map2 (fun c (a, nli, p)  ->
+               if c then (ReadOnly, nli, p) else (a, nli, p)
              ) const args
 
     (** [FunctionRecord.is_rw arg i]: checks whether the access classification
@@ -200,10 +210,13 @@ end = struct
     (** [FunctionRecord.to_string record]: returns a string representation of
         the function [record]. *)
     let to_string (record : t) : string =
-      let string_of_a_nli (arg : a * int) : string =
+      let string_of_a_nli (arg : a * int * bool) : string =
+        let encode p = if p then ", P" else "" in
         match arg with
-        | (ReadWrite, _) -> "ReadWrite"
-        | (ReadOnly, _) -> "ReadOnly"
+        | (ReadWrite, nli, profilable) ->
+           "ReadWrite(" ^ string_of_int(nli) ^ (encode profilable) ^ ")"
+        | (ReadOnly, nli, profilable) ->
+           "ReadOnly(" ^ string_of_int(nli) ^ (encode profilable) ^ ")"
       in
       let string_of_varkind (vk : varkind) : string =
         match vk with

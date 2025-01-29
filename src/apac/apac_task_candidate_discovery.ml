@@ -507,7 +507,7 @@ let discover_dependencies
              This way, we can analyze each [arg] while passing the correct
              access classification to [!discover_dependencies.main] through its
              [access] enumeration parameter. *)
-         List.fold_left2 (fun (ins, inouts, dam) arg (ar, _) ->
+         List.fold_left2 (fun (ins, inouts, dam) arg (ar, _, _) ->
              let access = if (FunctionRecord.is_rw ar) then `InOut else `In in
              main ins inouts dam 0 true access iao arg
            ) (ins, inouts, dam) args r.args
