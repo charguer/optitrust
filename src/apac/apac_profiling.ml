@@ -152,55 +152,63 @@ let annotate (tg : target) : unit =
                       [!parameters] for later processing in [!optimize]. *)
                   let i = ref 0 in
                   let (map, params) =
-                    (** We loop over each statement [c] within the task
-                        candidate [v] and *)
-                    List.fold_right (fun c (m, p) ->
-                        (** based on its kind, we decide which parameters we
-                            want to record for performance modelization. *)
-                        match c.desc with
-                        (** When [c] is a call to a function [f], *)
-                        | Trm_apps ({ desc = Trm_var (_ , f); _ }, args) when
-                               Var_Hashtbl.mem Apac_records.functions f ->
-                           (** we retrieve the function record as well as *)
-                           let r = Var_Hashtbl.find Apac_records.functions f in
-                           (** the list of arguments of the call (ignoring the
-                               reference to [this] in the case of class memeber
-                               methods) and *)
-                           let args =
-                             if f.name = "this" then List.tl args else args in
-                           (** record the value, in the form of an abstract
-                               syntax tree term, of each argument [arg] *)
-                           List.fold_right2 (fun arg (_, nli) (m, p) ->
-                               (** which is a simple variable or a reference to
-                                   the latter, i.e. the number of levels of
-                                   indirections of which is smaller than [1]
-                                   according to the corresponding argument
-                                   classification in [r.args]. *)
-                               if nli < 1 then
-                                 begin
-                                   (** To this end, we, at first, create a new
-                                       binding in the map [m] (resulting in
-                                       [map] at the end of the process) between
-                                       the ordinal of [arg], i.e. [i], and [arg]
-                                       itself. *)
-                                   let m = Int_map.add !i arg m in
-                                   (** We then generate a call to [apac_s::add]
-                                       with [arg] as an argument so as to
-                                       effectively record the value [arg]
-                                       evaluates to at runtime for performance
-                                       modelization. *)
-                                   let p' =
-                                     (call
-                                        s'
-                                        Apac_macros.profile_section_add [arg]
-                                     ) :: p in
-                                   incr i; (m, p')
-                                 end
-                               else
-                                 (m, p)
-                             ) args r.args (m, p)
-                        (** TODO: Implement support for loops. *)
-                        | _ -> (m, p)
+                    (** We loop over each statement [t'] within the task
+                        candidate [v] and based on its kind and the kind of its
+                        substatements, if any, we decide which parameters we
+                        want to record for performance modelization. *)
+                    List.fold_right (fun t' (m, p) ->
+                        trm_fold (fun (m, p) c -> 
+                            match c.desc with
+                            (** When [c] is a call to a function [f], *)
+                            | Trm_apps (
+                                { desc = Trm_var (_ , f); _ }, args
+                              ) when Var_Hashtbl.mem Apac_records.functions f ->
+                               (** we retrieve the function record as well as *)
+                               let r =
+                                 Var_Hashtbl.find Apac_records.functions f in
+                               (** the list of arguments of the call (ignoring
+                                   the reference to [this] in the case of class
+                                   memeber methods) and *)
+                               let args =
+                                 if f.name = "this" then
+                                   List.tl args
+                                 else args
+                               in
+                               (** record the value, in the form of an abstract
+                                   syntax tree term, of each [profilable] (see
+                                   [!Apac_records.FunctionRecord.create])
+                                   argument [arg] according to the corresponding
+                                   argument classification in [r.args]. *)
+                               List.fold_right2 (fun arg (_, _, profilable)
+                                                     (m, p) ->
+                                   if profilable then
+                                     begin
+                                       (** To this end, we, at first, create a
+                                           new binding in the map [m] (resulting
+                                           in [map] at the end of the process)
+                                           between the ordinal of [arg], i.e.
+                                           [i], and [arg] itself. *)
+                                       let m = Int_map.add !i arg m in
+                                       (** We then generate a call to
+                                           [apac_s::add] with [arg] as an
+                                           argument so as to effectively record
+                                           the value [arg] evaluates to at
+                                           runtime for performance
+                                           modelization. *)
+                                       let p' =
+                                         (call
+                                            s'
+                                            Apac_macros.profile_section_add
+                                            [arg]
+                                         ) :: p in
+                                       incr i; (m, p')
+                                     end
+                                   else
+                                     (m, p)
+                                 ) args r.args (m, p)
+                            (** TODO: Implement support for loops. *)
+                            | _ -> (m, p)
+                          ) (m, p) t'
                       ) t.current (Int_map.empty, []) in
                   (** Finally, we produce the call to [apac_s::initialize] for
                       the new profiling section as well as *)
