@@ -101,6 +101,8 @@ let annotate (tg : target) : unit =
                                   body outside of a task candidate?" in
           (** Find its function record [r] in [!Apac_records.functions]. *)
           let r = Var_Hashtbl.find Apac_records.functions f in
+          (** Retrieve its scope. *)
+          let scope = r.scope in
           (** Initialize a stack [sections] for storing the definitions of
               future profiling sections. *)
           let sections = Stack.create () in
@@ -187,8 +189,18 @@ let annotate (tg : target) : unit =
                                            new binding in the map [m] (resulting
                                            in [map] at the end of the process)
                                            between the ordinal of [arg], i.e.
-                                           [i], and [arg] itself. *)
-                                       let m = Int_map.add !i arg m in
+                                           [i], and [arg] itself. At the same
+                                           time, we convert [arg] back to C
+                                           syntax as
+                                           [!Ast_fromto_AstC.caddress_intro] and
+                                           [!Ast_fromto_AstC.stackvar_intro] do
+                                           not apply on terms within OpenMP
+                                           directives. *)
+                                       let arg' =
+                                         Apac_records.restore_cfeatures
+                                           scope arg
+                                       in
+                                       let m = Int_map.add !i arg' m in
                                        (** We then generate a call to
                                            [apac_s::add] with [arg] as an
                                            argument so as to effectively record
