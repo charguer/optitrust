@@ -152,22 +152,22 @@ let annotate (tg : target) : unit =
                       modelization. We store this [map], for each task candidate
                       of hash [h], in the global hash table [!parameters] for
                       later processing in [!optimize]. Note that we use the
-                      [prev] hash table to store the C expression of each
-                      argument we process so as to prevent duplicates in [m].
-                      This can happen, for example, in the following case
-                      [foo(a, a, b);] or in within a task candidate consisting
-                      of two function calls [foo(a,b); bar(a, c);]. Duplicates
-                      in [m] complexify the resulting execution time formulas as
-                      the modelizer considers them as separate parameters. *)
+                      [prev] set to store the C expression of each argument we
+                      process so as to prevent duplicates in [m]. This can
+                      happen, for example, in the following case [foo(a, a, b);]
+                      or in within a task candidate consisting of two function
+                      calls [foo(a,b); bar(a, c);]. Duplicates in [m] complexify
+                      the resulting execution time formulas as the modelizer
+                      considers them as separate parameters. *)
                   let i = ref 0 in
-                  let prev = Hashtbl.create 99 in
+                  let prev = ref String_set.empty in
                   let (map, params) =
                     (** We loop over each statement [t'] within the task
                         candidate [v] and based on its kind and the kind of its
                         substatements, if any, we decide which parameters we
                         want to record for performance modelization. *)
                     List.fold_right (fun t' (m, p) ->
-                        trm_fold (fun (m, p) c -> 
+                        trm_fold (fun (m, p) c ->
                             match c.desc with
                             (** When [c] is a call to a function [f], *)
                             | Trm_apps (
@@ -188,10 +188,20 @@ let annotate (tg : target) : unit =
                                    syntax tree term, of each [profilable] (see
                                    [!Apac_records.FunctionRecord.create])
                                    argument [arg] according to the corresponding
-                                   argument classification in [r.args]. *)
+                                   argument classification in [r.args] which
+                                   features at least one variable occurrence
+                                   (see the flag [hv]), i.e. which is not
+                                   or does not lead to a run-time constant. *)
                                List.fold_right2 (fun arg (_, _, profilable)
                                                      (m, p) ->
-                                   if profilable then
+                                   let hv =
+                                     trm_fold (fun acc st ->
+                                         match st.desc with
+                                         | Trm_var _ -> acc || true
+                                         | _ -> acc
+                                       ) false arg
+                                   in
+                                   if profilable && hv then
                                      begin
                                        (** To this end, we, at first, create a
                                            new binding in the map [m] (resulting
@@ -199,7 +209,7 @@ let annotate (tg : target) : unit =
                                            between the ordinal of [arg], i.e.
                                            [i], and [arg] itself. At the same
                                            time, we convert [arg] back to C
-                                           syntax as
+                                           syntax in [arg'] as
                                            [!Ast_fromto_AstC.caddress_intro] and
                                            [!Ast_fromto_AstC.stackvar_intro] do
                                            not apply on terms within OpenMP
@@ -208,11 +218,16 @@ let annotate (tg : target) : unit =
                                          Apac_records.restore_cfeatures
                                            scope arg
                                        in
+                                       (** [arg''] is the string representation
+                                           of [arg'] to interact with [prev]. *)
+                                       let arg'' =
+                                         AstC_to_c.ast_to_string arg'
+                                       in
                                        (** However, we create a new binding only
                                            if the C expression [arg'] appears in
                                            the list of arguments [args] for the
                                            first time. *)
-                                       if not (Hashtbl.mem prev arg') then
+                                       if not (String_set.mem arg'' !prev) then
                                          begin
                                            let m = Int_map.add !i arg' m in
                                            (** We then generate a call to
@@ -228,7 +243,7 @@ let annotate (tg : target) : unit =
                                                 [arg]
                                              ) :: p in
                                            incr i;
-                                           Hashtbl.add prev arg' ();
+                                           prev := String_set.add arg'' !prev;
                                            (m, p')
                                          end
                                        else
