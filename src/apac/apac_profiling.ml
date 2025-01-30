@@ -151,8 +151,16 @@ let annotate (tg : target) : unit =
                       term and its generic variable name within the performance
                       modelization. We store this [map], for each task candidate
                       of hash [h], in the global hash table [!parameters] for
-                      later processing in [!optimize]. *)
+                      later processing in [!optimize]. Note that we use the
+                      [prev] hash table to store the C expression of each
+                      argument we process so as to prevent duplicates in [m].
+                      This can happen, for example, in the following case
+                      [foo(a, a, b);] or in within a task candidate consisting
+                      of two function calls [foo(a,b); bar(a, c);]. Duplicates
+                      in [m] complexify the resulting execution time formulas as
+                      the modelizer considers them as separate parameters. *)
                   let i = ref 0 in
+                  let prev = Hashtbl.create 99 in
                   let (map, params) =
                     (** We loop over each statement [t'] within the task
                         candidate [v] and based on its kind and the kind of its
@@ -180,16 +188,7 @@ let annotate (tg : target) : unit =
                                    syntax tree term, of each [profilable] (see
                                    [!Apac_records.FunctionRecord.create])
                                    argument [arg] according to the corresponding
-                                   argument classification in [r.args]. Note
-                                   that we use the [prev] hash table to store
-                                   the C expression of each argument we process
-                                   so as to prevent duplicates in [m]. This can
-                                   happen, for example, in the following case
-                                   [foo(a, a, b)]. Duplicates in [m] complexify
-                                   the resulting execution time formulas as the
-                                   modelizer considers them as separate
-                                   parameters. *)
-                               let prev = Hashtbl.create 99 in
+                                   argument classification in [r.args]. *)
                                List.fold_right2 (fun arg (_, _, profilable)
                                                      (m, p) ->
                                    if profilable then
