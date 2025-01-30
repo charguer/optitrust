@@ -27,7 +27,7 @@ let skip (fs : string list) : unit =
 let intermediate_variable : string = "__apac_var"
 
 (** [candidate_mark]: string for marking taskification candidate functions (see
-    [!Apac_prologue.select_candidates]). *)
+    [!Apac_preprocessing.select_candidates]). *)
 let candidate_mark : mark = "__apac_candidate"
 
 (** [candidate_main_mark]: string for marking the [!Apac_flags.main] function as
@@ -35,16 +35,16 @@ let candidate_mark : mark = "__apac_candidate"
 let candidate_main_mark : mark = "__apac_candidate_main"
 
 (** [candidate_body_mark]: string for marking bodies of taskification candidate
-    functions (see [!Apac_prologue.use_goto_for_return]). *)
+    functions (see [!Apac_preprocessing.unify_returns]). *)
 let candidate_body_mark : mark = "__apac_candidate_body"
 
 (** [goto_label]: label for replacing [return] statements by [goto] jumps within
-    the pre-processing stage (see [Apac_prologue.unify_returns]). *)
+    the pre-processing stage (see [Apac_preprocessing.unify_returns]). *)
 let goto_label : label = "__apac_exit"
 
 (** [result_variable]: name of the variable for collecting return values when
     replacing [return] statements by [goto] jumps within the pre-processing
-    stage (see [Apac_prologue.unify_returns]). *)
+    stage (see [Apac_preprocessing.unify_returns]). *)
 let result_variable : string = "__apac_result"
 
 (** {1 Task candidate discovery and optimization stage} *)
