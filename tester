@@ -26,7 +26,7 @@ if [ -z ${ARGS} ]; then
             ARGS+=("${CURRENT_PATH}/$arg")
           fi
 
-      elif [ -e ${OPTITRUST}/$arg ] || [ -f ${OPTITRUST}/$arg.tests ] || [ $arg = "last" ]; then
+      elif [ $arg != "apac" ] && ([ -e ${OPTITRUST}/$arg ] || [ -f ${OPTITRUST}/$arg.tests ] || [ $arg = "last" ]); then
           ARGS+=("$arg")
       elif [ -e ${OPTITRUST}/tests/$arg ] || [ -f ${OPTITRUST}/tests/$arg.tests ]; then
           ARGS+=("tests/$arg")
