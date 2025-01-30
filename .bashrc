@@ -11,3 +11,5 @@ export XDG_DATA_DIRS=$XDG_DATA_DIRS:/var/lib/snapd/desktop:/usr/share
 export XDG_CONFIG_DIRS=/etc/xdg/xdg-xubuntu:/etc/xdg:/etc/xdg
 
 export FREETYPE_PROPERTIES=truetype:interpreter-version=35
+
+export PATH=$PATH:$OPTITRUST/_build/install/default/bin/
