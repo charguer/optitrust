@@ -103,6 +103,11 @@ let compile () : unit =
           cMark Apac_macros.candidate_body_mark
         ]
     end;
+  !? "Disqualify taskification targets without taskifiable task candidates"
+    Apac_task_candidate_discovery.disqualify_candidates [
+      nbAny;
+      cMark Apac_macros.candidate_mark
+    ];
   bigstep "Parallel source code generation";
   !? "Synchronize array subscripts"
     Apac_parallelization.synchronize_subscripts [

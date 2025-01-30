@@ -1520,3 +1520,27 @@ let detect_tasks_simple_on (p : path) (t : trm) : unit =
 let detect_tasks_simple (tg : target) : unit =
   Target.iter (fun t p -> detect_tasks_simple_on p (get_trm_at_path p t)) tg
 
+(** [disqualify_candidates tg]: expects the target [tg] to point at a definition
+    of a taskification candidate function. If the task candidate graph of the
+    function features no taskifiable task candidates, the transformation pass
+    restores the original abstract syntax tree of the function. Note that the
+    pass has no effect on the [!Apac_flags.main] function. This way, we won't
+    accidentally remove the OpenMP pragmas from the entry point of the output
+    parallel source code even if the latter does not contain any taskifiable
+    task candidates. *)
+let disqualify_candidates (tg : target) : unit =
+  Target.apply_at_target_paths (fun t ->
+      (** Deconstruct the definition term [t] of the function [f]. *)
+      let error =
+        "Apac_task_candidate_discovery.disqualify_candidates: expected a \
+         target to a function definition."
+      in
+      let (f, _, _, _) = trm_inv ~error trm_let_fun_inv t in
+      (** Find its function record [r] in [!Apac_records.functions]. *)
+      let r = Var_Hashtbl.find functions f in
+      (** If [f] has no taskifiable task candidates, restore its original
+          abstract syntax tree, except for the [!Apac_flags.main] function. *)
+      if f.name <> !Apac_flags.main &&
+           not (TaskGraphTraverse.has_taskifiable r.graph) then r.ast          
+      else t
+    ) tg
