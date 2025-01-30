@@ -143,15 +143,15 @@ let annotate (tg : target) : unit =
                         s', Typ.typ_str (Atyp Apac_macros.profile_section_type)
                       ) (trm_uninitialized ()) in
                   (** In the next step, we produce the [add] calls, in [params],
-                      for each parameter of the task candidate, we want to
-                      record the value of for the performance modelization. [i]
-                      increases with each call to [add] and represents the key
-                      in a [map] (see type [!type:Int_map.t]) keeping the track
-                      of the correspondence between a parameter abstract syntax
-                      tree term and its generic variable name within the
-                      performance modelization. We store this [map], for each
-                      task candidate of hash [h], in the global hash table
-                      [!parameters] for later processing in [!optimize]. *)
+                      for each parameter of the task candidate we want to record
+                      the value of for the performance modelling. [i] increases
+                      with each call to [add] and represents the key in a [map]
+                      (see type [!type:Int_map.t]) keeping the track of the
+                      correspondence between a parameter abstract syntax tree
+                      term and its generic variable name within the performance
+                      modelization. We store this [map], for each task candidate
+                      of hash [h], in the global hash table [!parameters] for
+                      later processing in [!optimize]. *)
                   let i = ref 0 in
                   let (map, params) =
                     (** We loop over each statement [t'] within the task
@@ -180,7 +180,16 @@ let annotate (tg : target) : unit =
                                    syntax tree term, of each [profilable] (see
                                    [!Apac_records.FunctionRecord.create])
                                    argument [arg] according to the corresponding
-                                   argument classification in [r.args]. *)
+                                   argument classification in [r.args]. Note
+                                   that we use the [prev] hash table to store
+                                   the C expression of each argument we process
+                                   so as to prevent duplicates in [m]. This can
+                                   happen, for example, in the following case
+                                   [foo(a, a, b)]. Duplicates in [m] complexify
+                                   the resulting execution time formulas as the
+                                   modelizer considers them as separate
+                                   parameters. *)
+                               let prev = Hashtbl.create 99 in
                                List.fold_right2 (fun arg (_, _, profilable)
                                                      (m, p) ->
                                    if profilable then
@@ -200,20 +209,31 @@ let annotate (tg : target) : unit =
                                          Apac_records.restore_cfeatures
                                            scope arg
                                        in
-                                       let m = Int_map.add !i arg' m in
-                                       (** We then generate a call to
-                                           [apac_s::add] with [arg] as an
-                                           argument so as to effectively record
-                                           the value [arg] evaluates to at
-                                           runtime for performance
-                                           modelization. *)
-                                       let p' =
-                                         (call
-                                            s'
-                                            Apac_macros.profile_section_add
-                                            [arg]
-                                         ) :: p in
-                                       incr i; (m, p')
+                                       (** However, we create a new binding only
+                                           if the C expression [arg'] appears in
+                                           the list of arguments [args] for the
+                                           first time. *)
+                                       if not (Hashtbl.mem prev arg') then
+                                         begin
+                                           let m = Int_map.add !i arg' m in
+                                           (** We then generate a call to
+                                               [apac_s::add] with [arg] as an
+                                               argument so as to effectively
+                                               record the value [arg] evaluates
+                                               to at runtime for performance
+                                               modelization. *)
+                                           let p' =
+                                             (call
+                                                s'
+                                                Apac_macros.profile_section_add
+                                                [arg]
+                                             ) :: p in
+                                           incr i;
+                                           Hashtbl.add prev arg' ();
+                                           (m, p')
+                                         end
+                                       else
+                                         (m, p)
                                      end
                                    else
                                      (m, p)
