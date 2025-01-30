@@ -1,0 +1,31 @@
+; Definition of the Apac executable.
+(executable
+ (name       apac)
+ (libraries  optitrust)
+ (link_flags (-linkall))
+ (modes      native))
+
+; Action for installing the Apac executable.
+(install
+ (files (apac.exe as apac))
+ (section bin))
+
+; Action for retrieving version information details from Git.
+(rule
+ (targets git.txt)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run git describe --always --dirty --abbrev=7))))
+
+; Action for the dynamic creation of a version module providing version
+; information to OCaml.
+(rule
+ (targets version.ml)
+ (action
+  (with-stdout-to
+   %{targets}
+   (progn
+    (echo "let current = \"1.0-")
+    (cat git.txt)
+    (echo "\"")))))
