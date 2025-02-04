@@ -6,11 +6,13 @@ let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 
 (** Reproducing OpenCV code from:
-   https://github.com/opencv/opencv/blob/4.x/modules/imgproc/src/box_filter.simd.hpp
+  https://github.com/opencv/opencv/blob/4.10.0/modules/imgproc/src/box_filter.simd.hpp#L75
 
    Remaining differences:
    - [k++; + k] instead of [k++, S++, D++], we may not want to introduce such pointer arithmetic.
    - no template support yet for S/ST types; OpenCV also casts inputs from uchar
+
+   c.f. README.md
    *)
 
 let int = trm_int

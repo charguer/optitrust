@@ -1,6 +1,9 @@
 # What is this case study?
 
-Matrix Multiplication case study corresponding to [TVM's schedule](https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html) for Intel CPU.
+Matrix Multiplication case study corresponding to [TVM's schedule](https://web.archive.org/web/20240920165959/https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html) for Intel CPU.
+
+- Original TVM code in v0.19.0: https://github.com/apache/tvm/blob/v0.19.0/gallery/how_to/optimize_operators/opt_gemm.py
+- The TVM code was also copy-pasted in [bench.py](bench.py)
 
 # How do I install dependencies?
 

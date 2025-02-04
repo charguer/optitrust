@@ -4,9 +4,7 @@ open Prelude
 let _ = Flags.pretty_matrix_notation := true
 let _ = Flags.disable_resource_typing ()
 
-(* Reproducing a TVM schedule from:
-   https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html
-
+(* Reproducing a TVM schedule for matrix multiplication:
    1. improve data locality by blocking the computation of C and preloading B with a packed memory layout
    2. unroll loops and introduce parallelism with vectorization and multi-threading
 
