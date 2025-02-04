@@ -246,8 +246,6 @@ and trm_desc =
   | Trm_var of var
   | Trm_lit of lit   (* literal values *)
   | Trm_prim of typ * prim (* overloaded primitive operators on the specified type *) (* TODO: Remove and replace with overloaded builtin functions *)
-  | Trm_array of typ * trm mlist (* { 0, 3, 5 } as an array *)
-  | Trm_record of typ * (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of typed_var * trm (* int x = 3 *)
   | Trm_let_mult of (typed_var * trm) list (* TODO: replace with non-scoping seq *)
   | Trm_predecl of typed_var (* declaration of a variable defined later *)
@@ -309,7 +307,7 @@ and typed_vars = typed_var list
     type, for sum types there can be also more then one variable. And finally the
      body of the type *)
 and typedef = {
-  typedef_name : var; (* the defined type [t] *)
+  typedef_name : typvar; (* the defined type [t] *)
   typedef_body : typedef_body;(* the body of the definition,
                             i.e. the description of [...] *)
 }
@@ -491,7 +489,7 @@ and unary_op =
   | Unop_post_decr               (* x-- *)
   | Unop_pre_incr                (* ++x *)
   | Unop_pre_decr                (* --x *)
-  | Unop_struct_access of field  (* &(s->field) *)
+  | Unop_struct_access of field  (* &(s->field), the type of the unop is the type of the struct for code and auto for formulas *)
   | Unop_struct_get of field     (* s.field *)
   | Unop_cast of typ             (* (int)x *)
 
@@ -534,6 +532,8 @@ and prim =
   | Prim_new (* "new T", heap allocation with initialization *)
   | Prim_new_uninit (* like "new T" but without initialization *)
   | Prim_delete (* "delete t", heap deallocation *)
+  | Prim_array (* "{ 0, 3, 5 }" as an array *)
+  | Prim_record (* "{ 4, 5.3 }" as a record *)
 
 (** [lit]: literals *)
 and lit =
@@ -583,6 +583,7 @@ and resource_set = {
   linear: resource_item list;
   fun_specs: fun_spec_resource varmap; (** Pure facts that give specification to functions are stored here instead of pure to allow easier lookup. *)
   aliases: trm varmap; (** Map of variables to their definition, variables may come from the program or pure facts *)
+  struct_fields: ((label * typ) list) varmap;
 }
 
 (* Represents the knowledge of the specification of a function *)
@@ -932,8 +933,6 @@ let trm_desc_to_string : trm_desc -> string =
   | Trm_var _ -> "Trm_var"
   | Trm_lit _ -> "Trm_lit"
   | Trm_prim _ -> "Trm_prim"
-  | Trm_array _ -> "Trm_array"
-  | Trm_record _ -> "Trm_record"
   | Trm_let _ -> "Trm_let"
   | Trm_let_mult _ -> "Trm_let_mult"
   | Trm_predecl _ -> "Trm_predecl"
@@ -978,7 +977,7 @@ let unknown_ctx (): ctx = {
 }
 
 (** The empty resource set. *)
-let empty_resource_set = { pure = []; linear = []; fun_specs = Var_map.empty; aliases = Var_map.empty }
+let empty_resource_set = { pure = []; linear = []; fun_specs = Var_map.empty; aliases = Var_map.empty; struct_fields = Var_map.empty; }
 
 (** The empty function contract, printed as __pure(). *)
 let empty_fun_contract =

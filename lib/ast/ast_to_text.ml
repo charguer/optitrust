@@ -126,6 +126,8 @@ and print_prim style (p : prim) : document =
   | Prim_new -> print_node "Prim_new"
   | Prim_new_uninit -> print_node "Prim_new_uninit"
   | Prim_delete -> print_node "Prim_delete"
+  | Prim_array -> print_node "Prim_array"
+  | Prim_record -> print_node "Prim_record"
 
 (** [print_lit l]: converts literals to pprint document *)
 and print_lit (l : lit) : document =
@@ -167,18 +169,6 @@ and print_trm_desc style (t : trm_desc) : document =
      let dt = print_typ style typ in
      let dp = print_prim style p in
      print_node "Trm_prim" ^^ parens (dt ^^ comma ^^ blank 1 ^^ dp)
-  | Trm_array (typ, tl) ->
-     let dt = print_typ style typ in
-     let tl = Mlist.to_list tl in
-     let dtl = List.map (print_trm style) tl in
-     print_node "Trm_array" ^^ blank 1 ^^ parens dt ^^ blank 1 ^^ print_list dtl
-  | Trm_record (typ, tl) ->
-     let dt = print_typ style typ in
-     let tl = Mlist.to_list tl in
-     let dtl = List.map (fun (lb, t) ->
-      let td = print_trm style t in
-      match lb with Some lb -> parens (string lb ^^ comma ^^blank 1 ^^ td) | None -> td) tl in
-     print_node "Trm_record" ^^ blank 1 ^^ parens dt ^^ blank 1 ^^ print_list dtl
   | Trm_let ((x,tx),t) ->
     let dtx = print_typ style tx in
     let dt = print_trm style t in

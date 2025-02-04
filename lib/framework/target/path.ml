@@ -59,13 +59,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
       | Dir_span _, _ ->
         (* trm_fail t *)
         path_fail dl "apply_on_path: Dir_span should not remain at this stage; probably the transformation was not expecting a target-span (tSpan)"
-      | Dir_array_nth n, Trm_array (ty, tl) ->
-        { t with desc = Trm_array (ty, Mlist.update_nth n aux tl)}
       | Dir_seq_nth n, Trm_seq (tl, result) ->
         { t with desc = Trm_seq (Mlist.update_nth n aux tl, result) }
-      | Dir_struct_nth n, Trm_record (ty, tl) ->
-        let aux (lb, t1) = (lb, aux t1) in
-        { t with desc = Trm_record (ty, Mlist.update_nth n aux tl)}
       | Dir_cond, Trm_if (cond, then_t, else_t) ->
         { t with desc = Trm_if (aux cond, then_t, else_t)}
       | Dir_cond, Trm_while (cond, body) ->
@@ -264,10 +259,6 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           ((decl_before n tl)@ctx)
         *)
         app_to_nth dl tl n (fun nth_t -> aux nth_t)
-      | Dir_array_nth n, Trm_array (_, tl) ->
-        app_to_nth dl (Mlist.to_list tl) n (fun nth_t -> aux nth_t)
-      | Dir_struct_nth n, Trm_record (_, tl) ->
-        app_to_nth dl (List.split_pairs_snd (Mlist.to_list tl)) n (fun nth_t -> aux nth_t)
       | Dir_cond, Trm_if (cond, _, _)
         | Dir_cond, Trm_while (cond, _)
         | Dir_cond, Trm_do_while (_, cond)

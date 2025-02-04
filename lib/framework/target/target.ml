@@ -152,17 +152,9 @@ let dBefore (i : int) : constr =
 let dAfter (i : int) : constr =
   Constr_dir (Dir_before (i + 1))
 
-(** [dArrayNth]: matches the trm with index [n] on an array initialization list. *)
-let dArrayNth (n : int) : constr =
-    Constr_dir (Dir_array_nth n)
-
 (** [dSeqNth]: matches the instruction with index [n] on a sequence. *)
 let dSeqNth (n : int) : constr =
     Constr_dir (Dir_seq_nth n)
-
-(** [dStructNth]: matches the trm with index [n] on a struct initialization list. *)
-let dStructNth (n : int) : constr =
-    Constr_dir (Dir_struct_nth n)
 
 (** [dCond]: matches a condition. *)
 let dCond : constr =
@@ -1078,18 +1070,18 @@ let cCellReadOrWrite ?(base : target = []) ?(index : target = []) () : constr =
 
 (** [cArrayInit]: matches an array initialization list. *)
 let cArrayInit : constr =
-  Constr_array_init
+  cCall ~fun_:[cPrim Prim_array] ""
 
 (** [cStructInit]: matches a struct initialization list. *)
 let cStructInit : constr =
-  Constr_struct_init
+  cCall ~fun_:[cPrim Prim_record] ""
 
 (** [cCell ~cell_index ()]: matches an array cell on an array initialization list
     [cell_index] - match based on the cell index. *)
 let cCell ?(cell_index : int option) () : constr =
   match cell_index with
   | None -> cTarget [cArrayInit; cStrict; cTrue]
-  | Some i -> cTarget [cArrayInit; dArrayNth i]
+  | Some i -> cTarget [cArrayInit; dArg i]
 
 let cArrayWrite (x : string) : constr =
   cWrite ~lhs:[cCellAccess ~base:[cVar x] ()] ()

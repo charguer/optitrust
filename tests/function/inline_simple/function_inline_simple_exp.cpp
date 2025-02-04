@@ -59,7 +59,7 @@ vect vect_op(vect v) {
 }
 
 vect vect_op2(vect v) {
-  vect res = {0, 0};
+  vect res = {0, 0, {}};
   res.x = 1;
   return res;
 }
@@ -70,7 +70,7 @@ void test_const_ret() {
   const int y = a1 + a1;
   const int z = x > 0 ? 1 : 2;
   int s = y + z;
-  const vect t = {0, 1};
+  const vect t = {0, 1, {}};
   const vect v = {t.x + x * t.x, t.y + x * t.y, t.z + x * t.z};
   vect res;
   if (true) {
@@ -80,7 +80,7 @@ void test_const_ret() {
   res = v;
 exit:;
   const vect w = res;
-  vect res1 = {0, 0};
+  vect res1 = {0, 0, {}};
   res1.x = 1;
   vect w2 = res1;
 }

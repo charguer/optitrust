@@ -207,9 +207,7 @@ let request_serialized_trace () : bool =
 let only_big_steps : bool ref = ref false
 
 (* Possible choices for [save_steps], which controls the behavior
-   of [Trace.step_should_be_kept_in_trace]. The [Steps_default] constructor is
-   only temporary; we need it to ensure that [process_mode] does not modify
-   [save_steps] in case its value has already been forced by the user. *)
+   of [Trace.step_should_be_kept_in_trace]. *)
 type steps_selector =
   | Steps_none
   | Steps_script

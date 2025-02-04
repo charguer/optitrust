@@ -61,7 +61,7 @@ address_formula:
   | tab=address_formula; LBRACKET; index=atomic_formula; RBRACKET;
     { trm_array_get tab index }
   | base=address_formula; DOT; field=IDENT;
-    { trm_struct_get base field }
+    { trm_struct_get ~struct_typ:typ_auto base field }
   | LPAR; f=address_formula; RPAR
     { f }
   | x=IDENT

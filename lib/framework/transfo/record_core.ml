@@ -20,6 +20,7 @@ let set_explicit_on (t : trm) : trm =
       | None, None ->
         trm_fail t "explicit assignment cannot operate on unknown types"
     in
+    let struct_typ = typ_var tid in
     let struct_def =
       match Internal.typvar_to_typedef tid with
       | Some td -> td
@@ -55,7 +56,7 @@ let set_explicit_on (t : trm) : trm =
                 in
                 let unfolded_res =
                   formula_read_only ~frac:(trm_var frac_var)
-                    (formula_cell (trm_struct_access ~field_typ:ty loc sf))
+                    (formula_cell (formula_struct_access ~field_typ:ty loc sf))
                 in
                 let wand = formula_wand unfolded_res folded_res in
                 let folded_linear = [(new_anon_hyp (), folded_res)] in
@@ -76,10 +77,7 @@ let set_explicit_on (t : trm) : trm =
               new_anon_hyp (), formula_cell loc
             )] in
             let unfolded_linear = List.map (fun (sf, ty) ->
-              (new_anon_hyp (), formula_model
-                (trm_struct_access ~field_typ:ty loc sf)
-                trm_cell
-              )
+              (new_anon_hyp (), formula_cell (formula_struct_access ~field_typ:ty loc sf))
             ) field_list in
             let make_uninit = List.map resource_item_uninit in
             (make_admitted [] (make_uninit folded_linear) (make_uninit unfolded_linear),
@@ -97,22 +95,21 @@ let set_explicit_on (t : trm) : trm =
       (* NOTE: already checked by ghosts
         check_pure "rhs" rt; *)
       let set_one i (sf, ty) =
-        trm_set (trm_struct_access ~field_typ:ty lt sf)
-          (trm_get ~typ:ty (trm_struct_access ~field_typ:ty rt1 sf))
+        trm_set (trm_struct_access ~field_typ:ty ~struct_typ lt sf)
+          (trm_get ~typ:ty (trm_struct_access ~field_typ:ty ~struct_typ rt1 sf))
       in
       (unfold_cells [Writes, lt; Reads, rt1], set_one)
-    | Trm_record (_, st) ->
+    | Trm_apps (_, st, _) when Option.is_some (trm_record_inv rt) ->
       (* lt = { .f = v; .. } --> lt.f = v *)
-      let st = List.split_pairs_snd (Mlist.to_list st) in
       let set_one i (sf, ty) =
-        trm_set (trm_struct_access ~field_typ:ty lt sf) (List.nth st i)
+        trm_set (trm_struct_access ~field_typ:ty ~struct_typ lt sf) (List.nth st i)
       in
       (unfold_cells [Writes,lt], set_one)
     | _ ->  (* other cases are included here *)
       (* lt = rt --> lt.f = rt.f *)
       check_pure "rhs" rt;
       let set_one i (sf, ty) =
-        trm_set (trm_struct_access ~field_typ:ty lt sf) (trm_struct_get ~field_typ:ty rt sf)
+        trm_set (trm_struct_access ~field_typ:ty ~struct_typ lt sf) (trm_struct_get ~field_typ:ty ~struct_typ rt sf)
       in
       (unfold_cells [Writes,lt], set_one)
     end in
@@ -169,8 +166,7 @@ let set_implicit_on (t: trm) : trm =
         begin match rhs_trms with
         | [rhs1] -> trm_pass_labels t (trm_set lt rhs1)
         | _ ->
-          let rhs_trms = List.map (fun t1 -> (None, t1)) rhs_trms in
-          trm_pass_labels t (trm_set lt (trm_record ~typ:struct_typ (Mlist.of_list rhs_trms)))
+          trm_pass_labels t (trm_set lt (trm_record ~typ:struct_typ rhs_trms))
         end
       | _ -> trm_fail f "Record_core.set_implicit_on: expected an assignment instruction"
       end
@@ -199,25 +195,25 @@ let inline_struct_accesses (x : field) (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, base, _) ->
       begin match f.desc with
-      | Trm_prim (_, Prim_unop (Unop_struct_access z)) ->
+      | Trm_prim (struct_typ, Prim_unop (Unop_struct_access z)) ->
         begin match base with
         | [base'] ->
           if contains_field_access x base'
             then aux z base'
             else if outer_field <> "" then
               let updated_field = Convention.name_app z outer_field in
-              trm_struct_access ?field_typ:t.typ base' updated_field
+              trm_struct_access ?field_typ:t.typ ~struct_typ base' updated_field
             else trm_map (aux "") t
         | _ -> trm_fail f "Record_core.inline_struct_access: suspicious struct access"
         end
-      | Trm_prim (_, Prim_unop (Unop_struct_get z)) ->
+      | Trm_prim (struct_typ, Prim_unop (Unop_struct_get z)) ->
         begin match base with
         | [base'] ->
           if contains_field_access x base'
             then aux z base'
             else if outer_field <> "" then
               let updated_field = Convention.name_app z outer_field in
-              trm_struct_get base' updated_field
+              trm_struct_get ~struct_typ base' updated_field
             else trm_map (aux "") t
         | _ -> trm_fail f "Record_core.inline_struct_access: suspicious struct access"
         end
@@ -233,30 +229,33 @@ let inline_struct_accesses (x : field) (t : trm) : trm =
       [field_index] - index of the field in the outer struct,
       [t] - ast node located in the same level as the main struct declaration or deeper. *)
 let inline_struct_initialization (struct_name : typvar) (field_list : field list) (field_index : int) (t : trm) : trm =
+  let struct_typ = typ_var struct_name in
   let rec aux (t : trm) : trm =
-    match t.desc with
+    match trm_record_inv t with
     (* Searching for struct intialization lists of type typedef struct {} struct_name *)
-    | Trm_record (ty, term_list) ->
+    | Some (ty, term_list) ->
       Pattern.pattern_match ty [
         Pattern.(typ_constr (var_eq struct_name)) (fun () ->
-          let lfront, (_,trm_to_change) , lback = Mlist.get_item_and_its_relatives field_index term_list in
-          begin match trm_to_change.desc with
-          | Trm_record (_, sl) ->
-            let new_term_list = Mlist.merge_list [lfront; sl; lback] in
-            trm_record ~annot:t.annot ~typ:ty new_term_list
-
-          | Trm_apps (_, [{desc = Trm_var p;_} as v], _) when is_get_operation trm_to_change ->
-            let sl = List.map (fun f -> (None, trm_get (trm_struct_access (trm_var ?typ:v.typ p) f))) field_list in
-            let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
-            trm_record ~annot:t.annot ~typ:ty new_term_list
-
-          | Trm_var p ->
-            let sl = List.map (fun f -> (None, trm_struct_get (trm_var ?typ:t.typ p) f)) field_list in
-            let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
-            trm_record ~annot:t.annot ~typ:ty new_term_list
-
-          | _ -> trm_fail t "Record_core.inline_struct_initialization: struct intialization list is not compatible with definition"
-          end
+          let lfront, trm_to_change, lback = List.get_item_and_its_relatives field_index term_list in
+          Pattern.pattern_match trm_to_change [
+            Pattern.(trm_record __ !__) (fun sl () ->
+              let new_term_list = lfront @ sl @ lback in
+              trm_record ~annot:t.annot ~typ:ty new_term_list
+            );
+            Pattern.(trm_get !(trm_var !__)) (fun v p () ->
+              let sl = List.map (fun f -> trm_get (trm_struct_access ~struct_typ (trm_var ?typ:v.typ p) f)) field_list in
+              let new_term_list = lfront @ sl @ lback in
+              trm_record ~annot:t.annot ~typ:ty new_term_list
+            );
+            Pattern.(trm_var !__) (fun p () ->
+              let sl = List.map (fun f -> trm_struct_get ~struct_typ (trm_var ?typ:t.typ p) f) field_list in
+              let new_term_list = lfront @ sl @ lback in
+              trm_record ~annot:t.annot ~typ:ty new_term_list
+            );
+            Pattern.__ (fun () ->
+              trm_fail t "Record_core.inline_struct_initialization: struct intialization list is not compatible with definition"
+            )
+          ]
         );
         Pattern.__ (fun () -> trm_map aux t)
       ]
@@ -406,14 +405,13 @@ let reorder_fields_at (order : fields_order) (index : int) (t : trm) : trm =
     in
   let f_update_further (t : trm) : trm =
     let rec aux (t : trm) : trm =
-      match t.desc with
-      | Trm_record (ty, mlt) ->
+      match trm_record_inv t with
+      | Some (ty, lt) ->
         let struct_name = !struct_name in
         Pattern.pattern_match t.typ [
           Pattern.(some (typ_constr (var_eq struct_name))) (fun () ->
-            let lt = Mlist.to_list mlt in
             let reordered_lt = List.reorder !bij lt in
-            trm_alter ~desc:(Trm_record (ty, Mlist.of_list reordered_lt)) t
+            trm_like ~old:t (trm_record ~typ:ty reordered_lt)
           );
           Pattern.__ (fun () -> trm_map aux t)
         ]
@@ -468,15 +466,15 @@ let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field 
       );
       Pattern.(trm_var (var_eq var)) (fun () ->
         Pattern.when_ (not is_ref);
-        trm_record ~typ (Mlist.of_list (List.map (fun (f, f_typ, v) ->
-          None, trm_var ~typ:f_typ v
-        ) fields))
+        trm_record ~typ (List.map (fun (f, f_typ, v) ->
+          trm_var ~typ:f_typ v
+        ) fields)
       );
       Pattern.(trm_get (trm_var (var_eq var))) (fun () ->
         Pattern.when_ is_ref;
-        trm_record ~typ (Mlist.of_list (List.map (fun (f, f_typ, v) ->
-          None, trm_var_get ~typ:f_typ v
-        ) fields))
+        trm_record ~typ (List.map (fun (f, f_typ, v) ->
+          trm_var_get ~typ:f_typ v
+        ) fields)
       );
       (* TODO: also do other contracts *)
       Pattern.(trm_for !__ !__ !__) (fun range body spec () ->
@@ -536,7 +534,7 @@ let to_variables_at (index : int) (t : trm) : trm =
         trm_let_mut_uninit (field_var, ty)
       | Some (_, inits) ->
         let trm_let_maybemut = if !is_ref then trm_let_mut else trm_let in
-        trm_let_maybemut (field_var, ty) (snd (Mlist.nth inits i))
+        trm_let_maybemut (field_var, ty) (List.nth inits i)
       end
     ) field_list in
     trm_seq_nobrace_nomarks var_decls
@@ -648,8 +646,8 @@ let simpl_proj_on (t : trm) : trm =
     | Trm_apps (f, [struct_list], _) ->
       begin match trm_prim_inv f with
       | Some (_, Prim_unop (Unop_struct_get x)) ->
-        begin match struct_list.desc with
-        | Trm_record (ty_struct, tl) ->
+        begin match trm_record_inv struct_list with
+        | Some (ty_struct, tl) ->
           begin match typ_constr_inv ty_struct with
           | Some tvar ->
             let struct_def = match Internal.typvar_to_typedef tvar with
@@ -658,7 +656,7 @@ let simpl_proj_on (t : trm) : trm =
             let field_list = Internal.get_field_list struct_def in
             let field_vars = fst (List.split field_list) in
             begin match List.index_of x field_vars  with
-            | Some i -> snd (Mlist.nth tl i)
+            | Some i -> List.nth tl i
             | _ -> t
             end
           | None -> t

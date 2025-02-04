@@ -400,13 +400,13 @@ let detach_init_on (t : trm) : trm =
     let init = match trm_ref_inv_init init with
     | Some init -> init
     | None -> trm_fail t "detach_init_on: could not get the initialization trms for the targeted array declaration" in
-    begin match init.desc with
-    | Trm_array (elem_ty, tl) ->
+    begin match trm_array_inv init with
+    | Some (typ, tl) ->
       let array_set_list =
         List.mapi (fun i t1 ->
           trm_set (trm_array_access (trm_var x) (trm_int i)) t1
-        ) (Mlist.to_list tl) in
-      let new_decl = trm_let_mut_uninit ~annot:t.annot (x, typ_array elem_ty ~size:(trm_int (Mlist.length tl))) in
+        ) tl in
+      let new_decl = trm_let_mut_uninit ~annot:t.annot (x, typ) in
       trm_seq_nobrace_nomarks ([new_decl] @ array_set_list)
     | _ -> trm_fail init "detach_init_on: expected an array initialization"
     end

@@ -513,11 +513,11 @@ and tr_init_list ?(loc : location) (ty : typ) (el : expr list) : trm =
   | [] -> trm_null ty
   | _ ->
     match typ_array_inv ty with
-    | Some (base_ty, _) ->
+    | Some (elem_typ, _) ->
       let tl = List.map tr_expr el in
-      trm_array ?loc ~typ:base_ty (Mlist.of_list tl)
+      trm_array ?loc ~elem_typ tl
     | None ->
-      let tl = List.map (fun (e : expr) ->
+      (*let tl = List.map (fun (e : expr) ->
         match e.desc with
         | DesignatedInit { designators = dl; init = e } ->
           begin match dl with
@@ -526,8 +526,9 @@ and tr_init_list ?(loc : location) (ty : typ) (el : expr list) : trm =
           | _ -> loc_fail loc "Clang_to_astRawC.tr_init_list: struct initialization with multiple designators per field are not supported"
           end
         | _ -> (None, tr_expr e)) el
-      in
-      trm_record ?loc ~typ:ty (Mlist.of_list tl)
+      in*)
+      let tl = List.map tr_expr el in
+      trm_record ?loc ~typ:ty tl
 
 (** [tr_expr e]: translates expression [e] into an OptiTrust trm *)
 and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
@@ -775,26 +776,30 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
             let f = tr_ident id in
             (* TODO: give type to trm_this *)
             let t_this = trm_get (trm_add_cstyle Implicit_this (trm_this ())) in
-            trm_struct_get ?loc ?field_typ:typ t_this f
+            trm_struct_get ?loc ?field_typ:typ ~struct_typ:typ_auto t_this f
           | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: fields should be accesses by names"
           end
         else loc_fail loc "Clang_to_astRawC.tr_expr: field accesses should have a base"
     | Some e ->
-      let f =
-      begin match f with
-      | FieldName id -> tr_ident id
-      | DependentScopeMember {ident_ref = id; template_arguments = _} ->
-        begin match id.name with
-        | IdentifierName f -> f
+      let f = match f with
+        | FieldName id -> tr_ident id
+        | DependentScopeMember {ident_ref = id; template_arguments = _} ->
+          begin match id.name with
+          | IdentifierName f -> f
+          | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: fields should be accessed by names"
+          end
         | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: fields should be accessed by names"
-        end
-      | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: fields should be accessed by names"
-      end in
+      in
       let base = tr_expr e in
       if has_arrow then
-        trm_struct_get ?loc ?field_typ:typ (trm_get base) f
+        let struct_typ = match Option.bind (Option.map get_inner_const_type base.typ) typ_ptr_inv with
+        | Some typ -> typ
+        | None -> failwith "Clang_to_ast.tr_expr: could not guess the type of struct access base '%s'" (Ast_to_text.ast_to_string base)
+        in
+        trm_struct_get ?loc ?field_typ:typ ~struct_typ (trm_get ~typ:struct_typ base) f
       else
-        let get_op = trm_struct_get ?loc ?field_typ:typ base f in
+        let struct_typ = Option.unsome ~error:"Clang_to_ast.tr_expr: could not guess the type of struct access" base.typ in
+        let get_op = trm_struct_get ?loc ?field_typ:typ ~struct_typ base f in
         if is_get_operation base then
           trm_add_cstyle No_struct_get_arrow get_op
         else get_op
@@ -860,12 +865,10 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
     trm_fun args tt tb
   | This -> trm_this ?loc ?typ ()
 
-  (* FIXME: This is weird given the name ImplicitValueInit *)
-  (*| UnexposedExpr ImplicitValueInitExpr ->
-    verbose_warn "%s: tr_expr: implicit initial value" (loc_to_string loc);
-    trm_uninitialized
+  | UnexposedExpr ImplicitValueInitExpr
   | ImplicitValueInit _ ->
-    trm_uninitialized*)
+    let typ = Option.unsome ~error:"Need a type for implicit zero initialization" typ in
+    trm_null typ
 
   | NullPtrLiteral
   | UnknownExpr (GNUNullExpr, GNUNullExpr) (* sometimes NULL is translated with UnknownExpr (GNUNullExpr, GNUNullExpr). LATER: in which condition? is it actually used sometimes? *)
@@ -961,7 +964,7 @@ and tr_member_initialized_list ?(loc : location) (init_list :  constructor_initi
     match k with
     | Member {indirect = b; field = {desc = f}} ->
       let ti = tr_expr ie in
-      trm_add_cstyle Member_initializer (trm_set (trm_struct_get (trm_this ()) f) ti)
+      trm_add_cstyle Member_initializer (trm_set (trm_struct_get ~struct_typ:typ_auto (trm_this ()) f) ti)
     | _ -> loc_fail loc "Clang_to_astRawC.tr_member_initializer_list: only simple member initializers are supported."
   ) init_list
 

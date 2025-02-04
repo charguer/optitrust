@@ -203,12 +203,14 @@ let revert_fun_contract contract =
       linear = contract.post.linear;
       fun_specs = contract.pre.fun_specs;
       aliases = contract.pre.aliases;
+      struct_fields = contract.pre.struct_fields;
     };
     post = {
       pure = [];
       linear = contract.pre.linear;
       fun_specs = Var_map.empty;
       aliases = Var_map.empty;
+      struct_fields = Var_map.empty;
     }
   }
 

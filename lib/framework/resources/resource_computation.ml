@@ -180,12 +180,22 @@ let raise_resource_not_found (kind: resource_kind) ((name, formula): resource_it
   let inside = List.map (fun (x, formula) -> (x, trm_subst subst_ctx formula)) inside in
   raise (Resource_not_found (kind, (name, formula), inside))
 
+type pure_env = {
+  res : pure_resource_set;
+  struct_fields : (label * typ) list varmap;
+}
+
+let empty_pure_env = { res = []; struct_fields = Var_map.empty }
+
+let pure_env (res: resource_set) =
+  { res = res.pure; struct_fields = res.struct_fields }
+
 (** [compute_pure_typ env t] computes the type by recursively filling .typ fields of the pure / formula-convertible term [t] in a pure environment [env].
   Returns the type of [t] *)
-let rec compute_pure_typ (env: pure_resource_set) ?(typ_hint: typ option) (t: trm): typ =
+let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
   let typ = match t.desc with
   | Trm_var v ->
-    begin match Resource_set.find_pure v (Resource_set.make ~pure:env ()) with
+    begin match Resource_set.find_pure v (Resource_set.make ~pure:env.res ()) with
     | Some typ -> typ
     | None when var_eq v Resource_trm.var_admitted ->
       (* LATER: Deal with __admitted in contracts in a cleaner way and disallow the case where neither t.typ not typ_hint are defined *)
@@ -211,7 +221,7 @@ let rec compute_pure_typ (env: pure_resource_set) ?(typ_hint: typ option) (t: tr
     in
     (* TODO: Check types of arguments are well typed *)
 
-    let rettyp = compute_pure_typ (env @ args) ?typ_hint:rettyp_hint body in
+    let rettyp = compute_pure_typ { env with res = env.res @ args } ?typ_hint:rettyp_hint body in
     if not (is_typ_auto asked_rettyp || are_same_trm rettyp asked_rettyp) then
       failwith "The function has a wrong return type (%s instead of %s)" (Ast_to_c.typ_to_string rettyp) (Ast_to_c.typ_to_string asked_rettyp);
     typ_pure_fun (List.map snd args) rettyp
@@ -277,8 +287,21 @@ let rec compute_pure_typ (env: pure_resource_set) ?(typ_hint: typ option) (t: tr
       assert (is_typ_ptr arr_typ);
       assert (is_typ_integer index_typ);
       arr_typ
-    | Trm_prim (_, Prim_unop Unop_struct_access field), [base] ->
-      failwith "Unimplemented struct access typing"
+    | Trm_prim (prim_typ, Prim_unop Unop_struct_access field), [base] ->
+      if not (is_typ_auto prim_typ) then failwith "Mixed impure struct access and pure struct access (pure accesses have type auto)";
+      let base_typ = compute_pure_typ env base in
+      Pattern.pattern_match base_typ [
+        Pattern.(typ_ptr (typ_var !__)) (fun struct_typ () ->
+          match Var_map.find_opt struct_typ env.struct_fields with
+          | Some fields ->
+            begin match List.assoc_opt field fields with
+            | Some field_typ -> typ_ptr field_typ
+            | None -> failwith "Struct type '%s' has no field named '%s'" (var_to_string struct_typ) field
+            end
+          | None -> failwith "Pure expression '%s' has type '%s' which is not declared as a struct but is used in a struct access" (Ast_to_c.ast_to_string base) (var_to_string struct_typ)
+        );
+        Pattern.(__) (fun () -> failwith "Pure expression '%s' has unexpected type for struct access: %s" (Ast_to_c.ast_to_string base) (Ast_to_c.typ_to_string base_typ))
+      ]
     | Trm_var xf, [ptr] when var_eq xf var_cell ->
       let ptr_typ = compute_pure_typ env ptr in
       assert (is_typ_ptr ptr_typ);
@@ -324,7 +347,7 @@ let rec compute_pure_typ (env: pure_resource_set) ?(typ_hint: typ option) (t: tr
   t.typ <- Some typ;
   typ
 
-and compute_and_unify_typ (env: pure_resource_set) (t: trm) (expected_typ: typ) (evar_ctx: unification_ctx) =
+and compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx: unification_ctx) =
   let actual_typ = compute_pure_typ env ~typ_hint:expected_typ t in
   match unify_trm actual_typ expected_typ evar_ctx (compute_and_unify_typ env) with
   | Some evar_ctx -> evar_ctx
@@ -359,24 +382,24 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx):
     None
 
 
-(** [unify_pure (x, formula) res evar_ctx] unifies the given [formula] with one of the resources in [res].
+(** [unify_pure (x, formula) env evar_ctx] unifies the given [formula] with one of the resources in [env.res].
 
    If none of the resources match, the optional goal solver is tried on the formula to try to discharge it.
 
    Also add a binding from [x] to the found resource in [evar_ctx].
    If it fails raise a {!Resource_not_found} exception. *)
-let unify_pure ((x, formula): resource_item) (res: pure_resource_set) ?(goal_solver = arith_goal_solver) (evar_ctx: unification_ctx): unification_ctx =
+let find_pure ((x, formula): resource_item) (env: pure_env) ?(goal_solver = arith_goal_solver) (evar_ctx: unification_ctx): unification_ctx =
   (* TODO: Add flag to disallow pure instantiation ? *)
   let find_formula formula (hyp_candidate, formula_candidate) =
     Option.map (fun evar_ctx -> Var_map.add x (Resolved (trm_var hyp_candidate)) evar_ctx)
-      (unify_trm formula formula_candidate evar_ctx (compute_and_unify_typ res))
+      (unify_trm formula formula_candidate evar_ctx (compute_and_unify_typ env))
   in
-  match List.find_map (find_formula formula) res with
+  match List.find_map (find_formula formula) env.res with
   | Some evar_ctx -> evar_ctx
   | None ->
     match goal_solver (x, formula) evar_ctx with
     | Some evar_ctx -> evar_ctx
-    | None -> raise_resource_not_found Pure (x, formula) evar_ctx res
+    | None -> raise_resource_not_found Pure (x, formula) evar_ctx env.res
 
 
 (** [subtract_linear_resource_item ~split_frac (x, formula) res evar_ctx] subtracts [formula]
@@ -395,7 +418,7 @@ let unify_pure ((x, formula): resource_item) (res: pure_resource_set) ?(goal_sol
   Raises {!Not_found} if the [formula] cannot be consumed.
 *)
 let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_item)
-  (res: linear_resource_set) (evar_ctx: unification_ctx) ~(pure_ctx: pure_resource_set)
+  (res: linear_resource_set) (evar_ctx: unification_ctx) ~(pure_ctx: pure_env)
   : used_resource_item * linear_resource_set * unification_ctx =
   let open Option.Monad in
 
@@ -420,7 +443,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
     ~(uninit : bool) (* was [formula] surrounded by Uninit? *)
     (res: linear_resource_set)
     (evar_ctx: unification_ctx)
-    ~(pure_ctx: pure_resource_set): used_resource_item * linear_resource_set * unification_ctx =
+    ~(pure_ctx: pure_env): used_resource_item * linear_resource_set * unification_ctx =
     (* Used by {!subtract_linear_resource_item} in the case where [formula] is not a read-only resource. *)
     (* LATER: Improve the structure of the linear_resource_set to make this
       function faster on most frequent cases *)
@@ -447,7 +470,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
     (hyp: var) ~(new_frac: var) (formula: formula)
     (res: linear_resource_set)
     (evar_ctx: unification_ctx)
-    ~(pure_ctx: pure_resource_set): used_resource_item * linear_resource_set * unification_ctx =
+    ~(pure_ctx: pure_env): used_resource_item * linear_resource_set * unification_ctx =
     (* Used by {!subtract_linear_resource_item} in the case where [formula] is a read-only resource. *)
     (* LATER: Improve the structure of the linear_resource_set to make this
       function faster on most frequent cases *)
@@ -502,7 +525,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   [pure_ctx] is the pure context in which variables from [res_from] are interpreted when performing unifications.
   It should be provided whenever [evar_ctx] is.
 *)
-let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unification_ctx = Var_map.empty) ?(pure_ctx = []) (res_from: linear_resource_set) (res_removed: linear_resource_set)
+let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unification_ctx = Var_map.empty) ?(pure_ctx = empty_pure_env) (res_from: linear_resource_set) (res_removed: linear_resource_set)
   : used_resource_item list * linear_resource_set * unification_ctx =
   List.fold_left (fun (used_list, remaining_linear_res, evar_ctx) res_item ->
     try
@@ -522,7 +545,7 @@ let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unifica
 
   FIXME: not symmetrical left/right doc (uninit and unification)
 *)
-let partial_extract_linear_resource_set ?(evar_ctx: unification_ctx = Var_map.empty) ?(pure_ctx = []) (res_left: linear_resource_set) (res_right: linear_resource_set)
+let partial_extract_linear_resource_set ?(evar_ctx: unification_ctx = Var_map.empty) ?(pure_ctx = empty_pure_env) (res_left: linear_resource_set) (res_right: linear_resource_set)
   : used_resource_item list * linear_resource_set * linear_resource_set * unification_ctx =
   List.fold_left (fun (used_list, res_left, unmatched_right, evar_ctx) res_item ->
     try
@@ -541,7 +564,7 @@ let partial_extract_linear_resource_set ?(evar_ctx: unification_ctx = Var_map.em
 
   An evar is dominated if its value will be implied by the instantation of other resources
   (i.e. it appears in the formula of another resource). *)
-let specialize_and_extract_evars (res: resource_set) (inst_map: tmap) ~(inst_ctx: pure_resource_set): pure_resource_set * unification_ctx =
+let specialize_and_extract_evars (res: resource_set) (inst_map: tmap) ~(inst_ctx: pure_env): pure_resource_set * unification_ctx =
   let used_vars = Resource_set.used_vars res in
   let inst_map = ref inst_map in
   let evar_ctx = ref Var_map.empty in
@@ -621,7 +644,7 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(inst_map: t
   let inst_map = Var_map.add var_result (trm_var var_result) inst_map in (* Add _Res := _Res to force unification of results from both sides together *)
   let inst_map = Var_map.map (trm_subst res_from.aliases) inst_map in
   let res_from = Resource_set.subst_all_aliases res_from in
-  let not_specialized_pure_res_to, evar_ctx = specialize_and_extract_evars res_to inst_map ~inst_ctx:res_from.pure in
+  let not_specialized_pure_res_to, evar_ctx = specialize_and_extract_evars res_to inst_map ~inst_ctx:(pure_env res_from) in
 
   let evar_ctx = Var_map.merge (fun x evar_ctx_binding alias_binding ->
     match evar_ctx_binding, alias_binding with
@@ -631,15 +654,15 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(inst_map: t
       if var_eq x var_result then Some (Resolved alias_binding)
       else failwith "Variable %s has an alias binding and is a unification variable at the same time" (var_to_string x)
     | None, None -> None) evar_ctx res_from.aliases in
-  let res_from = Resource_set.subst_all_aliases res_from in
-  if not (Var_map.is_empty res_to.aliases)
-  then failwith "cannot extract resources into a resource set with aliases";
+  if not (Var_map.is_empty res_to.aliases) then
+    failwith "cannot extract resources into a resource set with aliases";
 
-  let used_linear, leftover_linear, evar_ctx = subtract_linear_resource_set ~split_frac ~evar_ctx ~pure_ctx:res_from.pure res_from.linear res_to.linear in
+  let pure_ctx = pure_env res_from in
+  let used_linear, leftover_linear, evar_ctx = subtract_linear_resource_set ~split_frac ~evar_ctx ~pure_ctx res_from.linear res_to.linear in
   (* Prefer the most recently generated pure fact when a choice has to be made *)
-  let available_pure = List.rev res_from.pure in
+  let pure_ctx = { pure_ctx with res = List.rev pure_ctx.res } in
   let evar_ctx = List.fold_left (fun evar_ctx res_item ->
-      unify_pure res_item available_pure evar_ctx) evar_ctx not_specialized_pure_res_to
+      find_pure res_item pure_ctx evar_ctx) evar_ctx not_specialized_pure_res_to
   in
 
   (* All evars should have been instantiated at this point.
@@ -702,7 +725,7 @@ let compute_produced_resources (subst_ctx: tmap) (contract_post: resource_set)
       contract_names, (produced_hyp, produced_formula)
     ) contract_hyp_names contract_post.linear
   in
-  let produced_res = { pure; linear; aliases; fun_specs = Var_map.empty } in
+  let produced_res = { pure; linear; aliases; fun_specs = Var_map.empty; struct_fields = Var_map.empty; } in
   { produced_res; contract_hyp_names }
 
 (** Internal type to represent RO formula frac wands. *)
@@ -820,7 +843,8 @@ let rec simplify_frac_wands (frac_wands: (var * frac_wand) list): frac_simplific
     joining all the fractions such that there is no pair of resources of the form
     [RO(h_i - f_1 - ... - f_n, H), RO(g - h_0 - ... - h_i - ... - h_n, H)]
  *)
-let simplify_read_only_resources (res: linear_resource_set): (linear_resource_set * frac_simplification_steps) =
+let simplify_read_only_resources ~(aliases: trm varmap) (res: linear_resource_set): (linear_resource_set * frac_simplification_steps) =
+  let res = List.map (fun (h, t) -> (h, trm_subst aliases t)) res in
   let rec find_bucket_and_add formula hyp frac buckets =
     match buckets with
     | [] -> [formula, [hyp, formula_to_frac_wand frac]]
@@ -881,12 +905,12 @@ let add_joined_frac_usage ro_simpl_steps usage =
   Ex: res_after.linear = RO('a, t)  and  frame = RO('b - 'a, t)
   gives res.linear = RO('b, t)
  *)
-let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear_resource_set) : resource_set * resource_usage_map * (var * var) list =
+let resource_merge_after_frame ~(aliases: trm varmap) (res_after: produced_resource_set) (frame: linear_resource_set) : resource_set * resource_usage_map * (var * var) list =
   let res_after = res_after.produced_res in
   let used_set = List.fold_left (fun used_set (h, _) -> Var_map.add h Ensured used_set) Var_map.empty res_after.pure in
   let used_set = List.fold_left (fun used_set (h, _) -> Var_map.add h Produced used_set) used_set res_after.linear in
 
-  let linear, ro_simpl_steps = simplify_read_only_resources (res_after.linear @ frame) in
+  let linear, ro_simpl_steps = simplify_read_only_resources ~aliases (res_after.linear @ frame) in
   let used_set = add_joined_frac_usage ro_simpl_steps used_set in
 
   { res_after with linear }, used_set, ro_simpl_steps
@@ -1045,7 +1069,7 @@ let compute_contract_invoc (contract: fun_contract) ?(inst_map: tmap = Var_map.e
   let usage = List.fold_left (fun usage (frac, _) -> Var_map.add frac ArbitrarilyChosen usage) usage new_fracs in
   let res_produced = compute_produced_resources subst_ctx contract.post in
 
-  let new_res, usage_after, ro_simpl_steps = resource_merge_after_frame res_produced res_frame in
+  let new_res, usage_after, ro_simpl_steps = resource_merge_after_frame ~aliases:res.aliases res_produced res_frame in
   let new_res = { new_res with pure = new_fracs @ new_res.pure } in
 
   t.ctx.ctx_resources_contract_invoc <- Some {
@@ -1096,11 +1120,11 @@ let delete_stack_allocs instrs res =
   let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
   (removed_res, linear)
 
-let check_resource_set_types ~(pure_ctx: pure_resource_set) (res: resource_set): pure_resource_set =
+let check_resource_set_types ~(pure_ctx: pure_env) (res: resource_set): pure_env =
   let pure_ctx = List.fold_left (fun pure_ctx (pure_var, typ) ->
       let sort = compute_pure_typ pure_ctx typ in
       if not (is_typ_sort sort) then failwith "Pure resource '%s' has type '%s' that is not in Type or Prop" (var_to_string pure_var) (Ast_to_c.typ_to_string sort);
-      pure_ctx @ [(pure_var, typ)]
+      { pure_ctx with res = pure_ctx.res @ [(pure_var, typ)] }
     ) pure_ctx res.pure
   in
   List.iter (fun (lin_var, formula) ->
@@ -1112,14 +1136,14 @@ let check_resource_set_types ~(pure_ctx: pure_resource_set) (res: resource_set):
   assert (Var_map.is_empty res.aliases); (* Normally there is no aliases in contracts *)
   pure_ctx
 
-let check_fun_contract_types ~(pure_ctx: pure_resource_set) (contract: fun_contract): unit =
+let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): unit =
   let pure_ctx = check_resource_set_types ~pure_ctx contract.pre in
   let _ = check_resource_set_types ~pure_ctx contract.post in
   ()
 
-let find_prim_spec typ prim : typ * fun_spec_resource =
+let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
   let pure_prim prim =
-    let pure_prim_typ = compute_pure_typ [] (trm_prim typ prim) in
+    let pure_prim_typ = compute_pure_typ empty_pure_env (trm_prim typ prim) in
     let argtyps, rettyp = trm_inv ~error:"Pure type of the pure operator should be a pure_fun" typ_pure_fun_inv pure_prim_typ in
     let func_typ = typ_fun argtyps rettyp in
     let args, pure_pre = List.fold_right (fun argtyp (args, pure_pre) ->
@@ -1146,7 +1170,37 @@ let find_prim_spec typ prim : typ * fun_spec_resource =
       } in
       typ_fun [typ_ptr typ] typ, { args = [dest_var]; contract; inverse = None }
 
-    | Unop_struct_access _ | Unop_struct_get _ -> failwith "Unsupported struct access typing"
+    | Unop_struct_access field ->
+      let fields_typ = match Option.bind (typ_var_inv typ) (fun record_name -> Var_map.find_opt record_name struct_fields) with
+        | Some ftyp -> ftyp
+        | None -> failwith "Type of struct access should be a record type, found '%s'" (Ast_to_c.typ_to_string typ)
+      in
+      let field_typ = match List.assoc_opt field fields_typ with
+        | Some ft -> ft
+        | None -> failwith "Record '%s' does not have field '%s'" (Ast_to_c.typ_to_string typ) field
+      in
+      let base_var = new_hyp "base" in
+      let contract = {
+        pre = Resource_set.make ~pure:[(base_var, typ_ptr typ)] ();
+        post = Resource_set.make ~pure:[var_result, typ_ptr field_typ] ~aliases:(Var_map.singleton var_result (formula_struct_access (trm_var base_var) field)) ()
+      } in
+      typ_fun [typ_ptr typ] (typ_ptr field_typ), { args = [base_var]; contract; inverse = None }
+
+    | Unop_struct_get field ->
+      let fields_typ = match Option.bind (typ_var_inv typ) (fun record_name -> Var_map.find_opt record_name struct_fields) with
+        | Some ftyp -> ftyp
+        | None -> failwith "Type of struct access should be a record type, found '%s'" (Ast_to_c.typ_to_string typ)
+      in
+      let field_typ = match List.assoc_opt field fields_typ with
+        | Some ft -> ft
+        | None -> failwith "Record '%s' does not have field '%s'" (Ast_to_c.typ_to_string typ) field
+      in
+      let base_var = new_hyp "base" in
+      let contract = {
+        pre = Resource_set.make ~pure:[(base_var, typ)] ();
+        post = Resource_set.make ~pure:[(var_result, field_typ)] ()
+      } in
+      typ_fun [typ] field_typ, { args = [base_var]; contract; inverse = None }
 
     | Unop_get ->
       assert (is_typ_auto typ);
@@ -1194,24 +1248,13 @@ let find_prim_spec typ prim : typ * fun_spec_resource =
       typ_auto, { args = [arr_var; index_var]; contract; inverse = None }
 
     | Binop_array_get ->
-      assert (is_typ_auto typ);
-      let vartyp = new_hyp "T" in
-      let typ = typ_var vartyp in
-      let arr_var = new_hyp "arr" in
-      let index_var = new_hyp "index" in
-      let frac_var = new_hyp "f" in
-      let ro_cell = formula_read_only ~frac:(trm_var frac_var) (formula_cell (trm_array_access (trm_var arr_var) (trm_var index_var))) in
-      let contract = {
-        pre = Resource_set.make ~pure:[(vartyp, typ_type); (arr_var, typ_ptr typ); (index_var, typ_int); (frac_var, typ_frac)] ~linear:[new_anon_hyp(), ro_cell] ();
-        post = Resource_set.make ~pure:[(var_result, typ)] ~linear:[new_anon_hyp (), ro_cell] ()
-      } in
-      typ_auto, { args = [arr_var; index_var]; contract; inverse = None }
+      failwith "Pure arrays are not yet supported, therefore Binop_array_get cannot be typed"
   in
   match prim with
   | Prim_unop op -> find_unop_spec op
   | Prim_binop op -> find_binop_spec op
   | Prim_compound_assign_op op ->
-    let pure_binop_typ = compute_pure_typ [] (trm_prim typ (Prim_binop op)) in
+    let pure_binop_typ = compute_pure_typ empty_pure_env (trm_prim typ (Prim_binop op)) in
     if not (are_same_trm pure_binop_typ (typ_pure_fun [typ; typ] typ)) then
       failwith "Invalid compound assign operator";
     let dest_var = new_hyp "dest" in
@@ -1251,6 +1294,35 @@ let find_prim_spec typ prim : typ * fun_spec_resource =
       post = Resource_set.make ()
     } in
     typ_auto, { args = [del_ptr]; contract; inverse = None }
+
+  | Prim_array ->
+    Pattern.pattern_match typ [
+      Pattern.(typ_array !__ (some (trm_int !__))) (fun elem_typ nb_elems () ->
+        let args_pure = List.init nb_elems (fun i ->
+          new_hyp (sprintf "e%d" i), elem_typ
+        ) in
+        let args, args_typ = List.split args_pure in
+        let contract = {
+          pre = Resource_set.make ~pure:args_pure ();
+          post = Resource_set.make ~pure:[var_result, typ] ()
+        } in
+        typ_fun args_typ typ, { args; contract; inverse = None }
+      );
+      Pattern.__ (fun () -> failwith "Pure arrays must have a fixed size")
+    ]
+
+  | Prim_record ->
+    begin match Option.bind (trm_var_inv typ) (fun struct_name -> Var_map.find_opt struct_name struct_fields) with
+    | Some fields ->
+      let args_pure = List.map (fun (name, typ) -> (new_hyp name, typ)) fields in
+      let args, args_typ = List.split args_pure in
+      let contract = {
+        pre = Resource_set.make ~pure:args_pure ();
+        post = Resource_set.make ~pure:[var_result, typ] ()
+      } in
+      typ_fun args_typ typ, { args; contract; inverse = None }
+    | None -> failwith "'%s' is not a record type" (Ast_to_c.typ_to_string typ)
+    end
 
 (** [compute_resources ?expected_res res t] computes resources within [t], knowing that [res]
     resources are available before [t].
@@ -1307,7 +1379,7 @@ let rec compute_resources
     try begin match t.desc with
     (* Values and variables are pure. *)
     | Trm_var x ->
-      let typ = compute_pure_typ res.pure t in
+      let typ = compute_pure_typ (pure_env res) t in
       let res = Resource_set.add_alias var_result t res in
       with_result typ (Some (Var_map.singleton x Required)) res
 
@@ -1316,12 +1388,12 @@ let rec compute_resources
       Some Var_map.empty, Some res
 
     | Trm_lit _ ->
-      let typ = compute_pure_typ res.pure t in
+      let typ = compute_pure_typ (pure_env res) t in
       let res = Resource_set.add_alias var_result t res in
       with_result typ (Some (Var_map.empty)) res
 
     | Trm_prim (typ, prim) ->
-      let func_typ, spec = find_prim_spec typ prim in
+      let func_typ, spec = find_prim_spec typ prim res.struct_fields in
       let res = Resource_set.add_fun_spec var_result spec res in
       with_result func_typ (Some (Var_map.empty)) res
 
@@ -1351,7 +1423,7 @@ let rec compute_resources
         let contract = { pre ; post } in
         let contract = fun_contract_subst res.aliases contract in
         (* Typecheck the contract itself *)
-        check_fun_contract_types ~pure_ctx:res.pure contract;
+        check_fun_contract_types ~pure_ctx:(pure_env res) contract;
         let contract_usage = Var_map.of_seq (Seq.map (fun x -> (x, Required)) (Var_set.to_seq (fun_contract_free_vars contract))) in
         (* Compute resources recursively in the body *)
         let body_usage = compute_resources_in_body contract in
@@ -1427,28 +1499,6 @@ let rec compute_resources
       let res_after = Resource_set.rename_var var_result var res_after in
       usage_map, Some res_after
 
-    | Trm_record (_, fields) ->
-      failwith "Unhandled record"
-      (*(* TODO: factorize more subexpr logic with Trm_apps *)
-      let** unused_res, post, usage_map =
-        List.fold_left (fun acc ((_, v) : label option * trm) ->
-          let open Option.Monad in
-          let* res, current_post, current_usage = acc in
-          let* _field_var, unused_res, extra_post, extra_usage = compute_subexpr_resources res v in
-          let usage_map = update_usage_map ~current_usage ~extra_usage in
-          let post = Resource_set.union current_post extra_post in
-          Some (unused_res, post, usage_map)
-        ) (Some (res, empty_resource_set, empty_usage_map)) (Mlist.to_list fields)
-      in
-      let unused_res = Resource_set.subst_all_aliases unused_res in (* Needed to simplify RO *)
-      let res_after = Resource_set.union unused_res post in
-      let linear_res_after, ro_simpl_steps = simplify_read_only_resources res_after.linear in
-      let res_after = { res_after with linear = linear_res_after } in
-      let usage_map = add_joined_frac_usage ro_simpl_steps usage_map in
-      let usage_map, res_after = Resource_set.remove_useless_fracs usage_map res_after in
-      Some usage_map, Some res_after*)
-
-    (* TODO: try to factorize *)
     | Trm_apps (fn, effective_args, ghost_args) ->
       (* Retrieve a function specification in a given context *)
       begin try
@@ -1475,7 +1525,7 @@ let rec compute_resources
           failwith "Mismatching number of arguments for %s (expected %d and got %d)" (Ast_to_c.ast_to_string fn) (List.length spec.args) (List.length effective_args)
         in
         let res_after_args = Resource_set.union res_arg_frame args_post in
-        let linear_res_after_args, ro_simpl_steps = simplify_read_only_resources res_after_args.linear in
+        let linear_res_after_args, ro_simpl_steps = simplify_read_only_resources ~aliases:res.aliases res_after_args.linear in
         let res_after_args = { res_after_args with linear = linear_res_after_args } in
         let usage_map = add_joined_frac_usage ro_simpl_steps args_usage_map in
 
@@ -1735,12 +1785,21 @@ let rec compute_resources
       let res = Resource_set.push_back_pure (typedef.typedef_name, typ_type) res in
       begin match typedef.typedef_body with
       | Typedef_alias ty ->
-        let sort = compute_pure_typ res.pure ty in
+        let sort = compute_pure_typ (pure_env res) ty in
         if not (is_typ_type sort) then failwith "Type alias has type '%s' that is not in Type" (Ast_to_c.typ_to_string sort);
         let res = Resource_set.add_alias typedef.typedef_name ty res in
         let res_usage = Var_map.of_seq (Seq.map (fun x -> (x, Required)) (Var_set.to_seq (trm_free_vars ty))) in
         Some (Var_map.add typedef.typedef_name Ensured res_usage), Some res
-      (* TODO: Add record handling *)
+      | Typedef_record record_members ->
+        let usage_map = ref (Var_map.singleton typedef.typedef_name Ensured) in
+        let fields = List.filter_map (function
+          | (Record_field ((_, field_typ) as field), _) ->
+            usage_map := Var_set.fold (fun x usage_map -> Var_map.add x Required usage_map) (trm_free_vars field_typ) !usage_map;
+            Some field
+          | (Record_method _, _) -> None) record_members
+        in
+        let res = Resource_set.add_struct_fields typedef.typedef_name fields res in
+        Some !usage_map, Some res
       | _ -> Some (Var_map.singleton typedef.typedef_name Ensured), Some res
       end
 

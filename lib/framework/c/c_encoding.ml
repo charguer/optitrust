@@ -309,10 +309,6 @@ let const_elim (t: trm): trm =
       trm_replace (Trm_fun (args, remove_const rettyp, aux body, contract)) t
     | Trm_prim (ty, prim) ->
       trm_replace (Trm_prim (remove_const ty, prim)) t
-    | Trm_array (ty, elts) ->
-      trm_replace (Trm_array (remove_const ty, Mlist.map aux elts)) t
-    | Trm_record (ty, fields) ->
-      trm_replace (Trm_record (remove_const ty, Mlist.map (fun (lbl, t) -> (lbl, aux t)) fields)) t
     | _ -> trm_map aux t
   in
   aux t
@@ -333,16 +329,17 @@ let caddress_elim (t : trm) : trm =
       (Pattern.pattern_match t [
         Pattern.(trm_struct_get !__ !__) (fun t1 field () ->
           let field_typ = t.typ in
+          let struct_typ = Option.unsome t1.typ in
           let u1 = aux t1 in
           match trm_get_inv u1 with
           | Some base ->
             (* struct_get (get(t1), f) is encoded as get(struct_access(t1,f)) where get is a hidden '*' operator,
                 in terms of C syntax: ( *t).f is compiled into *(t + offset(f)) *)
             if trm_has_cstyle No_struct_get_arrow t then
-              trm_like ~old:(trm_rem_cstyle No_struct_get_arrow t) (trm_get (trm_add_cstyle No_struct_get_arrow (trm_struct_access ?loc:t.loc ?field_typ base field)))
+              trm_like ~old:(trm_rem_cstyle No_struct_get_arrow t) (trm_get (trm_add_cstyle No_struct_get_arrow (trm_struct_access ?loc:t.loc ?field_typ ~struct_typ base field)))
             else
-              trm_like ~old:t (trm_get (trm_struct_access ?loc:t.loc ?field_typ base field))
-          | None -> trm_like ~old:t (trm_struct_get ?loc:t.loc ?field_typ u1 field)
+              trm_like ~old:t (trm_get (trm_struct_access ?loc:t.loc ?field_typ ~struct_typ base field))
+          | None -> trm_like ~old:t (trm_struct_get ?loc:t.loc ?field_typ ~struct_typ u1 field)
         );
         Pattern.(trm_array_get !__ !__) (fun t1 t2 () ->
             let u1 = aux t1 in
@@ -385,7 +382,7 @@ let caddress_intro_aux (t : trm) : trm =
         Pattern.(trm_struct_access !__ !__) (fun t1 f () ->
           (* struct_access (f, t1) is reverted to struct_get (f, access t1) *)
           let u1 = access t1 in
-          trm_like ~old:t (trm_struct_get u1 f)
+          trm_like ~old:t (trm_struct_get ~struct_typ:typ_auto u1 f)
         );
         Pattern.(trm_array_access !__ !__) (fun t1 t2 () ->
           (* array_access (t1, t2) is reverted to array_get (aux t1, aux t2) *)
@@ -518,7 +515,7 @@ let method_call_intro (t : trm) : trm =
       let base, args = List.uncons args in
       let struct_access =
         begin match f.desc with
-        | Trm_var f -> trm_struct_get (trm_get base) f.name
+        | Trm_var f -> trm_struct_get ~struct_typ:typ_auto (trm_get base) f.name
         (* Special case when function_beta transformation is applied. *)
         | _ -> failwith "DEPRECATED?" (* f *)
         end in
@@ -1004,7 +1001,7 @@ let seq_push (code : trm) (t : trm) : trm =
   trm_replace (Trm_seq (new_tl, result)) t
 
 let trm_array_of_string list =
-  trm_array ~typ:typ_string (Mlist.of_list (List.map trm_string list))
+  trm_array ~elem_typ:typ_string (List.map trm_string list)
 
 let filter_pure_resources (pure_res: resource_item list): resource_item list =
   List.filter (fun (v, t) ->

@@ -230,11 +230,11 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
     | Trm_apps (_, [t1], _) when is_get_operation t ->
       let r, t1' = aux t1 in
       (false, if r then t1' else trm_get ~annot:t.annot t1')
-    | Trm_apps ({desc = Trm_prim (_struct_typ, Prim_unop (Unop_struct_access f))}, [t1], _) ->
+    | Trm_apps ({desc = Trm_prim (struct_typ, Prim_unop (Unop_struct_access f))}, [t1], _) ->
       let field_typ = Option.bind t.typ typ_ptr_inv in
       let r, t1' = aux t1 in
-      if r then (true, trm_struct_get ?field_typ ~annot:t.annot t1' f)
-      else (false, trm_struct_access ?field_typ ~annot:t.annot t1' f)
+      if r then (true, trm_struct_get ?field_typ ~struct_typ ~annot:t.annot t1' f)
+      else (false, trm_struct_access ?field_typ ~struct_typ ~annot:t.annot t1' f)
     | Trm_apps ({desc = Trm_prim (_typ, Prim_binop (Binop_array_access))}, [t1; t2], _) ->
       let elem_typ = Option.bind t.typ typ_ptr_inv in
       let r, t1' = aux t1 in

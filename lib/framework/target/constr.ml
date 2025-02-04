@@ -176,10 +176,6 @@ and constr =
   (* Constraint to match variable initialization value *)
   | Constr_var_init
   (* Constraint to match an array initialization list *)
-  | Constr_array_init
-  (* Constraint to match an struct initialization list  *)
-  | Constr_struct_init
-  (* Constraint to match an omp directive *)
   | Constr_omp of (directive->bool) * string
   (* Constraint to match a namespace *)
   | Constr_namespace of constr_name
@@ -385,8 +381,6 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_arg _ -> c
   | Constr_hastype _ -> c
   | Constr_var_init -> c
-  | Constr_array_init -> c
-  | Constr_struct_init -> c
   | Constr_omp _ -> c
   | Constr_namespace _ -> c
   | Constr_pred _ -> c
@@ -530,7 +524,6 @@ let get_trm_kind (t : trm) : trm_kind =
   | Trm_var _ -> TrmKind_Expr
   | Trm_lit _ -> instr_if_unit
   | Trm_prim _ -> TrmKind_Expr
-  | Trm_record _ | Trm_array _ -> TrmKind_Expr
   | Trm_let _ | Trm_let_mult _ | Trm_predecl _ -> TrmKind_Instr
   | Trm_typedef _ -> TrmKind_Typedef
   | Trm_if _-> instr_if_unit
@@ -834,9 +827,8 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
     if !old_resolution then begin
       let t_marks = trm_get_marks t in
       begin match t.desc with
-      | Trm_seq (tl, _) | Trm_array (_, tl) ->
+      | Trm_seq (tl, _) ->
         (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
-      | Trm_record (_, tl) -> (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
       | _ -> List.exists pred t_marks
       end
     end else begin
@@ -846,8 +838,6 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
     check_hastype pred t
   | Constr_var_init, Trm_apps ({desc = Trm_prim (_, (Prim_ref | Prim_ref_uninit)); _}, _, _) -> false
   | Constr_var_init, _ -> true
-  | Constr_array_init, Trm_array _ -> true
-  | Constr_struct_init, Trm_record _ -> true
   | Constr_omp (pred, _), _ -> trm_has_pragma pred t
   | Constr_namespace cn, Trm_namespace (name, _, _) -> check_name cn name
   | Constr_pred pred, _ -> pred t
@@ -1418,12 +1408,8 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
       (explore_list args (fun n -> Dir_arg_nth n) (aux)) @
       (* ghost args *)
       (explore_list ghost_args (fun n -> Dir_ghost_arg_nth n) (fun (g, t) -> aux t))
-    | Trm_array (_, tl) ->
-      explore_list (Mlist.to_list tl) (fun n -> Dir_array_nth n) (aux)
     | Trm_seq (tl, _) ->
       explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
-    | Trm_record (_, tl) ->
-      explore_list (List.split_pairs_snd (Mlist.to_list tl)) (fun n -> Dir_struct_nth n) (aux)
     | Trm_switch (cond, cases) ->
       (add_dir Dir_cond (aux cond)) @
       (List.fold_lefti (fun i epl case -> epl@explore_case ~incontracts depth i case p) [] cases)
@@ -1468,15 +1454,9 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
       loc_fail loc "follow_dir: Dir_before should not remain at this stage"
   | Dir_span _, _ ->
       loc_fail loc "follow_dir: Dir_span should not remain at this stage"
-  | Dir_array_nth n, Trm_array (_, tl) ->
-    app_to_nth_dflt (Mlist.to_list tl) n
-       (fun nth_t -> add_dir (Dir_array_nth n) (aux nth_t))
   | Dir_seq_nth n, Trm_seq (tl, _) ->
     app_to_nth_dflt (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
-  | Dir_struct_nth n, Trm_record (_, tl) ->
-     app_to_nth_dflt (List.split_pairs_snd (Mlist.to_list tl)) n
-       (fun nth_t -> add_dir (Dir_struct_nth n) (aux nth_t))
   | Dir_cond, Trm_if (cond, _, _)
     | Dir_cond, Trm_while (cond, _)
     | Dir_cond, Trm_do_while (_, cond)

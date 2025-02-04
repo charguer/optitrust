@@ -8,25 +8,6 @@ typedef struct {
   double x, y, z;
 } vect;
 
-/*
-template<typename T> T __struct_access_x(T* v) {
-  __pure();
-  __admitted();
-  return v.x;
-}
-
-template<typename T> T __struct_access_y(T* v) {
-  __pure();
-  __admitted();
-  return v.y;
-}
-
-template<typename T> T __struct_access_y(T* v) {
-  __pure();
-  __admitted();
-  return v.z;
-}
-*/
 vect vect_add(vect v1, vect v2) {
   __pure();
   __admitted();

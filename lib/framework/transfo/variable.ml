@@ -191,7 +191,7 @@ let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool
     Target.apply_at_path (fun _ -> new_t) p
   ) tg;
   let trm_let_maybemut = if const then trm_let else trm_let_mut in
-  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_maybemut (x, typ_array typ_f64 ~size:(trm_int nb_paths)) (trm_array ~typ:typ_f64 (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
+  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_maybemut (x, typ_array typ_f64 ~size:(trm_int nb_paths)) (trm_array ~elem_typ:typ_f64 (Array.to_list all_values.(id_var)))) pattern_vars in
   Nobrace_transfo.remove_after (fun _ ->
     Sequence_basic.insert (trm_seq_nobrace_nomarks instrs_to_insert) ([tBefore] @ (target_of_path !path_to_surrounding_seq) @ [dSeqNth !minimal_index]))
   )

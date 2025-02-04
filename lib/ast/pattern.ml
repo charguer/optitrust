@@ -169,9 +169,12 @@ let trm_string f k t =
   | Some (Lit_string str) -> f k str
   | _ -> raise Next
 
-let trm_record f k t =
+let trm_record fty ffs k t =
   match trm_record_inv t with
-  | Some fs -> f k fs
+  | Some (ty, fs) ->
+    let k = fty k ty in
+    let k = ffs k fs in
+    k
   | _ -> raise Next
 
 let trm_typedef f k t =

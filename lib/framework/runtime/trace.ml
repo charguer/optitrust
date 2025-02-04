@@ -1675,7 +1675,7 @@ let dump_full_trace_to_js ~(prefix : string) : unit =
   (* LATER: Perform [erase_some_asts] on the fly to save a lot of memory without needing to completely drop the substeps. *)
   let rec erase_some_asts parent_erases s =
     (* FIXME: duplicated code with iter_step_tree *)
-    let erase = parent_erases || not (ast_should_be_kept_in_trace s) in
+    let erase = (parent_erases || not (ast_should_be_kept_in_trace s)) && not (s.step_kind = Step_error) in
     if erase then begin
       s.step_ast_before <- trm_dummy;
       s.step_ast_after <- trm_dummy;
@@ -1972,15 +1972,14 @@ let finalize ?(on_error = false) () : unit =
 
 (** [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
 let finalize_on_error ~(exn: exn) : unit =
-  Tools.error "%s" (Printexc.to_string exn); (* FIXME: not here? *)
   error_step exn;
   let rec close_all_steps () : unit =
     match the_trace.step_stack with
     | [] -> raise (TraceFailure "close_close_all_stepsstep: the_trace should not be empty")
     | [_root_step] -> finalize ~on_error:true ()
-    | _step :: _ -> close_step ~on_error:true (); close_all_steps()
+    | _step :: _ -> close_step ~on_error:true (); close_all_steps ()
     in
-  close_all_steps()
+  close_all_steps ()
 
 
 (******************************************************************************)

@@ -98,16 +98,6 @@ let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc) ?(c
   let t = trm_lit ~annot ?loc ?ctx (Lit_null typ) in
   if uppercase then trm_add_cstyle Display_null_uppercase t else t
 
-(** [trm_array ~annot ?loc ?typ ?ctx tl]: array initialization list *)
-let trm_array ?(annot = trm_annot_default) ?(loc) ~(typ) ?(ctx : ctx option)
-  (tl : trm mlist) : trm =
-  trm_make ~annot ?loc ~typ:(typ_array typ ~size:(trm_int (Mlist.length tl))) ?ctx (Trm_array (typ, tl))
-
-(** [trm_record ~annot ?loc ?typ ?ctx tl]: struct initialization list *)
-let trm_record ?(annot = trm_annot_default) ?(loc) ~(typ) ?(ctx : ctx option)
-  (tl : (label option * trm) mlist) : trm =
-  trm_make ~annot ?loc ~typ ?ctx (Trm_record (typ, tl))
-
 (** [trm_let ~annot ?loc ?ctx typed_var init]: variable declaration *)
 let trm_let ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (typed_var : typed_var) (init : trm): trm =
@@ -266,6 +256,16 @@ let trm_sizeof ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (ty: typ)
 let trm_prim ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (typ: typ) (p : prim) : trm =
   trm_make ~annot:annot ?loc ?ctx (Trm_prim (typ, p))
 
+(** [trm_array ~annot ?loc ?typ ?ctx tl]: array initialization list *)
+let trm_array ?(annot = trm_annot_default) ?(loc) ~(elem_typ) ?(ctx : ctx option)
+  (tl : trm list) : trm =
+  let typ = typ_array elem_typ ~size:(trm_int (List.length tl)) in
+  trm_apps ~annot ?loc ~typ ?ctx (trm_prim typ Prim_array) tl
+
+(** [trm_record ~annot ?loc ?typ ?ctx tl]: struct initialization list *)
+let trm_record ?(annot = trm_annot_default) ?(loc) ~(typ) ?(ctx : ctx option)
+  (tl : trm list) : trm =
+  trm_apps ~annot ?loc ~typ ?ctx (trm_prim typ Prim_record) tl
 
 let trm_step_one_pre () = trm_add_cstyle Prefix_step (trm_int 1)
 let trm_step_one_post () = trm_add_cstyle Postfix_step (trm_int 1)
@@ -558,14 +558,22 @@ let trm_var_inv (t : trm) : var option =
   | Trm_var x -> Some x
   | _ -> None
 
-let trm_array_inv (t: trm) : (typ * trm mlist) option =
-  match t.desc with
-  | Trm_array (typ, ts) -> Some (typ, ts)
+let trm_array_inv (t: trm) : (typ * trm list) option =
+  match trm_apps_inv t with
+  | Some (f, args) ->
+    begin match trm_prim_inv f with
+    | Some (typ, Prim_array) -> Some (typ, args)
+    | _ -> None
+    end
   | _ -> None
 
-let trm_record_inv (t: trm) : (typ * (label option * trm) mlist) option =
-  match t.desc with
-  | Trm_record (typ, fs) -> Some (typ, fs)
+let trm_record_inv (t: trm) : (typ * trm list) option =
+  match trm_apps_inv t with
+  | Some (f, args) ->
+    begin match trm_prim_inv f with
+    | Some (typ, Prim_record) -> Some (typ, args)
+    | _ -> None
+    end
   | _ -> None
 
 (** [trm_ignore_inv]: deconstructs a 'ignore(x)' call. *)
@@ -657,11 +665,10 @@ let trm_prod_inv (t : trm) : trm list =
   in aux false [] t
 
 (** [trm_mlist_inv_marks t] gets the description of marks in a term that
-   contains a Mlist, for example [Trm_seq], [Trm_array], or [Trm_record]. *)
+   contains a Mlist *)
 let trm_mlist_inv_marks (t : trm) : mark list list option =
   match t.desc with
-  | Trm_seq (tl, _) | Trm_array (_, tl) -> Some (Mlist.get_marks tl)
-  | Trm_record (_, tl) -> Some (Mlist.get_marks tl)
+  | Trm_seq (tl, _) -> Some (Mlist.get_marks tl)
   | _ -> None
 
 
@@ -1030,9 +1037,8 @@ let is_prim_arith_call (t : trm) : bool =
   | _ -> false
 
 (** [trm_struct_access ~annot ?typ base field]: creates a struct_access encoding *)
-let trm_struct_access ?(annot = trm_annot_default) ?(loc: location) ?(field_typ : typ option) ?(struct_typ: typ option) (base : trm) (field : field) : trm =
-  let struct_typ = None (* Option.or_ base.typ struct_typ *) in
-  trm_apps ~annot ?loc ?typ:(Option.map typ_ptr field_typ) (trm_unop (typ_or_auto struct_typ) (Unop_struct_access field)) [base]
+let trm_struct_access ?(annot = trm_annot_default) ?(loc: location) ?(field_typ : typ option) ~(struct_typ: typ) (base : trm) (field : field) : trm =
+  trm_apps ~annot ?loc ?typ:(Option.map typ_ptr field_typ) (trm_unop struct_typ (Unop_struct_access field)) [base]
 
 (** [trm_struct_access_inv t]: if [t] is  a struct access then return its base and the accessed field; else None *)
 let trm_struct_access_inv (t : trm) : (trm * field) option =
@@ -1041,7 +1047,7 @@ let trm_struct_access_inv (t : trm) : (trm * field) option =
   | _ -> None
 
 (** [trm_struct_get ~annot ?typ base field]: creates a struct_get encoding *)
-let trm_struct_get ?(annot = trm_annot_default) ?(loc: location) ?(field_typ : typ option) ?(struct_typ: typ = typ_auto) (base : trm) (field : field) : trm =
+let trm_struct_get ?(annot = trm_annot_default) ?(loc: location) ?(field_typ : typ option) ~(struct_typ: typ) (base : trm) (field : field) : trm =
   trm_apps ~annot ?loc ?typ:field_typ (trm_unop struct_typ (Unop_struct_get field)) [base]
 
 (** [struct_get_inv t]: if [t] is a struct get then return its base and the accesses field; else none *)
@@ -1091,10 +1097,6 @@ let trm_get_array_access (base : trm) (index : trm) : trm =
      is of the form get(array_access(base, index) otherwise None *)
 let trm_get_array_access_inv (t : trm) : (trm * trm) option =
   Option.bind (trm_get_inv t) trm_array_access_inv
-
-(** [trm_get_struct_access base index]: generates get(struct_access (base, index)) *)
-let trm_get_struct_access (f : field) (base : trm) : trm =
-  trm_get (trm_struct_access base f)
 
 (** [trm_get_struct_access_inv t]: if [t] is of the form get(struct_access (f, base)) returns Some (f,base); else None *)
 let trm_get_struct_access_inv (t : trm) : (trm * field) option =
@@ -1186,12 +1188,6 @@ let get_typ_arguments (t : trm) : typ list =
 
 let var_has_name (v : var) (n : string) : bool =
   v.namespaces = [] && v.name = n
-
-(** [is_trm_record t]: checks if [t] has [Trm_record] or [Trm_array] description or not. *)
-  let is_trm_record (t : trm) : bool =
-    match t.desc with
-    | Trm_record _ | Trm_array _ -> true | _ -> false
-
 
   (** [is_return t]: checks if [t] is a return statement. *)
   let is_return (t : trm) : bool =
@@ -1323,21 +1319,6 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
     if ty == ty' && prim == prim'
       then t
       else trm_prim ~annot ?loc ~ctx ty' prim'
-  | Trm_array (ty, tl) ->
-    let ty' = f ty in
-    let tl' = mlist_map f (==) tl in
-    if (share_if_no_change(*redundant*) && ty == ty' && tl' == tl)
-      then t
-      else (trm_array ~annot ?loc ~typ:ty' ~ctx tl')
-  | Trm_record (ty, tl) ->
-    let ty' = f ty in
-    let tl' = mlist_map
-      (fun (lb, t) -> (lb, f t))
-      (fun (_, ta) (_, tb) -> ta == tb) tl
-    in
-    if (share_if_no_change(*redundant*) && ty == ty' && tl' == tl)
-      then t
-      else (trm_record ~annot ?loc ~typ:ty' ~ctx tl')
   | Trm_let ((var, ty), init) ->
     let ty' = f ty in
     let init' = f init in
@@ -1837,7 +1818,7 @@ let trm_rename_vars_ret_ctx
     | Trm_fun (args, rettyp, body, FunSpecReverts other_fn) ->
       let other_fn' = map_var ctx other_fn in
       post_process ctx (trm_alter ~desc:(Trm_fun (args, rettyp, body, FunSpecReverts other_fn')) t)
-      | _ -> post_process ctx t
+    | _ -> post_process ctx t
     ) ~map_binder (fun ctx (annot, loc, typ, vctx) var ->
       let var = map_var ctx var in
       trm_var ~annot ?loc ?typ ~ctx:vctx var
@@ -2030,27 +2011,6 @@ let rec unify_trm ?(on_failure = fun a b -> ()) (t_left: trm) (t_right: trm) (ev
       let* ty, p = trm_prim_inv t_left in
       (* FIXME: This can fail because primitives may recursively contain types and terms *)
       if pe = p then unify_trm ~on_failure ty tye evar_ctx validate_inst else None
-
-    | Trm_array (tye, tse) ->
-      let* ty, ts = trm_array_inv t_left in
-      let* evar_ctx = unify_trm ~on_failure ty tye evar_ctx validate_inst in
-      begin try
-        List.fold_left2 (fun evar_ctx t te -> let* evar_ctx in unify_trm ~on_failure t te evar_ctx validate_inst) (Some evar_ctx) (Mlist.to_list ts) (Mlist.to_list tse)
-      with Invalid_argument _ -> None end
-
-    | Trm_record (tye, fieldse) ->
-      (* TODO: Order of named fields should not matter, but currently it does *)
-      let* ty, fields = trm_record_inv t_left in
-      let* evar_ctx = unify_trm ~on_failure ty tye evar_ctx validate_inst in
-      begin try
-        List.fold_left2 (fun evar_ctx (fname, t) (fnamee, te) ->
-            let* evar_ctx in
-            if fname = fnamee
-              then unify_trm ~on_failure t te evar_ctx validate_inst
-              else None
-          )
-          (Some evar_ctx) (Mlist.to_list fields) (Mlist.to_list fieldse)
-      with Invalid_argument _ -> None end
 
     | Trm_apps (fe, argse, ghost_args) ->
       let* f, args = trm_apps_inv t_left in

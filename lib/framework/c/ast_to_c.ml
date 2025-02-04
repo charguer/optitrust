@@ -395,6 +395,8 @@ and prim_to_doc style (ty: typ) (p : prim) : document =
     string "new" ^^ blank 1 ^^ typ_to_doc style ty
   | Prim_delete ->
     if is_typ_array ty then string "delete[]" else string "delete"
+  | Prim_array | Prim_record ->
+    typ_to_doc style ty
 
 (** [attr_to_doc a]: converts attributes to pprint documents. *)
 and attr_to_doc style (a : attribute) : document =
@@ -514,22 +516,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
         else dattr ^^ lit_to_doc style (trm_get_cstyles t) l ^^ dsemi
     | Trm_prim (ty, p) ->
       dattr ^^ prim_to_doc style ty p ^^ dsemi
-    | Trm_array (ty, tl) -> let tl = Mlist.to_list tl in
-      let dl = List.map (decorate_trm style ~print_struct_init_type:false) tl in
-      dattr ^^ braces (separate (comma ^^ blank 1) dl) ^^ dsemi
-    | Trm_record (ty, tl) ->
-      let tl = Mlist.to_list tl in
-      let dec_trm (t : trm) = decorate_trm style ~print_struct_init_type:false t in
-      let dl = List.map (fun (lb_opt, t1) ->
-        match lb_opt with
-        | Some lb -> dot ^^ string lb ^^ equals  ^^ dec_trm t1
-        | None -> dec_trm t1
-      ) tl in
-      let init_type = if not print_struct_init_type
-        then empty
-        else parens (typ_to_doc style ty)
-      in
-      dattr ^^ init_type ^^ blank 1 ^^ braces (separate (comma ^^ blank 1) dl) ^^ dsemi
+
     | Trm_let (tv, init) -> dattr ^^ trm_let_to_doc style ~semicolon tv init
     | Trm_let_mult bs -> dattr ^^ trm_let_mult_to_doc style ~semicolon bs
     | Trm_predecl tv -> dattr ^^ typed_var_to_doc ~predecl:true style (var_to_doc style) tv ^^ dsemi
@@ -605,7 +592,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
           in
           dattr ^^ res
     | Trm_apps (f, tl, _) ->
-      dattr ^^ apps_to_doc style ~annot:t.annot ~prec f tl ^^ dsemi
+      dattr ^^ apps_to_doc style ~annot:t.annot ~print_struct_init_type ~prec f tl ^^ dsemi
     | Trm_while (b, t) ->
       let db = decorate_trm style b in
       let dt = decorate_trm style ~semicolon:true t in
@@ -731,9 +718,8 @@ and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm
     static ^^ blank 1 ^^ dexectime ^^ trm_let_fun_to_doc ~semicolon style fun_annot (fst tv) rettyp args body ^^ hidden
   | Trm_apps (_, args, _) when trm_has_cstyle Constructed_init init ->
     dtx ^^ blank 1 ^^ list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (decorate_trm style) args) ^^ dsemi
-  | Trm_array (_, tl) when trm_has_cstyle Brace_init init ->
-      let tl = Mlist.to_list tl in
-      dtx ^^ list_to_doc ~bounds:[lbrace; rbrace] ~sep:empty (List.map (decorate_trm style) tl) ^^ dsemi
+  | Trm_apps (_, tl, _) when trm_has_cstyle Brace_init init && Option.is_some (trm_array_inv init) ->
+    dtx ^^ list_to_doc ~bounds:[lbrace; rbrace] ~sep:empty (List.map (decorate_trm style) tl) ^^ dsemi
   | _ ->
     dtx ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style ~force_expr:true ~print_struct_init_type:false init ^^ dsemi
 
@@ -923,7 +909,7 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
       braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
 (** [apps_to_doc style ~prec f tl]: converts a function call to pprint document *)
-and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms) : document =
+and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_type: bool) (f : trm) (tl : trms) : document =
   let (prec, assoc) = precedence_trm f in
   let aux_arguments f_as_doc =
       f_as_doc ^^ list_to_doc ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm style ~force_expr:true) tl)
@@ -1026,9 +1012,8 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
         let tr_prim = prim_to_doc style ty p in
         let is_trm_initialization_list (t : trm) : bool =
           match t.desc with
-          | Trm_array _ | Trm_record _ -> true
           | Trm_lit Lit_null t when Option.is_none (typ_ptr_inv t) -> true
-          | _ -> false
+          | _ -> Option.is_some (trm_array_inv t) || Option.is_some (trm_record_inv t)
         in
         let init_val = if is_trm_initialization_list value then tr_init else parens (tr_init) in
         tr_prim ^^ init_val
@@ -1048,6 +1033,17 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
         tr_prim ^^ blank 1 ^^ tr_ptr
       | _ -> trm_fail f "Ast_to_c.apps_to_doc: expected one argument"
       end
+    | Prim_array ->
+      let dl = List.map (decorate_trm style ~print_struct_init_type:false) tl in
+      braces (separate (comma ^^ blank 1) dl)
+    | Prim_record ->
+      let dec_trm (t : trm) = decorate_trm style ~print_struct_init_type:false t in
+      let dl = List.map dec_trm tl in
+      let init_type = if not print_struct_init_type
+        then empty
+        else parens (typ_to_doc style ty)
+      in
+      init_type ^^ blank 1 ^^ braces (separate (comma ^^ blank 1) dl)
     end
   | _ ->
     let f_doc = decorate_trm style f in

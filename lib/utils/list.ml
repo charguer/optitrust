@@ -71,6 +71,17 @@ let remove_duplicates (lst : 'a list) =
 let update_nth (i : int) (f : 'a -> 'a) (l : 'a list) : 'a list =
   mapi (fun j a -> if j = i then f a else a) l
 
+(** [get_item_and_its_relatives index l]: for an item [t] with index [index] in the list [l],
+    returns the sublist of items before [t], [t] itself and the sublist of items that come after [t]. *)
+let get_item_and_its_relatives (index : int) (items : 'a list) : ('a list * 'a * 'a list) =
+  let lfront, lback = split_at index items in
+  let element, lback = split_at 1 lback in
+  let element =
+    if length element = 1
+      then nth element 0
+      else failwith "Mlist.get_item_and_its_relatives: expected a list with a single element"
+  in
+  (lfront, element, lback)
 
 (** [chop_after x xs]: gets a prefix of [xs] where all the elemenets after the item [x] are removed, including [x].
     If [x] does not occur in the list, then a copy of [xs] is returned *)

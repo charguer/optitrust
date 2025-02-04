@@ -11,12 +11,6 @@ typedef struct {
   vect speed;
 } obj;
 
-REGISTER_STRUCT_ACCESS(x)
-REGISTER_STRUCT_ACCESS(y)
-REGISTER_STRUCT_ACCESS(weight)
-REGISTER_STRUCT_ACCESS(pos)
-REGISTER_STRUCT_ACCESS(speed)
-
 vect f() {
   __pure();
   __admitted();
@@ -47,7 +41,7 @@ void g() {
     __admitted();
   }, "");
   // FIXME: vect t[2];
-  vect* const t = (vect* const) MALLOC1(2, sizeof(vect));
+  vect* const t = MALLOC1(vect, 2);
   vect p2 = p;
   __GHOST_BEGIN(f, group_uninit_focus, "i := 0");
   t[MINDEX1(2, 0)] = p2;

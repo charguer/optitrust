@@ -173,11 +173,6 @@ let rec get_typvar_from_trm ?(first_match : bool = true) (t : trm) : typvar opti
     | None -> get_typvar_from_trm base
     end
   | Trm_let ((_,tx),_) -> get_typvar_from_typ tx
-  | Trm_record _ | Trm_var _ ->
-      begin match t.typ with
-      | Some ty -> get_typvar_from_typ ty
-      | _ -> None
-      end
   | _ -> None
 
 

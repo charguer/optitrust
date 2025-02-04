@@ -24,7 +24,7 @@ void less_simple(int n) {
 
     int* const m = MALLOC1(int, n);
     for (int i = 0; i < n; i++) {
-      __xwrites("&m[MINDEX1(n,i)] ~> Cell")
+      __xwrites("&m[MINDEX1(n,i)] ~> Cell");
       m[MINDEX1(n, i)] = x + i;
       x += m[MINDEX1(n, i)];
     }

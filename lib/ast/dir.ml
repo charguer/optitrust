@@ -18,11 +18,6 @@ type dir =
   (* [Dir_span] is used by target_span, to get a sequence of contiguous instruction in a sequence.
      TODO: between_anchor for start and stop *)
   | Dir_span of span
-  (* TODO: Introduce type nary_node for choosing between  Struct, Array, Seq. .. and generalize before, span, nth *)
-  (* nth: direction to nth element in a struct initialization *)
-  | Dir_struct_nth of int
-  (* nth: direction to nth element in a array initialization *)
-  | Dir_array_nth of int
   (* nth: direction to nth element in sequence *)
   | Dir_seq_nth of int
   (* cond: direction to condition of an if, for_c, while and do while loop, or switch statement *)

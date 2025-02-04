@@ -51,7 +51,7 @@ let clangml_options : Clang.Ast.Options.t = {
   ignore_using_types = true;
   convert_integer_literals = true;
   convert_floating_literals = true;
-  init_list_form = Syntactic;
+  init_list_form = Semantic;
 }
 
 let raw_parser (filename: string): trm =
