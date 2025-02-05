@@ -105,22 +105,29 @@ type var_id = int
 let unset_var_id = 0
 
 (** [var]: variables are uniquely identified with [id], but are printed using a qualified name. *)
-type var = { namespaces: string list; name: string; id: var_id }
+type var = { id: var_id; namespaces: string list; name: string }
 
 let has_unset_id var = var.id = unset_var_id
 let is_toplevel_var var = var.id < 0
+let is_anon_var var = var.name = ""
 
 let qualified_name_to_string namespaces name =
   String.concat "" (List.map (fun q -> q ^ "::") namespaces) ^ name
 
-let var_to_string (v : var) : string =
-  let qualified_name = qualified_name_to_string v.namespaces v.name in
-  if is_toplevel_var v then
-    qualified_name
-  else if has_unset_id v then
-    qualified_name ^ "?"
+let var_name (v: var) : string =
+  if is_anon_var v then
+    "#" ^ string_of_int v.id
   else
-    qualified_name ^ "#" ^ string_of_int v.id
+    qualified_name_to_string v.namespaces v.name
+
+let var_to_string (v : var) : string =
+  let name = var_name v in
+  if is_toplevel_var v || is_anon_var v then
+    name
+  else if has_unset_id v then
+    name ^ "?"
+  else
+    name ^ "#" ^ string_of_int v.id
 
 let assert_var_id_set ~error_loc v =
   if has_unset_id v then failwith "%s: Variable %s has an id that is not set (maybe forgot to call Scope.infer_var_ids)" error_loc (var_to_string v)
@@ -887,7 +894,7 @@ and omp_routine =
 (** Creates a new variable, using a fresh identifier. *)
 let new_var ?(namespaces: string list = []) (name : string) : var =
   let id = next_var_id () in
-  { namespaces; name; id }
+  { id; namespaces; name }
 
 (** Refers to a variable by name, letting its identifier be inferred.
     This variable cannot be stored in a [varmap] before its identifier is inferred. *)

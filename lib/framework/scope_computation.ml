@@ -128,7 +128,9 @@ let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
         begin if not (var_eq (toplevel_var ~namespaces:var.namespaces var.name) var) then
           raise (InvalidVarId (sprintf "toplevel variable %s has a wrong id" (var_to_string var)))
         end
-      else
+      else if is_anon_var var then begin
+        if var.id = 0 then raise (InvalidVarId "found anonymous variable without id")
+      end else
         begin match Qualified_map.find_opt qualified scope_ctx.var_ids with
         | None ->
           raise (InvalidVarId
@@ -196,8 +198,8 @@ let infer_map_binder ~(failure_allowed : bool) (scope_ctx : scope_ctx)
   in
   (* 1. infer var id if necessary *)
   let var = if has_unset_id var then infer_var_id () else var in
-  if var.name = "" then
-    (* 2. C/C++ allows giving no variable names *)
+  if is_anon_var var then
+    (* 2. Ignore anonymous variables *)
     (scope_ctx, var)
   else if is_predecl then
     (* 3. predeclarations don't conflict *)

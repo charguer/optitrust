@@ -18,18 +18,9 @@ let formula_model_annot = {trm_annot_default with trm_annot_cstyle = [ResourceFo
 
 let new_hyp = new_var
 
-(** Number used to generate variable names for resources. *)
-let next_hyp_id = Tools.fresh_generator ()
-
-(** Returns a variable with a generated name.
-  LATER: separate pure ($) and linear (#) ? *)
+(** Returns a fresh variable without name. *)
 let new_anon_hyp (): var =
-  let hid = next_hyp_id () in
-  new_hyp (sprintf "#%d" hid)
-
-(* TODO: should be new_var_like and maybe useful elsewhere? *)
-let new_hyp_like (h: var): var =
-  new_hyp ~namespaces:h.namespaces h.name
+  new_hyp ""
 
 (** Primitive function that constructs a read only resource. *)
 let var_read_only = toplevel_var "_RO"

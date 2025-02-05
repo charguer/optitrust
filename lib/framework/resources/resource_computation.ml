@@ -671,7 +671,7 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(inst_map: t
       | Resolved t -> t
       | Unknown _ ->
         let inst_failed_evars = Var_map.filter_map (fun evar resolution -> match resolution with Unknown typ -> Some typ | Resolved _ -> None) evar_ctx in
-        let inst_failed_evars_str = String.concat ", " (List.map (fun (evar, typ) -> evar.name ^ ": " ^ Ast_to_c.typ_to_string typ) (Var_map.bindings inst_failed_evars)) in
+        let inst_failed_evars_str = String.concat ", " (List.map (fun (evar, typ) -> (var_name evar) ^ ": " ^ Ast_to_c.typ_to_string typ) (Var_map.bindings inst_failed_evars)) in
         failwith "failed to instantiate evars %s" inst_failed_evars_str) evar_ctx
   in
 

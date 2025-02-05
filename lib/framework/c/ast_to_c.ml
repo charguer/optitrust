@@ -270,11 +270,14 @@ let rec typ_desc_to_doc style (t : typ) : document =
   ]
 
 and var_to_doc style (v : var) : document =
-  let qualified = (concat_map (fun q -> string q ^^ string "::") v.namespaces) ^^ string v.name in
-  if style.print_var_id then
-    qualified ^^ string ("/*#" ^ string_of_int v.id ^ "*/")
+  if is_anon_var v then
+    string (sprintf "#%d" v.id)
   else
-    qualified
+    let qualified = (concat_map (fun q -> string q ^^ string "::") v.namespaces) ^^ string v.name in
+    if style.print_var_id then
+      qualified ^^ string ("/*#" ^ string_of_int v.id ^ "*/")
+    else
+      qualified
 
 (** [typ_to_doc]: converts ast types to pprint document. *)
 and typ_to_doc style (t : typ) : document =

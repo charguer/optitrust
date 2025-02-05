@@ -148,13 +148,10 @@ and print_attribute style (a : attribute) : document =
   | GhostCall -> string "GhostCall"
 
 (** [print_var]: converts [v] into a docuemnt. *)
-and print_ast_var style (v : var) : document =
-  (concat_map (fun q -> string q ^^ string "::") v.namespaces) ^^
-  string v.name ^^ (if style.print_var_id then string ("#" ^ string_of_int v.id) else empty)
-
-(** [print_var]: converts [v] into a docuemnt. *)
 and print_var style (v : var) : document =
-  print_ast_var style v
+  if style.print_var_id
+    then string (var_to_string v)
+    else string (var_name v)
 
 (** [print_trm_desc style t]: converts the description of trm [t] to pprint document *)
 and print_trm_desc style (t : trm_desc) : document =
@@ -291,7 +288,7 @@ and print_trm_desc style (t : trm_desc) : document =
 (** [print_typedef style td]: converts typedef to pprint document *)
 and print_typedef style (td : typedef) : document =
   print_fields [
-    print_field "name" (print_ast_var style td.typedef_name);
+    print_field "name" (print_var style td.typedef_name);
     print_field "body" (print_typedef_body style td.typedef_body)
   ]
 

@@ -981,13 +981,17 @@ let contract_elim (t: trm): trm =
 
 let named_formula_to_string (style: style) ?(used_vars = Var_set.empty) ?(aliases = Var_map.empty) (hyp, formula): string =
   let sformula = formula_to_string style formula in
-  let shyp = if style.cstyle.print_var_id then sprintf "%s/*%d*/" hyp.name hyp.id else hyp.name in
+  let shyp =
+    if style.cstyle.print_var_id && not (is_anon_var hyp) then
+      sprintf "%s/*#%d*/" hyp.name hyp.id
+    else var_name hyp
+  in
   match Var_map.find_opt hyp aliases with
   | Some alias_val ->
     let salias = formula_to_string style alias_val in
     Printf.sprintf "%s := %s : %s" shyp salias sformula
   | None ->
-    if not (style.typing.print_generated_res_ids || Var_set.mem hyp used_vars) && String.starts_with ~prefix:"#" hyp.name
+    if not (style.typing.print_generated_res_ids || Var_set.mem hyp used_vars) && String.starts_with ~prefix:"#" shyp
       then Printf.sprintf "%s" sformula
       else Printf.sprintf "%s: %s" shyp sformula
 
@@ -1021,7 +1025,7 @@ let ctx_resources_to_trm (style: style) (res: resource_set) : trm =
 let ctx_used_res_item_to_string (style: style) (res: used_resource_item) : string =
   let sinst = formula_to_string style res.inst_by in
   let sformula = formula_to_string style res.used_formula in
-  Printf.sprintf "%s := %s : %s" res.hyp.name sinst sformula
+  Printf.sprintf "%s := %s : %s" (var_name res.hyp) sinst sformula
 
 let ctx_used_res_to_trm (style: style) ~(clause: var) (used_res: used_resource_set) : trm =
   let spure = trm_array_of_string (List.map (ctx_used_res_item_to_string style) used_res.used_pure) in
@@ -1033,7 +1037,7 @@ let ctx_produced_res_item_to_string (style: style) ?(aliases = Var_map.empty) (c
   let salias = Option.map_or (fun alias ->
     sprintf " := %s" (formula_to_string style alias)
     ) "" (Var_map.find_opt hyp aliases) in
-  Printf.sprintf "%s <- %s%s : %s" hyp.name (Option.map_or (fun h -> h.name) "?" (Var_map.find_opt hyp contract_hyp_names)) salias sformula
+  Printf.sprintf "%s <- %s%s : %s" (var_name hyp) (Option.map_or var_name "?" (Var_map.find_opt hyp contract_hyp_names)) salias sformula
 
 let ctx_produced_res_to_trm (style: style) (produced_res: produced_resource_set) : trm =
   let spure = trm_array_of_string (List.map (ctx_produced_res_item_to_string style produced_res.contract_hyp_names ~aliases:produced_res.produced_res.aliases) produced_res.produced_res.pure) in
@@ -1041,15 +1045,17 @@ let ctx_produced_res_to_trm (style: style) (produced_res: produced_resource_set)
   trm_apps (trm_var __produced_res) [spure; slin]
 
 let ctx_usage_map_to_strings res_used =
-  List.map (function
-    | hyp, Required -> sprintf "%s" hyp.name
-    | hyp, Ensured -> sprintf "Ensured %s" hyp.name
-    | hyp, ArbitrarilyChosen -> sprintf "Arbitrary %s" hyp.name
-    | hyp, ConsumedFull -> sprintf "Full %s" hyp.name
-    | hyp, ConsumedUninit -> sprintf "Uninit %s" hyp.name
-    | hyp, SplittedFrac -> sprintf "Subfrac %s" hyp.name
-    | hyp, JoinedFrac -> sprintf "JoinFrac %s" hyp.name
-    | hyp, Produced -> sprintf "Produced %s" hyp.name)
+  List.map (fun (hyp, usage) ->
+    let name = var_name hyp in
+    match usage with
+    | Required -> sprintf "%s" name
+    | Ensured -> sprintf "Ensured %s" name
+    | ArbitrarilyChosen -> sprintf "Arbitrary %s" name
+    | ConsumedFull -> sprintf "Full %s" name
+    | ConsumedUninit -> sprintf "Uninit %s" name
+    | SplittedFrac -> sprintf "Subfrac %s" name
+    | JoinedFrac -> sprintf "JoinFrac %s" name
+    | Produced -> sprintf "Produced %s" name)
     (Var_map.bindings res_used)
 
 let debug_ctx_before = false
@@ -1090,7 +1096,7 @@ let display_ctx_resources (style: style) (t: trm): trm list =
       let tl_joined =
         if style.typing.typing_joined_res
           then [trm_apps (trm_var __joined_res) (List.map trm_string
-                  (List.map (fun (x, y) -> sprintf "%s <-- %s" x.name y.name)
+                  (List.map (fun (x, y) -> sprintf "%s <-- %s" (var_name x) (var_name y))
                    contract_invoc.contract_joined_resources)) ]
           else [] in
       tl_frame @ tl_inst @ [ t ] @ tl_produced @ tl_joined
@@ -1169,7 +1175,7 @@ let rec contract_intro (style: style) (t: trm): trm =
     in
     let pre_pure = List.filter hyp_not_mem_before_pop pure_with_fracs in
     if (Hashtbl.length frac_to_remove != 0) then
-      Tools.warn "Some fractions should have been discarded but they were not found in context: %s" (String.concat ", " (Hashtbl.fold (fun frac () acc -> frac.name :: acc) frac_to_remove []));
+      Tools.warn "Some fractions should have been discarded but they were not found in context: %s" (String.concat ", " (Hashtbl.fold (fun frac () acc -> (var_name frac) :: acc) frac_to_remove []));
 
     let t = match reads_clause with
       | Some reads_clause -> push_named_formulas reads_clause reads_res t
@@ -1326,15 +1332,15 @@ let autogen_alpha_rename style (t : trm) : trm =
       (highest_h + 1, Var_map.add var new_v renaming), new_v
     in
 
-    if String.starts_with ~prefix:"#" var.name then
-      if String.starts_with ~prefix:"#_" var.name then begin
+    if is_anon_var var then
+      return_next_name ()
+    else if String.starts_with ~prefix:"#_" var.name then begin
         let var_hnum = String.sub var.name 2 (String.length var.name - 2) in
         match int_of_string_opt var_hnum with
         | None -> (highest_h, renaming), var
         | Some n when n > highest_h -> (n, renaming), var
         | Some n -> return_next_name ()
-      end else
-        return_next_name ()
+      end
     else
       (highest_h, renaming), var
   in

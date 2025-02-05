@@ -148,7 +148,7 @@ let push_loop_contract_clause (clause: loop_contract_clause_type)
 
 let parse_contract_res_item ((name, formula): contract_resource_item): resource_item =
   let name = match name with
-    | Some h -> (* new_hyp_like *) h
+    | Some h -> h
     | None -> new_anon_hyp ()
   in
   (name, formula)
