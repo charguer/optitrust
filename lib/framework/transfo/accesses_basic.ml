@@ -207,8 +207,8 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
             let isolated_post = isolated_linear !(ret.matched_post) in
             let others_pre = formulas_to_res !(ret.others_pre) in
             let others_post = formulas_to_res !(ret.others_post) in
-            let pre = Resource_set.make (*~pure:!(ret.pure_pre)*) ~linear:(isolated_pre @ others_pre) () in
-            (* TODO: Add ensured linear vars to post.pre *)
+            let pre = Resource_set.make ~pure:(List.filter (fun (h, f) -> f = Resource_formula.typ_frac) !(ret.pure_pre)) ~linear:(isolated_pre @ others_pre) () in
+            (* TODO: Add ensured linear vars to post.pure *)
             let post = Resource_set.make (*~pure:(List.filter (fun (h, f) -> f <> Resource_formula.typ_frac) !(ret.pure_post))*) ~linear:(isolated_post @ others_post) () in
             let post = { post with linear = snd (Resource_computation.delete_stack_allocs (Mlist.to_list instrs) post) } in
             let contract = FunSpecContract { pre; post } in
