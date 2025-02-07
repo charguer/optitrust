@@ -157,7 +157,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
         ) fracs in
         let unfolded_res = List.map2 (fun (sf, ty) (frac_var, _) ->
           formula_read_only ~frac:(trm_var frac_var)
-            (model (formula_struct_access ~field_typ:ty loc sf))
+            (model (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
         ) field_list fracs in
         let wands = List.map2 formula_wand unfolded_res folded_res in
         let res_to_linear = List.map (fun r -> (new_anon_hyp (), r)) in
@@ -173,7 +173,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
         )] in
         let unfolded_linear = List.map (fun (sf, ty) ->
           (new_anon_hyp (), formula_uninit (model
-            (formula_struct_access ~field_typ:ty loc sf)
+            (trm_struct_access ~field_typ:ty ~struct_typ loc sf)
           ))
         ) field_list in
         fold_or_unfold ~fold [] folded_linear unfolded_linear
@@ -183,7 +183,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
         )] in
         let unfolded_linear = List.map (fun (sf, ty) ->
           (new_anon_hyp (), model
-            (formula_struct_access ~field_typ:ty loc sf)
+            (trm_struct_access ~field_typ:ty ~struct_typ loc sf)
           )
         ) field_list in
         fold_or_unfold ~fold [] folded_linear unfolded_linear
@@ -208,9 +208,9 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
               let new_formula = match formula_read_only_inv formula with
               | Some { frac; formula } ->
                 let new_frac = fracs_map_split_frac fracs_map sf field_list frac in
-                formula_read_only ~frac:new_frac (wrap (formula_cell (formula_struct_access ~field_typ:ty loc sf)))
+                formula_read_only ~frac:new_frac (wrap (formula_cell (trm_struct_access ~field_typ:ty ~struct_typ loc sf)))
               | None -> formula_map_under_mode (fun _ ->
-                wrap (formula_cell (formula_struct_access ~field_typ:ty loc sf))
+                wrap (formula_cell (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
               ) formula
               in
               (new_anon_hyp (), new_formula)

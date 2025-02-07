@@ -30,6 +30,8 @@
 %token PLUS MINUS STAR SLASH PERCENT
 %token EQUAL LT GT LEQ GEQ NEQ
 
+%right AMPERSAND ARROW
+
 %start <contract_resource_item list> resource_list
 %start <resource_item list> ghost_arg_list
 
@@ -62,6 +64,8 @@ address_formula:
     { trm_array_get tab index }
   | base=address_formula; DOT; field=IDENT;
     { trm_struct_get ~struct_typ:typ_auto base field }
+  | base=address_formula; ARROW; field=IDENT;
+    { trm_struct_get ~struct_typ:typ_auto (trm_get base) field }
   | LPAR; f=address_formula; RPAR
     { f }
   | x=IDENT

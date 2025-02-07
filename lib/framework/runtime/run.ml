@@ -176,8 +176,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
         let trace_filename = prefix ^ "_trace.js" in
         if Sys.file_exists trace_filename then Sys.remove trace_filename;
         Trace.init ~program:program_basename ~prefix filename;
-        if !Flags.check_validity then
-          Trace.step ~kind:Step_small ~tags:["pre-post-processing"] ~name:"Preprocessing loop contracts" (fun () ->
+        if !Flags.check_validity || !Flags.recompute_resources_between_steps then
+          Trace.step ~kind:Step_small ~tags:["pre-post-processing"] ~name:"Preprocessing contracts" (fun () ->
+            Resources.fix_types_in_contracts ();
             Resources.make_strict_loop_contracts [];
           );
         Show.with_captured_show ~activated:activate_capture_show contents_captured_show (fun () ->

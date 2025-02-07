@@ -1112,18 +1112,18 @@ and typing_step ~name (f : unit -> unit) : unit =
 and reparse ?(update_cur_ast = true) ?(info : string option) ?(parser: parser option) () : unit =
   parsing_step (reparse_ast ~update_cur_ast ?info)
 
-and recompute_resources (): unit =
+and recompute_resources ?(missing_types = false) (): unit =
   if not the_trace.cur_ast_typed then
-    typing_step ~name:"Resource recomputation" recompute_resources_on_ast
+    typing_step ~name:"Resource recomputation" (recompute_resources_on_ast ~missing_types)
 
-and recompute_resources_on_ast () : unit =
+and recompute_resources_on_ast ?(missing_types = false) () : unit =
   if not !Flags.resource_typing_enabled then failwith "Cannot compute resources when resource typing is disabled";
   let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
   (* Compute a typed AST *)
 
   (* Printf.printf "%s\n" (AstC_to_c.ast_to_string ~style (Ast_fromto_AstC.(meta_intro ~skip_var_ids:true (style_of_custom_style custom_style)) t)); *)
   try
-    the_trace.cur_ast <- Resource_computation.trm_recompute_resources t;
+    the_trace.cur_ast <- Resource_computation.trm_recompute_resources ~missing_types t;
     the_trace.cur_ast_typed <- true;
   with (Resource_computation.ResourceError (t_with_error, _phase, _exn)) as e ->
     (* TODO: Resources computation warning when failing in non critical contexts:
@@ -1133,11 +1133,6 @@ and recompute_resources_on_ast () : unit =
     *)
     the_trace.cur_ast <- t_with_error;
     Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
-
-(** [retypecheck] is currently implemented as [reparse], but in the future it
-   would use a dedicated typechecker. *)
-let retypecheck ?(info : string option) ?(parser: parser option) () =
-  typing_step ~name:"Retypecheck" (reparse_ast ?info)
 
 (** [close_step_kind_if_needed k] is used by
    [close_smallstep_if_needed] and [close_bigstep_if_needed] *)
@@ -1340,9 +1335,6 @@ let init ~(prefix : string) ~(program : string) (filename : string) : unit =
   the_trace.cur_style <- Style.default_style();
   the_trace.step_stack <- [];
   open_root_step ~source:program ();
-
-  (* If recompute resources between steps is enabled, we need resources to be computed after the initial parsing as well *)
-  if !Flags.recompute_resources_between_steps then recompute_resources ();
 
   Flags.verbose_info "Starting script execution..."
 

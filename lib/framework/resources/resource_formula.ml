@@ -43,9 +43,6 @@ let new_frac (): var * resource_item =
 (** The fraction representing having it all. *)
 let full_frac = trm_int ~typ:typ_frac 1
 
-(** [formula_struct_access] creates a struct_access to be used in pure formulas *)
-let formula_struct_access = trm_struct_access ~struct_typ:typ_auto
-
 (** Tries to embed a program term within formulas.
     Pure and total terms can be successfully embedded, according to built-in whitelist. *)
 let rec formula_of_trm (t: trm): formula option =

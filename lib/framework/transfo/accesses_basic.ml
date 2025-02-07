@@ -1,19 +1,6 @@
 open Prelude
 open Target
 
-(* DEPRECATED
-(** [transform ~reparse f_get f_set tg]: expects the target [tg] to point at a trm inside a set or a get operation.
-    Then the transformation will search for the first get or set operation surrounding the targeted trm and call
-    the transform core transformation on that trm. If the first founded operation was a get operation then [f_get]
-    will be applied on the node represented by target [tg]. If it was a set operation then [f_set] will be applied
-    on the second argument of the targeted node. *)
-let%transfo transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm) (tg: target) : unit =
-  Target.iter (fun p ->
-    let get_or_set_path = Internal.get_ascendant_path (fun t -> (is_get_operation t) || (is_set_operation t)) p (Trace.ast ()) in
-    if get_or_set_path <> [] then Target.apply_at_path (Accesses_core.transform_on f_get f_set) get_or_set_path
-  ) tg
-*)
-
 type transform_ret = {
   typedvar : (var * typ option) option ref;
   matched_pre : formula list ref;
@@ -24,7 +11,7 @@ type transform_ret = {
   pure_post : resource_item list ref;
 }
 
-(** <private *)
+(** <private> *)
 let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
   (to_prove : trm list)
   (address_pattern : compiled_pattern)

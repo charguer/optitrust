@@ -190,6 +190,8 @@ let empty_pure_env = { res = []; struct_fields = Var_map.empty }
 let pure_env (res: resource_set) =
   { res = res.pure; struct_fields = res.struct_fields }
 
+let missing_types_in_contracts = ref false
+
 (** [compute_pure_typ env t] computes the type by recursively filling .typ fields of the pure / formula-convertible term [t] in a pure environment [env].
   Returns the type of [t] *)
 let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
@@ -288,20 +290,26 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
       assert (is_typ_integer index_typ);
       arr_typ
     | Trm_prim (prim_typ, Prim_unop Unop_struct_access field), [base] ->
-      if not (is_typ_auto prim_typ) then failwith "Mixed impure struct access and pure struct access (pure accesses have type auto)";
       let base_typ = compute_pure_typ env base in
-      Pattern.pattern_match base_typ [
-        Pattern.(typ_ptr (typ_var !__)) (fun struct_typ () ->
-          match Var_map.find_opt struct_typ env.struct_fields with
-          | Some fields ->
-            begin match List.assoc_opt field fields with
-            | Some field_typ -> typ_ptr field_typ
-            | None -> failwith "Struct type '%s' has no field named '%s'" (var_to_string struct_typ) field
-            end
-          | None -> failwith "Pure expression '%s' has type '%s' which is not declared as a struct but is used in a struct access" (Ast_to_c.ast_to_string base) (var_to_string struct_typ)
-        );
-        Pattern.(__) (fun () -> failwith "Pure expression '%s' has unexpected type for struct access: %s" (Ast_to_c.ast_to_string base) (Ast_to_c.typ_to_string base_typ))
-      ]
+      let struct_typ = if !missing_types_in_contracts && is_typ_auto prim_typ then
+          (* This case is needed for the first typing where type of struct access is missing in contracts *)
+          Pattern.pattern_match base_typ [
+            Pattern.(typ_ptr (typ_var !__)) (fun struct_typ () -> struct_typ);
+            Pattern.(__) (fun () -> failwith "Pure expression '%s' has unexpected type for struct access: %s" (Ast_to_c.ast_to_string base) (Ast_to_c.typ_to_string base_typ))
+          ]
+        else if are_same_trm base_typ (typ_ptr prim_typ) then
+          typ_inv ~error:"Type of struct access is not a struct name" t typ_var_inv prim_typ
+        else
+          failwith "Struct access type '%s' does not match the type of the left-hand side '%s' of type '%s'" (Ast_to_c.typ_to_string prim_typ) (Ast_to_c.ast_to_string base) (Ast_to_c.typ_to_string base_typ)
+      in
+      begin match Var_map.find_opt struct_typ env.struct_fields with
+      | Some fields ->
+        begin match List.assoc_opt field fields with
+        | Some field_typ -> typ_ptr field_typ
+        | None -> failwith "Struct type '%s' has no field named '%s'" (var_to_string struct_typ) field
+        end
+      | None -> failwith "Pure expression '%s' has type '%s' which is not declared as a struct but is used in a struct access" (Ast_to_c.ast_to_string base) (var_to_string struct_typ)
+      end
     | Trm_var xf, [ptr] when var_eq xf var_cell ->
       let ptr_typ = compute_pure_typ env ptr in
       assert (is_typ_ptr ptr_typ);
@@ -1179,10 +1187,11 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
         | Some ft -> ft
         | None -> failwith "Record '%s' does not have field '%s'" (Ast_to_c.typ_to_string typ) field
       in
+      let pure_access_typ = if !missing_types_in_contracts then typ_auto else typ in
       let base_var = new_hyp "base" in
       let contract = {
         pre = Resource_set.make ~pure:[(base_var, typ_ptr typ)] ();
-        post = Resource_set.make ~pure:[var_result, typ_ptr field_typ] ~aliases:(Var_map.singleton var_result (formula_struct_access (trm_var base_var) field)) ()
+        post = Resource_set.make ~pure:[var_result, typ_ptr field_typ] ~aliases:(Var_map.singleton var_result (trm_struct_access ~struct_typ:pure_access_typ (trm_var base_var) field)) ()
       } in
       typ_fun [typ_ptr typ] (typ_ptr field_typ), { args = [base_var]; contract; inverse = None }
 
@@ -1421,9 +1430,9 @@ let rec compute_resources
           else Resource_set.push_front_pure (var_result, rettyp) contract.post
         in
         let contract = { pre ; post } in
-        let contract = fun_contract_subst res.aliases contract in
         (* Typecheck the contract itself *)
         check_fun_contract_types ~pure_ctx:(pure_env res) contract;
+        let contract = fun_contract_subst res.aliases contract in
         let contract_usage = Var_map.of_seq (Seq.map (fun x -> (x, Required)) (Var_set.to_seq (fun_contract_free_vars contract))) in
         (* Compute resources recursively in the body *)
         let body_usage = compute_resources_in_body contract in
@@ -1937,24 +1946,11 @@ let init_ctx = Resource_set.make ~pure:[
   var_ignore, typ_auto;
 ] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_specs) ()
 
-(** [trm_recompute_resources t] recomputes resources of [t] using [compute_resources],
-  after a [trm_deep_copy] to prevent sharing.
-  Otherwise, returns a fresh term in case of success, or raises [ResourceError] in case of failure.
-
-  If [!Flags.stop_on_first_resource_error] is set, then the function immediately stops after the
-  first error is encountered, else it tries to report as many as possible.
-
-  Hypothesis: needs var_ids to be calculated. *)
-let trm_recompute_resources (t: trm): trm =
-  (* TODO: should we avoid deep copy by maintaining invariant that there is no sharing?
-     makes sense with unique var ids and trm_copy mechanisms.
-     Otherwise avoid mutable asts. Could also have unique node ids and maps from ids to metadata. *)
-  (* Make a copy of [t] *)
-  let t = trm_deep_copy t in
-  (* Typecheck the copy of [t] and update it in place.
-     Type errors are saved in a global list, and errors
-     are also saved as annotations in the "errors" fields
-     in the nodes inside the copy of [t]. *)
+(** Compute resources inside [t] in place.
+  Type errors are saved in a global list, and errors
+  are also saved as annotations in the "errors" fields
+  in the nodes inside [t]. *)
+let trm_compute_resources_inplace (t: trm): unit =
   global_errors := [];
   let backtrace =
     try
@@ -1964,9 +1960,27 @@ let trm_recompute_resources (t: trm): trm =
   in
   (* Test for errors, before returning the updated copy of [t] *)
   match !global_errors with
-  | [] -> t
+  | [] -> ()
   | ((phase, exn) :: _) ->
       let err = ResourceError (t, phase, exn) in
       match backtrace with
       | Some bt -> Printexc.raise_with_backtrace err bt
       | None -> raise err
+
+(** [trm_recompute_resources t] recomputes resources of [t] using [compute_resources],
+  after a [trm_deep_copy] to prevent sharing.
+  Otherwise, returns a fresh term in case of success, or raises [ResourceError] in case of failure.
+
+  If [!Flags.stop_on_first_resource_error] is set, then the function immediately stops after the
+  first error is encountered, else it tries to report as many as possible.
+
+  Hypothesis: needs var_ids to be calculated. *)
+let trm_recompute_resources ?(missing_types = false) (t: trm): trm =
+  (* TODO: should we avoid deep copy by maintaining invariant that there is no sharing?
+     makes sense with unique var ids and trm_copy mechanisms.
+     Otherwise avoid mutable asts. Could also have unique node ids and maps from ids to metadata. *)
+  (* Make a copy of [t] *)
+  let t = trm_deep_copy t in
+  missing_types_in_contracts := missing_types;
+  trm_compute_resources_inplace t;
+  t

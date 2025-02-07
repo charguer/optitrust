@@ -323,6 +323,18 @@ let%transfo loop_minimize (*?(indepth : bool = false)*) (tg: target) : unit =
   Target.apply_at_target_paths loop_minimize_on tg;
   justif_correct "only changed loop contracts"
 
+let%transfo fix_types_in_contracts (_u: unit): unit =
+  Trace.recompute_resources ~missing_types:true ();
+  let rec add_missing_types (t: trm) =
+    match t.desc with
+    | Trm_apps ({ desc = Trm_prim (prim_typ, Prim_unop Unop_struct_access field) }, [base], []) when is_typ_auto prim_typ ->
+      let base_typ = Option.unsome_or_else base.typ (fun () -> trm_fail t "Could not infer type of struct access") in
+      let struct_typ = typ_inv t typ_ptr_inv base_typ in
+      trm_like ~old:t (trm_struct_access ~struct_typ base field)
+    | _ -> trm_map add_missing_types t
+  in
+  Trace.apply add_missing_types;
+  Trace.justif "Only changing type annotations"
 
 let make_strict_loop_contract_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"make_strict_loop_contract_on: not a for loop" trm_for_inv t in

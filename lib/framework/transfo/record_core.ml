@@ -56,7 +56,7 @@ let set_explicit_on (t : trm) : trm =
                 in
                 let unfolded_res =
                   formula_read_only ~frac:(trm_var frac_var)
-                    (formula_cell (formula_struct_access ~field_typ:ty loc sf))
+                    (formula_cell (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
                 in
                 let wand = formula_wand unfolded_res folded_res in
                 let folded_linear = [(new_anon_hyp (), folded_res)] in
@@ -77,7 +77,7 @@ let set_explicit_on (t : trm) : trm =
               new_anon_hyp (), formula_cell loc
             )] in
             let unfolded_linear = List.map (fun (sf, ty) ->
-              (new_anon_hyp (), formula_cell (formula_struct_access ~field_typ:ty loc sf))
+              (new_anon_hyp (), formula_cell (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
             ) field_list in
             let make_uninit = List.map resource_item_uninit in
             (make_admitted [] (make_uninit folded_linear) (make_uninit unfolded_linear),
