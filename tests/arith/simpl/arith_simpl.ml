@@ -6,14 +6,12 @@ let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp (fun _ ->
   (* TODO: split this files into one file for each type of simplification *)
-  (* TODO: figure out when
-     WARNING: trm_to_naive_expr: missing type information for binary division, assuming double
-     appears, and whether we can rebuild the type information *)
 
   (*-----------------------------------------------------*)
 
+  (* DEBUG for Arthur *)
   (* Show reification without inlined atoms *)
-  !! Arith_basic.debug_without_inlined_atoms := true;
+  (*!! Arith_basic.debug_without_inlined_atoms := true;
   !! Arith_basic.show ~normalized:false [nbMulti; cWriteVar "rei"; dRHS];
   !! Arith_basic.debug_without_inlined_atoms := false;
 
@@ -22,7 +20,7 @@ let _ = Run.script_cpp (fun _ ->
 
   (* Show reification then remove printed information *)
   !! Arith_basic.show [nbMulti; cWriteVar "rek"; dRHS];
-  !! Arith_basic.remove_show [nbMulti; cWriteVar "rek"; dRHS];
+  !! Arith_basic.remove_show [nbMulti; cWriteVar "rek"; dRHS];*)
 
   (* LATER: add a test with a subterm non-deletable but redundant,
      and one deletable but non-redundant. *)
@@ -70,7 +68,6 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "q"; dRHS; cBinop Binop_exact_div]
 
 )
-
 
 (* For testing one line, add a line in the source "r = ...;" and use:
     !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "r"; dRHS];

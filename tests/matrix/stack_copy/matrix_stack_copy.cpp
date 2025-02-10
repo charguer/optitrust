@@ -1,10 +1,9 @@
 #include <optitrust.h>
-// #include <stdio.h>
 
 void f() {
   __pure();
 
-  float* const s = (float*) MALLOC2(32, 32, sizeof(float));
+  int* const s = MALLOC2(int, 32, 32);
 
   for (int i = 0; i < 32; i++) {
     __strict();
@@ -49,5 +48,5 @@ void f() {
     // printf("\n");
   }
 
-  MFREE2(32, 32, s);
+  free(s);
 }

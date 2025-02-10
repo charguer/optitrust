@@ -34,14 +34,14 @@ void f(int *t, int *u) {
 
   // Question:
   // hoist:
-  // - int* y_step = (int*) MALLOC1(2, sizeof(int));
+  // - int* y_step = MALLOC1(int, 2);
   // - becomes:
-  //   - int* y_step_step = (int*) MALLOC2(5, 2, sizeof(int));
+  //   - int* y_step_step = MALLOC2(int, 5, 2);
   // vs:
   // - int* y_step;
-  //   y_step = (int*) MALLOC1(2, sizeof(int));
+  //   y_step = MALLOC1(int, 2);
   // - becomes:
-  //   - int* y_step_step = (int**) MALLOC1(5, sizeof(int*));
+  //   - int* y_step_step = MALLOC1(int*, 5);
 }
 
 void f2(float* A, float* B, int m, int n, int p) {

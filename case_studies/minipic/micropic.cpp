@@ -8,28 +8,6 @@ typedef struct {
   double x, y, z;
 } vect;
 
-REGISTER_STRUCT_ACCESS(x)
-REGISTER_STRUCT_ACCESS(y)
-REGISTER_STRUCT_ACCESS(z)
-/*
-template<typename T> T __struct_access_x(T* v) {
-  __pure();
-  __admitted();
-  return v.x;
-}
-
-template<typename T> T __struct_access_y(T* v) {
-  __pure();
-  __admitted();
-  return v.y;
-}
-
-template<typename T> T __struct_access_y(T* v) {
-  __pure();
-  __admitted();
-  return v.z;
-}
-*/
 vect vect_add(vect v1, vect v2) {
   __pure();
   __admitted();
@@ -57,11 +35,6 @@ typedef struct {
   */
 } particle;
 
-REGISTER_STRUCT_ACCESS(pos)
-REGISTER_STRUCT_ACCESS(speed)
-REGISTER_STRUCT_ACCESS(charge)
-REGISTER_STRUCT_ACCESS(mass)
-
 // =========================================================
 // Grid representation
 
@@ -74,9 +47,9 @@ const int gridY = 64;
 const int gridZ = 64;
 
 const int nbCells = ((gridX * gridY) * gridZ);
-const double cellX = (areaX / gridX);
-const double cellY = (areaY / gridY);
-const double cellZ = (areaZ / gridZ);
+const double cellX = (areaX / (double)gridX);
+const double cellY = (areaY / (double)gridY);
+const double cellZ = (areaZ / (double)gridZ);
 
 // const int maxPartsPerCell = 1000000;
 
@@ -243,10 +216,10 @@ void simulate_single_cell(double deltaT,
       */
 
       // Interpolate the field based on the position relative to the corners of the cell
-      double* const coeffs = (double*) MALLOC1(nbCorners, sizeof(double));
+      double* const coeffs = MALLOC1(double, nbCorners);
       corner_interpolation_coeff(particles[MINDEX1(nbParticles, idPart)].pos, coeffs);
       const vect fieldAtPos = matrix_vect_mul(coeffs, fieldAtCorners);
-      MFREE1(nbCorners, coeffs);
+      free(coeffs);
 
       // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
       const vect accel = vect_mul(pCharge / pMass, fieldAtPos);

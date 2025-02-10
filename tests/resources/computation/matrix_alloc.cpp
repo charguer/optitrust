@@ -4,6 +4,6 @@ void f() {
   __pure();
 
   // FIXME how not const ?
-  float* const M = (float*)MALLOC1(10, sizeof(float));
-  MFREE1(10, M);
+  float* const M = MALLOC1(float, 10);
+  free(M);
 }

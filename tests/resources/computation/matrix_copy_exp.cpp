@@ -22,7 +22,7 @@ void matrix_copy(float* src, float* dst, int n, int m) {
   memcpy(dst, src, n * m * sizeof(float));
 }
 
-int main() {
+void test() {
   __pure();
   const int n = 3;
   float* const a = matrix_alloc(n, n);

@@ -1,6 +1,6 @@
 #include <optitrust.h>
 
-void alloc(int n) {
+void simple(int n) {
   __pure();
 
   int x = 0;
@@ -8,9 +8,27 @@ void alloc(int n) {
     __strict();
     __smodifies("&x ~> Cell");
 
-    int* const m = (int*) MALLOC1(n, sizeof(int));
+    int* const m = MALLOC1(int, n);
     x++;
-    MFREE1(n, m);
+    free(m);
+  }
+}
+
+void less_simple(int n) {
+  __pure();
+
+  int x = 0;
+  for (int i = 0; i < 3; i++) {
+    __strict();
+    __smodifies("&x ~> Cell");
+
+    int* const m = MALLOC1(int, n);
+    for (int i = 0; i < n; i++) {
+      __xwrites("&m[MINDEX1(n,i)] ~> Cell");
+      m[MINDEX1(n, i)] = x + i;
+      x += m[MINDEX1(n, i)];
+    }
+    free(m);
   }
 }
 

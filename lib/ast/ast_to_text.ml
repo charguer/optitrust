@@ -121,26 +121,24 @@ and print_prim style (p : prim) : document =
   | Prim_compound_assign_op op ->
     let dop = print_binop op in
     print_node "Prim_compound_assign_op" ^^ dop
-  | Prim_ref ->
-     print_node "Prim_ref"
-  | Prim_ref_array dims ->
-     let dims_doc = list_to_doc ~empty ~bounds:[lbracket; rbracket] (List.map (print_trm style) dims) in
-     print_node "Prim_ref_array" ^^ dims_doc
-  | Prim_new ->
-     print_node "Prim_new"
+  | Prim_ref -> print_node "Prim_ref"
+  | Prim_ref_uninit -> print_node "Prim_ref_uninit"
+  | Prim_new -> print_node "Prim_new"
+  | Prim_new_uninit -> print_node "Prim_new_uninit"
   | Prim_delete -> print_node "Prim_delete"
+  | Prim_array -> print_node "Prim_array"
+  | Prim_record -> print_node "Prim_record"
 
 (** [print_lit l]: converts literals to pprint document *)
 and print_lit (l : lit) : document =
   match l with
   | Lit_unit -> string "Lit_unit"
-  | Lit_uninitialized _ -> string "Lit_uninitialized"
   | Lit_bool b -> print_node "Lit_bool" ^^ string (string_of_bool b)
   | Lit_int (ty, n) -> print_node "Lit_int" ^^ string (string_of_int n)
   | Lit_float (ty, f) -> print_node "Lit_float" ^^ string (string_of_float f)
   | Lit_string s ->
      print_node "Lit_string" ^^ dquotes (separate (backslash ^^ string "n") (lines s))
-  | Lit_nullptr _ -> print_node "Lit_nullptr"
+  | Lit_null _ -> print_node "Lit_null"
 
 (** [print_attribute style a]: converts attribute [a] to pprint document *)
 and print_attribute style (a : attribute) : document =
@@ -150,13 +148,10 @@ and print_attribute style (a : attribute) : document =
   | GhostCall -> string "GhostCall"
 
 (** [print_var]: converts [v] into a docuemnt. *)
-and print_ast_var style (v : var) : document =
-  (concat_map (fun q -> string q ^^ string "::") v.namespaces) ^^
-  string v.name ^^ (if style.print_var_id then string ("#" ^ string_of_int v.id) else empty)
-
-(** [print_var]: converts [v] into a docuemnt. *)
 and print_var style (v : var) : document =
-  print_ast_var style v
+  if style.print_var_id
+    then string (var_to_string v)
+    else string (var_name v)
 
 (** [print_trm_desc style t]: converts the description of trm [t] to pprint document *)
 and print_trm_desc style (t : trm_desc) : document =
@@ -171,18 +166,6 @@ and print_trm_desc style (t : trm_desc) : document =
      let dt = print_typ style typ in
      let dp = print_prim style p in
      print_node "Trm_prim" ^^ parens (dt ^^ comma ^^ blank 1 ^^ dp)
-  | Trm_array (typ, tl) ->
-     let dt = print_typ style typ in
-     let tl = Mlist.to_list tl in
-     let dtl = List.map (print_trm style) tl in
-     print_node "Trm_array" ^^ blank 1 ^^ parens dt ^^ blank 1 ^^ print_list dtl
-  | Trm_record (typ, tl) ->
-     let dt = print_typ style typ in
-     let tl = Mlist.to_list tl in
-     let dtl = List.map (fun (lb, t) ->
-      let td = print_trm style t in
-      match lb with Some lb -> parens (string lb ^^ comma ^^blank 1 ^^ td) | None -> td) tl in
-     print_node "Trm_record" ^^ blank 1 ^^ parens dt ^^ blank 1 ^^ print_list dtl
   | Trm_let ((x,tx),t) ->
     let dtx = print_typ style tx in
     let dt = print_trm style t in
@@ -192,6 +175,8 @@ and print_trm_desc style (t : trm_desc) : document =
     let dtl = List.map (fun ((x, ty), t) ->
       parens (parens (print_var style x ^^ comma ^^ print_typ style ty) ^^ comma ^^ print_trm style t)) bs in
     print_node "Trm_let_mult" ^^ parens (print_list dtl)
+  | Trm_predecl (x, tx) ->
+    print_node "Trm_predecl" ^^ parens (print_var style x ^^ comma ^^ break 1 ^^ print_typ style tx)
   | Trm_typedef td ->
     print_node "Trm_typedef" ^^ print_typedef style td
   | Trm_if (c, t, e) ->
@@ -303,7 +288,7 @@ and print_trm_desc style (t : trm_desc) : document =
 (** [print_typedef style td]: converts typedef to pprint document *)
 and print_typedef style (td : typedef) : document =
   print_fields [
-    print_field "name" (print_ast_var style td.typedef_name);
+    print_field "name" (print_var style td.typedef_name);
     print_field "body" (print_typedef_body style td.typedef_body)
   ]
 
@@ -478,6 +463,7 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Brace_init -> string "Brace_init"
  | Display_null_uppercase -> string "Display_null_uppercase"
  | ResourceFormula -> string "ResourceFormula"
+ | ResourceModel -> string "ResourceModel"
  | Type -> string "Type"
  | InjectedClassName -> string "InjectedClassName"
  | BodyHiddenForLightDiff -> string "BodyHiddenForLightDiff"

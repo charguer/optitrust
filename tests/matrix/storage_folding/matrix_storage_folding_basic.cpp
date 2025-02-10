@@ -4,8 +4,8 @@
 extern int N;
 
 int main() {
-  float* const a = (float*) MALLOC1(N, sizeof(float));
-  float* const b = (float*) MALLOC1(N - 2, sizeof(float));
+  float* const a = MALLOC1(float, N);
+  float* const b = MALLOC1(float, N - 2);
   for (int i = 0; i < N; i++) {
     a[MINDEX1(N, i)] = i;
     if (i >= 2) {
@@ -16,7 +16,7 @@ int main() {
     }
   }
 
-  MFREE1(N, a);
-  MFREE1(N - 2, b);
+  free(a);
+  free(b);
   return 0;
 }

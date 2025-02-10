@@ -25,13 +25,8 @@ stencil/fusion_targets/stencil_fusion_targets.ml
 # BROKEN TYPES
 record/set_explicit/record_set_explicit_basic.ml
 
-# BROKEN VARIABLE IN SCOPE DUE TO CPP CLASSES
-apac/constify_functions_arguments/apac_constify_functions_arguments.ml
-
 # CPP
 ast/cpp_basic.ml
-
-pointer/fold
 
 # TO FIX:
 function/inline/function_inline_doc.ml
@@ -42,7 +37,6 @@ record/set_implicit
 function/rename_args
 function/beta
 align/def
-align/alloc
 matrix/insert_access_dim_index
 record/reorder_fields
 array/elim_constant
@@ -55,6 +49,7 @@ apac/heapify_nested_seq
 apac/unfold_let_mult_const
 apac/use_goto_for_return
 apac/parallel_task_group
+apac/constify_functions_arguments
 variable/delocalize
 variable/delocalize_in_vars
 
@@ -72,6 +67,7 @@ variable/exchange
 swap/coords_fixed
 swap/coords_vari
 specialize/function_arg
+pointer/fold
 
 # #var-id
 ast/cpp_varids.ml

@@ -1,9 +1,10 @@
 #include <optitrust.h>
 
 __ghost_ret freeze_cell() {
-  __requires("p: loc");
+  __requires("T: Type");
+  __requires("p: ptr(T)");
   __consumes("p ~> Cell");
-  __produces("p ~> FrozenCell");
+  __produces("for _ in 0..1 -> p ~> Cell");
   __admitted();
 }
 
@@ -17,11 +18,11 @@ void f(float* M, int n) {
   __ghost(
       [&]() {
         __consumes("for i in 0..n -> &M[i] ~> Cell");
-        __produces("for i in 0..n -> &M[i] ~> FrozenCell");
+        __produces("for i in 0..n -> for _ in 0..1 -> &M[i] ~> Cell");
         for (int i = 0; i < n; ++i) {
           __strict();
           __xconsumes("&M[i] ~> Cell");
-          __xproduces("&M[i] ~> FrozenCell");
+          __xproduces("for _ in 0..1 -> &M[i] ~> Cell");
           __ghost(freeze_cell, "p := &M[i]");
         }
       },
@@ -29,11 +30,11 @@ void f(float* M, int n) {
   int x = 3;
   __ghost(
       [&]() {
-        __consumes("for i in 0..n -> &M[i] ~> FrozenCell");
+        __consumes("for i in 0..n -> for _ in 0..1 -> &M[i] ~> Cell");
         __produces("for i in 0..n -> &M[i] ~> Cell");
         for (int i = 0; i < n; ++i) {
           __strict();
-          __xconsumes("&M[i] ~> FrozenCell");
+          __xconsumes("for _ in 0..1 -> &M[i] ~> Cell");
           __xproduces("&M[i] ~> Cell");
           __ghost(unfreeze_cell, "p := &M[i]");
         }

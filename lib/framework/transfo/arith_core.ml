@@ -19,49 +19,6 @@ let has_mark_nosimpl (t : trm) : bool =
   Mark.trm_has_mark mark_nosimpl t
   (* LATER Ast.trm_has_mark *)
 
-(* arithmetic operation type *)
-type arith_op =
-  | Arith_shift
-  | Arith_scale
-
-(** [transform aop inv pre_cast post_cast u t]: shifts or scale the right hand
-    side of a set operation with term [u]
-    [aop] - a flag to decide if the arithmetic operation should be Arith_scale
-       or Arith_shift
-    [inv] - a flag for the sign(plus or minus) of shifting
-    [u] - shift size
-    [pre_cast] - casting of type [pre_cast] performed on the right hand side of the
-      set operation before shifting
-    [post_cast] - casting of type [post_cast] performed after shifting
-    [t] - the ast of the set operation *)
-let transform (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option)
-  (post_cast : typ option) (t : trm) : trm =
-  let trm_apps_binop = match aop with
-    | Arith_shift -> if inv then trm_sub else trm_add
-    | Arith_scale -> if inv then trm_exact_div else trm_mul
-    in
-  match t.desc with
-  | Trm_apps(f, [lhs; rhs],_) when is_set_operation t ->
-    begin match pre_cast, post_cast with
-     | None, None -> trm_replace (Trm_apps (f, [lhs; trm_apps_binop rhs u], [])) t
-
-     | None, Some ty -> trm_replace (Trm_apps (f, [lhs; trm_cast ty (trm_apps_binop rhs u)], [])) t
-
-     | Some ty, None -> trm_replace (Trm_apps (f, [lhs;
-                    trm_apps_binop (trm_cast ty rhs) u], [])) t
-     | _ -> trm_fail t "Arith_core.transform_aux: can't apply both pre-casting
-                        and post-casting"
-    end
-  | Trm_apps (_, [arg], _) when is_get_operation t ->
-    begin match pre_cast, post_cast with
-     | None , None -> trm_apps_binop t u
-     | None, Some ty -> trm_cast ty (trm_apps_binop t u)
-     | Some ty, None -> trm_apps_binop (trm_cast ty t)  u
-     | _ -> trm_fail t "Arith_core.transfom_aux: can't apply both pre-casting
-                        and post-casting"
-    end
-  | _ -> trm_fail t "Arith_core.transform_aux: expected a get or a set operation"
-
 (******************************************************************************)
 (*                          Types                                        *)
 (******************************************************************************)
@@ -923,7 +880,8 @@ let rec gather_one (e : expr) : expr =
       let e23 = normalize_one (mk (Expr_prod [(1, e2); (1, e3)])) in
       gather_one (mk (Expr_binop (Binop_trunc_div, e1, e23))) (* attempt further simplifications *)
   (* simplify [a/a] to [1]. *)
-  | Expr_binop (Binop_trunc_div, e1, e2) when e1 = e2 -> expr_int ?loc ~typ:(Option.unsome e.expr_typ) 1
+  | Expr_binop (Binop_trunc_div, e1, e2) when e1 = e2 && is_deletable e1 ->
+    expr_int ?loc ~typ:(Option.unsome e.expr_typ) 1
   (* simplify [(a*b)/(c*a)] to [b/c] and [(a^k*b)/(c*a)] to [(a^(k-1)*b)/c].
       LATER: check is_deletable is called where needed *)
   | Expr_binop (Binop_trunc_div, ({ expr_desc = Expr_prod wes1; _ } as e1),
@@ -950,8 +908,8 @@ let rec gather_one (e : expr) : expr =
      let e2' = expr_make_like e2 (Expr_prod wes2') in
      normalize_one (mk (Expr_binop (Binop_trunc_div, e1', e2')))
   (* simplify [(a*b)/a] to [b] and [(a^k*b)/a] to [a^(k-1)*b]. *)
-  | Expr_binop (Binop_trunc_div, { expr_desc = Expr_prod wes; _ }, e) -> (* when [e] is not an [Expr_prod] *)
-      begin match cancel_div_floor_prod wes e with
+  | Expr_binop (Binop_trunc_div, { expr_desc = Expr_prod wes; _ }, e2) -> (* when [e2] is not an [Expr_prod] *)
+      begin match cancel_div_floor_prod wes e2 with
       | None -> e
       | Some wes' -> normalize_one (mk (Expr_prod wes'))
       end

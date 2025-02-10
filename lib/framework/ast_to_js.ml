@@ -203,21 +203,16 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           (strquote "type", typ_to_json ty);
           (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes (Ast_to_c.(prim_to_doc (default_style())) ty p))));
           children_to_field [] ]
-    | Trm_record (ty, l) ->
-        [ kind_to_field "struct";
-          (strquote "type", typ_to_json ty);
-          (* LATER: Temporary hack for labelled struct inits. *)
-          children_to_field (List.mapi ichild_to_json (List.map aux(List.split_pairs_snd (Mlist.to_list l)))) ]
-    | Trm_array (ty, l) ->
-        [ kind_to_field "array";
-          (strquote "type", typ_to_json ty);
-          children_to_field (List.mapi ichild_to_json (List.map aux (Mlist.to_list l))) ]
     | Trm_let ((x,typ),init) ->
         [ kind_to_field "var-def";
           (strquote "name", strquote x.name); (* TODO: #var-id , also encode namespaces and id ? *)
           (strquote "def-type", typ_to_json typ);
           children_to_field ([(child_to_json "init" (aux init))])]
     | Trm_let_mult _ -> [] (* TODO: *)
+    | Trm_predecl (x,typ) ->
+        [ kind_to_field "var-predecl";
+          (strquote "name", strquote x.name); (* TODO: #var-id , also encode namespaces and id ? *)
+          (strquote "def-type", typ_to_json typ)]
     | Trm_typedef td ->
       [ kind_to_field "typdef";
         (strquote "name", strquote td.typedef_name.name); (* TODO: #var-id , also encode namespaces and id ? *)

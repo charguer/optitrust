@@ -11,12 +11,6 @@ typedef struct {
   vect speed;
 } obj;
 
-REGISTER_STRUCT_ACCESS(x)
-REGISTER_STRUCT_ACCESS(y)
-REGISTER_STRUCT_ACCESS(weight)
-REGISTER_STRUCT_ACCESS(pos)
-REGISTER_STRUCT_ACCESS(speed)
-
 vect f() {
   return {1,1};
 }
@@ -40,7 +34,7 @@ void g() {
   }, "");
   s.x = p.x;
   s.y = p.y;
-  const obj s2 = { s.x + 2, s.y + 2 };
+  const vect s2 = { s.x + 2, s.y + 2 };
   __ghost([&] {
     __produces("&p ~> Cell");
     __consumes("&p.x ~> Cell");

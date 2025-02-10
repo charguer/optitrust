@@ -7,7 +7,7 @@ let _ = Run.script_cpp ( fun _ ->
   (* 1. Parallel loops can be fusioned *)
   !! Loop_basic.fusion [cFunDef "parallel"; cFor ~body:[sInstr "t[i] +="] ""];
   !! Loop_basic.fusion [cFunDef "parallel"; cFor ~body:[cVarDef "y"] ""];
-  !! Loop_basic.fusion [cFunDef "parallel"; cFor ~body:[sInstr "MFREE1(5, m1)"] ""];
+  !! Loop_basic.fusion [cFunDef "parallel"; cFor ~body:[sInstr "free(m1)"] ""];
 
   (* 2. Loops where instrs before/after split commute through all iterations can be fusioned. *)
   !! Loop_basic.fusion [cFunDef "commute"; cFor "i"; occFirst];

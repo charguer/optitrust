@@ -1,6 +1,6 @@
 #include <optitrust.h>
 
-int main() {
+void f() {
   __pure();
   int a = 5;
   int b = 7 * a;

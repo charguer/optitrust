@@ -28,19 +28,19 @@ typedef struct bag_iter {
   int index;
 } bag_iter;
 
-particle* bag_iter_begin(bag_iter* it, bag* b);
+particle* bag_iter_begin(bag_iter*, bag*);
 
-particle* bag_iter_next_common(bag_iter* it, bool destructive);
+particle* bag_iter_next_common(bag_iter*, bool);
 
-void bag_push(bag* b, particle p);
+void bag_push(bag*, particle);
 
-void bag_init(bag* b, int id_bag, int id_cell);
+void bag_init(bag*, int, int);
 
-void bag_swap(bag* b1, bag* b2);
+void bag_swap(bag*, bag*);
 
-void bag_merge(bag* b1, bag* b2);
+void bag_merge(bag*, bag*);
 
-void bag_free(bag* b);
+void bag_free(bag*);
 
 int main() {
   const int nbCells = 100;
@@ -48,13 +48,13 @@ int main() {
   const int N1 = 10;
   const int N2 = 11;
   const int N3 = 12;
-  bag* const bagCur = (bag* const)MALLOC1(nbCells, sizeof(bag));
+  bag* const bagCur = (bag*)malloc(MSIZE1(nbCells) * sizeof(bag));
   bag_iter bag_it;
-  bag* const bagNext = (bag* const)MALLOC1(nbCells, sizeof(bag));
+  bag* const bagNext = (bag*)malloc(MSIZE1(nbCells) * sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_init(&bagNext[MINDEX1(nbCells, idCell)], 0, idCell);
   }
-  bag* const bagNexts = (bag*)MALLOC1(nbCells, sizeof(bag));
+  bag* const bagNexts = (bag*)malloc(MSIZE1(nbCells) * sizeof(bag));
   for (int i1 = 0; i1 < nbCells; i1++) {
     bag_init(&bagNexts[MINDEX1(nbCells, i1)]);
   }
@@ -70,12 +70,12 @@ int main() {
   for (int i1 = 0; i1 < nbCells; i1++) {
     bag_free(&bagNexts[MINDEX1(nbCells, i1)]);
   }
-  MFREE1(nbCells, bagNexts);
+  free(bagNexts);
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_swap(&bagNext[MINDEX1(nbCells, idCell)],
              &bagCur[MINDEX1(nbCells, idCell)]);
   }
-  MFREE(bagCur);
-  MFREE(bagNext);
+  free(bagCur);
+  free(bagNext);
   return 0;
 }

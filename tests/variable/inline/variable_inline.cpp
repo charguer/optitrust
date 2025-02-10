@@ -1,25 +1,23 @@
+#include <optitrust.h>
 
 void test_ref() {
-    int a = 3;
-    int& b = a;  // unfold/inline b
-    int r = a + b;
+  int a = 3;
+  int& b = a;  // unfold/inline b
+  int r = a + b;
 }
 
 void test_nonconst() {
-    int a = 3; // basic.unfold/inline should succeed (but basic version should fail)
-    int r = a + a;
+  int a = 3; // basic.unfold/inline should succeed (but basic version should fail)
+  int r = a + a;
 }
 
 void test_nonconst_fail() {
-    int a = 3; // combi.unfold/inline should fail (because to_const fails)
-    a = 3;
-    int r = a + a;
+  int a = 3; // combi.unfold/inline should fail (because to_const fails)
+  a = 3;
+  int r = a + a;
 }
 
 // TODO: simplify parts of the test below
-
-
-#include <optitrust.h>
 
 const int CHUNK_SIZE = 10;
 typedef struct {
@@ -44,27 +42,25 @@ typedef struct {
 } bag;
 
 int main() {
+  bag *b = (bag*) malloc (100 * sizeof(bag));
+  chunk* c = b->front;
 
-  bag *b = (bag*) malloc (100 * sizeof (bag));
-  chunk* c = b-> front;
-
-  int nb = (c ->size);
+  int nb = (c->size);
   for (int i = 0; i < nb; i++){
-     particle* const p = &(c ->items[i]);
+    particle* const p = &(c->items[i]);
 
     vect f = {0,0,0};
     (p->pos) = f;
     (p->speed) = f;
 
-    (p -> pos).x = 0;
-    (p -> pos).y = 0;
-    (p -> pos).z = 0;
+    (p->pos).x = 0;
+    (p->pos).y = 0;
+    (p->pos).z = 0;
 
     ((*p).speed).x = 0;
     ((*p).speed).y = 0;
     ((*p).speed).z = 0;
   }
-
 
   // vect v = {0,0};
   // particle p = {{0,0},{0,0}};
@@ -73,8 +69,6 @@ int main() {
   // int x = p.pos.x;
 
   // particle p2 = p;
-
-
 
   return 0;
 }

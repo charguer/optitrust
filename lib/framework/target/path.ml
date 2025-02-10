@@ -44,178 +44,177 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
     match dl with
     | [] -> transfo t
     | d :: rest_dl ->
-       let aux t = aux_on_path_rec rest_dl t in
-       let aux_resource_item (h, formula) = (h, aux formula) in
-       let apply_on_resource_set resource_set_dir i res =
-         match resource_set_dir with
-         | Resource_set_pure -> { res with pure = List.update_nth i aux_resource_item res.pure }
-         | Resource_set_linear -> { res with linear = List.update_nth i aux_resource_item res.linear }
-         | Resource_set_fun_contracts -> path_fail dl "apply_on_resource_set: not handled Resource_set_fun_contract"
-       in
-       let newt = begin match d, t.desc with
-       | Dir_before _, _ ->
-          (* trm_fail t *)
-          path_fail dl "apply_on_path: Dir_before should not remain at this stage; probably the transformation was not expecting a target-between (tBefore, tAfter, ...)"
-       | Dir_span _, _ ->
-          (* trm_fail t *)
-          path_fail dl "apply_on_path: Dir_span should not remain at this stage; probably the transformation was not expecting a target-span (tSpan)"
-       | Dir_array_nth n, Trm_array (ty, tl) ->
-          { t with desc = Trm_array (ty, Mlist.update_nth n aux tl)}
-       | Dir_seq_nth n, Trm_seq (tl, result) ->
-          { t with desc = Trm_seq (Mlist.update_nth n aux tl, result) }
-       | Dir_struct_nth n, Trm_record (ty, tl) ->
-          let aux (lb, t1) = (lb, aux t1) in
-          { t with desc = Trm_record (ty, Mlist.update_nth n aux tl)}
-       | Dir_cond, Trm_if (cond, then_t, else_t) ->
-          { t with desc = Trm_if (aux cond, then_t, else_t)}
-       | Dir_cond, Trm_while (cond, body) ->
-          (* TODO: example of optimization
-             let cond2 = aux cond in
-             if cond2 == cond then t
-             else { t with desc = Trm_while (aux cond, body)}
-          *)
-          { t with desc = Trm_while (aux cond, body)}
-       | Dir_cond, Trm_do_while (body, cond) ->
-          { t with desc = Trm_do_while (body, aux cond)}
-       | Dir_cond, Trm_for_c (init, cond, step, body, contract) ->
-          { t with desc = Trm_for_c (init, aux cond, step, body, contract)}
-       | Dir_cond, Trm_switch (cond, cases) ->
-          { t with desc = Trm_switch (aux cond, cases)}
-       | Dir_then, Trm_if (cond, then_t, else_t) ->
-          { t with desc = Trm_if (cond, aux then_t, else_t)}
-       | Dir_else, Trm_if (cond, then_t, else_t) ->
-          { t with desc = Trm_if (cond, then_t, aux else_t) }
-       | Dir_var_body, Trm_let (tx,body) ->
-          let body =
-          begin match trm_ref_inv body with
-          | Some (ty, arg) -> trm_ref ty (aux arg)
-          | None -> aux body
-          end in
-          { t with desc = Trm_let (tx, body)}
-       | Dir_let_body, Trm_let (tx, body) ->
-          trm_replace (Trm_let (tx, aux body)) t
-       | Dir_body, Trm_for (l_range, body, contract) ->
-          { t with desc = Trm_for (l_range, aux body, contract) }
-       | Dir_body, Trm_for_c (init, cond, step, body, contract) ->
-          { t with desc = Trm_for_c (init, cond, step, aux body, contract) }
-       | Dir_body, Trm_while (cond, body) ->
-          { t with desc = Trm_while (cond, aux body)}
-       | Dir_body, Trm_do_while (body, cond) ->
-          trm_replace (Trm_do_while (aux body, cond)) t
-       | Dir_body, Trm_abort (Ret (Some body)) ->
-          { t with desc = Trm_abort (Ret (Some (aux body)))}
-       | Dir_body, Trm_fun (params, tyret, body, contract) ->
-          trm_replace (Trm_fun (params, tyret, aux body, contract)) t
-       | Dir_for_start, Trm_for (range, body, contract) ->
-          { t with desc = Trm_for ({ range with start = aux range.start }, body, contract)}
-       | Dir_for_stop, Trm_for (range, body, contract) ->
-          { t with desc = Trm_for ({ range with stop = aux range.stop }, body, contract)}
-       | Dir_for_step, Trm_for (range, body, contract) ->
-          { t with desc = Trm_for ({ range with step = aux range.step }, body, contract)}
-       | Dir_for_c_init, Trm_for_c (init, cond, step, body, contract) ->
-          { t with desc = Trm_for_c (aux init, cond, step, body, contract)}
-       | Dir_for_c_step, Trm_for_c (init, cond, step, body, contract) ->
-          { t with desc = Trm_for_c (init, cond, aux step, body, contract)}
-       | Dir_app_fun, Trm_apps (f, tl, gargs) ->
-          (*
-            warning: the type of f may change
-            -> print and reparse to have the right type
-           *)
-          { t with desc = Trm_apps (aux f, tl, gargs)}
-       | Dir_arg_nth n, Trm_apps (f, tl, gargs) ->
-          { t with desc = Trm_apps (f, List.update_nth n aux tl, gargs)}
-       | Dir_ghost_arg_nth n, Trm_apps (f, tl, gargs) ->
-          { t with desc = Trm_apps (f, tl, List.update_nth n aux_resource_item gargs)}
-       | Dir_arg_nth n, Trm_fun (txl, tx, body, contract) ->
-          let txl' =
-            List.update_nth n
-              (fun (x1, tx) ->
-                let t' = aux (trm_var ?loc:t.loc x1) in
-                match t'.desc with
-                | Trm_var x' -> (x', tx)
-                | _ ->
-                  (* trm_fail t *)
-                   path_fail dl ("Path.apply_on_path: transformation must preserve fun arguments")
-              )
-              txl
+      let aux t = aux_on_path_rec rest_dl t in
+      let aux_resource_item (h, formula) = (h, aux formula) in
+      let apply_on_resource_set resource_set_dir i res =
+        match resource_set_dir with
+        | Resource_set_pure -> { res with pure = List.update_nth i aux_resource_item res.pure }
+        | Resource_set_linear -> { res with linear = List.update_nth i aux_resource_item res.linear }
+        | Resource_set_fun_contracts -> path_fail dl "apply_on_resource_set: not handled Resource_set_fun_contract"
+      in
+      let newt = begin match d, t.desc with
+      | Dir_before _, _ ->
+        (* trm_fail t *)
+        path_fail dl "apply_on_path: Dir_before should not remain at this stage; probably the transformation was not expecting a target-between (tBefore, tAfter, ...)"
+      | Dir_span _, _ ->
+        (* trm_fail t *)
+        path_fail dl "apply_on_path: Dir_span should not remain at this stage; probably the transformation was not expecting a target-span (tSpan)"
+      | Dir_seq_nth n, Trm_seq (tl, result) ->
+        { t with desc = Trm_seq (Mlist.update_nth n aux tl, result) }
+      | Dir_cond, Trm_if (cond, then_t, else_t) ->
+        { t with desc = Trm_if (aux cond, then_t, else_t)}
+      | Dir_cond, Trm_while (cond, body) ->
+        (* TODO: example of optimization
+          let cond2 = aux cond in
+          if cond2 == cond then t
+          else { t with desc = Trm_while (aux cond, body)}
+        *)
+        { t with desc = Trm_while (aux cond, body)}
+      | Dir_cond, Trm_do_while (body, cond) ->
+        { t with desc = Trm_do_while (body, aux cond)}
+      | Dir_cond, Trm_for_c (init, cond, step, body, contract) ->
+        { t with desc = Trm_for_c (init, aux cond, step, body, contract)}
+      | Dir_cond, Trm_switch (cond, cases) ->
+        { t with desc = Trm_switch (aux cond, cases)}
+      | Dir_then, Trm_if (cond, then_t, else_t) ->
+        { t with desc = Trm_if (cond, aux then_t, else_t)}
+      | Dir_else, Trm_if (cond, then_t, else_t) ->
+        { t with desc = Trm_if (cond, then_t, aux else_t) }
+      | Dir_var_body, Trm_let (tx,body) ->
+        let body =
+        begin match trm_ref_inv body with
+        | Some (ty, arg) -> trm_ref ty (aux arg)
+        | None -> aux body
+        end in
+        { t with desc = Trm_let (tx, body)}
+      | Dir_let_body, Trm_let (tx, body) ->
+        trm_replace (Trm_let (tx, aux body)) t
+      | Dir_body, Trm_for (l_range, body, contract) ->
+        { t with desc = Trm_for (l_range, aux body, contract) }
+      | Dir_body, Trm_for_c (init, cond, step, body, contract) ->
+        { t with desc = Trm_for_c (init, cond, step, aux body, contract) }
+      | Dir_body, Trm_while (cond, body) ->
+        { t with desc = Trm_while (cond, aux body)}
+      | Dir_body, Trm_do_while (body, cond) ->
+        trm_replace (Trm_do_while (aux body, cond)) t
+      | Dir_body, Trm_abort (Ret (Some body)) ->
+        { t with desc = Trm_abort (Ret (Some (aux body)))}
+      | Dir_body, Trm_fun (params, tyret, body, contract) ->
+        trm_replace (Trm_fun (params, tyret, aux body, contract)) t
+      | Dir_for_start, Trm_for (range, body, contract) ->
+        { t with desc = Trm_for ({ range with start = aux range.start }, body, contract)}
+      | Dir_for_stop, Trm_for (range, body, contract) ->
+        { t with desc = Trm_for ({ range with stop = aux range.stop }, body, contract)}
+      | Dir_for_step, Trm_for (range, body, contract) ->
+        { t with desc = Trm_for ({ range with step = aux range.step }, body, contract)}
+      | Dir_for_c_init, Trm_for_c (init, cond, step, body, contract) ->
+        { t with desc = Trm_for_c (aux init, cond, step, body, contract)}
+      | Dir_for_c_step, Trm_for_c (init, cond, step, body, contract) ->
+        { t with desc = Trm_for_c (init, cond, aux step, body, contract)}
+      | Dir_app_fun, Trm_apps (f, tl, gargs) ->
+        (*
+          warning: the type of f may change
+          -> print and reparse to have the right type
+        *)
+        { t with desc = Trm_apps (aux f, tl, gargs)}
+      | Dir_arg_nth n, Trm_apps (f, tl, gargs) ->
+        { t with desc = Trm_apps (f, List.update_nth n aux tl, gargs)}
+      | Dir_ghost_arg_nth n, Trm_apps (f, tl, gargs) ->
+        { t with desc = Trm_apps (f, tl, List.update_nth n aux_resource_item gargs)}
+      | Dir_arg_nth n, Trm_fun (txl, tx, body, contract) ->
+        let txl' =
+          List.update_nth n
+            (fun (x1, tx) ->
+              let t' = aux (trm_var ?loc:t.loc x1) in
+              match t'.desc with
+              | Trm_var x' -> (x', tx)
+              | _ ->
+                (* trm_fail t *)
+                path_fail dl ("Path.apply_on_path: transformation must preserve fun arguments")
+            )
+            txl
+        in
+        trm_replace (Trm_fun (txl', tx, body, contract)) t
+      | Dir_name, Trm_let ((x,tx),body) ->
+        let t' = aux (trm_var ?loc:t.loc x) in
+        begin match t'.desc with
+        | Trm_var x' -> { t with desc = Trm_let ((x', tx), body)}
+        | _ -> (* trm_fail t *)
+          path_fail dl "Path.apply_on_path: transformation must preserve variable names"
+        end
+      | Dir_type, Trm_let ((x, tx), body) ->
+        trm_replace (Trm_let ((x, aux tx), body)) t
+      | Dir_type, Trm_prim (ty, prim) ->
+        trm_replace (Trm_prim (aux ty, prim)) t
+      | Dir_case (n, cd), Trm_switch (cond, cases) ->
+        let updated_cases =
+          (List.update_nth n
+            (fun (tl, body) ->
+              match cd with
+              | Case_body -> (tl, aux body)
+              | Case_name i ->
+                (List.update_nth i (fun ith_t -> aux ith_t) tl , body)
+            )
+            cases
+          ) in
+          trm_replace (Trm_switch (cond, updated_cases)) t
+      | Dir_record_member n, Trm_typedef td ->
+        begin match td.typedef_body with
+        | Typedef_record rfl ->
+          let updated_rfl =
+            (List.update_nth n (fun (rf, rf_ann) ->
+              match rf with
+              | Record_method t1 -> (Record_method (aux t1), rf_ann )
+              | _ -> path_fail dl "Path.apply_on_path: expected a method."
+            ) rfl )
           in
-          trm_replace (Trm_fun (txl', tx, body, contract)) t
-        | Dir_name , Trm_let ((x,tx),body) ->
-          let t' = aux (trm_var ?loc:t.loc x) in
-          begin match t'.desc with
-          | Trm_var x' -> { t with desc = Trm_let ((x', tx), body)}
-          | _ -> (* trm_fail t *)
-            path_fail dl "Path.apply_on_path: transformation must preserve variable names"
-          end
-       | Dir_case (n, cd), Trm_switch (cond, cases) ->
-          let updated_cases =
-            (List.update_nth n
-               (fun (tl, body) ->
-                 match cd with
-                 | Case_body -> (tl, aux body)
-                 | Case_name i ->
-                    (List.update_nth i (fun ith_t -> aux ith_t) tl , body)
-               )
-               cases
-            ) in trm_replace (Trm_switch (cond, updated_cases)) t
-        | Dir_record_member n, Trm_typedef td ->
-          begin match td.typedef_body with
-          | Typedef_record rfl ->
-            let updated_rfl =
-              (List.update_nth n (fun (rf, rf_ann) ->
-                match rf with
-                | Record_method t1 -> (Record_method (aux t1), rf_ann )
-                | _ -> path_fail dl "Path.apply_on_path: expected a method."
-              ) rfl )
-              in
-            trm_replace (Trm_typedef {td with typedef_body = Typedef_record updated_rfl}) t
-          | _ -> path_fail dl "Path.apply_on_path: transformation applied on the wrong typedef."
-          end
-        | Dir_namespace, Trm_namespace (name, body, inline) ->
-          { t with desc = Trm_namespace (name, aux body, inline) }
+          trm_replace (Trm_typedef {td with typedef_body = Typedef_record updated_rfl}) t
+        | _ -> path_fail dl "Path.apply_on_path: transformation applied on the wrong typedef."
+        end
+      | Dir_namespace, Trm_namespace (name, body, inline) ->
+        { t with desc = Trm_namespace (name, aux body, inline) }
 
-        | Dir_contract (Contract_pre, resource_set_dir, i), Trm_fun (params, tyret, body, FunSpecContract contract) ->
-          let pre = apply_on_resource_set resource_set_dir i contract.pre in
-          trm_replace (Trm_fun (params, tyret, body, FunSpecContract { contract with pre })) t
-        | Dir_contract (Contract_post, resource_set_dir, i), Trm_fun (params, tyret, body, FunSpecContract contract) ->
-          let post = apply_on_resource_set resource_set_dir i contract.post in
-          trm_replace (Trm_fun (params, tyret, body, FunSpecContract { contract with post })) t
+      | Dir_contract (Contract_pre, resource_set_dir, i), Trm_fun (params, tyret, body, FunSpecContract contract) ->
+        let pre = apply_on_resource_set resource_set_dir i contract.pre in
+        trm_replace (Trm_fun (params, tyret, body, FunSpecContract { contract with pre })) t
+      | Dir_contract (Contract_post, resource_set_dir, i), Trm_fun (params, tyret, body, FunSpecContract contract) ->
+        let post = apply_on_resource_set resource_set_dir i contract.post in
+        trm_replace (Trm_fun (params, tyret, body, FunSpecContract { contract with post })) t
 
-        | Dir_contract (Contract_pre, resource_set_dir, i), Trm_for (range, body, contract) ->
-          let pre = apply_on_resource_set resource_set_dir i contract.iter_contract.pre in
-          trm_replace (Trm_for (range, body, { contract with iter_contract = { contract.iter_contract with pre } })) t
-        | Dir_contract (Contract_post, resource_set_dir, i), Trm_for (range, body, contract) ->
-          let post = apply_on_resource_set resource_set_dir i contract.iter_contract.post in
-          trm_replace (Trm_for (range, body, { contract with iter_contract = { contract.iter_contract with post } })) t
-        | Dir_contract (Contract_loop_ghosts, Resource_set_pure, i), Trm_for (range, body, contract) ->
-          let loop_ghosts = List.update_nth i aux_resource_item contract.loop_ghosts in
-          trm_replace (Trm_for (range, body, { contract with loop_ghosts })) t
-        | Dir_contract (Contract_parallel_reads, Resource_set_linear, i), Trm_for (range, body, contract) ->
-          let parallel_reads = List.update_nth i aux_resource_item contract.parallel_reads in
-          trm_replace (Trm_for (range, body, { contract with parallel_reads })) t
-        | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for (range, body, contract) ->
-          let invariant = apply_on_resource_set resource_set_dir i contract.invariant in
-          trm_replace (Trm_for (range, body, { contract with invariant })) t
+      | Dir_contract (Contract_pre, resource_set_dir, i), Trm_for (range, body, contract) ->
+        let pre = apply_on_resource_set resource_set_dir i contract.iter_contract.pre in
+        trm_replace (Trm_for (range, body, { contract with iter_contract = { contract.iter_contract with pre } })) t
+      | Dir_contract (Contract_post, resource_set_dir, i), Trm_for (range, body, contract) ->
+        let post = apply_on_resource_set resource_set_dir i contract.iter_contract.post in
+        trm_replace (Trm_for (range, body, { contract with iter_contract = { contract.iter_contract with post } })) t
+      | Dir_contract (Contract_loop_ghosts, Resource_set_pure, i), Trm_for (range, body, contract) ->
+        let loop_ghosts = List.update_nth i aux_resource_item contract.loop_ghosts in
+        trm_replace (Trm_for (range, body, { contract with loop_ghosts })) t
+      | Dir_contract (Contract_parallel_reads, Resource_set_linear, i), Trm_for (range, body, contract) ->
+        let parallel_reads = List.update_nth i aux_resource_item contract.parallel_reads in
+        trm_replace (Trm_for (range, body, { contract with parallel_reads })) t
+      | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for (range, body, contract) ->
+        let invariant = apply_on_resource_set resource_set_dir i contract.invariant in
+        trm_replace (Trm_for (range, body, { contract with invariant })) t
 
-        | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for_c (start, cond, incr, body, Some invariant) ->
-          let invariant = apply_on_resource_set resource_set_dir i invariant in
-          trm_replace (Trm_for_c (start, cond, incr, body, Some invariant)) t
+      | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for_c (start, cond, incr, body, Some invariant) ->
+        let invariant = apply_on_resource_set resource_set_dir i invariant in
+        trm_replace (Trm_for_c (start, cond, incr, body, Some invariant)) t
 
-        | _, _ ->
-           let s = dir_to_string d in
-           path_fail dl (Printf.sprintf "Path.apply_on_path: direction %s does not match with trm %s" s (Ast_to_c.ast_to_string t))
+      | _, _ ->
+          let s = dir_to_string d in
+          path_fail dl (Printf.sprintf "Path.apply_on_path: direction %s does not match with trm %s" s (Ast_to_c.ast_to_string t))
 
-       end in
-       newt
-       (*{ newt with ctx = unknown_ctx () }*)
-       (* TODO: restore node invalidation with option to decide if it need to be done or not *)
-       (* NOTE: we don't reset the types, we need to keep them, for is_statement *)
-        (* TODO: go through trm_build in order to keep track of the fact that this is a fresh AST node
-          in the sense Node_to_reparse
-          TODO: also search for desc = in the whole codebase
-          -- TODO: make sure to use the optimization
-          if t==newt then t else ... *)
-
+      end in
+      newt
+      (*{ newt with ctx = unknown_ctx () }*)
+      (* TODO: restore node invalidation with option to decide if it need to be done or not *)
+      (* NOTE: we don't reset the types, we need to keep them, for is_statement *)
+      (* TODO: go through trm_build in order to keep track of the fact that this is a fresh AST node
+        in the sense Node_to_reparse
+        TODO: also search for desc = in the whole codebase
+        -- TODO: make sure to use the optimization
+        if t==newt then t else ... *)
 
   in
   handle_path_error dl (fun () -> aux_on_path_rec dl t)
@@ -260,10 +259,6 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           ((decl_before n tl)@ctx)
         *)
         app_to_nth dl tl n (fun nth_t -> aux nth_t)
-      | Dir_array_nth n, Trm_array (_, tl) ->
-        app_to_nth dl (Mlist.to_list tl) n (fun nth_t -> aux nth_t)
-      | Dir_struct_nth n, Trm_record (_, tl) ->
-        app_to_nth dl (List.split_pairs_snd (Mlist.to_list tl)) n (fun nth_t -> aux nth_t)
       | Dir_cond, Trm_if (cond, _, _)
         | Dir_cond, Trm_while (cond, _)
         | Dir_cond, Trm_do_while (_, cond)
@@ -340,6 +335,10 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         aux (trm_var ?loc (name_to_var x))
       | Dir_name, Trm_typedef td ->
         aux (trm_var ?loc td.typedef_name)
+      | Dir_type, Trm_let ((_, typ), _) ->
+        aux typ
+      | Dir_type, Trm_prim (typ, _) ->
+        aux typ
       | Dir_case (n, cd), Trm_switch (_, cases) ->
         app_to_nth dl cases n
           (fun (tl, body) ->

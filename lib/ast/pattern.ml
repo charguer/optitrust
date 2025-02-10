@@ -88,6 +88,11 @@ let trm_apps1 fn arg1 = trm_apps fn (arg1 ^:: nil) __
 let trm_apps2 fn arg1 arg2 = trm_apps fn (arg1 ^:: arg2 ^:: nil) __
 let trm_apps3 fn arg1 arg2 arg3 = trm_apps fn (arg1 ^:: arg2 ^:: arg3 ^:: nil) __
 
+let trm_lit (f: 'a -> lit -> 'b) (k: 'a) (t: trm): 'b =
+  match trm_lit_inv t with
+  | Some l -> f k l
+  | None -> raise Next
+
 let trm_int (f: 'a -> int -> 'b) (k: 'a) (t: trm): 'b =
   match trm_int_inv t with
   | Some x -> f k x
@@ -101,6 +106,11 @@ let trm_float (f: 'a -> float -> 'b) (k: 'a) (t: trm): 'b =
 let trm_bool f k t =
   match trm_lit_inv t with
   | Some (Lit_bool b) -> f k b
+  | _ -> raise Next
+
+let trm_null fty k t =
+  match trm_lit_inv t with
+  | Some (Lit_null ty) -> fty k ty
   | _ -> raise Next
 
 let trm_fun args rettyp body spec k t =
@@ -159,9 +169,12 @@ let trm_string f k t =
   | Some (Lit_string str) -> f k str
   | _ -> raise Next
 
-let trm_record f k t =
+let trm_record fty ffs k t =
   match trm_record_inv t with
-  | Some fs -> f k fs
+  | Some (ty, fs) ->
+    let k = fty k ty in
+    let k = ffs k fs in
+    k
   | _ -> raise Next
 
 let trm_typedef f k t =
@@ -206,6 +219,16 @@ let trm_gt ft1 ft2 = trm_binop Binop_gt ft1 ft2
 let trm_ge ft1 ft2 = trm_binop Binop_ge ft1 ft2
 let trm_eq ft1 ft2 = trm_binop Binop_eq ft1 ft2
 let trm_neq ft1 ft2 = trm_binop Binop_neq ft1 ft2
+
+let trm_neg ft = trm_unop Unop_neg ft
+
+let trm_cast ftypto ft k t =
+  match trm_cast_inv t with
+  | Some (typto, t) ->
+    let k = ftypto k typto in
+    let k = ft k t in
+    k
+  | None -> raise Next
 
 let trm_struct_get ft ffield k t =
   match trm_struct_get_inv t with
@@ -268,6 +291,29 @@ let trm_ref fty ft k t =
     k
   | None -> raise Next
 
+let trm_ref_uninit fty k t =
+  match trm_ref_uninit_inv t with
+  | Some ty -> fty k ty
+  | None -> raise Next
+
+let trm_new fty ft k t =
+  match trm_new_inv t with
+  | Some (ty, t) ->
+    let k = fty k ty in
+    let k = ft k t in
+    k
+  | None -> raise Next
+
+let trm_new_uninit fty k t =
+  match trm_new_uninit_inv t with
+  | Some ty -> fty k ty
+  | None -> raise Next
+
+let trm_delete ft k t =
+  match trm_delete_inv t with
+  | Some t -> ft k t
+  | None -> raise Next
+
 let trm_ignore f k t =
   match trm_ignore_inv t with
   | Some t' -> f k t'
@@ -284,6 +330,11 @@ let trm_if fcond fthen felse k t =
 
 let trm_and ft1 ft2 = trm_if ft1 ft2 (trm_bool (eq false))
 let trm_or ft1 ft2 = trm_if ft1 (trm_bool (eq true)) ft2
+
+let trm_sizeof fty k t =
+  match trm_sizeof_inv t with
+  | Some ty -> fty k ty
+  | None -> raise Next
 
 let typ_var = trm_var
 let typ_apps ft fargs k ty =
@@ -338,6 +389,14 @@ let typ_array fty fsz k ty =
 
 let typ_fun fargs fres k ty =
   match typ_fun_inv ty with
+  | Some (args, res) ->
+    let k = fargs k args in
+    let k = fres k res in
+    k
+  | None -> raise Next
+
+let typ_pure_fun fargs fres k ty =
+  match typ_pure_fun_inv ty with
   | Some (args, res) ->
     let k = fargs k args in
     let k = fres k res in

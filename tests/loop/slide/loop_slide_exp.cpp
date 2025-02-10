@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 int main() {
-  float* s = (float*)MALLOC1(32, sizeof(float));
+  float* s = (float*)malloc(MSIZE1(32) * sizeof(float));
   for (int bi = 0; bi < 32 + (1 - 2); bi += 1) {
     for (int i = bi; i < bi + 2; i++) {
       s[MINDEX1(32, i)] = 0.f;

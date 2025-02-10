@@ -209,7 +209,7 @@ let hoist_on (name : string)
   let new_dims = ref [] in
   let update_decl (decl : trm) : trm =
     let error = "Loop_basic.hoist_on: expected variable declaration with MALLOCN initialization" in
-    let (x, dims, etyp, elem_size) = trm_inv ~error Matrix_core.let_alloc_inv_with_ty decl in
+    let (x, etyp, dims) = trm_inv ~error Matrix_core.let_alloc_uninit_inv decl in
     old_var := x;
     new_var := Ast.new_var (Tools.string_subst "${var}" x.name name);
     elem_ty := etyp;
@@ -258,10 +258,10 @@ let hoist_on (name : string)
   let new_body = trm_seq ~annot:body.annot new_body_instrs in
   trm_seq_nobrace_nomarks [
     trm_add_mark mark_alloc
-      (Matrix_core.let_alloc_with_ty !new_var !new_dims !elem_ty);
+      (Matrix_core.let_alloc !new_var !elem_ty !new_dims);
     trm_for ~contract:new_contract ~annot:t.annot range new_body;
     trm_add_mark mark_free
-      (Matrix_trm.free !new_dims (trm_var ~typ:(typ_ptr !elem_ty) !new_var));
+      (Matrix_trm.free (trm_var ~typ:(typ_ptr !elem_ty) !new_var));
   ]
 
 (* TODO: document *)
@@ -727,7 +727,7 @@ let%transfo move_out ?(instr_mark : mark = no_mark) ?(loop_mark : mark = no_mark
       apply_at_path (move_out_on instr_mark loop_mark empty_range i) p
   ) tg)
 
-let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm) : trm =
+let move_out_alloc_on (trm_index : int) (t : trm) : trm =
   if (trm_index <> 0) then failwith "not targeting the first instruction in a loop";
   let error = "expected for loop" in
   let (range, body, contract) = trm_inv ~error trm_for_inv t in
@@ -737,6 +737,12 @@ let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm
   let alloc_instr = Mlist.nth instrs 0 in
   let free_instr = Mlist.nth instrs (instr_count - 1) in
   let (_, rest) = Mlist.extract 1 (instr_count - 2) instrs in
+
+  let error = "expected array allocation instr" in
+  let (array_var, _, alloc_init) = trm_inv ~error trm_let_inv alloc_instr in
+  let (_, dims) = trm_inv ~error Matrix_trm.alloc_uninit_inv alloc_init in
+  let error = "expected free instr" in
+  let _ = trm_inv ~error Matrix_trm.free_inv free_instr in
 
   if !Flags.check_validity then begin
     (* NOTE: would be checked by var ids anyway *)
@@ -748,63 +754,29 @@ let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm
       --> We know that `free x; alloc x = ()`
       *)
 
-    let error = "expected MALLOCN instr" in
-    let (_, _, alloc_init) = trm_inv ~error trm_let_inv alloc_instr in
-    let _ = trm_inv ~error Matrix_core.alloc_inv_with_ty alloc_init in
-    let error = "expected MFREEN instr" in
-    let _ = trm_inv ~error Matrix_trm.free_inv free_instr in
-
-    (* FIXME: Code duplicated from move_out_on *)
-    begin match empty_range with
-    | Generate_if -> ()
-    | Arithmetically_impossible -> failwith "Arithmetically_impossible is not implemented yet"
-    | Produced_resources_uninit_after ->
-      if not contract.strict then failwith "Need the for loop contract to be strict";
-      let assert_instr_uses_no_invariant instr =
-        let instr_usage = Resources.usage_of_trm instr in
-        let invariant_usage = List.filter (Resource_set.(linear_usage_filter instr_usage keep_touched_linear)) contract.invariant.linear in
-        if invariant_usage <> [] then
-          trm_fail instr "does not support moving out instructions that touch invariant resources"
-      in
-      assert_instr_uses_no_invariant alloc_instr;
-      assert_instr_uses_no_invariant free_instr
-    end;
-
     Trace.justif "instructions from following iterations are redundant with first iteration"
   end;
 
-  let generate_if = (empty_range = Generate_if) in
-  let contract =
-    if generate_if || not contract.strict then
-      contract
-    else
-      (* FIXME: this still requires resources to update contract even when not checking validity! *)
-      let resources_after = Option.unsome ~error:"requires computed resources" alloc_instr.ctx.ctx_resources_after in
-      let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear (Resource_contract.parallel_reads_inside_loop range contract.parallel_reads @ contract.iter_contract.pre.linear) in
-      { contract with invariant = { contract.invariant with linear = new_invariant } }
-  in
-
+  let open Resource_formula in
+  let contract = { contract with invariant = { contract.invariant with linear = (new_anon_hyp (), formula_uninit (formula_matrix (trm_var array_var) dims)) :: contract.invariant.linear }} in
   let loop = trm_for ~annot:t.annot ~contract range (trm_seq rest) in
-  let wrap_instr instr =
-    let non_empty_cond = trm_ineq range.direction range.start range.stop in
-    if generate_if then trm_if non_empty_cond instr (trm_unit ()) else instr
-  in
+
   trm_seq_nobrace_nomarks [
-    wrap_instr alloc_instr;
+    alloc_instr;
     loop;
-    wrap_instr free_instr]
+    free_instr]
 
 (** [move_out_alloc ~empty_range tg]: same as [move_out], but supports moving out an allocation
     instruction together with its corresponding deallocation (that must be at the end of the loop).
 
     TODO: generalize [move_out] and [move_out_alloc] to moving out the any first/last group of instrs (I1 and I2) at once, if (I2; I1) is a no-op.
   *)
-let%transfo move_out_alloc ?(empty_range: empty_range_mode = Produced_resources_uninit_after) (tg : target) : unit =
+let%transfo move_out_alloc (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun p ->
       Resources.required_for_check ();
       let i, p = Path.index_in_surrounding_loop p in
-      apply_at_path (move_out_alloc_on empty_range i) p
+      apply_at_path (move_out_alloc_on i) p
   ) tg)
 
 (** [unswitch tg]:  expects the target [tg] to point at an if statement with a constant condition
@@ -993,7 +965,7 @@ let scale_range_on (factor : trm) =
     (range', index_expr, ())
   in
   let open Resource_formula in
-  let to_prove = [Resource_trm.to_prove (formula_neq factor (trm_int 0))] in
+  let to_prove = [Resource_trm.to_prove (formula_neq factor (trm_int ~typ:typ_int 0))] in
   let scale_ghosts ghost ghost_ro ghost_uninit r r' () =
     List.map (fun (_, formula) ->
       (* TODO: factorize generic ghost mode code for all transfos *)

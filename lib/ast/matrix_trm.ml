@@ -1,5 +1,6 @@
 open Ast
 open Trm
+open Typ
 
 let max_nb_dims = 4
 
@@ -48,6 +49,38 @@ let mindex_inv (t : trm) : (trms * trms) option =
     else None
   | _ -> None
 
+let msize_var = toplevel_var_with_dim "MSIZE%d"
+let msize_var_inv = toplevel_var_with_dim_inv msize_var
+
+(** [msize dims]: Build a call to MSIZE(dims) *)
+let msize (dims: trms): trm =
+  let n = List.length dims in
+  trm_apps (trm_var (msize_var n)) dims
+
+let msize_inv (t: trm): trms option =
+  match trm_apps_inv t with
+  | Some (f, dims) ->
+    let n = List.length dims in
+    if n <= max_nb_dims then
+      begin match trm_var_inv f with
+      | Some f when var_eq f (msize_var n) -> Some dims
+      | _ -> None
+      end
+    else None
+  | _ -> None
+
+let typ_matrix (basetyp: typ) (dims: trms) =
+  Typ.typ_array basetyp ~size:(msize dims)
+
+let typ_matrix_inv (ty: typ): (typ * trms) option =
+  match Typ.typ_array_inv ty with
+  | Some (base, Some size) ->
+    begin match msize_inv size with
+    | Some dims -> Some (base, dims)
+    | None -> None
+    end
+  | _ -> None
+
 (** [access t dims indices]: builds the a matrix access with the index defined by macro [MINDEX], see [mindex] function.
     Ex: x[MINDEX(N1,N2,N3, i1, i2, i3)]. *)
 let access ?(annot : trm_annot = trm_annot_default) ?(elem_typ: typ option) (t : trm) (dims : trms) (indices : trms) : trm =
@@ -82,7 +115,7 @@ let set (base : trm) (dims : trms) (indices : trms) (arg : trm) : trm =
   trm_set write_trm arg
 
 (** [set_inv t]: returns the arguments used in the function [set]. *)
-let set_inv (t : trm) : (trm * trms * trms * trm)  option =
+let set_inv (t : trm) : (trm * trms * trms * trm) option =
   match t.desc with
   | Trm_apps (_f, [addr;v], _) when is_set_operation t ->
     begin match access_inv addr with
@@ -91,53 +124,50 @@ let set_inv (t : trm) : (trm * trms * trms * trm)  option =
     end
   | _ -> None
 
-let malloc_var = toplevel_var_with_dim "MALLOC%d"
-let calloc_var = toplevel_var_with_dim "CALLOC%d"
+(** [alloc_uninit basetyp dims]: create a term that allocates an uninitialized matrix *)
+let alloc_uninit ?(annot = trm_annot_default) (basetyp: typ) (dims : trms) : trm =
+  trm_new_uninit ~annot (typ_matrix basetyp dims)
 
-(* |alloc ~init dims size]: creates a call to function the MALLOC$(N) and CALLOC$(N) where [N] is the
-     number of dimensions and [size] is the size in bytes occupied by a single matrix element in
-     the memeory. *)
-let alloc ?(init : trm option) (dims : trms) (size : trm) : trm =
-  let n = List.length dims in
-  match init with
-  | Some _ -> trm_apps (trm_var (calloc_var n)) (dims @ [size])
-  | None -> trm_apps (trm_var (malloc_var n)) (dims @ [size])
+(** [alloc_zero basetyp dims]: create a term that allocates a zero-initialized matrix *)
+let alloc_zero ?(annot = trm_annot_default) (basetyp: typ) (dims : trms) : trm =
+  let ty = typ_matrix basetyp dims in
+  trm_new ~annot ty (trm_null ty)
 
-(** [zero_initialized]: a boolean type used as flag to tell if the array cells should be initialized to zero or not. *)
-type zero_initialized = bool
+(** [alloc basetyp dims]: create a term that allocates a matrix *)
+let alloc ?(annot = trm_annot_default) ?(zero_init = false) (basetyp: typ) (dims : trms) : trm =
+  if zero_init then alloc_zero ~annot basetyp dims else alloc_uninit ~annot basetyp dims
 
-(** [alloc_inv t]:  returns all the args used in function alloc [t]. *)
-let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
-  match t.desc with
-  | Trm_apps (f, args,_) ->
-    begin match f.desc with
-    | Trm_var f_var ->
-      let ret zero_init =
-        let dims, size = List.unlast args in
-        Some (dims, size, zero_init)
-      in
-      if (Tools.pattern_matches "CALLOC" f_var.name) then ret true
-        else if (Tools.pattern_matches "MALLOC" f_var.name) then ret false
-        else None
+(** [alloc_uninit_inv t]:  returns all the args used in function [alloc_uninit]. *)
+let alloc_uninit_inv (t : trm) : (typ * trms) option =
+  match trm_new_uninit_inv t with
+  | Some ty ->
+    begin match typ_matrix_inv ty with
+    | Some (basetyp, dims) -> Some (basetyp, dims)
     | _ -> None
     end
   | _ -> None
 
-let mfree_var = toplevel_var_with_dim "MFREE%d"
+(** [alloc_zero_inv t]:  returns all the args used in function [alloc_zero]. *)
+let alloc_zero_inv (t : trm) : (typ * trms) option =
+  match trm_new_inv t with
+  | Some (ty, init) when is_trm_null init ->
+    begin match typ_matrix_inv ty with
+    | Some (basetyp, dims) -> Some (basetyp, dims)
+    | _ -> None
+    end
+  | _ -> None
 
-let free (dims : trms) (t : trm) : trm =
-  let n = List.length dims in
-  trm_apps (trm_var (mfree_var n)) (dims @ [t])
+(** [alloc_inv t]:  returns all the args used in function [alloc]. *)
+let alloc_inv (t : trm) : (typ * trms * bool) option =
+  match alloc_uninit_inv t with
+  | Some (ty, dims) -> Some (ty, dims, false)
+  | None ->
+    match alloc_zero_inv t with
+    | Some (ty, dims) -> Some (ty, dims, true)
+    | None -> None
 
-let free_inv (t : trm) : trm option =
-  Option.bind (trm_apps_inv t) (fun (f, args) ->
-  Option.bind (trm_var_inv f) (fun f_var ->
-    if Tools.pattern_matches "MFREE" f_var.name
-    then begin
-      let _dims, t = List.unlast args in
-      Some t
-    end else None
-  ))
+let free (t : trm) : trm = trm_delete t
+let free_inv (t : trm) : trm option = trm_delete_inv t
 
 let mindex_contiguous_vars = Tools.String_map.of_seq ([""; "_uninit"; "_ro"] |> List.to_seq |> Seq.map (fun suffix ->
   suffix, Array.init 5 (fun n -> toplevel_var (sprintf "mindex%d_contiguous%s" n suffix))

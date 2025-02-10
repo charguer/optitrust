@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 int main() {
-  float* s = (float*)MALLOC1(32, sizeof(float));
+  float* s = MALLOC1(float, 32);
 
   for (int i = 0; i < 32; i++) {
     s[MINDEX1(32, i)] = 0.0f;

@@ -81,7 +81,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
   let new_contract_used_vars = fun_contract_used_vars new_contract in
 
   let filter_pure_pre (x, formula) =
-    Var_set.mem x new_contract_used_vars || (not (are_same_trm formula trm_frac) && Var_map.mem x usage)
+    Var_set.mem x new_contract_used_vars || (not (are_same_trm formula typ_frac) && Var_map.mem x usage)
   in
 
   { new_contract with
@@ -300,7 +300,7 @@ let minimize_loop_contract contract post_inst usage =
   let new_contract_used_vars = loop_contract_used_vars new_contract in
 
   let filter_pure_pre (x, formula) =
-    Var_set.mem x new_contract_used_vars || (not (are_same_trm formula trm_frac) && Var_map.mem x usage)
+    Var_set.mem x new_contract_used_vars || (not (are_same_trm formula typ_frac) && Var_map.mem x usage)
   in
 
   { new_contract with
@@ -323,6 +323,18 @@ let%transfo loop_minimize (*?(indepth : bool = false)*) (tg: target) : unit =
   Target.apply_at_target_paths loop_minimize_on tg;
   justif_correct "only changed loop contracts"
 
+let%transfo fix_types_in_contracts (_u: unit): unit =
+  Trace.recompute_resources ~missing_types:true ();
+  let rec add_missing_types (t: trm) =
+    match t.desc with
+    | Trm_apps ({ desc = Trm_prim (prim_typ, Prim_unop Unop_struct_access field) }, [base], []) when is_typ_auto prim_typ ->
+      let base_typ = Option.unsome_or_else base.typ (fun () -> trm_fail t "Could not infer type of struct access") in
+      let struct_typ = typ_inv t typ_ptr_inv base_typ in
+      trm_like ~old:t (trm_struct_access ~struct_typ base field)
+    | _ -> trm_map add_missing_types t
+  in
+  Trace.apply add_missing_types;
+  Trace.justif "Only changing type annotations"
 
 let make_strict_loop_contract_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"make_strict_loop_contract_on: not a for loop" trm_for_inv t in
@@ -477,7 +489,7 @@ let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
     | Some { frac; formula } ->
       let rec extract_arbitrary_carved_fracs frac =
         Pattern.pattern_match frac [
-          Pattern.(trm_sub !__ (trm_var !__)) (fun base_frac removed_var () ->
+          Pattern.(formula_frac_sub !__ (trm_var !__)) (fun base_frac removed_var () ->
             Pattern.when_ (Var_map.find_opt removed_var usage = Some ArbitrarilyChosen);
             let base_frac, arbitrarily_carved_fracs = extract_arbitrary_carved_fracs base_frac in
             base_frac, removed_var :: arbitrarily_carved_fracs
@@ -490,7 +502,7 @@ let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
         splitted_hyp, subst
       else
         let nb_splits = 1 + List.length carved_arbitrary in
-        let repl_frac = trm_trunc_div base_frac (trm_int nb_splits) in
+        let repl_frac = formula_frac_div base_frac (trm_int nb_splits) in
         let subst = List.fold_left (fun subst var ->
           if Var_map.mem var subst then failwith "Arbitrarily chosen variable %s is carved twice" (var_to_string var);
           Var_map.add var repl_frac subst) subst carved_arbitrary in
@@ -581,7 +593,7 @@ let collect_trm_interferences (before : trm) (after : trm) : (resource_usage opt
 let string_of_interference
   ?(res_ctx : resource_set option)
   (interference : (resource_usage option * resource_usage option) Var_map.t) : string =
-  sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, (f1, f2)) -> sprintf "%s: %s != %s (%s)" x.name (resource_usage_opt_to_string f1) (resource_usage_opt_to_string f2) (Option.to_string Resource_computation.formula_to_string (Option.bind res_ctx (Resource_set.find x)))) (Var_map.bindings interference)))
+  sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, (f1, f2)) -> sprintf "%s: %s >!< %s (%s)" x.name (resource_usage_opt_to_string f1) (resource_usage_opt_to_string f2) (Option.to_string Resource_computation.formula_to_string (Option.bind res_ctx (Resource_set.find x)))) (Var_map.bindings interference)))
 
 (** Checks that resource usages commute, infer var ids to check pure facts scope. *)
 let assert_usages_commute
@@ -692,10 +704,10 @@ let is_deletable (t : trm) : bool =
   let res_usage = usage_of_trm t in
   let is_ro (r:resource_usage) : bool =
     match r with
-    | SplittedFrac | Required -> true
-    | Ensured | ArbitrarilyChosen | ConsumedFull | ConsumedUninit | JoinedFrac | Produced -> false
+    | SplittedFrac | JoinedFrac | Required -> true
+    | Ensured | ArbitrarilyChosen | ConsumedFull | ConsumedUninit | Produced -> false
     in
-  Var_map.fold (fun h usage deletable -> deletable && is_ro usage) res_usage true
+  Var_map.fold (fun h usage deletable -> deletable && is_ro usage) (Var_map.remove Resource_computation.var_result res_usage) true
 let _ = Arith_core.hook_is_deletable := is_deletable
 
 (** Checks that duplicating the instruction at index [index] after [skip] instructions in the sequence [seq] would be redundant.

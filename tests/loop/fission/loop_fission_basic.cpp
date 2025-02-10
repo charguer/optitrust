@@ -26,10 +26,10 @@ void parallel(int* t, int* u, int n) {
 
   for (int i = 0; i < 3; i++) {
     __strict();
-    int* const m1 = (int*) MALLOC1(5, sizeof(int));
-    MFREE1(5, m1);
-    int* const m2 = (int*) MALLOC1(5, sizeof(int));
-    MFREE1(5, m2);
+    int* const m1 = MALLOC1(int, 5);
+    free(m1);
+    int* const m2 = MALLOC1(int, 5);
+    free(m2);
   }
 }
 
@@ -52,8 +52,8 @@ void uninit(int* t, int* u, int n) {
 void commute() {
   __pure();
 
-  int x;
-  int y;
+  int x = 0;
+  int y = 0;
   for (int i = 0; i < 5; i++) {
     __strict();
     __smodifies(

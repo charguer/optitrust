@@ -83,10 +83,10 @@ void add2(int* out, int* a, int* b, int h, int w) {
   __reads("a ~> Matrix2(h, w)");
   __reads("b ~> Matrix2(h, w)");
 
-  int* const ab = (int*) MALLOC2(h, w, sizeof(int));
+  int* const ab = MALLOC2(int, h, w);
   add(ab, a, b, h, w);
   add(out, ab, b, h, w);
-  MFREE2(h, w, ab);
+  free(ab);
 }
 
 void add2vbox(int* out, int* a, int* b, int h, int w) {
@@ -94,13 +94,13 @@ void add2vbox(int* out, int* a, int* b, int h, int w) {
   __reads("a ~> Matrix2(h, w)");
   __reads("b ~> Matrix2(h, w)");
 
-  int* const box_a = (int*) MALLOC2(h, w-2, sizeof(int));
-  int* const box_b = (int*) MALLOC2(h, w-2, sizeof(int));
+  int* const box_a = MALLOC2(int, h, w-2);
+  int* const box_b = MALLOC2(int, h, w-2);
   vbox(box_a, a, h, w);
   vbox(box_b, b, h, w);
   add(out, box_a, box_b, h, w-2);
-  MFREE2(h, w-2, box_a);
-  MFREE2(h, w-2, box_b);
+  free(box_a);
+  free(box_b);
 }
 
 void vboxadd(int* out, int* a, int* b, int h, int w) {
@@ -108,10 +108,10 @@ void vboxadd(int* out, int* a, int* b, int h, int w) {
   __reads("a ~> Matrix2(h, w)");
   __reads("b ~> Matrix2(h, w)");
 
-  int* const ab = (int*) MALLOC2(h, w, sizeof(int));
+  int* const ab = MALLOC2(int, h, w);
   add(ab, a, b, h, w);
   vbox(out, ab, h, w);
-  MFREE2(h, w, ab);
+  free(ab);
 }
 
 void hboxadd(int* out, int* a, int* b, int h, int w) {
@@ -119,8 +119,8 @@ void hboxadd(int* out, int* a, int* b, int h, int w) {
   __reads("a ~> Matrix2(h, w)");
   __reads("b ~> Matrix2(h, w)");
 
-  int* const ab = (int*) MALLOC2(h, w, sizeof(int));
+  int* const ab = MALLOC2(int, h, w);
   add(ab, a, b, h, w);
   hbox(out, ab, h, w);
-  MFREE2(h, w, ab);
+  free(ab);
 }

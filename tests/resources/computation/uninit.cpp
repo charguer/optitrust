@@ -51,7 +51,7 @@ void init_var_evry_iter() {
 }
 
 void init_arr_evry_iter() {
-  int* const x = (int*) MALLOC1(3, sizeof(int));
+  int* const x = MALLOC1(int, 3);
   for (int i = 0; i < 6; i++) {
     __strict();
     __smodifies("_Uninit(for j in 0..3 -> &x[j] ~> Cell)");
@@ -67,5 +67,5 @@ void init_arr_evry_iter() {
       x[j]++;
     }
   }
-  MFREE1(3, x);
+  free(x);
 }

@@ -2,94 +2,6 @@ open Prelude
 open Target
 include Matrix_basic
 
-
-(** [intro_calloc tg]: expects the target [tg] to point at a variable declaration
-    then it will check its body for a call to calloc. On this extended path it will call
-    the [Matrix_basic.intro_calloc] transformation *)
-let%transfo intro_calloc (tg : target) : unit =
-  Target.iter (fun p ->
-    let tg_trm = Target.resolve_path p in
-    match tg_trm.desc with
-    | Trm_let ((x,_), init) ->
-      begin match trm_ref_inv_init init with
-      | Some t1 ->
-        begin match t1.desc with
-        | Trm_apps ({desc = Trm_prim (_, Prim_unop (Unop_cast _));_},[calloc_trm], _) ->
-          begin match calloc_trm.desc with
-          | Trm_apps ({desc = Trm_var f;_}, _, _) when (var_has_name f "calloc") ->
-            Matrix_basic.intro_calloc ((target_of_path p) @ [cCall "calloc"])
-          | _ -> trm_fail t1 "intro_calloc: couldn't find the call to calloc function"
-          end
-        | Trm_apps ({desc = Trm_var f;_},_,_) when (var_has_name f "calloc") ->
-          Matrix_basic.intro_calloc ((target_of_path p) @ [cCall "calloc"])
-        | _ -> try Matrix_basic.intro_calloc [cWriteVar x.name; cCall "calloc"]
-          with | _ ->
-            (* TODO: wrap caught exception *)
-            trm_fail tg_trm "intro_calloc: couldn't find the calloc
-            opertion on the targeted variable"
-        end
-
-      | _ ->
-         try Matrix_basic.intro_calloc [cWriteVar x.name; cCall "calloc"]
-          with | _ ->
-            (* TODO: wrap caught exception *)
-            trm_fail tg_trm "intro_calloc: couldn't find the calloc
-            opertion on the targeted variable"
-      end
-
-    | _ -> trm_fail tg_trm "intro_calloc: the target should be a variable declarartion allocated with alloc"
-  ) tg
-
-
-(** [intro_mindex dim]; expects the target [tg] to point at at a matrix declaration, then it will change
-     all its occurrence accesses into Optitrust MINDEX accesses. *)
-let%transfo intro_mindex (dim : trm) (tg : target) : unit =
-  Scope.infer_var_ids ();
-  Target.iter (fun p ->
-    let tg_trm = Target.resolve_path p in
-    let error = "Matrix.intro_mindex: the target should point at matrix declaration." in
-    let (x, _, _) = trm_inv ~error trm_let_inv tg_trm in
-    Matrix_basic.intro_mindex dim [nbAny; cCellAccess ~base:[cVarId x] ()]
-  ) tg
-
-(** [intro_malloc tg]: expects the target [tg] to point at a variable declaration
-    then it will check its body for a call to malloc. On this extended path it will call
-    the [Matrix_basic.intro_malloc] transformation. *)
-let%transfo intro_malloc (tg : target) : unit =
-  Target.iter (fun p ->
-    let tg_trm = Target.resolve_path p in
-    match tg_trm.desc with
-    | Trm_let ((x,_), init) ->
-      begin match trm_ref_inv_init init with
-      | Some t1 ->
-        begin match t1.desc with
-        | Trm_apps ({desc = Trm_prim (_, Prim_unop (Unop_cast _));_},[malloc_trm], _) ->
-          begin match malloc_trm.desc with
-          | Trm_apps ({desc = Trm_var f;_}, _, _) when (var_has_name f "malloc") ->
-            Matrix_basic.intro_malloc ((target_of_path p) @ [cCall "malloc"])
-          | _ -> trm_fail t1 "intro_malloc: couldn't find the call to malloc function"
-          end
-        | Trm_apps ({desc = Trm_var f;_},_,_) when  (var_has_name f "malloc") ->
-          Matrix_basic.intro_malloc ((target_of_path p) @ [cCall "malloc"])
-        | _ ->
-         try Matrix_basic.intro_malloc [cWriteVar x.name; cCall "malloc"]
-          with _ ->
-            (* TODO: wrap caught exception *)
-            trm_fail tg_trm "intro_malloc: couldn't find the malloc
-            operation on the targeted variable"
-        end
-
-      | _ ->
-         try Matrix_basic.intro_malloc [cWriteVar x.name; cCall "malloc"]
-          with _ ->
-            (* TODO: wrap caught exception *)
-            trm_fail tg_trm "intro_malloc: couldn't find the malloc
-            opertion on the targeted variable"
-      end
-    | _ -> failwith "intro_malloc: the target should be a variable declarartion allocated with alloc"
-  ) tg
-
-
 (** [biject fun_bij tg]: expects the target [tg] to point at at a matrix declaration , then it will search for all its
     acccesses and replace MINDEX with  [fun_bij]. *)
 let%transfo biject (fun_bij : var) (tg : target) : unit =
@@ -103,29 +15,6 @@ let%transfo biject (fun_bij : var) (tg : target) : unit =
       Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVarId p] ~index:[cCall ""] (); cCall ~regexp:true "MINDEX."])
     | _ -> trm_fail tg_trm "biject: expected a variable declaration"
   ) tg
-
-(** [intro_mops dims]: expects the target [tg] to point at an array declaration allocated with
-      calloc or malloc, then it will apply intro_calloc or intor_mmaloc based on the type of
-      the current allocation used. Then it will search for all accesses and apply intro_mindex. *)
-let%transfo intro_mops (dim : trm) (tg : target) : unit =
-  Target.iter (fun p ->
-    let tg_trm = Target.resolve_path p in
-    let error = "Matrix.intro_mops: the target should be pointing at a matrix declaration" in
-    let _ = trm_inv ~error trm_let_inv tg_trm in
-    intro_mindex dim (target_of_path p);
-    match Trace.step_backtrack_on_failure (fun () ->
-      intro_malloc (target_of_path p)
-    ) with
-    | Success () -> ()
-    | Failure _ -> begin
-      match Trace.step_backtrack_on_failure (fun () ->
-        intro_calloc (target_of_path p)
-      ) with
-      | Success () -> ()
-      | Failure _ -> trm_fail tg_trm "intro_mops: the targeted matrix was not allocated with malloc or calloc"
-    end
-  ) tg
-
 
 (** [elim_mops]: expects the target [tg] to point at a subterm and
   eliminates all MINDEX macros in that subterm.

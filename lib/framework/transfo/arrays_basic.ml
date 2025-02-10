@@ -92,7 +92,7 @@ let%transfo inline_constant ?(mark_accesses : mark = no_mark) ~(decl : target) (
   let (var, typ, init) = trm_inv ~error trm_let_inv decl_t in
   let (_elem_ty, _size) = typ_inv ~error decl_t typ_array_inv typ in
   let _, array_mlist = trm_inv ~error trm_array_inv init in
-  Target.apply_at_target_paths (inline_constant_on var (Mlist.to_list array_mlist) mark_accesses) tg
+  Target.apply_at_target_paths (inline_constant_on var array_mlist mark_accesses) tg
 
 let elim_on (decl_index : int) (t : trm) : trm =
   let remove_decl (t : trm) : trm =

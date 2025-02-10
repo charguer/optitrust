@@ -1,6 +1,6 @@
 #include <optitrust.h>
 
-int main() {
+void f() {
   int n = 1;
   int m = 1;
   int p = 1;

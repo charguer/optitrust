@@ -8,7 +8,7 @@ int main(){
   const int N1 = 10;
   const int N2 = 10;
   const int N3 = 10;
-  T* const a = (T* const) CALLOC3 (N1, N2, N3, sizeof(T));
+  T* const a = CALLOC3(T, N1, N2, N3);
   for (int i = 0; i < 10; i++) {
     a[MINDEX3(N1,N2,N3,i,i+1,i+2)];
   }

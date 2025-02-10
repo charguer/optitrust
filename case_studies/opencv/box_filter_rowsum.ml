@@ -5,6 +5,9 @@ let _ = Flags.check_validity := true
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 
+(* Generated trace is too heavy. Keep only the steps of the transformation script *)
+let _ = Flags.save_steps := Some Steps_script
+
 (** Reproducing OpenCV code from:
   https://github.com/opencv/opencv/blob/4.10.0/modules/imgproc/src/box_filter.simd.hpp#L75
 

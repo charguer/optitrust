@@ -6,7 +6,7 @@ __ghost_ret simplify_fracs() {
   __requires("f: _Fraction");
   __requires("g: _Fraction");
   __requires("h: _Fraction");
-  __requires("H: formula");
+  __requires("H: HProp");
   __consumes("H1: _RO(f - g, H)");
   __consumes("H2: _RO(h - f, H)");
   __consumes("H3: _RO(g, H)");
@@ -17,8 +17,8 @@ __ghost_ret simplify_fracs() {
 __ghost_ret two_base_res() {
   __requires("f: _Fraction");
   __requires("g: _Fraction");
-  __requires("H1: formula");
-  __requires("H2: formula");
+  __requires("H1: HProp");
+  __requires("H2: HProp");
   __consumes("H1f: _RO(f - g, H1)");
   __consumes("H2f: _RO(f, H2)");
   __consumes("H1g: _RO(g, H1)");

@@ -1,5 +1,7 @@
 open Prelude
 
+(* TODO: This module should probably be deleted given the fact that multi-dimensional arrays should never exist in our internal representation. *)
+
 (** [inline_array_access array_var new_vars t]: change all the occurences of the array to variables,
     params:
       [array_var]: array_variable  to apply changes on
@@ -7,12 +9,13 @@ open Prelude
       [t]: ast node located in the same level or deeper as the array declaration
     return:
         updated ast with the replaced array accesses to variable references. *)
+  (* TODO: Generalize new_vars to allow any experssion *)
 let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match trm_array_access_inv t with
     | Some (base, index) ->
       begin match base.desc with
-      | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get); _}, [{desc = Trm_var x}], _) when (var_eq x array_var) ->
+      | Trm_var x when (var_eq x array_var) ->
         begin match index.desc with
         | Trm_lit (Lit_int (_, i)) ->
           if i >= List.length new_vars
@@ -41,23 +44,18 @@ let to_variables_at (new_vars : string list) (index : int) (t : trm) : trm =
   | Trm_seq (tl, result) ->
     let array_var = ref dummy_var in
     let f_update_at (t : trm) : trm =
-      begin match t.desc with
-        | Trm_let ((x , tx), init) ->
-          array_var := x;
-          begin match typ_array_inv (get_inner_ptr_type tx) with
-          | Some (t_var, _) ->
+      Pattern.pattern_match t [
+        Pattern.(trm_let !__ __ (trm_ref_uninit (typ_array !__ __))) (fun x elem_typ () ->
+            array_var := x;
             trm_seq_nobrace_nomarks (
-              List.map (fun x ->
-              trm_let_mut_uninit ~annot:t.annot (x, t_var)) new_vars)
-          | _ -> trm_fail t "Arrays_core.to_variables_aux: expected an array type"
-          end
-        | _ -> trm_fail t "Arrays_core.to_variables_aux: expected a variable declaration"
-        end
-      in
-
+              List.map (fun x -> trm_let_mut_uninit ~annot:t.annot (x, elem_typ)) new_vars)
+        );
+        Pattern.__ (fun () -> trm_fail t "Arrays_core.to_variables_aux: expected an uninitialized array declaration")
+      ]
+    in
     let f_update_further (t : trm) : trm =
       inline_array_access !array_var new_vars t
-      in
+    in
     let new_tl = Mlist.update_at_index_and_fix_beyond index f_update_at f_update_further tl in
 
     trm_seq ~annot:t.annot ?loc:t.loc ?result new_tl
@@ -194,7 +192,7 @@ let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : tr
       (* FIXME: Weird to use the type of lhs that is supposed to be a pointer to something and match it against constr *)
       Pattern.pattern_match lhs.typ [
         Pattern.(some (typ_constr !(var_eq base_type_name))) (fun y () ->
-          trm_set ~annot:t.annot ?loc:t.loc ~typ lhs (new_alloc rhs)
+          trm_set ~annot:t.annot ?loc:t.loc lhs (new_alloc rhs)
         );
         Pattern.__ (fun () -> trm_map (apply_tiling base_type block_typvar (trm_var block_size) base_type_name) t)
       ]
@@ -402,13 +400,12 @@ let detach_init_on (t : trm) : trm =
     let init = match trm_ref_inv_init init with
     | Some init -> init
     | None -> trm_fail t "detach_init_on: could not get the initialization trms for the targeted array declaration" in
-    begin match init.desc with
-    | Trm_array (arr_ty, tl) ->
+    begin match trm_array_inv init with
+    | Some (typ, tl) ->
       let array_set_list =
-      List.mapi ( fun i t1 ->
-        trm_set (trm_array_access (trm_var_get ~typ:tx x) (trm_int i)) t1
-      ) (Mlist.to_list tl) in
-      let typ = get_inner_ptr_type tx in
+        List.mapi (fun i t1 ->
+          trm_set (trm_array_access (trm_var x) (trm_int i)) t1
+        ) tl in
       let new_decl = trm_let_mut_uninit ~annot:t.annot (x, typ) in
       trm_seq_nobrace_nomarks ([new_decl] @ array_set_list)
     | _ -> trm_fail init "detach_init_on: expected an array initialization"

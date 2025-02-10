@@ -8,9 +8,9 @@ int main() {
   int const N2 = 11;
   int const N3 = 12;
   // This is a result of the local_name transformation
-  T *a = (T *)CALLOC3(N1, N2, N3, sizeof(T));
+  T *a = CALLOC3(T, N1, N2, N3);
    mark: {
-    T *x = (T *)CALLOC3(N1, N2, N3, sizeof(T));
+    T *x = CALLOC3(T, N1, N2, N3);
     for (int i1 = 0; (i1 < N1); i1++) {
       for (int i2 = 0; (i2 < N2); i2++) {
         for (int i3 = 0; (i3 < N3); i3++) {
@@ -29,7 +29,7 @@ int main() {
         }
       }
     }
-    MFREE(x);
+    free(x);
    }
   int y = 0;
   return 0;

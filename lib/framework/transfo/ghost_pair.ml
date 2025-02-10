@@ -180,10 +180,10 @@ let intro_at ?(name: string option) ?(end_mark: mark = no_mark) (i: int) (t_seq:
 
   let invoc_linear_pre_and_post t =
     match t.ctx.ctx_resources_contract_invoc with
-    | Some invoc when invoc.contract_produced.produced_pure <> [] -> None
+    | Some invoc when invoc.contract_produced.produced_res.pure <> [] -> None
     | Some invoc ->
       let pre = List.map (fun used -> (used.hyp, used.used_formula)) invoc.contract_inst.used_linear in
-      let post = List.map (fun prod -> (prod.produced_hyp, prod.produced_formula)) invoc.contract_produced.produced_linear in
+      let post = invoc.contract_produced.produced_res.linear in
       Some (pre, post)
     | None -> failwith "No contract invocation on ghost call (resources might not have been computed)"
   in

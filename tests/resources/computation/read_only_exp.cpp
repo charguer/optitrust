@@ -10,7 +10,7 @@ void swap(int* n, int* m) {
 
 void array_computation(float* M, int n) {
   __modifies("M ~> Matrix1(n)");
-  int acc = 0;
+  float acc = 0.f;
   for (int i = 0; i < n; ++i) {
     __strict();
     __smodifies("&acc ~> Cell");

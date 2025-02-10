@@ -18,7 +18,7 @@ void f(int N) {
 void ghost_in_range(int N) {
   __pure();
 
-  int x;
+  int x = 0;
   for (int i = 0; i < N-2; i++) {
     __ghost([&] {
       __requires("in_range(i, 0..(N-2))");

@@ -1,12 +1,10 @@
 #include <optitrust.h>
 
-typedef int T;
-
 // TODO: calloc variant
 void malloc_uninit_pre() {
   __pure();
 
-  T* const a = (T*) MALLOC3 (10, 10, 4, sizeof(T));
+  int* const a = MALLOC3(int, 10, 10, 4);
 
   __GHOST_BEGIN(focus, group2_focus_subrange_uninit,
     "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell, "
@@ -29,7 +27,7 @@ void malloc_uninit_pre() {
     }
   }
   __GHOST_END(focus);
-  MFREE3(10, 10, 4, a);
+  free(a);
   int z = 0;
 }
 
@@ -37,7 +35,7 @@ void malloc_uninit_pre() {
 void malloc_uninit_post() {
   __pure();
 
-  T* const a = (T*) MALLOC1(10, sizeof(T));
+  int* const a = MALLOC1(int, 10);
   __GHOST_BEGIN(focus, group_focus_subrange_uninit,
     "items := fun i -> &a[MINDEX1(10,i)] ~> Cell, "
     "sub_range := 2..10");
@@ -57,14 +55,14 @@ void malloc_uninit_post() {
   }
 
   __GHOST_END(focus);
-  MFREE1(10, a);
+  free(a);
 }
 
 // TODO: calloc variant
 void malloc_uninit_prepost() {
   __pure();
 
-  T* const a = (T*) MALLOC3 (10, 10, 4, sizeof(T));
+  int* const a = MALLOC3(int, 10, 10, 4);
 
   __GHOST_BEGIN(focus, group2_focus_subrange_uninit,
     "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell, "
@@ -86,7 +84,7 @@ void malloc_uninit_prepost() {
     }
   }
   __GHOST_END(focus);
-  MFREE3(10, 10, 4, a);
+  free(a);
 }
 
 /* FIXME:
@@ -110,5 +108,5 @@ void f(T* b) {
       }
     }
   }
-  MFREE3(10, 10, 4, b);
+  free(b);
 */

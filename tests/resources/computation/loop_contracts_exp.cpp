@@ -2,160 +2,63 @@
 
 #include "omp.h"
 
-__ghost_ret array_focus() {
-  __requires("M: ptr");
-  __requires("i: int");
-  __requires("dim: int");
-  __consumes("M ~> Array(dim)");
-  __produces("&M[i] ~> Cell");
-  __produces("M ~> FocussedArray(dim, i)");
-  __admitted();
-}
-
-__ghost_ret array_unfocus() {
-  __requires("M: ptr");
-  __requires("i: int");
-  __requires("dim: int");
-  __consumes("M ~> FocussedArray(dim, i)");
-  __consumes("&M[i] ~> Cell");
-  __produces("M ~> Array(dim)");
-  __admitted();
-}
-
-__ghost_ret array_ro_focus() {
-  __requires("M: ptr");
-  __requires("i: int");
-  __requires("dim: int");
-  __requires("f: _Fraction");
-  __consumes("_RO(f, M ~> Array(dim))");
-  __produces("_RO(f, &M[i] ~> Cell)");
-  __produces("_RO(f, M ~> FocussedArray(dim, i))");
-  __admitted();
-}
-
-__ghost_ret array_ro_unfocus() {
-  __requires("M: ptr");
-  __requires("i: int");
-  __requires("dim: int");
-  __requires("f: _Fraction");
-  __consumes("_RO(_Full(f), M ~> FocussedArray(dim, i))");
-  __consumes("_RO(_Full(f), &M[i] ~> Cell)");
-  __produces("_RO(f, M ~> Array(dim))");
-  __admitted();
-}
-
 void array_copy(float* A, float* B, int n) {
-  __modifies("B ~> Array(n)");
-  __reads("A ~> Array(n)");
+  __modifies("B ~> Matrix1(n)");
+  __reads("A ~> Matrix1(n)");
   for (int i = 0; i < n; ++i) {
     __strict();
-    __smodifies("B ~> Array(n)");
-    __sreads("A ~> Array(n)");
-    __ghost(array_ro_focus, "M := A, i := i");
-    __ghost(array_focus, "M := B, i := i");
-    B[i] = A[i];
-    __ghost(array_unfocus, "M := B");
-    __ghost(array_ro_unfocus, "M := A");
+    __smodifies("B ~> Matrix1(n)");
+    __sreads("A ~> Matrix1(n)");
+    __ghost(matrix1_ro_focus, "M := A, i := i");
+    __ghost(matrix1_focus, "M := B, i := i");
+    B[MINDEX1(n, i)] = A[MINDEX1(n, i)];
+    __ghost(matrix1_unfocus, "M := B");
+    __ghost(matrix1_ro_unfocus, "M := A");
   }
 }
 
 void array_copy_explicit(float* A, float* B, int n) {
-  __modifies("B ~> Array(n)");
-  __reads("A ~> Array(n)");
+  __modifies("B ~> Matrix1(n)");
+  __reads("A ~> Matrix1(n)");
   for (int i = 0; i < n; ++i) {
     __strict();
-    __smodifies("B ~> Array(n)");
-    __sreads("A ~> Array(n)");
-    __ghost(array_ro_focus, "M := A, i := i");
-    __ghost(array_focus, "M := B, i := i");
-    B[i] = A[i];
-    __ghost(array_unfocus, "M := B");
-    __ghost(array_ro_unfocus, "M := A");
+    __smodifies("B ~> Matrix1(n)");
+    __sreads("A ~> Matrix1(n)");
+    __ghost(matrix1_ro_focus, "M := A, i := i");
+    __ghost(matrix1_focus, "M := B, i := i");
+    B[MINDEX1(n, i)] = A[MINDEX1(n, i)];
+    __ghost(matrix1_unfocus, "M := B");
+    __ghost(matrix1_ro_unfocus, "M := A");
   }
-}
-
-__ghost_ret array_unfold() {
-  __requires("M: ptr");
-  __requires("dim: int");
-  __consumes("M ~> Array(dim)");
-  __produces("for i in 0..dim -> &M[i] ~> Cell");
-  __admitted();
-}
-
-__ghost_ret array_fold() {
-  __requires("M: ptr");
-  __requires("dim: int");
-  __consumes("for i in 0..dim -> &M[i] ~> Cell");
-  __produces("M ~> Array(dim)");
-  __admitted();
-}
-
-__ghost_ret ro_array_unfold() {
-  __requires("M: ptr");
-  __requires("dim: int");
-  __requires("f: _Fraction");
-  __consumes("_RO(f, M ~> Array(dim))");
-  __produces("_RO(f, for i in 0..dim -> &M[i] ~> Cell)");
-  __admitted();
-}
-
-__ghost_ret ro_array_fold() {
-  __requires("M: ptr");
-  __requires("dim: int");
-  __requires("f: _Fraction");
-  __consumes("_RO(_Full(f), for i in 0..dim -> &M[i] ~> Cell)");
-  __produces("_RO(f, M ~> Array(dim))");
-  __admitted();
 }
 
 void array_copy_par(float* A, float* B, int n) {
-  __modifies("B ~> Array(n)");
-  __reads("A ~> Array(n)");
-  __ghost(ro_array_unfold, "M := A");
-  __ghost(array_unfold, "M := B");
+  __modifies("B ~> Matrix1(n)");
+  __reads("A ~> Matrix1(n)");
 #pragma omp parallel for
   for (int i = 0; i < n; ++i) {
     __strict();
-    __xmodifies("&B[i] ~> Cell");
-    __xreads("&A[i] ~> Cell");
-    B[i] = A[i];
+    __xmodifies("&B[MINDEX1(n, i)] ~> Cell");
+    __xreads("&A[MINDEX1(n, i)] ~> Cell");
+    B[MINDEX1(n, i)] = A[MINDEX1(n, i)];
   }
-  __ghost(array_fold, "M := B");
-  __ghost(ro_array_fold, "M := A");
-}
-
-float* array_alloc(int sz) {
-  __produces("_Res ~> Array(sz)");
-  __admitted();
-  return (float*)malloc(sz * sizeof(float));
-}
-
-void array_free(float* A) {
-  __requires("sz: int");
-  __consumes("A ~> Array(sz)");
-  __admitted();
-  free(A);
 }
 
 void array_copy_with_tmp(float* A, float* B, int n) {
-  __modifies("B ~> Array(n)");
-  __reads("A ~> Array(n)");
-  float* const T = array_alloc(n);
-  __ghost(array_unfold, "M := T");
-  __ghost(array_unfold, "M := B");
+  __modifies("B ~> Matrix1(n)");
+  __reads("A ~> Matrix1(n)");
+  float* const T = (float*)calloc(MSIZE1(n), sizeof(float));
   for (int i = 0; i < n; ++i) {
     __strict();
-    __sreads("A ~> Array(n)");
-    __xmodifies("&B[i] ~> Cell");
-    __xmodifies("&T[i] ~> Cell");
-    __ghost(array_ro_focus, "M := A, i := i");
-    T[i] = A[i];
-    __ghost(array_ro_unfocus, "M := A");
-    B[i] = T[i];
+    __sreads("A ~> Matrix1(n)");
+    __xmodifies("&B[MINDEX1(n, i)] ~> Cell");
+    __xmodifies("&T[MINDEX1(n, i)] ~> Cell");
+    __ghost(matrix1_ro_focus, "M := A, i := i");
+    T[MINDEX1(n, i)] = A[MINDEX1(n, i)];
+    __ghost(matrix1_ro_unfocus, "M := A");
+    B[MINDEX1(n, i)] = T[MINDEX1(n, i)];
   }
-  __ghost(array_fold, "M := B");
-  __ghost(array_fold, "M := T");
-  array_free(T);
+  free(T);
 }
 
 void g(int* x) { __reads("x ~> Cell"); }

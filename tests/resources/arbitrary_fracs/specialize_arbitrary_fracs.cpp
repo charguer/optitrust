@@ -61,7 +61,7 @@ void two_forks_spe_twice() {
   __GHOST_END(fork_out);
 }
 
-void fork_then_write(float* M) {
+void fork_then_write(int* M) {
   __modifies("M ~> Matrix1(5)");
 
   for (int i = 0; i < 5; i++) {
@@ -78,7 +78,7 @@ void fork_then_write(float* M) {
   }
 }
 
-void read_then_fork(float* M) {
+void read_then_fork(int* M) {
   __reads("M ~> Matrix1(5)");
 
   for (int i = 0; i < 5; i++) {
@@ -96,7 +96,7 @@ void read_then_fork(float* M) {
   }
 }
 
-void write_then_fork(float* M) {
+void write_then_fork(int* M) {
   __writes("M ~> Matrix1(5)");
 
   for (int i = 0; i < 5; i++) {

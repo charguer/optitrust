@@ -11,7 +11,7 @@ void mm1024(float* C, float* A, float* B) {
   __ghost(tile_divides,
           "tile_count := 32, tile_size := 32, size := 1024, items := fun i -> "
           "for j in 0..1024 -> &C[MINDEX2(1024, 1024, i, j)] ~> Cell");
-  float* const pB = (float*)MALLOC4(32, 256, 4, 32, sizeof(float));
+  float* const pB = MALLOC4(float, 32, 256, 4, 32);
   for (int bj = 0; bj < 32; bj++) {
     __strict();
     __sreads("B ~> Matrix2(1024, 1024)");
@@ -81,7 +81,7 @@ void mm1024(float* C, float* A, float* B) {
       __xreads(
           "for bk in 0..256 -> for k in 0..4 -> for j in 0..32 -> "
           "&pB[MINDEX4(32, 256, 4, 32, bj, bk, k, j)] ~> Cell");
-      float* const sum = (float*)MALLOC2(32, 32, sizeof(float));
+      float* const sum = MALLOC2(float, 32, 32);
       for (int i = 0; i < 32; i++) {
         __strict();
         __xwrites("for _v5 in 0..32 -> &sum[MINDEX2(32, 32, i, _v5)] ~> Cell");
@@ -159,7 +159,7 @@ void mm1024(float* C, float* A, float* B) {
               sum[MINDEX2(32, 32, i, j)];
         }
       }
-      MFREE2(32, 32, sum);
+      free(sum);
     }
     __ghost(swap_groups,
             "outer_range := 0..32, inner_range := 0..32, items := fun bj, i -> "
@@ -178,7 +178,7 @@ void mm1024(float* C, float* A, float* B) {
               "-> &C[MINDEX2(1024, 1024, bi * 32 + i, j)] ~> Cell");
     }
   }
-  MFREE4(32, 256, 4, 32, pB);
+  free(pB);
   __ghost(untile_divides,
           "tile_count := 32, tile_size := 32, size := 1024, items := fun i -> "
           "for j in 0..1024 -> &C[MINDEX2(1024, 1024, i, j)] ~> Cell");

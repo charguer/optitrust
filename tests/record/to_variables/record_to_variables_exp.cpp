@@ -11,66 +11,6 @@ typedef struct {
   vect speed;
 } obj;
 
-template <typename T, typename U>
-U* __struct_access_x(T* v) {
-  __pure();
-  __admitted();
-}
-
-template <typename T, typename U>
-U __struct_get_x(T v) {
-  __pure();
-  __admitted();
-}
-
-template <typename T, typename U>
-U* __struct_access_y(T* v) {
-  __pure();
-  __admitted();
-}
-
-template <typename T, typename U>
-U __struct_get_y(T v) {
-  __pure();
-  __admitted();
-}
-
-template <typename T, typename U>
-U* __struct_access_weight(T* v) {
-  __pure();
-  __admitted();
-}
-
-template <typename T, typename U>
-U __struct_get_weight(T v) {
-  __pure();
-  __admitted();
-}
-
-template <typename T, typename U>
-U* __struct_access_pos(T* v) {
-  __pure();
-  __admitted();
-}
-
-template <typename T, typename U>
-U __struct_get_pos(T v) {
-  __pure();
-  __admitted();
-}
-
-template <typename T, typename U>
-U* __struct_access_speed(T* v) {
-  __pure();
-  __admitted();
-}
-
-template <typename T, typename U>
-U __struct_get_speed(T v) {
-  __pure();
-  __admitted();
-}
-
 vect f() { return (vect){1, 1}; }
 
 void g() {
@@ -95,7 +35,7 @@ void g() {
       "");
   sX = p.x;
   sY = p.y;
-  const obj s2 = {sX + 2, sY + 2};
+  const vect s2 = {sX + 2, sY + 2};
   __ghost(
       [&]() {
         __consumes("&p.x ~> Cell");
@@ -136,6 +76,6 @@ void g() {
   const int bWeight = 0;
   const vect bPos = p;
   const vect bSpeed = {sX, sY};
-  const obj b2 = {.pos = bPos, .speed = bSpeed, .weight = bWeight};
+  const obj b2 = {bWeight, bPos, bSpeed};
   const obj b3 = {bWeight, bPos, bSpeed};
 }

@@ -1,27 +1,25 @@
 #include <optitrust.h>
 
-typedef int T;
-
 void ok1() {
-__pure();
-  T a;
-      for (int j = 0; j < 10; j++) {
+  __pure();
+  int a = 0;
+  for (int j = 0; j < 10; j++) {
+    __strict();
+    __smodifies("&a ~> Cell");
+    int x = a;
+    for (int i = 0; i < j; i++) {
       __strict();
-      __smodifies("&a ~> Cell");
-    auto x = a;
-        for (int i = 0; i < j; i++) {
-__strict();
-__smodifies("&x ~> Cell");
-          x++;
-        }
-        a = x;
-      }
+      __smodifies("&x ~> Cell");
+      x++;
+    }
+    a = x;
+  }
 }
 
 void ok2() {
   __pure();
-  T a;
-  auto x = a;
+  int a = 0;
+  int x = a;
 l : { x++; }
   a = x;
   int y = 0;
@@ -29,12 +27,12 @@ l : { x++; }
 
 void ko1() {
   __pure();
-  T a;
+  int a = 0;
   int& b = a;
   for (int j = 0; j < 10; j++) {
     __strict();
     __smodifies("&a ~> Cell");
-        for (int i = 0; i < j; i++) {
+    for (int i = 0; i < j; i++) {
       __strict();
       __smodifies("&a ~> Cell");
       a++;
@@ -42,11 +40,11 @@ void ko1() {
     }
   }
   int y = 0;
-  }
+}
 
 void ko2() {
   __pure();
-  T a;
+  int a = 0;
   int& b = a;
 l : {
   a++;
@@ -57,9 +55,9 @@ l : {
 
 void ko_scope() {
   __pure();
-  T x;
-  T a;
-auto x1 = a;
+  int x = 0;
+  int a = 0;
+  int x1 = a;
 l : { x1++; }
-a = x1;
+  a = x1;
 }

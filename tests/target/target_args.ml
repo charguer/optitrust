@@ -27,6 +27,7 @@ let _ = Run.script_cpp (fun () ->
 
   !! show [ cFunDef ~args_pred:(target_list_one_st [cArg "x"]) "" ];
 
+  (* Be careful this matches function calls with zero arguments, such as hidden calls to ref *)
   !! show [ cCall ~args_pred:(target_list_all_st [cStrictNew; cLit]) "" ];
 
   !! show [ cCall ~args_pred:(target_list_one_st [cStrictNew; cLit]) "" ];

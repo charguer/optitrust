@@ -3,7 +3,7 @@
 void unused_modifies(float* M1, float* M2, int n) {
   __modifies("M1 ~> Matrix1(n)");
   __modifies("M2 ~> Matrix1(n)");
-  int c = 0;
+  float c = 0.f;
   for (int i = 0; i < n; i++) {
     __strict();
     __smodifies("&c ~> Cell");
@@ -15,7 +15,7 @@ void unused_modifies(float* M1, float* M2, int n) {
 void unused_reads(float* M1, float* M2, int n) {
   __reads("M1 ~> Matrix1(n)");
   __reads("M2 ~> Matrix1(n)");
-  int c = 0;
+  float c = 0.f;
   for (int i = 0; i < n; i++) {
     __strict();
     __smodifies("&c ~> Cell");
@@ -47,12 +47,12 @@ void produced_uninit_used_ro(int* t2) {
 void nested_loops(float* M1, float* M2, int n) {
   __modifies("M1 ~> Matrix2(n, n)");
   __modifies("M2 ~> Matrix2(n, n)");
-  int c = 0;
+  float c = 0.f;
   for (int i = 0; i < n; i++) {
     __strict();
     __smodifies("&c ~> Cell");
     __xreads("for j in 0..n -> &M1[MINDEX2(n, n, i, j)] ~> Cell");
-    int acc = 0;
+    float acc = 0.f;
     for (int j = 0; j < n; j++) {
       __strict();
       __smodifies("&acc ~> Cell");
@@ -83,7 +83,7 @@ __ghost_ret assert_in_range() {
 
 void useless_pure_facts(int n, int i) {
   __requires("in_range(i, 0..n)");
-  __requires("__is_leq(0, i)");
+  __requires("__is_true(0 <= i)");
   for (int j = 0; j < 100; j++) {
     __strict();
     __requires("k: int");

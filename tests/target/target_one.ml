@@ -35,8 +35,8 @@ let _ = Run.script_cpp (fun () ->
 
   (* Vardef/initializer *)
   !! show [ cVarDef "r" ];
-  !! show [ cVarDef "r" ; cPrimRef() ];
-  !! show [ cVarDef "r" ; cPrimRef(); dArg 0 ];
+  !! show [ cVarDef "r" ; cRef() ];
+  !! show [ cVarDef "r" ; cRef(); dArg 0 ];
   !! show [ cVarInit "r"];
   (* !! show [ cInit () ]; *)
   (* TODO FIX !! show [ cVarDef ""; dInit ~arg:[cStrict; cLit] () ];*)

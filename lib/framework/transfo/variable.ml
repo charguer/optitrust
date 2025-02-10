@@ -72,9 +72,10 @@ let%transfo insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value
   - deal with _Uninit cases in pre/post where reading/writing value around term is not needed.
   *)
 let%transfo local_name ~(var : string) ~(local_var : string) (tg : target) : unit =
-  let (var, _) = find_var var tg in
-  (* FIXME: find type in context. *)
-  Variable_basic.local_name ~var typ_auto ~local_var tg
+  let (var, typ) = find_var var tg in
+  let typ = Option.unsome_or_else typ (fun () -> failwith "Could not guess the type of the variable to replace") in
+  let typ = typ_inv ~error:"Variable.local_name: this transformation can only be applied on mutable variables" typ typ_ptr_inv typ in
+  Variable_basic.local_name ~var typ ~local_var tg
 
 (** [delocalize var ~into ~mark ~arr_size ~neutral_element fold_operation tg]:
     expects the target [tg] to point at a for loop. Then it will surround this loop with a @nobrace
@@ -189,7 +190,8 @@ let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool
     let new_t = trm_subst new_inst pattern_instr in
     Target.apply_at_path (fun _ -> new_t) p
   ) tg;
-  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array ~const (x, typ_f64) ~size:(trm_int nb_paths) (trm_array ~typ:typ_f64 (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
+  let trm_let_maybemut = if const then trm_let else trm_let_mut in
+  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_maybemut (x, typ_array typ_f64 ~size:(trm_int nb_paths)) (trm_array ~elem_typ:typ_f64 (Array.to_list all_values.(id_var)))) pattern_vars in
   Nobrace_transfo.remove_after (fun _ ->
     Sequence_basic.insert (trm_seq_nobrace_nomarks instrs_to_insert) ([tBefore] @ (target_of_path !path_to_surrounding_seq) @ [dSeqNth !minimal_index]))
   )
@@ -342,12 +344,10 @@ let%transfo unfold ?(simpl : target -> unit = default_unfold_simpl) ?(delete : b
     match tg_trm.desc with
     | Trm_let ((x, _tx), init) ->
       let mark = Mark.next () in
-      begin match trm_ref_inv_init init with
-      | Some init when is_trm_uninitialized init ->
-        trm_fail tg_trm "Variable.unfold: you should never try to inline uninitialized variables"
-      | Some _ -> Variable_basic.to_const tg_decl
-      | None -> ()
-      end;
+      if Option.is_some (trm_ref_uninit_inv init) then
+        trm_fail tg_trm "Variable.unfold: you should never try to inline uninitialized variables";
+      if Option.is_some (trm_ref_inv init) then
+        Variable_basic.to_const tg_decl;
       if delete
         then Variable_basic.inline ~mark tg_decl
         else Variable_basic.unfold ~mark ~at tg_decl;
@@ -454,9 +454,9 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
 (** [insert ~constr name typ value tg]: expects the target [tg] to point at a location in a sequence then it wil insert a
     new variable declaration with name: [name] and type:[typ] and initialization value [value].
     This transformation is basically the same as the basic one except that this has a default value for the type argument. *)
-let%transfo insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ option) ~name:(name : string) ?(value : trm = trm_uninitialized typ_auto) (tg : target) : unit =
-  let typ = typ_or_auto (Option.or_ typ value.typ) in
-  Variable_basic.insert ~const ~reparse ~name ~typ ~value tg
+let%transfo insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ option) ~name:(name : string) ?(value : trm option) (tg : target) : unit =
+  let typ = typ_or_auto (Option.or_ typ (Option.bind value (fun v -> v.typ))) in
+  Variable_basic.insert ~const ~reparse ~name ~typ ?value tg
 
 (** [insert_list ~const names typ values tg]: expects the target [tg] to be poiting to a location in a sequence
     then it wil insert a new variable declaration with [name], [typ] and initialization [value] *)

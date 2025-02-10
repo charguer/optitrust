@@ -1,6 +1,6 @@
-int f(int x);
+int f(int);
 
-int g(int x);
+int g(int);
 
 int main() {
   int a = 1;

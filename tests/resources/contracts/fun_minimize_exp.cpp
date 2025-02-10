@@ -2,7 +2,7 @@
 
 void unused_modifies(float* M1, float* M2, int n) {
   __reads("M1 ~> Matrix1(n)");
-  int c = 0;
+  float c = 0.f;
   for (int i = 0; i < n; i++) {
     __strict();
     __smodifies("&c ~> Cell");
@@ -13,7 +13,7 @@ void unused_modifies(float* M1, float* M2, int n) {
 
 void unused_reads(float* M1, float* M2, int n) {
   __reads("M1 ~> Matrix1(n)");
-  int c = 0;
+  float c = 0.f;
   for (int i = 0; i < n; i++) {
     __strict();
     __smodifies("&c ~> Cell");
@@ -43,7 +43,7 @@ void useless_pure_facts(int n, int i) {
 }
 
 void merge_frac(int* M, int n) {
-  __requires("f: _Frac");
+  __requires("f: _Fraction");
   __consumes(
       "_RO(f, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n, n, i, j)] ~> "
       "Cell)");
@@ -53,8 +53,8 @@ void merge_frac(int* M, int n) {
 }
 
 void multi_merge_frac(int* M, int n) {
-  __requires("f1: _Frac");
-  __requires("f3: _Frac");
+  __requires("f1: _Fraction");
+  __requires("f3: _Fraction");
   __consumes(
       "_RO(f1, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n, n, i, j)] ~> "
       "Cell)");
@@ -70,7 +70,7 @@ void multi_merge_frac(int* M, int n) {
 }
 
 void read_and_merge_frac(int* M, int n) {
-  __requires("f: _Frac");
+  __requires("f: _Fraction");
   __consumes(
       "_RO(f, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n, n, i, j)] ~> "
       "Cell)");
@@ -93,8 +93,8 @@ void read_and_merge_frac(int* M, int n) {
 }
 
 void read_and_multi_merge_frac(int* M, int n) {
-  __requires("f1: _Frac");
-  __requires("f3: _Frac");
+  __requires("f1: _Fraction");
+  __requires("f3: _Fraction");
   __consumes(
       "_RO(f1, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n, n, i, j)] ~> "
       "Cell)");
@@ -125,7 +125,7 @@ void read_and_multi_merge_frac(int* M, int n) {
 void split_frac_generic(int* M, int n) {
   __requires("#_1: _Fraction");
   __consumes("_RO(#_1, M ~> Matrix2(n, n))");
-  __ensures("f: _Frac");
+  __ensures("f: _Fraction");
   __produces("_RO(#_1 - f, M ~> Matrix2(n, n))");
   __produces(
       "_RO(f, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n, n, i, j)] ~> "
@@ -137,7 +137,7 @@ void split_frac_generic(int* M, int n) {
 void split_subfrac_generic(int* M, int n) {
   __requires("#_1: _Fraction");
   __consumes("_RO(#_1, M ~> Matrix2(n, n))");
-  __ensures("f: _Frac");
+  __ensures("f: _Fraction");
   __produces("_RO(#_1 - f, M ~> Matrix2(n, n))");
   __produces(
       "_RO(f, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n, n, i, j)] ~> "
@@ -148,8 +148,8 @@ void split_subfrac_generic(int* M, int n) {
 
 void split_frac_generic_lossy(int* M, int n) {
   __consumes("M ~> Matrix2(n, n)");
-  __ensures("f: _Frac");
-  __ensures("g: _Frac");
+  __ensures("f: _Fraction");
+  __ensures("g: _Fraction");
   __produces("_RO(g, M ~> Matrix2(n, n))");
   __produces(
       "_RO(f, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n, n, i, j)] ~> "

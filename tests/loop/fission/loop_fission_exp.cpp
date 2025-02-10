@@ -180,14 +180,14 @@ void ghost_scope(int m, int n) {
 
 __ghost_ret ensures_pure() {
   __requires("n: int");
-  __ensures("Triv(n)");
+  __ensures("__is_true(n == n)");
   __admitted();
 }
 
-void requires_pure(int n) { __requires("Triv(n)"); }
+void requires_pure(int n) { __requires("__is_true(n == n)"); }
 
 void ensures_not_ghost(int n) {
-  __ensures("Triv(n)");
+  __ensures("__is_true(n == n)");
   __ghost(ensures_pure, "n := n");
 }
 
@@ -195,8 +195,8 @@ void ghost_pure(int m, int n) {
   __pure();
   for (int i = 0; i < m; i++) {
     __strict();
-    __xensures("Triv(5)");
-    __xensures("Triv(6)");
+    __xensures("__is_true(5 == 5)");
+    __xensures("__is_true(6 == 6)");
     ensures_not_ghost(5);
     ensures_not_ghost(6);
     ensures_not_ghost(7);
@@ -207,9 +207,9 @@ void ghost_pure(int m, int n) {
   }
   for (int i = 0; i < m; i++) {
     __strict();
-    __xrequires("Triv(5)");
-    __xrequires("Triv(6)");
-    __xensures("Triv(6)");
+    __xrequires("__is_true(5 == 5)");
+    __xrequires("__is_true(6 == 6)");
+    __xensures("__is_true(6 == 6)");
   split:
     __ghost(ensures_pure, "n := 2");
     requires_pure(2);

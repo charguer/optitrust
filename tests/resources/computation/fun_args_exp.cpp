@@ -1,7 +1,7 @@
 #include <optitrust.h>
 
 int f(int x) {
-  __ensures("__is_eq(_Res, x * x)");
+  __ensures("__is_true(_Res == x * x)");
   __admitted();
   return x * x;
 }

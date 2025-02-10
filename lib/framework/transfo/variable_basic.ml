@@ -167,25 +167,6 @@ let%transfo local_name ~(var : var) (var_typ : typ)
         );
         recompute_resources ()
       )
-      (* DEPRECATED:
-      Resources.ensure_computed ();
-      let t = get_trm_at_exn [cMark m] in
-      let t_res_usage = Resources.usage_of_trm t in
-      let t_res_before = Resources.before_trm t in
-      let t_res_after = Resources.after_trm t in
-      let used_formulas = Resources.(formulas_of_hyps (hyps_of_usage t_res_usage) (t_res_before.linear @ t_res_after.linear)) in
-      let used_vars = List.fold_left (fun vs t ->
-        Var_set.union vs (trm_free_vars t)
-      ) Var_set.empty used_formulas in
-      let var_conflicts = match Var_map.find_opt var t_res_before.aliases with
-        | Some var_alias -> trm_free_vars var_alias
-        | None -> Var_set.singleton var
-      in
-      if Var_set.disjoint var_conflicts used_vars then
-        Trace.justif "resources do not mention replaced variable after transformation"
-      else
-        trm_fail t "resources still mention replaced variable after transformation"
-      *)
     end
   )) tg
 
@@ -237,13 +218,13 @@ let%transfo change_type (new_type : string) (tg : target) : unit =
 (** [insert ~constr ~name ~typ ~value tg]: expects the target [tg] to point at any relative location in a sequence
      then it will insert a variable declaration on that location,
      [const] - if true, then the inserted variable is going to be immutable, otherwise mutable,
-     [reparse] - if true it will reparse the full ast after applying the trasnformation,
+     [reparse] - if true it will reparse the full ast after applying the transformation,
      [value] - initial value of the inserted variable,
      [name] - name of the inserted variable,
      [typ] - typ of the inserted variable;.
 
     NOTE: if initialization [value] is not provided then the declaration will be un-initialized. *)
-let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ~(name : string) ~(typ : typ) ?(value : trm = trm_uninitialized typ) (tg : target) : unit =
+let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ~(name : string) ~(typ : typ) ?(value : trm option) (tg : target) : unit =
   Target.reparse_after ~reparse (Target.iter (fun p ->
     let (p_seq, i) = Path.extract_last_dir_before p in
     Target.apply_at_path (Variable_core.insert_at i const name typ value) p_seq;
@@ -269,7 +250,7 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
           let filter (_, f) = Var_set.mem subst (trm_free_vars f) in
           let res_filter = Resource_set.filter
             ~pure_filter:filter ~linear_filter:filter
-            ~aliases_filter:(fun _ _ -> false) ~spec_filter:(fun _ _ -> false) in
+            (*~aliases_filter:(fun _ _ -> false) ~spec_filter:(fun _ _ -> false)*) in
           let res_before_touched = res_filter res_before in
           let res_after_touched = res_filter res_after in
           let res_before_changed = Resource_set.subst_var subst put res_before_touched in

@@ -102,7 +102,7 @@ let inline_on ?(body_mark = no_mark) ?(subst_mark = no_mark) (t: trm): trm =
   | Trm_apps (tfun, fun_call_args, fun_ghost_args) ->
     begin match tfun.desc with
     | Trm_var f ->
-      begin match Internal.toplevel_decl ~require_body:true f with
+      begin match Internal.toplevel_decl f with
       | Some decl ->
         let _, _, fn_def = trm_inv trm_let_inv decl in
         beta_reduce_on ~body_mark ~subst_mark (trm_apps fn_def fun_call_args ~ghost_args:fun_ghost_args)
@@ -189,7 +189,7 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
         in
       (* Finally we build the infix operation *)
       let rs2 = expr_to_trm atoms expr2 in
-      let res = trm_compound_assign ~annot:t.annot binop ls rs2 in
+      let res = trm_compound_assign ~annot:t.annot ?typ:rs.typ binop ls rs2 in
       res
     | _-> fail "use_infix_ops_on: expected a set operation to be targeted"
     )

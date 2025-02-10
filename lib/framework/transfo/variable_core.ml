@@ -66,15 +66,16 @@ let init_attach_at (index : int) (t : trm) : trm =
   let error = "expected the surrounding sequence." in
   let instrs, result = trm_inv ~error trm_seq_inv t in
   let lfront, decl, lback  = Mlist.get_item_and_its_relatives index instrs in
-  let error = "expected a variable declaration." in
-  let (x, tx, init) = trm_inv ~error trm_let_inv decl in
-  if not (is_trm_ref_uninitialized init) then trm_fail init "expected uninitialized variable";
+  let (x, tx) = Pattern.pattern_match decl [
+    Pattern.(trm_let !__ __ (trm_ref_uninit !__)) (fun x tx () -> (x, tx));
+    Pattern.__ (fun () -> trm_fail decl "expected a mutable variable declaration")
+  ] in
   let _, next, lback = Mlist.get_item_and_its_relatives 0 lback in
   let init2 = Pattern.pattern_match next [
     Pattern.(trm_set (trm_var (eq x)) !__) (fun init2 () -> init2);
     Pattern.__ (fun () -> trm_fail next "expected a succeeding set on that variable")
   ] in
-  let new_decl = trm_let_mut ~annot:decl.annot (x, (get_inner_ptr_type tx)) init2 in
+  let new_decl = trm_let_mut ~annot:decl.annot (x, tx) init2 in
   trm_seq_helper ~annot:t.annot ?result [TrmMlist lfront; Trm new_decl; TrmMlist lback]
 
 (** [delocalize_at array_size ops index t]: see [Variable_basic.delocalize],
@@ -110,8 +111,8 @@ let delocalize_at (array_size : trm) (ops : local_ops) (index : string) (t : trm
             [trm_get curr_var_trm ;
             trm_get (trm_array_access (trm_var_get ~typ:var_type local_var) (trm_var index))]
     end in
-    let new_first_trm = trm_seq_nobrace_nomarks[
-        trm_let_array (local_var, var_type) ~size:array_size (trm_uninitialized (typ_array var_type ~size:array_size));
+    let new_first_trm = trm_seq_nobrace_nomarks [
+        trm_let_mut_uninit (local_var, (typ_array var_type ~size:array_size));
         trm_set (trm_array_access (trm_var_get ~typ:var_type local_var) (trm_int 0)) (trm_get curr_var_trm);
         trm_copy (trm_for { index; start = trm_int 1; direction = DirUp; stop = array_size; step = trm_step_one () }
         (trm_seq_nomarks [trm_set (trm_array_access (trm_var_get ~typ:var_type local_var) (trm_var index)) init_trm]))]
@@ -134,12 +135,17 @@ let delocalize_at (array_size : trm) (ops : local_ops) (index : string) (t : trm
       [const] - a flag on the mutability of the variable [name],
       [name] - name of the inserted variable,
       [typ] - the type of the inserted variable,
-      [value] - the initial value of the inserted variable [name] entered as a string,
+      [value] - the initial value of the inserted variable [name],
       [t] - ast of the sequence where the insertion is performed. *)
-let insert_at (index : int) (const : bool) (name : string) (typ : typ) (value : trm) (t : trm) : trm =
+let insert_at (index : int) (const : bool) (name : string) (typ : typ) (value : trm option) (t : trm) : trm =
   let error = "Variable_core.insert_at: expected the sequence where the declaration is oing to be inserted" in
   let tl, result = trm_inv ~error trm_seq_inv t in
-  let new_decl = if const then trm_let (new_var name, typ) value else trm_let_mut (new_var name, typ) value in
+  let new_decl = match const, value with
+    | true, Some value -> trm_let (new_var name, typ) value
+    | true, None -> failwith "Variable_core.insert_at: cannot create a constant variable with no initial value"
+    | false, Some value -> trm_let_mut (new_var name, typ) value
+    | false, None -> trm_let_mut_uninit (new_var name, typ)
+  in
   let new_tl = Mlist.insert_at index new_decl tl in
   trm_seq ~annot:t.annot ?result new_tl
 
@@ -224,11 +230,11 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
     | Trm_apps (_, [t1], _) when is_get_operation t ->
       let r, t1' = aux t1 in
       (false, if r then t1' else trm_get ~annot:t.annot t1')
-    | Trm_apps ({desc = Trm_prim (_struct_typ, Prim_unop (Unop_struct_access f))}, [t1], _) ->
+    | Trm_apps ({desc = Trm_prim (struct_typ, Prim_unop (Unop_struct_access f))}, [t1], _) ->
       let field_typ = Option.bind t.typ typ_ptr_inv in
       let r, t1' = aux t1 in
-      if r then (true, trm_struct_get ?field_typ ~annot:t.annot t1' f)
-      else (false, trm_struct_access ?field_typ ~annot:t.annot t1' f)
+      if r then (true, trm_struct_get ?field_typ ~struct_typ ~annot:t.annot t1' f)
+      else (false, trm_struct_access ?field_typ ~struct_typ ~annot:t.annot t1' f)
     | Trm_apps ({desc = Trm_prim (_typ, Prim_binop (Binop_array_access))}, [t1; t2], _) ->
       let elem_typ = Option.bind t.typ typ_ptr_inv in
       let r, t1' = aux t1 in

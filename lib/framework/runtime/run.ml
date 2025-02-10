@@ -173,21 +173,30 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   (try
     begin
       try
+        let trace_filename = prefix ^ "_trace.js" in
+        if Sys.file_exists trace_filename then Sys.remove trace_filename;
         Trace.init ~program:program_basename ~prefix filename;
-        if !Flags.check_validity then
-          Trace.step ~kind:Step_small ~tags:["pre-post-processing"] ~name:"Preprocessing loop contracts" (fun () ->
+        if !Flags.check_validity || !Flags.recompute_resources_between_steps then
+          Trace.step ~kind:Step_small ~tags:["pre-post-processing"] ~name:"Preprocessing contracts" (fun () ->
+            Resources.fix_types_in_contracts ();
             Resources.make_strict_loop_contracts [];
           );
         Show.with_captured_show ~activated:activate_capture_show contents_captured_show (fun () ->
           may_report_time "script-exec" f)
       with
       | Stop -> ()
-      | e when Flags.request_trace () -> (* FIXME: remove when cond *)
+      | e when Flags.request_trace () (* FIXME: remove when cond *) -> begin
+          Tools.error "%s" (Printexc.to_string e);
           let backtrace = Printexc.get_backtrace () in
-          Trace.finalize_on_error ~exn:e;
-          produce_trace();
           Tools.debug "========> BACKTRACE:\n%s" backtrace;
+          begin try
+            Trace.finalize_on_error ~exn:e;
+            produce_trace ();
+          with Trace.TraceFailure trace_err ->
+            Tools.error "Failed saving the trace: %s" trace_err;
+          end;
           exit 1 (* FIXME: don't exit in batch? *)
+        end
     end;
     flush stdout;
     (* If we requested a diff for the last line of the script, print it *)

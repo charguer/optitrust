@@ -1,19 +1,6 @@
 open Prelude
 open Target
 
-(* DEPRECATED
-(** [transform ~reparse f_get f_set tg]: expects the target [tg] to point at a trm inside a set or a get operation.
-    Then the transformation will search for the first get or set operation surrounding the targeted trm and call
-    the transform core transformation on that trm. If the first founded operation was a get operation then [f_get]
-    will be applied on the node represented by target [tg]. If it was a set operation then [f_set] will be applied
-    on the second argument of the targeted node. *)
-let%transfo transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm) (tg: target) : unit =
-  Target.iter (fun p ->
-    let get_or_set_path = Internal.get_ascendant_path (fun t -> (is_get_operation t) || (is_set_operation t)) p (Trace.ast ()) in
-    if get_or_set_path <> [] then Target.apply_at_path (Accesses_core.transform_on f_get f_set) get_or_set_path
-  ) tg
-*)
-
 type transform_ret = {
   typedvar : (var * typ option) option ref;
   matched_pre : formula list ref;
@@ -24,7 +11,7 @@ type transform_ret = {
   pure_post : resource_item list ref;
 }
 
-(** <private *)
+(** <private> *)
 let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
   (to_prove : trm list)
   (address_pattern : compiled_pattern)
@@ -53,7 +40,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
           | Some t1, Some t2 ->
             if are_same_trm t1 t2
             then ()
-            else trm_fail addr (sprintf "addresses are on same inner pointer variable, but types vary: %s != %s" (Ast_to_c.typ_to_string t1) (Ast_to_c.typ_to_string t2))
+            else trm_fail addr (sprintf "addresses are on same inner pointer variable `%s`, but types vary: %s != %s" (var_to_string v) (Ast_to_c.typ_to_string t1) (Ast_to_c.typ_to_string t2))
       );
       Pattern.__ (fun () ->
         trm_fail addr "unexpected address constructors"
@@ -207,9 +194,9 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
             let isolated_post = isolated_linear !(ret.matched_post) in
             let others_pre = formulas_to_res !(ret.others_pre) in
             let others_post = formulas_to_res !(ret.others_post) in
-            let pre = Resource_set.make ~pure:!(ret.pure_pre) ~linear:(isolated_pre @ others_pre) () in
-            (* TODO: Add ensured linear vars to post.pre *)
-            let post = Resource_set.make ~pure:(List.filter (fun (h, f) -> f <> Resource_formula.trm_frac) !(ret.pure_post)) ~linear:(isolated_post @ others_post) () in
+            let pre = Resource_set.make ~pure:(List.filter (fun (h, f) -> f = Resource_formula.typ_frac) !(ret.pure_pre)) ~linear:(isolated_pre @ others_pre) () in
+            (* TODO: Add ensured linear vars to post.pure *)
+            let post = Resource_set.make (*~pure:(List.filter (fun (h, f) -> f <> Resource_formula.typ_frac) !(ret.pure_post))*) ~linear:(isolated_post @ others_post) () in
             let post = { post with linear = snd (Resource_computation.delete_stack_allocs (Mlist.to_list instrs) post) } in
             let contract = FunSpecContract { pre; post } in
             let f_body = trm_add_mark f_body_mark (trm_seq instrs) in
@@ -286,7 +273,7 @@ let%transfo scale ?(inv:bool=false) ~(factor:trm)
   let op_get, op_set = if inv then (trm_mul, trm_exact_div) else (trm_exact_div, trm_mul) in
   let f_get t = trm_add_mark mark (op_get ~typ t factor) in
   let f_set t = trm_add_mark mark (op_set ~typ t factor) in
-  let to_prove = [Resource_trm.to_prove Resource_formula.(formula_neq factor (trm_int 0))] in
+  let to_prove = [Resource_trm.to_prove Resource_formula.(formula_neq ~typ factor (trm_int ~typ 0))] in
   transform f_get f_set ~to_prove ~address_pattern ~mark_to_prove ~mark_preprocess ~mark_postprocess tg
 
 let%transfo scale_immut ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
@@ -298,7 +285,7 @@ let%transfo scale_immut ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no
   let op_get, op_set = if inv then (trm_mul, trm_exact_div) else (trm_exact_div, trm_mul) in
   let f_use t = trm_add_mark mark (op_get ~typ t factor) in
   let f_init t = trm_add_mark mark (op_set ~typ t factor) in
-  let to_prove = [Resource_trm.to_prove Resource_formula.(formula_neq factor (trm_int 0))] in
+  let to_prove = [Resource_trm.to_prove Resource_formula.(formula_neq ~typ factor (trm_int ~typ 0))] in
   transform_immut f_init f_use to_prove tg
 
 (** [shift ~inv ~factor tg]: this transformation just calls the [transform] function with [f_get] and [f_set] args

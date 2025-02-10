@@ -4,7 +4,8 @@ open Prelude
 let _ = Flags.check_validity := true
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
-
+let _ = Flags.save_steps := Some Steps_script
+let _ = Flags.save_ast_for_steps := Some Steps_all
 
 (** Reproducing a subset of the PIC case study *)
 
@@ -30,18 +31,19 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "scale field and particles";
   let deltaT = find_var "deltaT" in
-  !! Variable.insert ~name:"fieldFactor" ~value:(trm_mul (trm_mul deltaT deltaT) (trm_exact_div (find_var "pCharge") (find_var "pMass"))) [ctx; tBefore; cVarDef "lFieldAtCorners"];
+  !! Variable.insert ~name:"fieldFactor" ~value:(trm_mul ~typ:typ_f64 (trm_mul ~typ:typ_f64 deltaT deltaT) (trm_exact_div ~typ:typ_f64 (find_var "pCharge") (find_var "pMass"))) [ctx; tBefore; cVarDef "lFieldAtCorners"];
   (* tFirst *)
   let scaleFieldAtPos d = Accesses.scale_var ~factor:(find_var "fieldFactor") [nbMulti; ctx; cVarDef ("fieldAtPos_" ^ d)] in
   !! List.iter scaleFieldAtPos dims;
   let scaleSpeed2 d = Accesses.scale_immut ~factor:deltaT [nbMulti; ctx; cVarDef ("speed2_" ^ d)] in
   !! List.iter scaleSpeed2 dims;
+
   let scaleFieldAtCorners d =
-    let address_pattern = Trm.(struct_access (array_access (find_var "lFieldAtCorners") (pattern_var "i")) d) in
+    let address_pattern = Trm.(struct_access ~struct_typ:vect (array_access (find_var "lFieldAtCorners") (pattern_var "i")) d) in
     Accesses.scale ~factor:(find_var "fieldFactor") ~address_pattern ~uninit_post:true [ctx; tSpan [tBefore; cMark "loadField"] [tAfter; cFor "idStep"]]in
   !! List.iter scaleFieldAtCorners dims;
   let scaleParticles d =
-    let address_pattern = Trm.(struct_access (struct_access (array_access (find_var "particles") (pattern_var "i")) "speed") d) in
+    let address_pattern = Trm.(struct_access (struct_access (array_access (find_var "particles") (pattern_var "i")) ~struct_typ:particle "speed") ~struct_typ:vect d) in
     Accesses.scale ~factor:deltaT ~address_pattern ~mark_preprocess:"partsPrep" ~mark_postprocess:"partsPostp" [ctx; tSpanAround [cFor "idStep"]]; in
   !! List.iter scaleParticles dims;
   !! List.iter Loop.fusion_targets [[cMark "partsPrep"]; [cMark "partsPostp"]];
@@ -49,7 +51,7 @@ let _ = Run.script_cpp (fun () ->
   bigstep "inline variables and simplify arithmetic";
   !! Variable.unfold ~at:[cFor "idStep"] [cVarDef "fieldFactor"];
   !! Variable.inline [ctx; cVarDefs (Tools.cart_prod (^) ["accel_"; "pos2_"] dims)];
-  !!! Arith.(simpls_rec [expand; gather_rec]) [ctx];
+  !! Arith.(simpls_rec [expand; gather_rec]) [ctx];
 
   bigstep "final polish";
   !! Loop.hoist_alloc ~indep:["idStep"; "idPart"] ~dest:[tBefore; cFor "idStep"] [cVarDef "coeffs"];

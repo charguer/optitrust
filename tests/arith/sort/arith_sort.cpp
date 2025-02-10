@@ -1,7 +1,6 @@
 #include <optitrust.h>
 
-int main()
-{
+void f() {
   __pure();
   // test integer division
   int n = 1; int m = 1; int p = 1; int q = 1;

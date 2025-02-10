@@ -16,14 +16,14 @@ open Resource_formula
      *)
 
 (** Makes a resource set given its components. *)
-let make ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) ?(aliases = Var_map.empty) ?(efracs = []) () =
-  { pure; linear; fun_specs; aliases }
+let make ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) ?(aliases = Var_map.empty) ?(struct_fields = Var_map.empty) () =
+  { pure; linear; fun_specs; aliases; struct_fields }
 
 (** The empty resource set. *)
 let empty = empty_resource_set
 
 let is_empty (res : resource_set) : bool =
-  res.pure = [] && res.linear = [] && Var_map.is_empty res.fun_specs && Var_map.is_empty res.aliases
+  res.pure = [] && res.linear = [] && Var_map.is_empty res.fun_specs
 
 (** If after consuming [old_res], [new_res] was produced, then [bind] generates the resulting resource set.
     Pure resources are accumulated, and linear resources are replaced.
@@ -32,15 +32,17 @@ let bind ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
   { pure = old_res.pure @ new_res.pure;
     linear = new_res.linear;
     fun_specs = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_specs old_res.fun_specs;
-    aliases = Var_map.union (fun _ new_d _ -> Some new_d) new_res.aliases old_res.aliases; }
+    aliases = Var_map.union (fun _ new_d _ -> Some new_d) new_res.aliases old_res.aliases;
+    struct_fields = Var_map.union (fun _ new_f _ -> Some new_f) new_res.struct_fields old_res.struct_fields; }
 
-let find (hyp : var) (res : resource_set) : formula option =
-  let pred = fun (h, r) ->
-    if var_eq h hyp then Some r else None
-  in
-  Option.or_else
-    (List.find_map pred res.pure)
-    (fun () -> List.find_map pred res.linear)
+let find_pure (hyp : var) (res : resource_set) : formula option =
+  List.find_map (fun (h, r) -> if var_eq h hyp then Some r else None) res.pure
+
+let find_linear (hyp : var) (res : resource_set) : formula option =
+  List.find_map (fun (h, r) -> if var_eq h hyp then Some r else None) res.linear
+
+let find (hyp: var) (res: resource_set) : formula option =
+  Option.or_else (find_pure hyp res) (fun () -> find_linear hyp res)
 
 (** Returns the set of resource names bound by a resource set.*)
 (* DEPRECATED
@@ -68,12 +70,22 @@ let add_linear (res: resource_item) (res_set: resource_set) =
 let add_linear_list (res: resource_item list) (res_set: resource_set) =
   { res_set with linear = res @ res_set.linear }
 
+let add_alias (var: var) (alias: trm) (res_set: resource_set) =
+  { res_set with aliases = Var_map.add var alias res_set.aliases }
+
+let add_fun_spec (fun_var: var) (spec: fun_spec_resource) (res_set: resource_set) =
+  { res_set with fun_specs = Var_map.add fun_var spec res_set.fun_specs }
+
+let add_struct_fields (struct_name: var) (fields: (label * typ) list) (res_set: resource_set) =
+  { res_set with struct_fields = Var_map.add struct_name fields res_set.struct_fields }
+
 (** Given a resource set [res] that may depend on the [i] index of [range], produces the resource set resulting from grouping resource items forall [i]. *)
 let group_range (range: loop_range) (res: resource_set): resource_set =
-  { pure = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.pure;
+  { pure = List.map (fun (x, fi) -> (x, formula_forall_range range fi)) res.pure;
     linear = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.linear;
     fun_specs = res.fun_specs;
-    aliases = res.aliases; (* FIXME: Probably wrong when aliasing variables from [pure] *) }
+    aliases = res.aliases; (* FIXME: Probably wrong when aliasing variables from [pure] *)
+    struct_fields = res.struct_fields; }
 
 (** Given a resource set, produces a resource set with read-only access to its resources that can be duplicated: RW_in => RO_out; RO_out => RO_out * (trm_copy RO_out); *)
 let read_only (res: resource_set): resource_set =
@@ -89,7 +101,8 @@ let read_only (res: resource_set): resource_set =
 let union (res1: resource_set) (res2: resource_set): resource_set =
   { pure = res1.pure @ res2.pure; linear = res1.linear @ res2.linear;
     fun_specs = Var_map.union (fun _ _ c -> Some c) res1.fun_specs res2.fun_specs;
-    aliases = Var_map.union (fun _ _ d -> Some d) res1.aliases res2.aliases; }
+    aliases = Var_map.union (fun _ _ d -> Some d) res1.aliases res2.aliases;
+    struct_fields = Var_map.union (fun _ _ f -> Some f) res1.struct_fields res2.struct_fields }
 
 (** The built-in variable representing a function's return value. *)
 (* FIXME: #var-id, id should be different for every let/letfun? like 'this' ids? *)
@@ -105,7 +118,7 @@ let map
   let linear = List.map f_linear res.linear in
   (* TODO: fun specs? *)
   let aliases = Var_map.map f_alias res.aliases in
-  { pure; linear; fun_specs = res.fun_specs; aliases }
+  { pure; linear; fun_specs = res.fun_specs; aliases; struct_fields = res.struct_fields }
 
 let filter_map
   ?(f_pure : resource_item -> resource_item option = fun r -> Some r)
@@ -116,7 +129,7 @@ let filter_map
   let linear = List.filter_map f_linear res.linear in
   (* TODO: fun specs? *)
   let aliases = Var_map.filter_map f_alias res.aliases in
-  { pure; linear; fun_specs = res.fun_specs; aliases }
+  { pure; linear; fun_specs = res.fun_specs; aliases; struct_fields = res.struct_fields }
 
 (** Substitutes variables in a given resource set. *)
 let rec subst (subst_map: tmap) (res: resource_set): resource_set =
@@ -136,24 +149,34 @@ let rec subst (subst_map: tmap) (res: resource_set): resource_set =
         res.fun_specs
   in
   let aliases = Var_map.map (fun def -> trm_subst subst_map def) res.aliases in
-  { pure; linear; fun_specs; aliases }
+  { pure; linear; fun_specs; aliases; struct_fields = res.struct_fields }
 
 let subst_var (x: var) (t: trm) (res: resource_set) : resource_set =
   subst (Var_map.singleton x t) res
 
+(** [rename_var x new_x res]: rename a variable [x] that should be bound in [res] as [new_x] *)
 let rename_var (x: var) (new_x: var) (res: resource_set) : resource_set =
-  (* FIXME: Decide what to do with subst when a variable is substituted by a non-variable in a variable-only context. *)
   let res = subst_var x (trm_var new_x) res in
-  match Var_map.find_opt x res.fun_specs with
-  | None -> res
+  let rename_hyps_in_resource_list =
+    List.map (fun (h, t) -> ((if var_eq h x then new_x else h), t))
+  in
+  let pure = rename_hyps_in_resource_list res.pure in
+  let linear = rename_hyps_in_resource_list res.linear in
+  let aliases = match Var_map.find_opt x res.aliases with
+    | Some def -> res.aliases |> Var_map.remove x |> Var_map.add new_x def
+    | None -> res.aliases
+  in
+  let fun_specs = match Var_map.find_opt x res.fun_specs with
+  | None -> res.fun_specs
   | Some spec ->
-    { res with fun_specs = res.fun_specs |>
-        Var_map.remove x |>
-        Var_map.add new_x spec |>
-        Var_map.map (fun spec_res -> {spec_res with inverse =
-          Option.map (fun inv -> if var_eq inv x then new_x else inv) spec_res.inverse
-        })
-    }
+    res.fun_specs |>
+    Var_map.remove x |>
+    Var_map.add new_x spec |>
+    Var_map.map (fun spec_res -> {spec_res with inverse =
+      Option.map (fun inv -> if var_eq inv x then new_x else inv) spec_res.inverse
+    })
+  in
+  { pure; linear; aliases; fun_specs; struct_fields = res.struct_fields }
 
 let subst_aliases (aliases: trm Var_map.t) (res: resource_set): resource_set =
   (* Invariant: [res.fun_specs] cannot refer variables in [res.aliases].
@@ -163,6 +186,21 @@ let subst_aliases (aliases: trm Var_map.t) (res: resource_set): resource_set =
 let subst_all_aliases (res: resource_set): resource_set =
   let res' = subst_aliases res.aliases { res with aliases = Var_map.empty } in
   { res' with aliases = res.aliases }
+
+exception Spec_not_found of var
+
+let find_result_fun_spec (res: resource_set): fun_spec_resource =
+  let fn_var = match Var_map.find_opt var_result res.aliases with
+    | Some tf ->
+      begin match trm_var_inv tf with
+      | Some xf -> xf
+      | None -> failwith "Weird alias (%s) found when searching for the specification of a function" (Ast_to_text.ast_to_string tf)
+      end
+    | None -> var_result
+  in
+  match Var_map.find_opt fn_var res.fun_specs with
+    | Some spec -> spec
+    | None -> raise (Spec_not_found fn_var)
 
 (** Substitutes a loop index with its starting value. *)
 let subst_loop_range_start range = subst_var range.index range.start
@@ -175,10 +213,14 @@ let subst_loop_range_end range = subst_var range.index range.stop
 
 (** [copy res]: refreshes all the binders in [res] to preserve var-id unicity. *)
 let copy ?(subst = Var_map.empty) (res: resource_set): resource_set =
-  match trm_fun_inv (trm_copy (trm_fun ~contract:(FunSpecContract { pre = res; post = empty }) [] Typ.typ_auto (trm_uninitialized Typ.typ_auto))) with
+  match trm_fun_inv (trm_copy (trm_fun ~contract:(FunSpecContract { pre = res; post = empty }) [] Typ.typ_auto (trm_null Typ.typ_auto))) with
   | Some (_, _, _, FunSpecContract { pre }) -> pre
   | _ -> failwith "Resource_set.copy failed"
 
+
+(** [bound_vars res] returns the set of pure variables that occur in [res] *)
+let bound_vars (res: resource_set): Var_set.t =
+  List.fold_left (fun set (x, _) -> Var_set.add x set) Var_set.empty res.pure
 
 (** [used_vars res] returns the set of variables that are used inside [res].
 
@@ -200,7 +242,7 @@ let remove_useless_fracs (usage: resource_usage_map) (res: resource_set): resour
   let usage = ref usage in
   let res = { res with
     pure = List.filter (fun (hyp, hyp_type) ->
-      if (are_same_trm hyp_type trm_frac) && not (Var_set.mem hyp used) then begin
+      if (are_same_trm hyp_type typ_frac) && not (Var_set.mem hyp used) then begin
         usage := Var_map.remove hyp !usage;
         false
       end else
@@ -212,16 +254,18 @@ let remove_useless_fracs (usage: resource_usage_map) (res: resource_set): resour
 
 (** [filter ?pure_filter ?linear_filter res] removes the resources for which the corresponding filter returns false.
     If a filter function is not given, do not filter the corresponding field. *)
-let filter
-  ?(pure_filter = fun _ -> true)
-  ?(linear_filter = fun _ -> true)
-  ?(aliases_filter = fun _ _ -> true)
-  ?(spec_filter = fun _ _ -> true)
-  (res : resource_set) : resource_set =
-  { pure = List.filter pure_filter res.pure;
-    linear = List.filter linear_filter res.linear;
-    aliases = Var_map.filter aliases_filter res.aliases;
-    fun_specs = Var_map.filter spec_filter res.fun_specs }
+let filter ?(pure_filter = fun _ -> true) ?(linear_filter = fun _ -> true) res =
+  let fun_specs = ref res.fun_specs in
+  let aliases = ref res.aliases in
+  let pure = List.filter (fun (x, formula)  ->
+    if pure_filter (x, formula) then true else begin
+      fun_specs := Var_map.remove x !fun_specs;
+      aliases := Var_map.remove x !aliases;
+      false
+    end) res.pure in
+  let linear = List.filter linear_filter res.linear in
+  { pure; linear; fun_specs = !fun_specs; aliases = !aliases; struct_fields = res.struct_fields }
+
 
 type linear_usage_filter =
  { unused: bool; read_only: bool; joined_read_only: bool; uninit: bool; full: bool; produced: bool; }

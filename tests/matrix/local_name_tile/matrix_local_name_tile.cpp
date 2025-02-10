@@ -8,7 +8,7 @@ void f() {
   __pure();
 
   // TODO: deal with CALLOC
-  T* const a = (T*) MALLOC3 (10, 10, 4, sizeof(T));
+  T* const a = MALLOC3(T, 10, 10, 4);
   __GHOST_BEGIN(focusa, group2_focus_subrange_uninit,
     "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell, "
     "sub_range := 2..10");
@@ -39,9 +39,9 @@ void f() {
     }
   }
   __GHOST_END(focusa);
-  MFREE3(10, 10, 4, a);
+  free(a);
 
-  T* const b = (T*) MALLOC3 (10, 10, 4, sizeof(T));
+  T* const b = MALLOC3(T, 10, 10, 4);
   __GHOST_BEGIN(focusb, group2_focus_subrange_uninit,
     "items := fun i -> fun j -> for k in 0..4 -> &b[MINDEX3(10,10,4,i,j,k)] ~> Cell, "
     "sub_range := 2..10");
@@ -59,9 +59,9 @@ void f() {
     }
   }
   __GHOST_END(focusb);
-  MFREE3(10, 10, 4, b);
+  free(b);
 
-  T* const c = (T*) MALLOC3 (10, 10, 4, sizeof(T));
+  T* const c = MALLOC3(T, 10, 10, 4);
   __GHOST_BEGIN(focusc, group2_focus_subrange_uninit,
     "items := fun i -> fun j -> for k in 0..4 -> &c[MINDEX3(10,10,4,i,j,k)] ~> Cell, "
     "sub_range := 2..10");
@@ -88,7 +88,7 @@ void f() {
     }
   }
   __GHOST_END(focusc);
-  MFREE3(10, 10, 4, c);
+  free(c);
 
   int z = 0;
 }

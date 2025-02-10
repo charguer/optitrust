@@ -8,20 +8,20 @@ void f() {
   for (int i_s = 4; i_s < 12; i_s++) {
     __strict();
     __smodifies("&x ~> Cell");
-    __ghost(assume, "F := in_range(i_s - 2, 2..10)");
+    __ghost(assume, "P := in_range(i_s - 2, 2..10)");
     x += i_s;
   }
   for (int i2 = 2; i2 < 12; i2++) {
     __strict();
     __smodifies("&x ~> Cell");
-    __ghost(assume, "F := in_range(i2 - 2, 0..10)");
+    __ghost(assume, "P := in_range(i2 - 2, 0..10)");
     x += i2 - 2;
   }
   int w = 10 + 2;
   for (int j2 = 0; j2 < N; j2++) {
     __strict();
     __smodifies("&x ~> Cell");
-    __ghost(assume, "F := in_range(j2 + st, st..st + N)");
+    __ghost(assume, "P := in_range(j2 + st, st..st + N)");
     x += j2 + st;
   }
   const int shift = 5;
@@ -29,15 +29,15 @@ void f() {
     __strict();
     __smodifies("&x ~> Cell");
     const int k = k2 - shift;
-    __ghost(assume, "F := in_range(k, 0..N)");
+    __ghost(assume, "P := in_range(k, 0..N)");
     x += k;
   }
 }
 
 void ghost_in_range(int* x, int N) {
   for (int m = 8; m < N + 4; m++) {
-    __ghost(assume, "F := in_range(m - 4, 4..N)");
-    __ghost(assume, "F := in_range(m - 6, 2..N - 2)");
+    __ghost(assume, "P := in_range(m - 4, 4..N)");
+    __ghost(assume, "P := in_range(m - 6, 2..N - 2)");
     __ghost([&]() { __requires("in_range(m - 6, 2..N - 2)"); }, "");
     x += m - 6;
   }
@@ -80,7 +80,7 @@ void arrays(int N, int* w, int* r, int* f) {
     __strict();
     __xmodifies("&f[MINDEX1(N, i - 2)] ~> Cell");
     __xwrites("&w[MINDEX1(N, i - 2)] ~> Cell");
-    __ghost(assume, "F := in_range(i - 2, 0..N)");
+    __ghost(assume, "P := in_range(i - 2, 0..N)");
     w[MINDEX1(N, i - 2)] = i - 2;
     f[MINDEX1(N, i - 2)] = i - 2 + f[MINDEX1(N, i - 2)];
   }

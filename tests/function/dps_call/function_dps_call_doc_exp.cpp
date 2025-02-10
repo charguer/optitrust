@@ -1,6 +1,6 @@
-int f(int x);
+int f(int);
 
-void f_dps(int x, int* r);
+void f_dps(int, int*);
 
 int main() {
   int r;

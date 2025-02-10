@@ -23,7 +23,7 @@ let dump_ast_details : bool ref = ref false
 
 (** [pretty_matrix_notation]: flag to display matrix macros with syntactic sugar:
   MALLOC2(n, m, sizeof(T)) --> malloc(sizeof(T[n][m]))
-  x[MINDEX2(n, m, i, j)] --> x[i][j]
+  x[MINDEX2(n, m, i, j)] --> x[i;j]
    *)
 let pretty_matrix_notation : bool ref = ref false
 
@@ -207,9 +207,7 @@ let request_serialized_trace () : bool =
 let only_big_steps : bool ref = ref false
 
 (* Possible choices for [save_steps], which controls the behavior
-   of [Trace.step_should_be_kept_in_trace]. The [Steps_default] constructor is
-   only temporary; we need it to ensure that [process_mode] does not modify
-   [save_steps] in case its value has already been forced by the user. *)
+   of [Trace.step_should_be_kept_in_trace]. *)
 type steps_selector =
   | Steps_none
   | Steps_script

@@ -5,7 +5,7 @@ void f(int* t, int* u, int* v, int n) {
   __modifies("for i in 0..n -> &u[i] ~> Cell");
   __modifies("for i in 0..n -> &v[i] ~> Cell");
 
-  float p = 5.0;
+  int p = 5;
   for (int i = 0; i < n; i++) {
     __xmodifies("&t[i] ~> Cell");
     t[i] = i;

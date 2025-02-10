@@ -1,20 +1,20 @@
 #include <optitrust.h>
 
 __GHOST(test) {
-  __requires("f: int -> formula, k: int, valid: f(k)");
+  __requires("f: int -> Prop, k: int, valid: f(k)");
   __ensures("f(k+1)");
   __admitted();
 }
 
 __GHOST(two_closures) {
-  __requires("f: (formula -> formula) -> formula, g: int -> formula");
+  __requires("f: (int -> Prop) -> Prop, g: int -> Prop");
   __ensures("f(g)");
   __admitted();
 }
 
 void f() {
-  __pure();
-  __ghost(test, "f := fun i -> P(i), k := 0, valid := checked");
+  __requires("P: int -> Prop");
+  __ghost(test, "f := fun i -> P(i), k := 0, valid := __admitted");
   __ghost(test, "f := fun i -> P(i+1), k := 0");
   __ghost(two_closures, "f := fun g -> g(1), g := fun x -> P(x-1)");
 }

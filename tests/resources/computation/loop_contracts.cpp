@@ -1,58 +1,30 @@
 #include <optitrust.h>
 
-__GHOST(array_focus) {
-  __requires("M: ptr, i: int, dim: int");
-  __consumes("M ~> Array(dim)");
-  __produces("&M[i] ~> Cell, M ~> FocussedArray(dim, i)");
-  __admitted();
-}
-
-__GHOST(array_unfocus) {
-  __requires("M: ptr, i: int, dim: int");
-  __consumes("M ~> FocussedArray(dim, i), &M[i] ~> Cell");
-  __produces("M ~> Array(dim)");
-  __admitted();
-}
-
-__GHOST(array_ro_focus) {
-  __requires("M: ptr, i: int, dim: int, f: _Fraction");
-  __consumes("_RO(f, M ~> Array(dim))");
-  __produces("_RO(f, &M[i] ~> Cell), _RO(f, M ~> FocussedArray(dim, i))");
-  __admitted();
-}
-
-__GHOST(array_ro_unfocus) {
-  __requires("M: ptr, i: int, dim: int, f: _Fraction");
-  __consumes("_RO(_Full(f), M ~> FocussedArray(dim, i)), _RO(_Full(f), &M[i] ~> Cell)");
-  __produces("_RO(f, M ~> Array(dim))");
-  __admitted();
-}
-
 void array_copy(float* A, float* B, int n) {
-  __reads("A ~> Array(n)");
-  __modifies("B ~> Array(n)");
+  __reads("A ~> Matrix1(n)");
+  __modifies("B ~> Matrix1(n)");
   for (int i = 0; i < n; ++i) {
-      __ghost(array_ro_focus, "A, i"); // Will be automatically inferred later
-      __ghost(array_focus, "B, i"); // idem
-      B[i] = A[i];
-      __ghost(array_unfocus, "B"); // idem
-      __ghost(array_ro_unfocus, "A"); // idem
+      __ghost(matrix1_ro_focus, "A, i"); // Will be automatically inferred later
+      __ghost(matrix1_focus, "B, i"); // idem
+      B[MINDEX1(n,i)] = A[MINDEX1(n,i)];
+      __ghost(matrix1_unfocus, "B"); // idem
+      __ghost(matrix1_ro_unfocus, "A"); // idem
   }
 }
 
 void array_copy_explicit(float* A, float* B, int n) {
-  __reads("A ~> Array(n)");
-  __modifies("B ~> Array(n)");
+  __reads("A ~> Matrix1(n)");
+  __modifies("B ~> Matrix1(n)");
   for (int i = 0; i < n; ++i) {
       __strict();
-      __sreads("A ~> Array(n)");
-      __smodifies("B ~> Array(n)");
+      __sreads("A ~> Matrix1(n)");
+      __smodifies("B ~> Matrix1(n)");
 
-      __ghost(array_ro_focus, "A, i");
-      __ghost(array_focus, "B, i");
-      B[i] = A[i];
-      __ghost(array_unfocus, "B");
-      __ghost(array_ro_unfocus, "A");
+      __ghost(matrix1_ro_focus, "A, i");
+      __ghost(matrix1_focus, "B, i");
+      B[MINDEX1(n,i)] = A[MINDEX1(n,i)];
+      __ghost(matrix1_unfocus, "B");
+      __ghost(matrix1_ro_unfocus, "A");
   }
 }
 
@@ -63,83 +35,34 @@ void array_copy_explicit(float* A, float* B, int n) {
  *    __xmodifies(); <- must be empty for parallelizability
  */
 
-__GHOST(array_unfold) {
-  __requires("M: ptr, dim: int");
-  __consumes("M ~> Array(dim)");
-  __produces("for i in 0..dim -> &M[i] ~> Cell");
-  __admitted();
-}
-
-__GHOST(array_fold) {
-  __requires("M: ptr, dim: int");
-  __consumes("for i in 0..dim -> &M[i] ~> Cell");
-  __produces("M ~> Array(dim)");
-  __admitted();
-}
-
-__GHOST(ro_array_unfold) {
-  __requires("M: ptr, dim: int, f: _Fraction");
-  __consumes("_RO(f, M ~> Array(dim))");
-  __produces("_RO(f, for i in 0..dim -> &M[i] ~> Cell)");
-  __admitted();
-}
-
-__GHOST(ro_array_fold) {
-  __requires("M: ptr, dim: int, f: _Fraction");
-  __consumes("_RO(_Full(f), for i in 0..dim -> &M[i] ~> Cell)");
-  __produces("_RO(f, M ~> Array(dim))");
-  __admitted();
-}
-
 void array_copy_par(float* A, float* B, int n) {
-  __reads("A ~> Array(n)");
-  __modifies("B ~> Array(n)");
+  __reads("A ~> Matrix1(n)");
+  __modifies("B ~> Matrix1(n)");
 
-  __ghost(ro_array_unfold, "A");
-  __ghost(array_unfold, "B");
   for (int i = 0; i < n; ++i) {
     __strict();
-    __xreads("&A[i] ~> Cell");
-    __xmodifies("&B[i] ~> Cell");
-    B[i] = A[i];
+    __xreads("&A[MINDEX1(n,i)] ~> Cell");
+    __xmodifies("&B[MINDEX1(n,i)] ~> Cell");
+    B[MINDEX1(n,i)] = A[MINDEX1(n,i)];
   }
-  __ghost(array_fold, "B");
-  __ghost(ro_array_fold, "A");
-}
-
-float* array_alloc(int sz) {
-  __produces("_Res ~> Array(sz)");
-  __admitted();
-  return (float*)malloc(sz * sizeof(float));
-}
-
-void array_free(float* A) {
-  __requires("sz: int");
-  __consumes("A ~> Array(sz)");
-  __admitted();
-  free(A);
 }
 
 void array_copy_with_tmp(float* A, float* B, int n) {
-  __reads("A ~> Array(n)");
-  __modifies("B ~> Array(n)");
+  __reads("A ~> Matrix1(n)");
+  __modifies("B ~> Matrix1(n)");
 
-  float* const T = array_alloc(n);
-  __ghost(array_unfold, "T");
-  __ghost(array_unfold, "B");
+  float* const T = CALLOC1(float, n);
   for (int i = 0; i < n; ++i) {
     __strict();
-    __sreads("A ~> Array(n)");
-    __xmodifies("&B[i] ~> Cell, &T[i] ~> Cell");
+    __sreads("A ~> Matrix1(n)");
+    __xmodifies("&B[MINDEX1(n,i)] ~> Cell, &T[MINDEX1(n,i)] ~> Cell");
 
-    __ghost(array_ro_focus, "A, i"); // Will be removed
-    T[i] = A[i];
-    __ghost(array_ro_unfocus, "A"); // Will be removed
-    B[i] = T[i];
+    __ghost(matrix1_ro_focus, "A, i"); // Will be removed
+    T[MINDEX1(n,i)] = A[MINDEX1(n,i)];
+    __ghost(matrix1_ro_unfocus, "A"); // Will be removed
+    B[MINDEX1(n,i)] = T[MINDEX1(n,i)];
   }
-  __ghost(array_fold, "B");
-  __ghost(array_fold, "T");
-  array_free(T);
+  free(T);
 }
 
 // Loop.fission -> On reprend les contrats et on minimize

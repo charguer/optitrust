@@ -24,11 +24,11 @@ void rowSum(const int w, const uint8_t* S, uint16_t* D, const int n, const int c
 
       __ghost(assume, "is_subrange(i..i + w, 0..n + w - 1)"); // TODO: solve
 
-      uint16_t s = 0;
+      uint16_t s = (uint16_t)0;
       for (int k = i; k < i+w; k++) {
         __ghost(in_range_extend, "k, i..i+w, 0..n+w-1");
         __GHOST_BEGIN(focus, matrix2_ro_focus, "S, k, c");
-        s += S[MINDEX2(n+w-1, cn, k, c)];
+        s += (uint16_t)S[MINDEX2(n+w-1, cn, k, c)];
         __GHOST_END(focus);
       }
       D[MINDEX2(n, cn, i, c)] = s;

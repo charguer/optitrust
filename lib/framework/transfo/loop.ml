@@ -105,22 +105,19 @@ let%transfo hoist_alloc_loop_list
   let mark_tmp_var = next_m () in
   let may_detach_init (x : var) (init : trm) (p : path) =
     let dim_count = ref 0 in
-    let is_trm_malloc = match Matrix_core.alloc_inv_with_ty init with
-    | Some (dims, _, _) ->
+    let is_alloc = match Matrix_trm.alloc_inv init with
+    | Some (_, dims, _) ->
       dim_count := List.length dims;
       true
     | None -> false
     in
-    let only_allocs = is_trm_malloc ||
-      (is_trm_uninitialized init) ||
-      (is_trm_ref_uninitialized init) in
-    if not only_allocs then begin
+    if not is_alloc then begin
       Variable_basic.init_detach (target_of_path p);
       let (_, seq_path) = Path.index_in_seq p in
       Matrix_basic.intro_malloc0 ~mark_alloc ~mark_free x (target_of_path seq_path);
     end else begin
       Marks.add mark_alloc (target_of_path p);
-      Marks.add mark_free [cCall ~args:((List.init !dim_count (fun _ -> [])) @ [[cVarId x]]) (sprintf "MFREE%d" !dim_count)];
+      Marks.add mark_free [cDelete ~arg:[cVarId x] ()];
     end
   in
   let simpl_hoist_tmp_var () : unit =
