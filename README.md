@@ -1,13 +1,19 @@
 
 OptiTrust is a tool for user-guided, source-to-source transformations.
 
+It is described in this draft paper:
+
+http://www.chargueraud.org/research/2024/optitrust/optitrust.pdf
+
 The project webpage is:
 
 http://optitrust.inria.fr
 
-It is a research prototype, under active development.
+OptiTrust is a research prototype, under active development.
 
-In the meanwhile, if you are interested in a demo, please get in touch with @charguer.
+Warning: in the current version, generating fully detailed HTML reports (with information about every substep) for our case studies requires a very large amount of memory, possibly more than available on your machine. We are working on making typechecking incremental to avoid this problem.
+
+If you are interested in a demo, please get in touch with @charguer.
 
 
 # OptiTrust Installation
