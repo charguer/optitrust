@@ -1094,11 +1094,13 @@ let insert_tasks_on (p : path) (t : trm) : trm =
 let insert_tasks (tg : target) : unit =
   Target.apply (fun t p -> Path.apply_on_path (insert_tasks_on p) t p) tg
 
-(** [cutoff_count_and_depth tg]: expects the target [tg] to point at a task
-    group, i.e. a sequence with the [!Apac_macros.candidate_body_mark]. It then
-    extends the sequence with the definitions of function-local variables for
-    controlling task granularity according to the number of submitted tasks and
-    the parallelism depth depending on the value of the corresponding flags
+(** [cutoff_count_and_depth tg]: expects the target [tg] to point at a
+    definition of a taskification candidate function. If the task candidate
+    graph of the function features no taskifiable task, i.e. a function
+    definition with the [!Apac_macros.candidate_mark]. It then extends its body
+    sequence with the definitions of function-local variables for controlling
+    task granularity according to the number of submitted tasks and the
+    parallelism depth depending on the value of the corresponding flags
     [!Apac_flags.cutoff_count] and [!Apac_flags.cutoff_depth]. The pass also
     adds to the abstract syntax tree of the input program the [#include]
     directives and definitions of global variables involved in these granularity
@@ -1113,14 +1115,14 @@ let insert_tasks (tg : target) : unit =
 
     void p(int & v) { int a = 15; int b = a + 2; int c = a + b + v++; }
 
-    void c(int * tab, int size) {
+    /*@__apac_candidate*/ void c(int * tab, int size) {
     /*@__apac_candidate_body*/ {
         f(tab);
         for(int i = 0; i < size; i++) {
           p(tab[i]);
         }
       } /*@__apac_candidate_body*/
-    }
+    } /*@__apac_candidate*/
     ]}
 
     Here, the sequence wrapping the body of the function [c] carries the
@@ -1134,19 +1136,19 @@ let insert_tasks (tg : target) : unit =
 
     void p(int & v) { int a = 15; int b = a + 2; int c = a + b + v++; }
 
-    void c(int * tab, int size) {
+    /*@__apac_candidate*/ void c(int * tab, int size) {
+      int __apac_count_ok =
+        __apac_count_infinite || __apac_count < __apac_count_max;
+      int __apac_depth_local = __apac_depth;
+      int __apac_depth_ok =
+        __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
     /*@__apac_candidate_body*/ {
-        int __apac_count_ok =
-          __apac_count_infinite || __apac_count < __apac_count_max;
-        int __apac_depth_local = __apac_depth;
-        int __apac_depth_ok =
-          __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
         f(tab);
         for(int i = 0; i < size; i++) {
           p(tab[i]);
         }
       } /*@__apac_candidate_body*/
-    }
+    } /*@__apac_candidate*/
     ]}
 
     Then, the pass extends the abstract syntax tree of the input program with
@@ -1184,19 +1186,19 @@ let insert_tasks (tg : target) : unit =
 
     void p(int & v) { int a = 15; int b = a + 2; int c = a + b + v++; }
 
-    void c(int * tab, int size) {
+    /*@__apac_candidate*/ void c(int * tab, int size) {
+      int __apac_count_ok =
+        __apac_count_infinite || __apac_count < __apac_count_max;
+      int __apac_depth_local = __apac_depth;
+      int __apac_depth_ok =
+        __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
     /*@__apac_candidate_body*/ {
-        int __apac_count_ok =
-          __apac_count_infinite || __apac_count < __apac_count_max;
-        int __apac_depth_local = __apac_depth;
-        int __apac_depth_ok =
-          __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
         f(tab);
         for(int i = 0; i < size; i++) {
           p(tab[i]);
         }
       } /*@__apac_candidate_body*/
-    }
+    } /*@__apac_candidate*/
     ]}
 
     Note that we insert the statements updating and referring to the variables
@@ -1206,14 +1208,20 @@ let insert_tasks (tg : target) : unit =
     initializing and configuring the granularity control variables. *)
 let cutoff_count_and_depth (tg : target) : unit =
   let open Apac_macros in 
-  (** Define a common error message. *)
-  let error = "Apac_parallelization.cutoff_count_and_depth: expected a target \
-               to a sequence" in
   (** Introduce the function-local granularity control variables. *)
   Target.apply_at_target_paths (fun t ->
-      (** Deconstruct the target sequence term [t] into an [!module:Mlist] of
-          statement terms [s]. *)
-      let s = trm_inv ~error trm_seq_inv t in
+      (** Define a common error message. *)
+      let error = "Apac_parallelization.cutoff_count_and_depth: expected a \
+                   target to a function definition." in
+      (** Deconstruct the definition term [t] of the function [f] into its
+          return type [ret_ty], the list of its arguments [args] and its [body]
+          sequence. *)
+      let (f, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
+      (** Deconstruct the [body] sequence into an [!module:Mlist] of statement
+          terms [s]. *)
+      let error = "Apac_parallelization.cutoff_count_and_depth: expected a \
+                   body sequence." in
+      let s = trm_inv ~error trm_seq_inv body in
       (** [i] is going to represent the sequence of statements we have to
           prepend [s] with. *)
       let i =
@@ -1250,11 +1258,16 @@ let cutoff_count_and_depth (tg : target) : unit =
       in
       (** We can now insert [i] at the beginning of [s] and *)
       let s = Mlist.insert_sublist_at 0 i s in
-      (** re-build [s]. *)
-      trm_seq ~ctx:t.ctx ~annot:t.annot s
+      (** re-build [s] into an updated [body']. *)
+      let body' = trm_seq ~ctx:body.ctx ~annot:body.annot s in
+      (** Finally, we rebuild the definition of [f] using the update [body']. *)
+      trm_let_fun ~ctx:t.ctx ~annot:t.annot f ret_ty args body'
     ) tg;  
   (** Introduce the global granularity control variables. *)
   Target.apply_at_target_paths (fun t ->
+      (** Define a common error message. *)
+      let error = "Apac_parallelization.cutoff_count_and_depth: expected a \
+                   target to a statement sequence." in
       (** Deconstruct the sequence term [t] representing the root of the
           abstract syntax tree of the input program into an [!module:Mlist] of
           statement terms [s]. *)

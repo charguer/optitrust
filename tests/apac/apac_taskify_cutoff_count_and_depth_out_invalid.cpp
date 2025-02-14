@@ -102,9 +102,6 @@ void c(int* tab, int size) {
 }
 
 int main() {
-  int __apac_count_ok = __apac_count_infinite || __apac_count < __apac_count_max;
-  int __apac_depth_local = __apac_depth;
-  int __apac_depth_ok = __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
   int __apac_result;
 #pragma omp parallel
 #pragma omp master

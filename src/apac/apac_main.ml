@@ -146,7 +146,8 @@ let compile () : unit =
     !? "Cut off according to task count and/or depth"
       Apac_parallelization.cutoff_count_and_depth [
         nbAny;
-        cMark Apac_macros.candidate_body_mark
+        cOr [[cMark Apac_macros.candidate_mark];
+             [cFunDefAndDecl !Apac_flags.main]]
       ];
   if !Apac_flags.profile then
     !? "Cut off according to execution time model"

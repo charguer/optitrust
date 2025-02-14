@@ -24,6 +24,7 @@ type options =
   | CutOffDepth
   | CutOffCountFactor
   | CutOffDepthMax
+  | CutOffDepthSequential
 
 let pf = Printf.printf
 
@@ -135,6 +136,32 @@ let purpose (option : options) : string =
                                 Apac_macros.count_infinite ^
                                   "' environment variable when running the \
                                    resulting task-based parallel application."
+  | CutOffDepthSequential -> "In the resulting parallel source code, the task \
+                              granularity control mechanism relying on a \
+                              per-thread parallelism depth counter switches to \
+                              the sequential implementation of a given \
+                              parallel function when the counter reaches " ^
+                               (string_of_int !Apac_flags.depth_max_default) ^
+                                 " (adjustable using the `--cutoff-depth-max' \
+                                  option). To this end, the compiler takes \
+                                  care of preserving a sequential \
+                                  implementation of each function it \
+                                  parallelizes in the output source code. \
+                                  However, if the input source code already \
+                                  contains a copy of each function to \
+                                  parallelize the user excludes from the \
+                                  compilation process using the `--omit' \
+                                  option, it is possible to use these copies \
+                                  instead of generating new ones. In order to \
+                                  allow the compiler to identify an existing \
+                                  sequential implementation of a function, the \
+                                  user should provide an adequate sequential \
+                                  function name REGEX using the \
+                                  `--cutoff-depth-sequential` in which `%f' \
+                                  represents the function name, e.g. \
+                                  `\"%f_seq$\"' to tell the compiler that the \
+                                  names of the sequential implementations end \
+                                  with `_seq'."
 
 let usage () : string =
   let executable = Sys.argv.(0) in
@@ -177,10 +204,12 @@ let help () : unit =
   pf "    --run-with-custom=COMMAND-LINE       %s\n" (purpose RunWithCustom);
   pf "    --model-with=OPTIONS                 %s\n\n" (purpose ModelWith);
   pl "  Parallel code generation";
-  pf "    --cutoff-count                  %s\n" (purpose CutOffCount);
-  pf "    --cutoff-depth                  %s\n" (purpose CutOffDepth);
-  pf "    --cutoff-count-factor=FACTOR    %s\n" (purpose CutOffCountFactor);
-  pf "    --cutoff-depth-max=MAX          %s\n\n" (purpose CutOffDepthMax);
+  pf "    --cutoff-count                     %s\n" (purpose CutOffCount);
+  pf "    --cutoff-depth                     %s\n" (purpose CutOffDepth);
+  pf "    --cutoff-count-factor=FACTOR       %s\n" (purpose CutOffCountFactor);
+  pf "    --cutoff-depth-max=MAX             %s\n\n" (purpose CutOffDepthMax);
+  pf "    --cutoff-depth-sequential=REGEX    %s\n\n"
+    (purpose CutOffDepthSequential);
   info ()
 
 let version () : unit =
@@ -238,7 +267,10 @@ let parse_arguments () =
        purpose CutOffCountFactor);
       ("--cutoff-depth-max",
        Arg.Int (fun n -> Apac_flags.depth_max_default := n),
-       purpose CutOffDepthMax)
+       purpose CutOffDepthMax);
+      ("--cutoff-depth",
+       Arg.Set_string Apac_flags.sequential,
+       purpose CutOffDepthSequential)
     ] in
   begin
     try

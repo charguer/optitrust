@@ -103,4 +103,19 @@ let count_max_thread_factor : int ref = ref 10
     [!type:apac_variable]). *)
 let depth_max_default : int ref = ref 5
 
+(** [sequential]: in the resulting parallel source code, the task granularity
+    control mechanism relying on a per-thread parallelism depth counter switches
+    to the sequential implementation of a given parallel function when the
+    counter reaches [ApacDepthMax]. To this end, the compiler takes care of
+    preserving a sequential implementation of each function it parallelizes in
+    the output source code. However, if the input source code already contains a
+    copy of each function to parallelize the user excludes from the compilation
+    process using [!omit], it is possible to use these copies instead of
+    generating new ones. In order to allow the compiler to identify an existing
+    sequential implementation of a function, the user should provide an adequate
+    [sequential] function name pattern where `%f' represents the function name,
+    e.g. `"%f_seq$"' telling that the names of the sequential implementations
+    end with `_seq'. *)
+let sequential : string ref = ref ""
+
 

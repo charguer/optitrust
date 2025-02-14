@@ -21,10 +21,10 @@ void p(int* v) {
 }
 
 void c(int* tab, int size) {
+  int __apac_depth_local = __apac_depth;
+  int __apac_depth_ok = __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
 #pragma omp taskgroup
   {
-    int __apac_depth_local = __apac_depth;
-    int __apac_depth_ok = __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
 #pragma omp task default(shared) depend(in : tab) depend(inout : tab[0]) firstprivate(__apac_depth_local) if (__apac_depth_ok)
     {
       if (__apac_depth_ok) {
@@ -63,13 +63,13 @@ void c(int* tab, int size) {
 }
 
 int main() {
+  int __apac_depth_local = __apac_depth;
+  int __apac_depth_ok = __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
   int __apac_result;
 #pragma omp parallel
 #pragma omp master
 #pragma omp taskgroup
   {
-    int __apac_depth_local = __apac_depth;
-    int __apac_depth_ok = __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
     int* t;
 #pragma omp task default(shared) depend(inout : t, t[0]) firstprivate(__apac_depth_local) if (__apac_depth_ok)
     {

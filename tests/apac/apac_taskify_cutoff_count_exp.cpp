@@ -19,9 +19,9 @@ void p(int* v) {
 }
 
 void c(int* tab, int size) {
+  int __apac_count_ok = __apac_count_infinite || __apac_count < __apac_count_max;
 #pragma omp taskgroup
   {
-    int __apac_count_ok = __apac_count_infinite || __apac_count < __apac_count_max;
     if (__apac_count_ok) {
 #pragma omp atomic
       __apac_count++;
@@ -80,12 +80,12 @@ void c(int* tab, int size) {
 }
 
 int main() {
+  int __apac_count_ok = __apac_count_infinite || __apac_count < __apac_count_max;
   int __apac_result;
 #pragma omp parallel
 #pragma omp master
 #pragma omp taskgroup
   {
-    int __apac_count_ok = __apac_count_infinite || __apac_count < __apac_count_max;
     int* t;
     if (__apac_count_ok) {
 #pragma omp atomic
