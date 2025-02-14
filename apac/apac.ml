@@ -20,9 +20,10 @@ type options =
   | RunWith
   | RunWithCustom
   | ModelWith
-  | CutOff
-  | CutOffThreads
+  | CutOffCount
   | CutOffDepth
+  | CutOffCountFactor
+  | CutOffDepthMax
 
 let pf = Printf.printf
 
@@ -104,33 +105,36 @@ let purpose (option : options) : string =
   | ModelWith -> "The compiler resorts to an execution time modeler. This \
                   option allows for passing additional arguments to the latter \
                   when calling it."
-  | CutOff -> "Annotate the resulting parallel source code so as to enable \
-               task granularity control according to global task submission \
-               and parallelism depth counters."
-  | CutOffThreads -> "Submit at most FACTOR times the maximum thread count \
-                      parallelizable tasks. By default, FACTOR is " ^
-                       (string_of_int !Apac_flags.count_max_thread_factor)
-                       ^ ". Note that it is also possible to set FACTOR using \
-                          the `" ^
-                         Apac_macros.count_max ^
-                           "' environment variable or allow the submission of \
-                            an unlimited number of parallelizable tasks using \
-                            the `" ^
-                             Apac_macros.count_infinite ^
-                               "' environment variable when running the \
-                                resulting task-based parallel application."
-  | CutOffDepth -> "Nest at most MAX parallelizable tasks. By default, MAX \
-                    is " ^
-                     (string_of_int !Apac_flags.depth_max_default) ^
-                       ". Note that it is also possible to set MAX using \
-                        the `" ^
-                         Apac_macros.count_max ^
-                           "' environment variable or allow the nesting of an \
-                            unlimited number of parallelizable tasks using \
-                            the `" ^
-                             Apac_macros.count_infinite ^
-                               "' environment variable when running the \
-                                resulting task-based parallel application."
+  | CutOffCount -> "Annotate the resulting parallel source code so as to \
+                    enable task granularity control according to global task \
+                    submission counter."
+  | CutOffDepth -> "Annotate the resulting parallel source code so as to \
+                    enable task granularity control according to global task \
+                    parallelism depth counter."
+  | CutOffCountFactor -> "Submit at most FACTOR times the maximum thread count \
+                          parallelizable tasks. By default, FACTOR is " ^
+                           (string_of_int !Apac_flags.count_max_thread_factor)
+                           ^ ". Note that it is also possible to set FACTOR \
+                              using the`" ^
+                             Apac_macros.count_max ^
+                               "' environment variable or allow the submission \
+                                of an unlimited number of parallelizable tasks \
+                                using the`" ^
+                                 Apac_macros.count_infinite ^
+                                   "' environment variable when running the \
+                                    resulting task-based parallel application."
+  | CutOffDepthMax -> "Nest at most MAX parallelizable tasks. By default, MAX \
+                       is " ^
+                        (string_of_int !Apac_flags.depth_max_default) ^
+                          ". Note that it is also possible to set MAX using \
+                           the `" ^
+                            Apac_macros.count_max ^
+                              "' environment variable or allow the nesting of \
+                               an unlimited number of parallelizable tasks \
+                               using the`" ^
+                                Apac_macros.count_infinite ^
+                                  "' environment variable when running the \
+                                   resulting task-based parallel application."
 
 let usage () : string =
   let executable = Sys.argv.(0) in
@@ -173,9 +177,10 @@ let help () : unit =
   pf "    --run-with-custom=COMMAND-LINE       %s\n" (purpose RunWithCustom);
   pf "    --model-with=OPTIONS                 %s\n\n" (purpose ModelWith);
   pl "  Parallel code generation";
-  pf "    --cutoff                   %s\n" (purpose CutOff);
-  pf "    --cutoff-threads=FACTOR    %s\n" (purpose CutOffThreads);
-  pf "    --cutoff-depth=MAX         %s\n\n" (purpose CutOffDepth);
+  pf "    --cutoff-count                  %s\n" (purpose CutOffCount);
+  pf "    --cutoff-depth                  %s\n" (purpose CutOffDepth);
+  pf "    --cutoff-count-factor=FACTOR    %s\n" (purpose CutOffCountFactor);
+  pf "    --cutoff-depth-max=MAX          %s\n\n" (purpose CutOffDepthMax);
   info ()
 
 let version () : unit =
@@ -226,13 +231,14 @@ let parse_arguments () =
        Arg.Set_string Apac_flags.profile_with_custom,
        purpose RunWithCustom);
       ("--model-with", Arg.Set_string Apac_flags.model_with, purpose ModelWith);
-      ("--cutoff", Arg.Set Apac_flags.cutoff_count_and_depth, purpose CutOff);
-      ("--cutoff-threads",
+      ("--cutoff-count", Arg.Set Apac_flags.cutoff_count, purpose CutOffCount);
+      ("--cutoff-depth", Arg.Set Apac_flags.cutoff_depth, purpose CutOffDepth);
+      ("--cutoff-count-factor",
        Arg.Int (fun n -> Apac_flags.count_max_thread_factor := n),
-       purpose CutOffThreads);
-      ("--cutoff-depth",
+       purpose CutOffCountFactor);
+      ("--cutoff-depth-max",
        Arg.Int (fun n -> Apac_flags.depth_max_default := n),
-       purpose CutOffDepth)
+       purpose CutOffDepthMax)
     ] in
   begin
     try

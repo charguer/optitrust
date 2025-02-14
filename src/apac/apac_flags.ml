@@ -80,12 +80,17 @@ let model_with : string ref = ref ""
     By default, it is the `main' function. *)
 let main : string ref = ref "main"
 
-(** [cutoff_count_and_depth]: toggles task granularity control according to
-    global task submission count and parallelism depth counters (see [ApacDepth]
-    and [ApacCount] in enumeration [!type:apac_variable]). See also
+(** [cutoff_count]: toggles task granularity control based on a global task
+    submission counter (see [ApacCount] in [!type:apac_variable]). See also
     [!Apac_parallelization.cutoff_count_and_depth] and
-    [!Apac_parallelization.parallelize]. *)
-let cutoff_count_and_depth : bool ref = ref false
+    [!Apac_parallelization.codegen_openmp]. *)
+let cutoff_count : bool ref = ref false
+
+(** [cutoff_depth]: toggles task granularity control based on a per-thread
+    parallelism depth counter (see [ApacDepth] in [!type:apac_variable]). See
+    also [!Apac_parallelization.cutoff_count_and_depth] and
+    [!Apac_parallelization.codegen_openmp]. *)
+let cutoff_depth : bool ref = ref false
 
 (** [count_max_thread_factor]: this value times the number of threads available
     for parallel execution gives the maximum amount of submitted tasks (see

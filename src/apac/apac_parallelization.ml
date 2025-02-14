@@ -48,27 +48,73 @@ let count_update (postamble : bool) : trm =
     to update the task depth [ApacDepth] variable at the beginning of a newly
     spawned task. *)
 let depth_update () : trm =
-  (* Retrieve the string representation of the involved instrumentation
-     variables. *)
+  (** Retrieve the string representation of the involved instrumentation
+      variables. *)
   let count = get_apac_variable ApacDepth in
   let local = get_apac_variable ApacDepthLocal in
-  let ok1 = get_apac_variable ApacCountOk in
-  let ok2 = get_apac_variable ApacDepthOk in
-  (* Build the task depth increment term. *)
+  (** Build the task depth increment term. *)
   let increment = code (Instr (count ^ " = " ^ local ^ " + 1")) in
-  (* Put the increment term into a sequence. *)
+  (** Put the increment term into a sequence. *)
   let increment = trm_seq_nomarks [increment] in
-  (* Convert the string representations of [ok1] and [ok2] to a boolean
-     expression term prior to *)
-  let condition = code (Expr (ok1 ^ " || " ^ ok2)) in
-  (* building the final if-conditional. *)
+  (** Build the boolean expression deciding whether to update [ApacDepth] or
+      not prior to *)
+  let condition =
+    let ok = get_apac_variable ApacDepthOk in
+    if !Apac_flags.cutoff_count then
+      code (Expr ((get_apac_variable ApacCountOk) ^ " || " ^ ok))
+    else
+      code (Expr ok)
+  in
+  (** building the associated if-conditional. *)
   trm_if condition increment (trm_unit ())
 
-(** [get_cutoff]: generates static cut-off condition term. *)
-let get_cutoff () : trm =
-  let count = trm_var (new_var (get_apac_variable ApacCountOk)) in
-  let depth = trm_var (new_var (get_apac_variable ApacDepthOk)) in
-  trm_or count depth
+(** [get_cutoff_count ()]: generates condition term for the cut-off mechanism
+    based on the count of submitted tasks. *)
+let get_cutoff_count () : trm =
+  trm_var (new_var (get_apac_variable ApacCountOk))
+
+(** [get_cutoff_depth ()]: generates condition term for the cut-off mechanism
+    based on the per-thread parallelism depth. *)
+let get_cutoff_depth () : trm =
+  trm_var (new_var (get_apac_variable ApacDepthOk))
+
+(** [get_cutoff_count_and_depth ()]: generates condition term for both the
+    cut-off mechanism based on the count of submitted tasks and the the cut-off
+    mechanism based on the per-thread parallelism depth. *)
+let get_cutoff_count_and_depth () : trm =
+  trm_or (get_cutoff_count ()) (get_cutoff_depth ())
+
+(** [get_cutoff_execution_time f]: generates condition term for the cut-off
+    mechanism based on the execution time estimation of a task while considering
+    the execution time computation formula [f]. *)
+let get_cutoff_execution_time (f : trm) : trm =
+  trm_gt f (trm_var (new_var (get_apac_variable ApacCutOff)))
+
+(** [cutoff_task_candidate p t]: surround the task candidate term [t] with the
+    statements ensuring the granularity control based on the cut-off mechanism
+    based on the count of submitted tasks and the the cut-off mechanism based on
+    the per-thread parallelism depth. The function produces the required
+    statements based on the flags [!Apac_flags.cutoff_count] and
+    [!Apac_flags.cutoff_depth]. *)
+let cutoff_task_candidate (p : cpragma) (t : trm) : trm =
+  match (!Apac_flags.cutoff_count, !Apac_flags.cutoff_depth) with
+  | (true, true) ->
+     Syntax.trm_seq_no_brace [
+         count_update false;
+         trm_add_pragma
+           p (trm_seq_nomarks [depth_update (); t; count_update true])
+       ]
+  | (true, false) ->
+     Syntax.trm_seq_no_brace [
+         count_update false;
+         trm_add_pragma
+           p (trm_seq_nomarks [t; count_update true])
+       ]
+  | (false, true) ->
+     trm_add_pragma
+       p (trm_seq_nomarks [depth_update (); t])
+  | (false, false) ->
+     trm_add_pragma p t
 
 let subst_pragmas (va : var) (tv : trm)
       (pl : cpragma list) : cpragma list =
@@ -314,32 +360,30 @@ let heapify_on (t : trm) : trm =
         promoted variable and add them to the [deletes] queue. *)
     if !delete > 0 then
       begin
-        let vt = trm_var ~kind:vk v in
-        let vt' = if typ_has_const ty then vt else trm_get vt in
-        let dt = trm_delete (!delete = 2) vt' in
-        let fp = new_var (Apac_macros.get_apac_variable ApacDepthLocal) in
-        let fp = [FirstPrivate [fp]] in
-        let co = [If (get_cutoff ())] in
         let inout = Dep_var v in
         let inout = [Inout [inout]] in
         let depend = [Depend inout] in
         let clauses = [Default Shared_m] in
         let clauses = clauses @ depend in
-        let clauses = if !Apac_flags.cutoff_count_and_depth then
-                        clauses @ fp @ co
-                      else clauses in
-        let pragma = Task clauses in
-        let count_preamble = count_update false in
-        let depth_preamble = depth_update () in
-        let count_postamble = count_update true in
-        let dt = if !Apac_flags.cutoff_count_and_depth then
-                   let dt' = [depth_preamble; dt; count_postamble] in
-                   trm_seq_nomarks dt'
-                 else dt in
-        let dt = trm_add_pragma pragma dt in
-        let dt = if !Apac_flags.cutoff_count_and_depth then
-                   Syntax.trm_seq_no_brace [count_preamble; dt]
-                 else dt in
+        let clauses =
+          let fp () =
+            [FirstPrivate
+               [new_var (Apac_macros.get_apac_variable ApacDepthLocal)]]
+          in
+          match (!Apac_flags.cutoff_count, !Apac_flags.cutoff_depth) with
+          | (true, true) ->
+             clauses @ (fp ()) @ [If (get_cutoff_count_and_depth ())]
+          | (true, false) ->
+             clauses @ [If (get_cutoff_count ())]
+          | (false, true) ->
+             clauses @ (fp ()) @ [If (get_cutoff_depth ())]
+          | (false, false) ->
+             clauses
+        in
+        let vt = trm_var ~kind:vk v in
+        let vt' = if typ_has_const ty then vt else trm_get vt in
+        let dt =
+          cutoff_task_candidate (Task clauses) (trm_delete (!delete = 2) vt') in
         Queue.add dt deletes;
         if !delete <> 2 then Queue.add (v, vt) variables;
       end;
@@ -953,10 +997,11 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
                                  | Dep_var v -> v :: acc
                                  | Dep_trm (t, v) -> v :: acc
                                  | _ -> acc) firstprivate [] in
-          let depth_local_var = new_var (get_apac_variable ApacDepthLocal) in
-          let firstprivate = if !Apac_flags.cutoff_count_and_depth then
-                               depth_local_var :: firstprivate
-                             else firstprivate in
+          let firstprivate =
+            if !Apac_flags.cutoff_depth then
+              (new_var (get_apac_variable ApacDepthLocal)) :: firstprivate
+            else firstprivate
+          in
           let firstprivate = if (List.length firstprivate) > 0 then
                                [FirstPrivate firstprivate]
                              else [] in
@@ -965,45 +1010,55 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
           let clauses =
             match (
               !Apac_flags.profile && (Option.is_some t.cost),
-              !Apac_flags.cutoff_count_and_depth
+              !Apac_flags.cutoff_count, !Apac_flags.cutoff_depth
             ) with
-            | (true, true) ->
-               let count_and_depth = get_cutoff () in
-               let execution_time =
-                 trm_gt
-                   (Option.get t.cost)
-                   (trm_var (new_var (get_apac_variable ApacCutOff))) in
-               let cutoff = trm_and count_and_depth execution_time in
-               clauses @ [If cutoff]
-            | (true, false) ->
-               let cutoff =
-                 trm_gt
-                   (Option.get t.cost)
-                   (trm_var (new_var (get_apac_variable ApacCutOff))) in
-               clauses @ [If cutoff]
-            | (false, true) ->
-               clauses @ [If (get_cutoff ())]
-            | (false, false) -> clauses
+            | (true, true, true) ->
+               let cd = get_cutoff_count_and_depth () in
+               let et = get_cutoff_execution_time (Option.get t.cost) in
+               clauses @ [If (trm_and cd et)]
+            | (true, true, false) ->
+               let c = get_cutoff_count () in
+               let et = get_cutoff_execution_time (Option.get t.cost) in
+               clauses @ [If (trm_and c et)]
+            | (true, false, true) ->
+               let d = get_cutoff_depth () in
+               let et = get_cutoff_execution_time (Option.get t.cost) in
+               clauses @ [If (trm_and d et)]
+            | (true, false, false) ->
+               clauses @ [If (get_cutoff_execution_time (Option.get t.cost))]
+            | (false, true, true) ->
+               clauses @ [If (get_cutoff_count_and_depth ())]
+            | (false, true, false) ->
+               clauses @ [If (get_cutoff_count ())]
+            | (false, false, true) ->
+               clauses @ [If (get_cutoff_depth ())]
+            | (false, false, false) -> clauses
           in
           let pragma = Task clauses in
-          let count_preamble = count_update false in
-          let depth_preamble = depth_update () in
-          let count_postamble = count_update true in
-          let instr = if !Apac_flags.cutoff_count_and_depth then
-                        depth_preamble :: t.current
-                      else t.current in
-          let instr = if !Apac_flags.cutoff_count_and_depth then
-                        instr @ [count_postamble]
-                      else instr in
-          let instr = if not (!Apac_flags.cutoff_count_and_depth) &&
-                           (List.length instr < 2) then
-                        List.hd instr
-                      else trm_seq_nomarks instr in
+          let instr =
+            if !Apac_flags.cutoff_depth then
+              (depth_update ()) :: t.current
+            else t.current
+          in
+          let instr =
+            if !Apac_flags.cutoff_count then
+              instr @ [(count_update true)]
+            else instr
+          in
+          let instr =
+            if not (!Apac_flags.cutoff_count || !Apac_flags.cutoff_depth) &&
+                 (List.length instr < 2) then
+              List.hd instr
+            else trm_seq_nomarks instr
+          in
           let instr = trm_add_pragma pragma instr in
-          let instr = if sync <> [] then
-                        trm_add_pragma (Taskwait sync) instr
-                      else instr in
-          if !Apac_flags.cutoff_count_and_depth then [count_preamble; instr]
+          let instr =
+            if sync <> [] then
+              trm_add_pragma (Taskwait sync) instr
+            else instr
+          in
+          if !Apac_flags.cutoff_count then
+            [(count_update false); instr]
           else [instr]
         end
     end
@@ -1040,15 +1095,18 @@ let insert_tasks (tg : target) : unit =
   Target.apply (fun t p -> Path.apply_on_path (insert_tasks_on p) t p) tg
 
 (** [cutoff_count_and_depth tg]: expects the target [tg] to point at a task
-    group, i.e. a statement sequence with the
-    [!Apac_macros.candidate_body_mark]. It then extends the sequence with the
-    definitions of function-local variables for controlling task granularity
-    according to the number of submitted tasks and the parallelism depth. The
-    pass also adds to the abstract syntax tree of the input program the
-    [#include] directives and definitions of global variables involved in this
-    granularity control mechanism.
+    group, i.e. a sequence with the [!Apac_macros.candidate_body_mark]. It then
+    extends the sequence with the definitions of function-local variables for
+    controlling task granularity according to the number of submitted tasks and
+    the parallelism depth depending on the value of the corresponding flags
+    [!Apac_flags.cutoff_count] and [!Apac_flags.cutoff_depth]. The pass also
+    adds to the abstract syntax tree of the input program the [#include]
+    directives and definitions of global variables involved in these granularity
+    control mechanisms.
 
-    For example, let us consider the following C source code.
+    For example, let us consider the following C source code and let us suppose
+    that both [!Apac_flags.cutoff_count] and [!Apac_flags.cutoff_depth] are set
+    to [true].
 
     {[
     void f(int * tab) { tab[0] += 42; }
@@ -1142,11 +1200,12 @@ let insert_tasks (tg : target) : unit =
     ]}
 
     Note that we insert the statements updating and referring to the variables
-    we introduce within the [!parallelize] pass responsible for the generation
+    we introduce within the [!insert_tasks] pass responsible for the generation
     of parallel source code with OpenMP task-based programming pragmas. The
     [cutoff_count_and_depth] pass is responsible only for declaring,
     initializing and configuring the granularity control variables. *)
 let cutoff_count_and_depth (tg : target) : unit =
+  let open Apac_macros in 
   (** Define a common error message. *)
   let error = "Apac_parallelization.cutoff_count_and_depth: expected a target \
                to a sequence" in
@@ -1155,33 +1214,42 @@ let cutoff_count_and_depth (tg : target) : unit =
       (** Deconstruct the target sequence term [t] into an [!module:Mlist] of
           statement terms [s]. *)
       let s = trm_inv ~error trm_seq_inv t in
-  (** Build the definition of [ApacCountOk] relying on the globals
-      [ApacCountInfinite], [ApacCount] and [ApacCountMax] (see enumeration
-      [!type:Apac_macros.apac_variable]). *)
-      let open Apac_macros in 
-      let ok1 = code
-                  (Instr
-                     ("int " ^ (get_apac_variable ApacCountOk) ^
-                        " = " ^ (get_apac_variable ApacCountInfinite) ^
-                          " || " ^ (get_apac_variable ApacCount) ^
-                            " < " ^ (get_apac_variable ApacCountMax))) in
-      (** Build the definition of [ApacDepthLocal] relying on the global
-          [ApacDepth] (see enumeration [!type:Apac_macros.apac_variable]). *)
-      let local = code
-                    (Instr
-                       ("int " ^ (get_apac_variable ApacDepthLocal) ^
-                          " = " ^ (get_apac_variable ApacDepth))) in
-      (** Build the definition of [ApacDepthOk] relying on the globals
-          [ApacDepthInfinite], [ApacDepthLocal] and [ApacDepthMax] (see
-          enumeration [!type:Apac_macros.apac_variable]). *)
-      let ok2 = code
-                  (Instr
-                     ("int " ^ (get_apac_variable ApacDepthOk) ^
-                        " = " ^ (get_apac_variable ApacDepthInfinite) ^
-                          " || " ^ (get_apac_variable ApacDepthLocal) ^
-                            " < " ^ (get_apac_variable ApacDepthMax))) in
-      (** Insert the definition statements at the beginning of [s] and *)
-      let s = Mlist.insert_sublist_at 0 [ok1; local; ok2] s in
+      (** [i] is going to represent the sequence of statements we have to
+          prepend [s] with. *)
+      let i =
+        (** If [!Apac_flags.cutoff_count] is [true], we build the definition of
+            [!ApacCountOk] (see [!type:Apac_macros.apac_variable]) and add it
+            to [i]. *)
+        if !Apac_flags.cutoff_count then
+          [code
+             (Instr
+                ("int " ^ (get_apac_variable ApacCountOk) ^
+                   " = " ^ (get_apac_variable ApacCountInfinite) ^
+                     " || " ^ (get_apac_variable ApacCount) ^
+                       " < " ^ (get_apac_variable ApacCountMax)))]
+        else []
+      in
+      let i =
+        (** If [!Apac_flags.cutoff_depth] is [true], we build the definition of
+            [!ApacDepthLocal] as well as the definition of [!ApacDepthOk] (see
+            [!type:Apac_macros.apac_variable]) add them to [i]. *)
+        if !Apac_flags.cutoff_depth then
+          i @ [
+            code
+              (Instr
+                 ("int " ^ (get_apac_variable ApacDepthLocal) ^
+                    " = " ^ (get_apac_variable ApacDepth)));
+            code
+              (Instr
+                 ("int " ^ (get_apac_variable ApacDepthOk) ^
+                    " = " ^ (get_apac_variable ApacDepthInfinite) ^
+                      " || " ^ (get_apac_variable ApacDepthLocal) ^
+                        " < " ^ (get_apac_variable ApacDepthMax))) 
+          ]
+        else i
+      in
+      (** We can now insert [i] at the beginning of [s] and *)
+      let s = Mlist.insert_sublist_at 0 i s in
       (** re-build [s]. *)
       trm_seq ~ctx:t.ctx ~annot:t.annot s
     ) tg;  
@@ -1191,61 +1259,62 @@ let cutoff_count_and_depth (tg : target) : unit =
           abstract syntax tree of the input program into an [!module:Mlist] of
           statement terms [s]. *)
       let s = trm_inv ~error trm_seq_inv t in
-      (** Build the definition of [ApacCountInfinite] (see enumeration
-          [!type:Apac_macros.apac_variable]) relying on the environment variable
-          [!Apac_macros.count_infinite]. *)
-      let open Apac_macros in
-      let ok1 = code
-                  (Instr
-                     ("const static int " ^
-                        (get_apac_variable ApacCountInfinite) ^
-                          " = getenv(\"" ^ Apac_macros.count_infinite ^
-                            "\") ? 1 : 0")) in
-      (** Build the definition of [ApacDepthInfinite] (see enumeration
-          [!type:Apac_macros.apac_variable]) relying on the environment variable
-          [!Apac_macros.depth_infinite]. *)
-      let ok2 = code
-                  (Instr
-                     ("const static int " ^
-                        (get_apac_variable ApacDepthInfinite) ^
-                          " = getenv(\"" ^ Apac_macros.depth_infinite ^
-                            "\") ? 1 : 0")) in
-      (** Build the definition of [ApacCountMax] (see enumeration
-          [!type:Apac_macros.apac_variable]) relying on the environment variable
-          [!Apac_macros.count_max]. *)
-      let max1 = code
-                   (Instr
-                      ("const static int " ^
-                         (get_apac_variable ApacCountMax) ^
-                           " = getenv(\"" ^ Apac_macros.count_max ^
-                             "\") ? atoi(getenv(\"" ^ Apac_macros.count_max ^
-                               "\")) : omp_get_max_threads() * " ^
-                                 (string_of_int
-                                    !Apac_flags.count_max_thread_factor))) in
-      (** Build the definition of [ApacDepthMax] (see enumeration
-          [!type:Apac_macros.apac_variable]) relying on the environment variable
-          [!Apac_macros.depth_max]. *)
-      let max2 = code
-                   (Instr
-                      ("const static int " ^ (get_apac_variable ApacDepthMax) ^
-                         " = getenv(\"" ^ Apac_macros.depth_max ^
-                           "\") ? atoi(getenv(\"" ^ Apac_macros.depth_max ^
-                             "\")) : " ^
-                               (string_of_int
-                                  !Apac_flags.depth_max_default))) in
-      (** Build the definition of [ApacCount] (see enumeration
-          [!type:Apac_macros.apac_variable]). *)
-      let c1 = code (Instr ("int " ^ (get_apac_variable ApacCount) ^ " = 0")) in
-      (** Build the definition of [ApacDepth] (see enumeration
-          [!type:Apac_macros.apac_variable]). *)
-      let c2 = code (Instr ("int " ^ (get_apac_variable ApacDepth) ^ " = 0")) in
-      (** Make [ApacDepth] (see enumeration [!type:Apac_macros.apac_variable])
-          thread-private. *)
-      let pragma = code (Stmt ("#pragma omp threadprivate(" ^
-                                 (get_apac_variable ApacDepth) ^ ")")) in
-      (** Insert the definition statements at the beginning of [s] and *)
-      let s =
-        Mlist.insert_sublist_at 0 [ok1; ok2; max1; max2; c1; c2; pragma] s in
+      (** [i] is going to represent the sequence of statements we have to
+          prepend [s] with. *)
+      let i =
+        (** If [!Apac_flags.cutoff_count] is [true], we build the definitions of
+            [!ApacCountInfinite], [!ApacCountMax] and [!ApacCount] (see
+            [!type:Apac_macros.apac_variable]), then we add them to [i]. *)
+        if !Apac_flags.cutoff_count then
+          [
+            code
+              (Instr
+                 ("const static int " ^
+                    (get_apac_variable ApacCountInfinite) ^
+                      " = getenv(\"" ^ Apac_macros.count_infinite ^
+                        "\") ? 1 : 0"));
+            code
+              (Instr
+                 ("const static int " ^
+                    (get_apac_variable ApacCountMax) ^
+                      " = getenv(\"" ^ Apac_macros.count_max ^
+                        "\") ? atoi(getenv(\"" ^ Apac_macros.count_max ^
+                          "\")) : omp_get_max_threads() * " ^
+                            (string_of_int
+                               !Apac_flags.count_max_thread_factor)));
+            code (Instr ("int " ^ (get_apac_variable ApacCount) ^ " = 0"))
+          ]
+        else []
+      in
+      let i = 
+      (** If [!Apac_flags.cutoff_depth] is [true], we build the definition of
+          [!ApacDepthInfinite], [!ApacDepthMax] and the thread-private
+          [!ApacDepth] (see [!type:Apac_macros.apac_variable]), then we add them
+          to [i]. *)
+        if !Apac_flags.cutoff_depth then
+          i @ [
+            code
+              (Instr
+                 ("const static int " ^
+                    (get_apac_variable ApacDepthInfinite) ^
+                      " = getenv(\"" ^ Apac_macros.depth_infinite ^
+                        "\") ? 1 : 0"));
+            code
+              (Instr
+                 ("const static int " ^ (get_apac_variable ApacDepthMax) ^
+                    " = getenv(\"" ^ Apac_macros.depth_max ^
+                      "\") ? atoi(getenv(\"" ^ Apac_macros.depth_max ^
+                        "\")) : " ^
+                          (string_of_int
+                             !Apac_flags.depth_max_default)));
+            code (Instr ("int " ^ (get_apac_variable ApacDepth) ^ " = 0"));
+            code (Stmt ("#pragma omp threadprivate(" ^
+                          (get_apac_variable ApacDepth) ^ ")"))
+          ]
+        else i
+      in
+      (** We can now insert [i] at the beginning of [s] and *)
+      let s = Mlist.insert_sublist_at 0 i s in
       (** re-build [s]. *)
       trm_seq ~ctx:t.ctx ~annot:t.annot s
     ) [];

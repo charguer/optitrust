@@ -142,8 +142,8 @@ let compile () : unit =
       cFunDefAndDecl "";
       dBody
     ];
-  if !Apac_flags.cutoff_count_and_depth then
-    !? "Cut off according to task count and depth"
+  if !Apac_flags.cutoff_count || !Apac_flags.cutoff_depth then
+    !? "Cut off according to task count and/or depth"
       Apac_parallelization.cutoff_count_and_depth [
         nbAny;
         cMark Apac_macros.candidate_body_mark
