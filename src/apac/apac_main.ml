@@ -17,6 +17,12 @@ let compile () : unit =
       cStrict;
       cVarDef ""
     ];
+  !? "Build sequential function implementation records"
+    Apac_preprocessing.record_sequentials [
+      nbAny;
+      cFunDefAndDecl ~regexp:true
+        (Str.global_replace (Str.regexp "%f") ".*" !Apac_flags.sequential)
+    ];
   let selector : constr =
     if !Apac_flags.omit <> "" then
       cDiff

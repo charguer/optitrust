@@ -1,5 +1,6 @@
 open Ast
 open Typ
+open Tools
 open Apac_dep
 open Apac_tasks
 
@@ -7,15 +8,20 @@ open Apac_tasks
 module FunctionRecord : sig
   type a
   type s = (int * varkind) Var_Hashtbl.t
+  type n =
+    | GenerateSequential of string
+    | ExistingSequential of string
   type t = {
       mutable args : (a * int * bool) list;
       mutable graph : TaskGraph.t;
       scope : s;
       writes : Var_set.t;
-      ast : trm
+      ast : trm;
+      sequential : n
     }
   val kind : typ -> varkind
-  val create : (var * typ) list -> (var * typ) list -> Var_set.t -> trm -> t
+  val create :
+    (var * typ) list -> (var * typ) list -> Var_set.t -> trm -> n -> t
   val constify : bool list -> (a * int * bool) list -> (a * int * bool) list
   val is_rw : a -> bool
   val to_string : t -> string
@@ -37,6 +43,19 @@ end = struct
         the corresponding entry in a hash table of type [!type:s] would be the
         key-value pair ([\{ name: "data", ... \}], 3, [Var_mutable]). *)
     type s = (int * varkind) Var_Hashtbl.t
+
+    (** [FunctionRecord.n]: an enumeration of possible origins of a sequential
+        implementation of a function. *)
+    type n =
+      (** The input source code {b does not} feature a sequential implementation
+          of the target function. The string component provides the name of the
+          sequential implementation the compiler will take care to generate in
+          the output source code. *)
+      | GenerateSequential of string
+      (** The input source code {b does} feature a sequential implementation of
+          the target function. The string component contains the name of the
+          existing sequential implementation. *)
+      | ExistingSequential of string
     
     (** [FunctionRecord.t]: a type of function records. *)
     type t = {
@@ -75,7 +94,10 @@ end = struct
         writes : Var_set.t;
         (** [ast]: a copy of the original abstract syntax tree intermediate
             representation of the function (see [!type:trm]). *)
-        ast : trm
+        ast : trm;
+        (** [sequential]: name of the sequential implementation of the
+            function. *)
+        sequential : n
       }
 
     (** [FunctionRecords.classify ty]: attributes an access classification to a
@@ -144,7 +166,7 @@ end = struct
         writes to within its body and the corresponding abstract syntax tree
         [ast]. *)
     let create (args : (var * typ) list) (globs : (var * typ) list)
-          (writes : Var_set.t) (ast : trm) : t =
+          (writes : Var_set.t) (ast : trm) (sequential : n) : t =
       (** Create a hash table for function-local variables. *)
       let scope = Var_Hashtbl.create 10 in
       (** For each function argument [arg] in [args], *)
@@ -166,7 +188,8 @@ end = struct
                 argument for execution time profiling (see [!Apac_profiling]).
                 This is the case when the argument is a simple variable, i.e.
                 its [nli] is less than one, of [atomic] type. *)
-            (classify ty, nli, nli < 1 && atomic)) args in
+            (classify ty, nli, nli < 1 && atomic)) args
+      in
       (** Add the global variables from [globs] to the [scope] of the function
           so as to make them available during dependency discovery (see
           [!Apac_task_candidate_discovery.trm_discover_dependencies]). *)
@@ -178,12 +201,14 @@ end = struct
           (** add it to the hash table of function-local variables. *)
           Var_Hashtbl.add scope glob (nli, kind)
         ) globs;
+      (** Return the final function record. *)
       {
         args = args;
         graph = Apac_tasks.TaskGraph.create ();
         scope = scope;
         writes = writes;
-        ast = ast
+        ast = ast;
+        sequential = sequential
       }
     
     (** [FunctionRecord.constify const args]: the function takes as argument a
@@ -256,7 +281,10 @@ end = struct
                             ")\n") record.scope ""
                   else "" in
       output ^ scope ^ "\t],\n\tast: \"" ^
-        (Apac_miscellaneous.excerpt record.ast) ^ "\",\n}"
+        (Apac_miscellaneous.excerpt record.ast) ^ "\",\n\tsequential: " ^
+          (match record.sequential with
+           | GenerateSequential n -> n
+           | ExistingSequential n -> n) ^ "\n}"
       
 end
 
@@ -285,6 +313,9 @@ let restore_cfeatures (scope : FunctionRecord.s) (t : trm) : trm =
 (** [functions]: a hash table of function records with an initial size of 10
     entries (see [!module:Var_Hashtbl] and [!module:FunctionRecord]). *)
 let functions : FunctionRecord.t Var_Hashtbl.t = Var_Hashtbl.create 10
+
+(** [sequentials]: a set of sequential function variable names. *)
+let sequentials : String_set.t ref = ref String_set.empty
 
 (** [globals]: a map of global variables to their types and flags indicating
     whether they are written to from within a parallel region. *)

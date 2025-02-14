@@ -1207,70 +1207,138 @@ let insert_tasks (tg : target) : unit =
     [cutoff_count_and_depth] pass is responsible only for declaring,
     initializing and configuring the granularity control variables. *)
 let cutoff_count_and_depth (tg : target) : unit =
-  let open Apac_macros in 
+  let open Apac_macros in
+  let open Apac_records in
+  (** Initialize a list of sequential implementations to include in the output
+      source code. *)
+  let sequentials : (trm * target) list ref = ref [] in
   (** Introduce the function-local granularity control variables. *)
-  Target.apply_at_target_paths (fun t ->
-      (** Define a common error message. *)
-      let error = "Apac_parallelization.cutoff_count_and_depth: expected a \
-                   target to a function definition." in
-      (** Deconstruct the definition term [t] of the function [f] into its
-          return type [ret_ty], the list of its arguments [args] and its [body]
-          sequence. *)
-      let (f, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
-      (** Deconstruct the [body] sequence into an [!module:Mlist] of statement
-          terms [s]. *)
-      let error = "Apac_parallelization.cutoff_count_and_depth: expected a \
-                   body sequence." in
-      let s = trm_inv ~error trm_seq_inv body in
-      (** [i] is going to represent the sequence of statements we have to
-          prepend [s] with. *)
-      let i =
-        (** If [!Apac_flags.cutoff_count] is [true], we build the definition of
-            [!ApacCountOk] (see [!type:Apac_macros.apac_variable]) and add it
-            to [i]. *)
-        if !Apac_flags.cutoff_count then
-          [code
-             (Instr
-                ("int " ^ (get_apac_variable ApacCountOk) ^
-                   " = " ^ (get_apac_variable ApacCountInfinite) ^
-                     " || " ^ (get_apac_variable ApacCount) ^
-                       " < " ^ (get_apac_variable ApacCountMax)))]
-        else []
-      in
-      let i =
-        (** If [!Apac_flags.cutoff_depth] is [true], we build the definition of
-            [!ApacDepthLocal] as well as the definition of [!ApacDepthOk] (see
-            [!type:Apac_macros.apac_variable]) add them to [i]. *)
-        if !Apac_flags.cutoff_depth then
-          i @ [
-            code
-              (Instr
-                 ("int " ^ (get_apac_variable ApacDepthLocal) ^
-                    " = " ^ (get_apac_variable ApacDepth)));
-            code
-              (Instr
-                 ("int " ^ (get_apac_variable ApacDepthOk) ^
-                    " = " ^ (get_apac_variable ApacDepthInfinite) ^
-                      " || " ^ (get_apac_variable ApacDepthLocal) ^
-                        " < " ^ (get_apac_variable ApacDepthMax))) 
-          ]
-        else i
-      in
-      (** We can now insert [i] at the beginning of [s] and *)
-      let s = Mlist.insert_sublist_at 0 i s in
-      (** re-build [s] into an updated [body']. *)
-      let body' = trm_seq ~ctx:body.ctx ~annot:body.annot s in
-      (** Finally, we rebuild the definition of [f] using the update [body']. *)
-      trm_let_fun ~ctx:t.ctx ~annot:t.annot f ret_ty args body'
-    ) tg;  
+  Target.apply (fun t p ->
+      Path.apply_on_path (fun t ->
+          (** Deconstruct the definition term [t] of the function [f] into its
+              return type [ret_ty], the list of its arguments [args] and its
+              [body] sequence. *)
+          let error = "Apac_parallelization.cutoff_count_and_depth: expected a \
+                       target to a function definition." in
+          let (f, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
+          (** Deconstruct the [body] sequence into an [!module:Mlist] of
+              statement terms [s]. *)
+          let error = "Apac_parallelization.cutoff_count_and_depth: expected a \
+                       body sequence." in
+          let s = trm_inv ~error trm_seq_inv body in
+          (** [i] is going to represent the sequence of statements we have to
+              prepend [s] with. *)
+          let i =
+            (** If [!Apac_flags.cutoff_count] is [true], we build the definition
+                of [!ApacCountOk] (see [!type:Apac_macros.apac_variable]) and
+                add it to [i]. *)
+            if !Apac_flags.cutoff_count then
+              [code
+                 (Instr
+                    ("int " ^ (get_apac_variable ApacCountOk) ^
+                       " = " ^ (get_apac_variable ApacCountInfinite) ^
+                         " || " ^ (get_apac_variable ApacCount) ^
+                           " < " ^ (get_apac_variable ApacCountMax)))]
+            else []
+          in
+          let i =
+            (** If [!Apac_flags.cutoff_depth] is [true], we build the definition
+                of [!ApacDepthLocal] as well as the definition of [!ApacDepthOk]
+                (see [!type:Apac_macros.apac_variable]) add them to [i]. *)
+            if !Apac_flags.cutoff_depth then
+              i @ [
+                code
+                  (Instr
+                     ("int " ^ (get_apac_variable ApacDepthLocal) ^
+                        " = " ^ (get_apac_variable ApacDepth)));
+                code
+                  (Instr
+                     ("int " ^ (get_apac_variable ApacDepthOk) ^
+                        " = " ^ (get_apac_variable ApacDepthInfinite) ^
+                          " || " ^ (get_apac_variable ApacDepthLocal) ^
+                            " < " ^ (get_apac_variable ApacDepthMax))) 
+              ]
+            else i
+          in
+          (** The cut-off mechanism relying on the parallelism depth switches to
+              the sequential implementation of [f] when the depth reaches the
+              maximum. For this to be possible, *)
+          if !Apac_flags.cutoff_depth then
+            (** we look for the [name] of the sequential implementation of [f]
+                in its function record [r] in [!Apac_records.functions].
+                [exists] indicates whether the input source code already
+                contains the sequential implementation of [f]. *)
+            let r = Var_Hashtbl.find functions f in
+            let name, exists =
+              match r.sequential with
+              | GenerateSequential name -> (name, false)
+              | ExistingSequential name -> (name, true)
+            in
+            (** We then prepare a call [sc] to the sequential version of [f]
+                passing it the arguments [args] of [f] as [args'], a list of
+                terms. [args] from the definition of [f] is a list of typed
+                variables. *)
+            let args' = List.map (fun (arg, _) -> trm_var arg) args in
+            let sn = new_var name in
+            let sc = trm_apps (trm_var sn) args' in
+            let sc =
+              if not (Typ.is_type_unit ret_ty) then
+                trm_ret (Some sc)
+              else sc
+            in
+            (** We transform [sc] into a sequence which *)
+            let sc = trm_seq (Mlist.of_list [sc]) in
+            (** will constitute the else-branch of an if-conditional [c]
+                deciding whether to continue executing the parallel [f] or its
+                sequential implementation based on the current parallelism
+                depth. *)
+            let c = trm_if
+                      (code
+                         (Expr (get_apac_variable ApacDepthOk))) body sc in
+            (** We can now build a new [body] of [f] containing [i] and [c]. *)
+            let body = trm_seq (Mlist.of_list (i @ [c])) in
+            (** Afterwards, we can update the definition of [f]. *)
+            let f = trm_let_fun ~ctx:t.ctx ~annot:t.annot f ret_ty args body in
+            (** Finally, we add a sequential implementation of [f] if necessary,
+                i.e. if [!exists] is [false]. *)
+            if not exists then
+              let sequential =
+                (** To this end, we deconstruct the original definition term
+                    [r.ast] of [f] into its return type [ort], the list of its
+                    arguments [oa] and its body sequence [ob]. *)
+                let error = "Apac_parallelization.cutoff_count_and_depth: \
+                             expected a function definition." in
+                let _, ort, oa, ob = trm_inv ~error trm_let_fun_inv r.ast in
+                (** We then re-build this function definition again, but we
+                    rename it to [name]. *)
+                trm_let_fun sn ort oa ob
+              in
+              sequentials := (sequential, (tBefore :: (target_of_path p))) ::
+                               !sequentials;
+              f
+            else 
+              (** Otherwise, we simply return the new [f]. *)
+              f
+          else
+            (** When [!Apac_flags.cutoff_depth] is [false], we simply insert [i]
+                at the beginning of [s], *)
+            let s = Mlist.insert_sublist_at 0 i s in
+            (** re-build [s] into an updated [body] and *)
+            let body = trm_seq ~ctx:body.ctx ~annot:body.annot s in
+            (** return a new definition of [f]. *)
+            trm_let_fun ~ctx:t.ctx ~annot:t.annot f ret_ty args body
+        ) t p) tg;
+  (** Include the sequential implementations in the output source code. *)
+  List.iter (fun (sequential, target) ->
+      Sequence_basic.insert sequential target
+    ) !sequentials;
   (** Introduce the global granularity control variables. *)
   Target.apply_at_target_paths (fun t ->
-      (** Define a common error message. *)
-      let error = "Apac_parallelization.cutoff_count_and_depth: expected a \
-                   target to a statement sequence." in
       (** Deconstruct the sequence term [t] representing the root of the
           abstract syntax tree of the input program into an [!module:Mlist] of
           statement terms [s]. *)
+      let error = "Apac_parallelization.cutoff_count_and_depth: expected a \
+                   target to a statement sequence." in
       let s = trm_inv ~error trm_seq_inv t in
       (** [i] is going to represent the sequence of statements we have to
           prepend [s] with. *)
@@ -1300,10 +1368,10 @@ let cutoff_count_and_depth (tg : target) : unit =
         else []
       in
       let i = 
-      (** If [!Apac_flags.cutoff_depth] is [true], we build the definition of
-          [!ApacDepthInfinite], [!ApacDepthMax] and the thread-private
-          [!ApacDepth] (see [!type:Apac_macros.apac_variable]), then we add them
-          to [i]. *)
+        (** If [!Apac_flags.cutoff_depth] is [true], we build the definition of
+            [!ApacDepthInfinite], [!ApacDepthMax] and the thread-private
+            [!ApacDepth] (see [!type:Apac_macros.apac_variable]), then we add
+            them to [i]. *)
         if !Apac_flags.cutoff_depth then
           i @ [
             code

@@ -360,6 +360,11 @@ let count_max : string = "APAC_TASK_COUNT_MAX"
     to set the maximum task depth. *)
 let depth_max : string = "APAC_TASK_DEPTH_MAX"
 
+(** [depth_sequential]: prefix for the names of sequential implementations of
+    parallel functions the output program switches to when the task depth
+    reaches [depth_max]. *)
+let depth_sequential : string = "__apac_sequential_"
+
 (** [execution_time_cutoff]: name of the optional environment variable allowing
     the end-user to set the cut-off value limiting the insertion of tasks
     according to their estimated execution time. *)

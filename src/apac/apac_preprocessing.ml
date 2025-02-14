@@ -62,6 +62,23 @@ let explode_let_mult (tg : target) : unit =
     For these passes to work smoothly, we begin by constituting records about
     all the function and global variable definitions in the latter. *)
 
+(** [record_sequentials tg]: expects the target [tg] to point at a definition of
+    a sequential function implementation, i.e. a definition of a function the
+    name of which matches [!Apac_flags.sequential]. The transformation pass then
+    records the corresponding function variable in
+    [!Apac_records.sequentials]. *)
+let record_sequentials (tg : target) : unit =
+  let open Tools in
+  Target.iter_at_target_paths (fun t ->
+      (** Deconstruct the definition term [t] of the target function [f]. *)
+      let error = "Apac_preprocessing.record_sequentials: expected a target to \
+                   a function definition." in
+      let f, _, _, _ = trm_inv ~error trm_let_fun_inv t in
+      (** Let us record [f] in [!Apac_records.sequentials]. *)
+      Apac_records.sequentials :=
+        String_set.add f.name !Apac_records.sequentials
+    ) tg
+
 (** [record_functions tg]: expects the target [tg] to point at a function
     definition and builds a function record for it (see [!type:f]). *)
 let record_functions (tg : target) : unit =
@@ -113,7 +130,8 @@ let record_functions (tg : target) : unit =
               is [this], discard it. *)
           let (first, _) = List.hd args in
           if first.name = "this" then List.tl args else args
-        else args in
+        else args
+      in
       (** Retrieve the global variables from [!Apac_records.globals] as a list
           of typed variables (see type [!type:typed_var]) so as to include them
           into the local scope of the function in the function record (see the
@@ -121,11 +139,35 @@ let record_functions (tg : target) : unit =
       let globs =
         Var_map.fold (fun v (ty, _) acc ->
             (v, ty) :: acc
-          ) !Apac_records.globals [] in
+          ) !Apac_records.globals []
+      in
+      (** Determine the name as well as the origin of the sequential
+          implementation of [fn]. *)
+      let sequential =
+        (** To this end, we synthesize the [name] of the sequential
+            implementation of [fn] based on the [!Apac_flags.sequential] pattern
+            or based on [!Apac_macros.depth_sequential] if the pattern is
+            empty. *)
+        let name =
+          if !Apac_flags.sequential <> "" then
+            Str.global_replace (Str.regexp "%f") fn.name !Apac_flags.sequential
+          else
+            Apac_macros.depth_sequential ^ fn.name
+        in
+        (** We then record [name] together with the origin of the sequential
+            implementation, i.e. whether it already exists in the input source
+            code or the compiler will take care of generating one. *)
+        if !Apac_flags.sequential <> "" &&
+             Tools.String_set.mem name !Apac_records.sequentials then
+          Apac_records.FunctionRecord.ExistingSequential name
+        else
+          Apac_records.FunctionRecord.GenerateSequential name
+      in
       (** Build the function record of [fn] while looking and recording write
           operations to global variables and *)
       let r =
-        Apac_records.FunctionRecord.create args globs (writes body) t in
+        Apac_records.FunctionRecord.create
+          args globs (writes body) t sequential in
       (** add it to [!Apac_records.functions] if it is not present in the hash
           table already, e.g. in the case of a pre-declaration. *)
       if not (Var_Hashtbl.mem Apac_records.functions fn) then
