@@ -25,25 +25,23 @@ type substack = (Dep.t * TaskGraph.V.t * TaskGraph.t) Stack.t
     instrumentation code allowing to update the task count [ApacCount] variable.
     If [postamble] is [false], it produces code to increment the counter when a
     new task is about to be spawned. In order to produce code to decrement the
-    counter at the end of a task, set [postamble] to [true]. Also, by default,
-    the target backend is OpenMP. This can be changed through the optional
-    [backend] argument. *)
+    counter at the end of a task, set [postamble] to [true]. *)
 let count_update (postamble : bool) : trm =
-  (* Retrieve the string representation of the involved instrumentation
-     variables. *)
+  (** Retrieve the string representation of the involved instrumentation
+      variables. *)
   let count = get_apac_variable ApacCount in
   let ok = get_apac_variable ApacCountOk in
-  (* Decide on the update operation to apply. *)
+  (** Decide on the update operation to apply. *)
   let op = if postamble then "--" else "++" in
-  (* Build the task count update term. *)
+  (** Build the task count update term. *)
   let update = code (Instr (count ^ op)) in
-  (* Prepend it with the OpenMP atomic pragma. *)
+  (** Prepend it with the OpenMP atomic pragma. *)
   let update = trm_add_pragma (Atomic None) update in
-  (* Put the update statement into a sequence. *)
+  (** Put the update statement into a sequence. *)
   let update = trm_seq_nomarks [update] in
-  (* Convert the string representation of [ok] to a term prior to *)
+  (** Convert the string representation of [ok] to a term prior to *)
   let condition = code (Expr ok) in
-  (* building the final if-conditional. *)
+  (** building the final if-conditional. *)
   trm_if condition update (trm_unit ())
 
 (** [depth_update]: generate the portion of the instrumentation code allowing
