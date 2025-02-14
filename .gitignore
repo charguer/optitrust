@@ -3,8 +3,8 @@ _build
 *.ast
 *_out.cpp
 *_out.c
-*_out.invalid.cpp
-*_out.invalid.c
+*_out_invalid.cpp
+*_out_invalid.c
 *_before.cpp
 *_before.c
 *_after.cpp
