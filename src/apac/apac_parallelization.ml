@@ -1264,23 +1264,23 @@ let cutoff_count_and_depth (tg : target) : unit =
               the sequential implementation of [f] when the depth reaches the
               maximum. For this to be possible, *)
           if !Apac_flags.cutoff_depth then
-            (** we look for the [name] of the sequential implementation of [f]
-                in its function record [r] in [!Apac_records.functions].
-                [exists] indicates whether the input source code already
-                contains the sequential implementation of [f]. *)
+            (** we look for the function variable [v] of the sequential
+                implementation of [f] in its function record [r] in
+                [!Apac_records.functions]. [exists] indicates whether the input
+                source code already contains the sequential implementation of
+                [f]. *)
             let r = Var_Hashtbl.find functions f in
-            let name, exists =
+            let v, exists =
               match r.sequential with
-              | GenerateSequential name -> (name, false)
-              | ExistingSequential name -> (name, true)
+              | GenerateSequential v -> (v, false)
+              | ExistingSequential v -> (v, true)
             in
             (** We then prepare a call [sc] to the sequential version of [f]
                 passing it the arguments [args] of [f] as [args'], a list of
                 terms. [args] from the definition of [f] is a list of typed
                 variables. *)
             let args' = List.map (fun (arg, _) -> trm_var arg) args in
-            let sn = new_var name in
-            let sc = trm_apps (trm_var sn) args' in
+            let sc = trm_apps (trm_var v) args' in
             let sc =
               if not (Typ.is_type_unit ret_ty) then
                 trm_ret (Some sc)
@@ -1311,7 +1311,7 @@ let cutoff_count_and_depth (tg : target) : unit =
                 let _, ort, oa, ob = trm_inv ~error trm_let_fun_inv r.ast in
                 (** We then re-build this function definition again, but we
                     rename it to [name]. *)
-                trm_let_fun sn ort oa ob
+                trm_let_fun v ort oa ob
               in
               sequentials := (sequential, (tBefore :: (target_of_path p))) ::
                                !sequentials;

@@ -9,8 +9,8 @@ module FunctionRecord : sig
   type a
   type s = (int * varkind) Var_Hashtbl.t
   type n =
-    | GenerateSequential of string
-    | ExistingSequential of string
+    | GenerateSequential of var
+    | ExistingSequential of var
   type t = {
       mutable args : (a * int * bool) list;
       mutable graph : TaskGraph.t;
@@ -48,14 +48,14 @@ end = struct
         implementation of a function. *)
     type n =
       (** The input source code {b does not} feature a sequential implementation
-          of the target function. The string component provides the name of the
-          sequential implementation the compiler will take care to generate in
-          the output source code. *)
-      | GenerateSequential of string
+          of the target function. The [var] component provides the function
+          variable of the sequential implementation the compiler will take care
+          to generate in the output source code. *)
+      | GenerateSequential of var
       (** The input source code {b does} feature a sequential implementation of
-          the target function. The string component contains the name of the
-          existing sequential implementation. *)
-      | ExistingSequential of string
+          the target function. The [var] component contains the function
+          variable the existing sequential implementation. *)
+      | ExistingSequential of var
     
     (** [FunctionRecord.t]: a type of function records. *)
     type t = {
@@ -283,8 +283,8 @@ end = struct
       output ^ scope ^ "\t],\n\tast: \"" ^
         (Apac_miscellaneous.excerpt record.ast) ^ "\",\n\tsequential: " ^
           (match record.sequential with
-           | GenerateSequential n -> n
-           | ExistingSequential n -> n) ^ "\n}"
+           | GenerateSequential n
+             | ExistingSequential n -> var_to_string n) ^ "\n}"
       
 end
 
@@ -314,8 +314,8 @@ let restore_cfeatures (scope : FunctionRecord.s) (t : trm) : trm =
     entries (see [!module:Var_Hashtbl] and [!module:FunctionRecord]). *)
 let functions : FunctionRecord.t Var_Hashtbl.t = Var_Hashtbl.create 10
 
-(** [sequentials]: a set of sequential function variable names. *)
-let sequentials : String_set.t ref = ref String_set.empty
+(** [sequentials]: a list of sequential function variables. *)
+let sequentials : vars ref = ref []
 
 (** [globals]: a map of global variables to their types and flags indicating
     whether they are written to from within a parallel region. *)

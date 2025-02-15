@@ -75,8 +75,7 @@ let record_sequentials (tg : target) : unit =
                    a function definition." in
       let f, _, _, _ = trm_inv ~error trm_let_fun_inv t in
       (** Let us record [f] in [!Apac_records.sequentials]. *)
-      Apac_records.sequentials :=
-        String_set.add f.name !Apac_records.sequentials
+      Apac_records.sequentials := f :: !Apac_records.sequentials
     ) tg
 
 (** [record_functions tg]: expects the target [tg] to point at a function
@@ -141,27 +140,43 @@ let record_functions (tg : target) : unit =
             (v, ty) :: acc
           ) !Apac_records.globals []
       in
-      (** Determine the name as well as the origin of the sequential
-          implementation of [fn]. *)
+      (** Determine the sequential implementation of [fn] and its origin. *)
       let sequential =
-        (** To this end, we synthesize the [name] of the sequential
-            implementation of [fn] based on the [!Apac_flags.sequential] pattern
-            or based on [!Apac_macros.depth_sequential] if the pattern is
-            empty. *)
-        let name =
+        (** At first, we check whether the user has provided a name pattern for
+            identifying function [v]ariables of the sequential implementations
+            of functions in [!Apac_flags.sequential]. *)
+        let v =
           if !Apac_flags.sequential <> "" then
-            Str.global_replace (Str.regexp "%f") fn.name !Apac_flags.sequential
+            (** If so, let us replace the function name placeholder `%f' within
+                [!Apac_flags.sequential] by the name of [fn], *)
+            let regex =
+              Str.global_replace
+                (Str.regexp "%f") fn.name !Apac_flags.sequential
+            in
+            (** make it a regular expression and *)
+            let regex = Str.regexp regex in
+            (** check whether there is a function [e] in
+                [!Apac_records.sequentials] matching the latter, i.e. whether
+                there is an existing sequential implementation for [fn] in the
+                input source code. *)
+            List.find_opt
+              (fun e -> Str.string_match regex e.name 0)
+              !Apac_records.sequentials
           else
-            Apac_macros.depth_sequential ^ fn.name
+            None
         in
-        (** We then record [name] together with the origin of the sequential
-            implementation, i.e. whether it already exists in the input source
-            code or the compiler will take care of generating one. *)
-        if !Apac_flags.sequential <> "" &&
-             Tools.String_set.mem name !Apac_records.sequentials then
-          Apac_records.FunctionRecord.ExistingSequential name
+        (** If the user has not provided a name pattern through
+            [!Apac_flags.sequential] or if the latter does not allow us to find
+            a matching function variable [v] in [!Apac_records.sequentials], we
+            will have to generate a sequential implementation of [fn] later, so
+            let us create a variable for it using our internal dedicated prefix
+            [!Apac_macros.depth_sequential]. We then record either the existing
+            [v] or the one we are about to create. *)
+        if Option.is_some v then
+          Apac_records.FunctionRecord.ExistingSequential (Option.get v)
         else
-          Apac_records.FunctionRecord.GenerateSequential name
+          Apac_records.FunctionRecord.GenerateSequential
+            (new_var (Apac_macros.depth_sequential ^ fn.name))
       in
       (** Build the function record of [fn] while looking and recording write
           operations to global variables and *)
