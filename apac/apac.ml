@@ -268,7 +268,7 @@ let parse_arguments () =
       ("--cutoff-depth-max",
        Arg.Int (fun n -> Apac_flags.depth_max_default := n),
        purpose CutOffDepthMax);
-      ("--cutoff-depth",
+      ("--cutoff-depth-sequential",
        Arg.Set_string Apac_flags.sequential,
        purpose CutOffDepthSequential)
     ] in
