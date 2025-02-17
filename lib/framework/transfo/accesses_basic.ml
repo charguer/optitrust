@@ -235,7 +235,7 @@ let transform_immut_on
   let rec fix t =
     let var = !var in
     Pattern.pattern_match t [
-      Pattern.(trm_var (var_eq var)) (fun () ->
+      Pattern.(trm_specific_var var) (fun () ->
         f_use t
       );
       Pattern.__ (fun () ->

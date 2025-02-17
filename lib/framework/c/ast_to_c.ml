@@ -1325,10 +1325,10 @@ and formula_to_doc style (f: formula): document =
     );
     Pattern.(trm_fun !__ !__ !__ __) (fun tvl ty_opt body () -> formula_fun_to_doc style ty_opt tvl body
     );
-    Pattern.(trm_apps2 (trm_var (var_eq var_forall_in)) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
+    Pattern.(trm_apps2 (trm_specific_var var_forall_in) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
       string "forall" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc style range ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
     );
-    Pattern.(trm_apps2 (trm_var (var_eq var_group)) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
+    Pattern.(trm_apps2 (trm_specific_var var_group) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
       string "for" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc style range ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
     );
     Pattern.(formula_frac_div !__ !__) (fun base divisor () ->

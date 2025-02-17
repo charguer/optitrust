@@ -77,7 +77,7 @@ let ghost_scope ?(pair_name: string option) (ghost_call: ghost_call) (t: trm): t
 
 let ghost_begin_inv (t: trm): (var * ghost_call) option =
   Pattern.pattern_match t [
-    Pattern.(trm_let !__ __ (trm_apps1 (trm_var (var_eq var_ghost_begin)) (trm_apps !__ nil !__))) (fun pair_var ghost_fn ghost_args () ->
+    Pattern.(trm_let !__ __ (trm_apps1 (trm_specific_var var_ghost_begin) (trm_apps !__ nil !__))) (fun pair_var ghost_fn ghost_args () ->
       Some (pair_var, { ghost_fn; ghost_args })
     );
     Pattern.__ (fun () -> None)
@@ -85,7 +85,7 @@ let ghost_begin_inv (t: trm): (var * ghost_call) option =
 
 let ghost_end_inv (t: trm): var option =
   Pattern.pattern_match t [
-    Pattern.(trm_apps1 (trm_var (var_eq var_ghost_end)) (trm_var !__)) (fun pair_var () -> Some pair_var);
+    Pattern.(trm_apps1 (trm_specific_var var_ghost_end) (trm_var !__)) (fun pair_var () -> Some pair_var);
     Pattern.__ (fun () -> None)
   ]
 
@@ -99,7 +99,7 @@ let admitted ?(justif: trm option) (): trm =
 module Pattern = struct
   include Pattern
 
-  let admitted fghost_args = trm_apps (trm_var (var_eq var_admitted)) nil fghost_args
+  let admitted fghost_args = trm_apps (trm_specific_var var_admitted) nil fghost_args
 end
 
 let admitted_inv (t : trm) : (resource_item list) option =

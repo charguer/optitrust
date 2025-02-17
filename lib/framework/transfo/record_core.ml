@@ -429,7 +429,7 @@ let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field 
     List.concat_map (fun (h, r) ->
       let (mode, inner_r) = formula_mode_inv r in
       Pattern.pattern_match inner_r [
-        Pattern.(formula_cell (trm_var (var_eq var))) (fun () ->
+        Pattern.(formula_cell (trm_specific_var var)) (fun () ->
           List.map (fun (f, f_typ, v) ->
             (new_anon_hyp (), formula_map_under_mode (fun _ -> formula_model (trm_var ~typ:(typ_ptr f_typ) v) (trm_var (var_cell))) r)
           ) fields
@@ -452,25 +452,25 @@ let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field 
       Show.trm ~style:Style.(internal_ast_only_desc ()) ~msg:"fieldAtPos update" t; *)
     Pattern.pattern_match t [
       Pattern.(
-        (trm_struct_access (trm_var (var_eq var)) !__)
-        ^| (trm_struct_get (trm_var (var_eq var)) !__)
+        (trm_struct_access (trm_specific_var var)) !__
+        ^| (trm_struct_get (trm_specific_var var)) !__
       ) (fun field () ->
         match List.find_opt (fun (f, f_typ, v) -> field = f) fields with
         | Some (f, f_typ, v) -> trm_var ?typ:t.typ v
         | None -> raise Pattern.Next
       );
-      Pattern.(trm_struct_get (trm_get (trm_var (var_eq var))) !__) (fun field () ->
+      Pattern.(trm_struct_get (trm_get (trm_specific_var var)) !__) (fun field () ->
         match List.find_opt (fun (f, f_typ, v) -> field = f) fields with
         | Some (f, f_typ, v) -> trm_var_get ?typ:t.typ v
         | None -> raise Pattern.Next
       );
-      Pattern.(trm_var (var_eq var)) (fun () ->
+      Pattern.(trm_specific_var var) (fun () ->
         Pattern.when_ (not is_ref);
         trm_record ~typ (List.map (fun (f, f_typ, v) ->
           trm_var ~typ:f_typ v
         ) fields)
       );
-      Pattern.(trm_get (trm_var (var_eq var))) (fun () ->
+      Pattern.(trm_get (trm_specific_var var)) (fun () ->
         Pattern.when_ is_ref;
         trm_record ~typ (List.map (fun (f, f_typ, v) ->
           trm_var_get ~typ:f_typ v

@@ -110,6 +110,7 @@ type var = { id: var_id; namespaces: string list; name: string }
 let has_unset_id var = var.id = unset_var_id
 let is_toplevel_var var = var.id < 0
 let is_anon_var var = var.name = ""
+let var_has_name name var = var.namespaces = [] && var.name = name
 
 let qualified_name_to_string namespaces name =
   String.concat "" (List.map (fun q -> q ^ "::") namespaces) ^ name
@@ -916,7 +917,7 @@ module Toplevel_hashtbl = Hashtbl.Make(Toplevel_id)
 
 (** Set of toplevel variables already attributed.
     This is used by toplevel_var to check collisions and perform hash consing. *)
-let toplevel_vars = Toplevel_hashtbl.create 32
+let toplevel_vars = Toplevel_hashtbl.create 128
 
 (** [toplevel_var]: return the toplevel variable with the given name.
   A new variable identifier is predeclared if the variable did not exist. *)

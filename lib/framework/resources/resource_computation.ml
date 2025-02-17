@@ -33,7 +33,7 @@ module Formula_inst = struct
 
   let inst_split_read_only_inv (f: t): (var * formula * var) option =
     Pattern.pattern_match_opt f [
-      Pattern.(trm_apps3 (trm_var (var_eq var_SplitRO)) (trm_var !__) !__ (trm_var !__)) (fun frac old_frac hyp () -> (frac, old_frac, hyp))
+      Pattern.(trm_apps3 (trm_specific_var var_SplitRO) (trm_var !__) !__ (trm_var !__)) (fun frac old_frac hyp () -> (frac, old_frac, hyp))
     ]
 
   let var_ForgetInit = toplevel_var "ForgetInit"
@@ -43,7 +43,7 @@ module Formula_inst = struct
 
   let inst_forget_init_inv (f: t): var option =
     Pattern.pattern_match_opt f [
-      Pattern.(trm_apps1 (trm_var (var_eq var_ForgetInit)) (trm_var !__)) (fun h () -> h)
+      Pattern.(trm_apps1 (trm_specific_var var_ForgetInit) (trm_var !__)) (fun h () -> h)
     ]
 
   let origin_hyp (f: t): var =
@@ -369,10 +369,10 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx):
   in
   let formula = trm_subst subst_ctx formula in
   let arith_solved = Pattern.pattern_match formula [
-    Pattern.(trm_apps2 (trm_var (var_eq var_in_range)) !__ (formula_range !__ !__ !__)) (fun index start stop step () ->
+    Pattern.(trm_apps2 (trm_specific_var var_in_range) !__ (formula_range !__ !__ !__)) (fun index start stop step () ->
       Arith_core.(check_geq index start && check_lt index stop && check_eq (trm_trunc_mod index step) (trm_int 0))
     );
-    Pattern.(trm_apps2 (trm_var (var_eq var_is_subrange)) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step () ->
+    Pattern.(trm_apps2 (trm_specific_var var_is_subrange) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step () ->
       Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_trunc_mod sub_step step) (trm_int 0))
     );
     Pattern.(formula_is_true (trm_eq !__ !__)) (fun t1 t2 () -> Arith_core.check_eq t1 t2);
@@ -494,7 +494,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   let formula, evar_ctx = unfold_if_resolved_evar formula evar_ctx in
   Pattern.pattern_match formula [
     (* special case where _Full disables split_frac. *)
-    Pattern.(formula_read_only (trm_apps1 (trm_var (var_eq _Full)) !__) !__) (fun frac ro_formula () ->
+    Pattern.(formula_read_only (trm_apps1 (trm_specific_var _Full) !__) !__) (fun frac ro_formula () ->
       unify_and_remove_linear (x, formula_read_only ~frac ro_formula) ~uninit:false res evar_ctx ~pure_ctx
     );
     (* we split a fraction from an RO if we don't care about the fraction we get (evar). *)

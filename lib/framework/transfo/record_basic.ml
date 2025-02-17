@@ -11,7 +11,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
   update_span_helper span t_seq (fun span_instrs ->
     let typ_matches typ =
       Pattern.pattern_match typ [
-        Pattern.(trm_var (var_eq typvar)) (fun () -> true);
+        Pattern.(trm_specific_var typvar) (fun () -> true);
         Pattern.__ (fun () -> false)
       ]
     in
@@ -104,7 +104,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
     (* fracs_map : maps bound fractions to splitted bound fractions. *)
     let fracs_map_register_frac (fracs_map : fracs_map) (h, pure_f) =
       Pattern.pattern_match pure_f [
-        Pattern.(trm_var (var_eq var_frac)) (fun () ->
+        Pattern.(trm_specific_var var_frac) (fun () ->
           assert (Var_map.find_opt h !fracs_map = None);
           fracs_map := Var_map.add h None !fracs_map
         );

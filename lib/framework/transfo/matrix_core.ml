@@ -99,7 +99,7 @@ let memcpy ~(typ: typ)
 
 (*let memcpy_inv (t : trm) : (trm * trm * trm * trm * trm) option =
   Pattern.pattern_match_opt t [
-    Pattern.(trm_apps (trm_var (var_eq mmemcpy_var)) (!__ ^:: !__ ^:: !__ ^:: !__ ^:: !__ ^:: nil) __) (fun dest d_flat_offset src s_flat_offset flat_elems () ->
+    Pattern.(trm_apps (trm_specific_var mmemcpy_var) (!__ ^:: !__ ^:: !__ ^:: !__ ^:: !__ ^:: nil) __) (fun dest d_flat_offset src s_flat_offset flat_elems () ->
       (dest, d_flat_offset, src, s_flat_offset, flat_elems)
     )
   ]*)

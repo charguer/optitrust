@@ -221,31 +221,31 @@ module Pattern = struct
     | None -> raise Next
 
   let formula_cell f_var =
-    formula_model f_var (trm_var (var_eq var_cell))
+    formula_model f_var (trm_specific_var var_cell)
 
   let formula_read_only f_frac f_formula =
-    trm_apps2 (trm_var (var_eq var_read_only)) f_frac f_formula
+    trm_apps2 (trm_specific_var var_read_only) f_frac f_formula
 
   let formula_uninit f_formula =
-    trm_apps1 (trm_var (var_eq var_uninit)) f_formula
+    trm_apps1 (trm_specific_var var_uninit) f_formula
 
   let formula_forall_in f_range f_forall_body =
-    trm_apps_specific_var var_forall_in (f_range ^:: f_forall_body ^:: nil)
+    trm_apps2 (trm_specific_var var_forall_in) f_range f_forall_body
 
   let formula_group f_range f_group_body =
-    trm_apps_specific_var var_group (f_range ^:: f_group_body ^:: nil)
+    trm_apps2 (trm_specific_var var_group) f_range f_group_body
 
   let formula_range (f_begin: 'a -> trm -> 'b) (f_end: 'b -> trm -> 'c) (f_step: 'c -> trm -> 'd) =
-    trm_apps_specific_var var_range (f_begin ^:: f_end ^:: f_step ^:: nil)
+    trm_apps3 (trm_specific_var var_range) f_begin f_end f_step
 
   let formula_frac_div f_base f_div =
-    trm_apps_specific_var var_frac_div (f_base ^:: f_div ^:: nil)
+    trm_apps2 (trm_specific_var var_frac_div) f_base f_div
 
   let formula_frac_sub f_base f_carved =
-    trm_apps_specific_var var_frac_sub (f_base ^:: f_carved ^:: nil)
+    trm_apps2 (trm_specific_var var_frac_sub) f_base f_carved
 
   let formula_is_true f =
-    trm_apps_specific_var var_is_true (f ^:: nil)
+    trm_apps1 (trm_specific_var var_is_true) f
 end
 
 type read_only_formula = { frac: formula; formula: formula }

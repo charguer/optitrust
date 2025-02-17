@@ -711,13 +711,13 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
     let tf = tr_expr f in
     (* DEPREACTED let tf = trm_add_cstyle_clang_cursor (cursor_of_node f) tf in*)
     begin match tf.desc with
-    | Trm_var x when var_has_name x "exact_div" ->
+    | Trm_var x when var_has_name "exact_div" x ->
       begin match List.map tr_expr el with
       | [n; b] ->
         trm_exact_div ?loc ?typ n b
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: 'exact_div' expects two arguments"
       end
-    | Trm_var x when var_has_name x "operator=" ->
+    | Trm_var x when var_has_name "operator=" x ->
         (* FIXME: For C++ this only works if operator= is the default one *)
         begin match el with
         | [tl;tr] ->
@@ -726,7 +726,7 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
           trm_set ?loc tl tr
         | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: operator= expects two arguments"
         end
-    | Trm_var x when var_has_name x "operator()" ->
+    | Trm_var x when var_has_name "operator()" x ->
       let t_args = List.map tr_expr el in
       let call_name, call_args = List.uncons t_args in
       trm_apps ?loc ?typ call_name call_args

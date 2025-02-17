@@ -726,7 +726,7 @@ let%transfo move_out ?(upto : string = "") (tg : target) : unit =
         let loop_t = Target.resolve_path !current_loop_p in
         move_out_one next_mark instr_m !current_loop_p None;
         begin match trm_for_inv loop_t with
-        | Some ({ index }, _, _) when var_has_name index upto ->
+        | Some ({ index }, _, _) when var_has_name upto index ->
           quit_loop := true;
         | _ ->
           current_loop_p := Path.to_outer_loop !current_loop_p
@@ -947,7 +947,7 @@ let%transfo reorder ?(order : string list = []) (tg : target) : unit =
       then trm_fail tg_loop "[Loop.reorder]: the number of indices provided in argument [order] exceeds the number of nested loops that appears in the code."
     else if nb_order = 0
       then ()
-    else if nb_order = 1 && not (var_has_name (List.nth indices 0) (List.nth order 0))
+    else if nb_order = 1 && not (var_has_name (List.nth order 0) (List.nth indices 0))
       then trm_fail tg_loop "[Loop.reorder]: the single index in the argument [order] should match the name of the targeted loop."
     else
     let _, targeted_loop_index = List.unlast order in

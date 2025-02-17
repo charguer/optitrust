@@ -423,7 +423,7 @@ let rec expr_in_seq_elim (t : trm) : trm =
    For example [ignore(x++);] is transformed into [x++]. *)
 let rec expr_in_seq_intro (t : trm) : trm =
   Pattern.pattern_match t [
-    Pattern.(trm_apps1 (trm_var (var_eq var_ignore)) !__) (fun expr () ->
+    Pattern.(trm_apps1 (trm_specific_var var_ignore) !__) (fun expr () ->
       let annot = { expr.annot with
         trm_annot_stringrepr = Option.or_ t.annot.trm_annot_stringrepr expr.annot.trm_annot_stringrepr;
         trm_annot_marks = t.annot.trm_annot_marks @ expr.annot.trm_annot_marks;
@@ -717,7 +717,6 @@ let parse_ghost_args ghost_args_str =
   with Resource_cparser.Error ->
     failwith "Failed to parse ghost arguments: %s" ghost_args_str
 
-let trm_var_with_name (name: string) = Pattern.(trm_var (check (fun v -> var_has_name v name)))
 
 let rec ghost_args_elim (t: trm): trm =
   Pattern.pattern_match t [
@@ -804,7 +803,7 @@ let ghost_args_intro (style: style) (t: trm) : trm =
           let call = trm_map aux call in
           Nobrace.trm_seq_nomarks [trm_like ~old:t (trm_let (var, typ) call); trm_apps var__with [ghost_args_to_trm_string ghost_args]]
         );
-        Pattern.(trm_let !__ !__ (trm_apps1 (trm_var (var_eq Resource_trm.var_ghost_begin)) !(trm_apps !__ nil !__))) (fun ghost_pair typ ghost_call ghost_fn ghost_args () ->
+        Pattern.(trm_let !__ !__ (trm_apps1 (trm_specific_var Resource_trm.var_ghost_begin) !(trm_apps !__ nil !__))) (fun ghost_pair typ ghost_call ghost_fn ghost_args () ->
           let ghost_fn = aux ghost_fn in
           trm_like ~old:(trm_error_merge ~from:ghost_call t) (trm_let (ghost_pair, typ) (trm_apps (trm_var Resource_trm.var_ghost_begin) [ghost_fn; ghost_args_to_trm_string ghost_args]))
         );
@@ -1291,14 +1290,14 @@ let rec alloc_elim (t: trm): trm =
       | Some ty when are_same_trm ty typto -> t_in
       | _ -> trm_cast ~annot ?loc typto t_in
     );
-    Pattern.(trm_apps1 (trm_var (var_eq var_malloc)) !__) (fun alloc_size () ->
+    Pattern.(trm_apps1 (trm_specific_var var_malloc) !__) (fun alloc_size () ->
       trm_new_uninit ~annot ?loc (typ_from_size alloc_size)
     );
-    Pattern.(trm_apps2 (trm_var (var_eq var_calloc)) !__ (trm_sizeof !__)) (fun nb_elems elem_typ () ->
+    Pattern.(trm_apps2 (trm_specific_var var_calloc) !__ (trm_sizeof !__)) (fun nb_elems elem_typ () ->
       let typ = typ_array elem_typ ~size:nb_elems in
       trm_new ~annot ?loc typ (trm_null typ)
     );
-    Pattern.(trm_apps1 (trm_var (var_eq var_free)) !__) (fun t () ->
+    Pattern.(trm_apps1 (trm_specific_var var_free) !__) (fun t () ->
       trm_delete ~annot ?loc t
     );
     Pattern.__ (fun () -> trm_map alloc_elim t)

@@ -21,7 +21,7 @@ let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
           if i >= List.length new_vars
             then trm_fail index "Arrays_core.inline_array_access: the number of variable provided should be consistent with the size of the targeted array"
             else (trm_var (List.nth new_vars i))
-        | Trm_apps ({desc = Trm_var x; _}, _, _) when var_has_name x "ANY" ->
+        | Trm_apps ({desc = Trm_var x; _}, _, _) when var_has_name "ANY" x ->
           let nb_vars = List.length new_vars in
           trm_address_of (trm_apps (trm_var (name_to_var "CHOOSE")) ((trm_int nb_vars) :: (List.map trm_var_get new_vars)))
         | _ -> trm_fail index "Arrays_core.inline_array_access: only integer indices are supported"
@@ -180,7 +180,7 @@ let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : tr
       | _ -> trm_fail t "Arrays_core.tile_at: no enums expected"
       end
 
-    | Trm_let ((y,ty), init) when var_has_name y base_type_name.name ->
+    | Trm_let ((y,ty), init) when var_has_name base_type_name.name y ->
       Pattern.pattern_match ty [
         Pattern.(typ_ptr (typ_constr !(var_eq base_type_name))) (fun yc () ->
           trm_let ~annot:d.annot (y, ty) init

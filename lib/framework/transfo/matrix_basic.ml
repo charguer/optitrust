@@ -261,7 +261,7 @@ let%transfo local_name_tile
           | Some (ranges, matrix_ptr, dims, indices) ->
             (* DEBUG: Printf.printf "formula: %s\n" Resource_computation.(formula_to_string r2); *)
             Pattern.pattern_match matrix_ptr [
-              Pattern.(trm_var (var_eq var)) (fun () ->
+              Pattern.(trm_specific_var var) (fun () ->
                 if Option.is_some !ranges_dims_indices_typ
                 then trm_fail r (sprintf "found multiple resources with %s" (var_to_string var))
                 else ranges_dims_indices_typ := Some (ranges, dims, indices,
@@ -275,7 +275,7 @@ let%transfo local_name_tile
         let (ranges, dims, indices, typ) = Option.unsome ~error:"expected appropriate mindex formula in resource context" !ranges_dims_indices_typ in
         List.iter2 (fun (_, ri) i ->
           Pattern.pattern_match i [
-            Pattern.(trm_var (var_eq ri)) (fun () -> ());
+            Pattern.(trm_specific_var ri) (fun () -> ());
             Pattern.__ (fun () -> trm_fail i "groups and MINDEX indices don't match")
           ]
         ) ranges indices;

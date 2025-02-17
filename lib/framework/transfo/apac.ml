@@ -131,7 +131,7 @@ let parallel_task_group : target -> unit =
 
        Note that if the target function is the 'main' function, we want the
        task group to be executed only by one thread, the master thread. *)
-    Apac_basic.task_group ~master:(var_has_name qvar "main") [cMark mark];
+    Apac_basic.task_group ~master:(var_has_name "main" qvar) [cMark mark];
     (* 5) Remove the mark. *)
     Marks.remove mark [cMark mark];
   )

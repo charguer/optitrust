@@ -151,7 +151,7 @@ let trm_seq_nomarks ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (tl 
   trm_seq ~annot ?loc ?ctx (Mlist.of_list tl)
 
 (** [trm_apps ~annot ?loc ?typ ?ctx f args]: function call *)
-let trm_apps ?(annot = trm_annot_default) ?(loc) ?(typ) ?(attributes = [])
+let trm_apps ?(annot = trm_annot_default) ?(loc) ?(typ)
   ?(ctx : ctx option) ?(ghost_args = []) (f : trm) (args : trms) : trm =
   trm_make ~annot ?loc ?typ ?ctx (Trm_apps (f, args, ghost_args))
 
@@ -1185,9 +1185,6 @@ let get_typ_arguments (t : trm) : typ list =
     | Typ_arguments tyl -> tyl
     | _ -> acc
   ) [] c_annot
-
-let var_has_name (v : var) (n : string) : bool =
-  v.namespaces = [] && v.name = n
 
   (** [is_return t]: checks if [t] is a return statement. *)
   let is_return (t : trm) : bool =
