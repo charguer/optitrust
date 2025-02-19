@@ -147,11 +147,13 @@ let record_functions (tg : target) : unit =
             of functions in [!Apac_flags.sequential]. *)
         let v =
           if !Apac_flags.sequential <> "" then
-            (** If so, let us replace the function name placeholder `%f' within
-                [!Apac_flags.sequential] by the name of [fn], *)
+            (** If so, let us replace the function name placeholder
+                [!Apac_macros.depth_placeholder] within [!Apac_flags.sequential]
+                by the name of [fn], *)
             let regex =
               Str.global_replace
-                (Str.regexp "%f") fn.name !Apac_flags.sequential
+                (Str.regexp Apac_macros.depth_placeholder)
+                fn.name !Apac_flags.sequential
             in
             (** make it a regular expression and *)
             let regex = Str.regexp regex in

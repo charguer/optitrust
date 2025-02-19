@@ -113,9 +113,10 @@ let depth_max_default : int ref = ref 5
     process using [!omit], it is possible to use these copies instead of
     generating new ones. In order to allow the compiler to identify an existing
     sequential implementation of a function, the user should provide an adequate
-    [sequential] function name pattern where `%f' represents the function name,
-    e.g. `"%f_seq$"' telling that the names of the sequential implementations
-    end with `_seq'. *)
+    [sequential] function name pattern where [!Apac_macros.depth_placeholder]
+    represents the function name, e.g. if [!Apac_macros.depth_placeholder] is
+    `@f' (default value), then `"@f_seq$"' means that the names of the
+    sequential implementations end with `_seq'. *)
 let sequential : string ref = ref ""
 
 

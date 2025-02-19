@@ -365,6 +365,11 @@ let depth_max : string = "APAC_TASK_DEPTH_MAX"
     reaches [depth_max]. *)
 let depth_sequential : string = "__apac_sequential_"
 
+(** [depth_placeholder]: placeholder string for the pattern matching the names
+    of existing sequential implementations of parallel functions (see
+    [!Apac_flags.sequential]). *)
+let depth_placeholder : string = "@f"
+
 (** [execution_time_cutoff]: name of the optional environment variable allowing
     the end-user to set the cut-off value limiting the insertion of tasks
     according to their estimated execution time. *)

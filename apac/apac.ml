@@ -157,11 +157,13 @@ let purpose (option : options) : string =
                                   sequential implementation of a function, the \
                                   user should provide an adequate sequential \
                                   function name REGEX using the \
-                                  `--cutoff-depth-sequential` in which `%f' \
-                                  represents the function name, e.g. \
-                                  `\"%f_seq$\"' to tell the compiler that the \
-                                  names of the sequential implementations end \
-                                  with `_seq'."
+                                  `--cutoff-depth-sequential` in which `" ^
+                                   Apac_macros.depth_placeholder ^
+                                     "' represents the function name, e.g. \
+                                      `\"" ^ Apac_macros.depth_placeholder ^
+                                       "_seq$\"' tells the compiler that the \
+                                        names of the sequential \
+                                        implementations end with `_seq'."
 
 let usage () : string =
   let executable = Sys.argv.(0) in
