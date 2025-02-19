@@ -31,3 +31,14 @@ void caller() {
 
   int z = g(__call_with(div_exact(12, 2), "q := 6, proof := __admitted"));
 }
+
+__GHOST(dependant_proof) {
+  __requires("P: int -> Prop, proof: forall (x:int) -> P(x)");
+}
+
+void dependant_test() {
+  __requires("H: forall (x:int) (y:int) -> x + y = y + x");
+  __ghost(any_proof, "P := 2+3 = 3+2, proof := H(2, 3)");
+  __ghost(dependant_proof, "P := fun x -> x + 0 = 0 + x, proof := fun (x:int) -> H(x, 0)");
+  //should fail : __ghost(dependant_proof, "P := fun x -> x + 0 = 0 + x, proof := fun (x: int) -> H(0, x)");
+}

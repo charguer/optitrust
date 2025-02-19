@@ -117,21 +117,29 @@ formula_arrow:
           extract_arg_tuple t1 (t2 :: acc)
         | None -> t :: acc
       in
-      typ_pure_fun (extract_arg_tuple args []) ret }
+      typ_pure_simple_fun (extract_arg_tuple args []) ret }
   | a=formula_cmp;
     { a }
+
+fun_arg:
+  | x=IDENT
+    { (name_to_var x, typ_auto) }
+  | LPAR; x=IDENT; COLON; typ=formula; RPAR
+    { (name_to_var x, typ) }
 
 formula:
   | f=formula_arrow;
     { f }
   | t=atomic_formula; SQUIG_ARROW; f=atomic_formula;
     { formula_model t f }
-  | FUN; args=separated_nonempty_list(COMMA, IDENT); ARROW; body=formula;
-    { trm_fun ~annot:formula_annot (List.map (fun x -> name_to_var x, typ_auto) args) typ_auto body }
+  | FUN; args=nonempty_list(fun_arg); ARROW; body=formula;
+    { formula_fun args body }
+  | FORALL; args=nonempty_list(fun_arg); ARROW; body=formula;
+    { typ_pure_fun args body }
   | FORALL; index=IDENT; IN; range=formula_cmp; ARROW; body=formula;
-    { trm_apps ~annot:formula_annot trm_forall_in [range; trm_fun ~annot:formula_annot [name_to_var index, typ_int] typ_auto body] }
+    { formula_forall_in (name_to_var index) range body }
   | FOR; index=IDENT; IN; range=formula_cmp; ARROW; body=formula;
-    { trm_apps ~annot:formula_annot trm_group [range; trm_fun ~annot:formula_annot [name_to_var index, typ_int] typ_auto body] }
+    { formula_group (name_to_var index) range body }
 
 resource:
   | f=formula

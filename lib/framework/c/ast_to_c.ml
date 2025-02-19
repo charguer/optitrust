@@ -239,9 +239,23 @@ let rec typ_desc_to_doc style (t : typ) : document =
       at
     );
     Pattern.(typ_pure_fun !__ !__) (fun args ret () ->
-      let dargs = list_to_doc ~sep:(space ^^ star ^^ space) (List.map (typ_to_doc style) args) in
-      let dret = typ_to_doc style ret in
-      dargs ^^ space ^^ string "->" ^^ space ^^ dret
+      let used_vars = trm_used_vars t in
+      let is_polymorphic = List.fold_left (fun acc (arg, _) -> acc || Var_set.mem arg used_vars) false args in
+      let dret = trm_to_doc style ret in
+      if is_polymorphic then
+        let arg_to_doc (arg, typ) =
+          let darg =
+            if Var_set.mem arg used_vars then
+              var_to_doc style arg
+            else underscore
+          in
+          lparen ^^ darg ^^ colon ^^ space ^^ typ_to_doc style typ ^^ rparen
+        in
+        let dargs = list_to_doc ~sep:empty (List.map arg_to_doc args) in
+        string "forall" ^^ space ^^ dargs ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ dret
+      else
+        let dargs = list_to_doc ~sep:(space ^^ star) (List.map (fun (_, ty) -> typ_to_doc style ty) args) in
+        dargs ^^ space ^^ string "->" ^^ blank 1 ^^ dret
     );
     Pattern.(trm_apps1 (typ_var (var_eq typ_typeof_var)) !__) (fun t () ->
       string "decltype" ^^ parens (decorate_trm style t)
@@ -847,7 +861,7 @@ and trm_let_fun_to_doc style ?(semicolon : bool = false) (fun_annot : cstyle_ann
 
 (** [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function from a resource formula to a pprint document. *)
 and formula_fun_to_doc style (ty : typ) (tvl : typed_vars) (b : trm) : document =
-  string "fun" ^^ blank 1 ^^ separate (comma ^^ blank 1) (List.map (fun (v, _) -> var_to_doc style v) tvl) ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style b
+  string "fun" ^^ blank 1 ^^ separate (blank 1) (List.map (fun (v, _) -> var_to_doc style v) tvl) ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style b
 
 (** [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function to a pprint document. *)
 and trm_fun_to_doc style ?(semicolon : bool = false) (ty : typ) (tvl : typed_vars) (b : trm) : document =
@@ -1324,9 +1338,6 @@ and formula_to_doc style (f: formula): document =
       trm_to_doc ~prec:16 style start ^^ string ".." ^^ trm_to_doc ~prec:16 style stop
     );
     Pattern.(trm_fun !__ !__ !__ __) (fun tvl ty_opt body () -> formula_fun_to_doc style ty_opt tvl body
-    );
-    Pattern.(trm_apps2 (trm_specific_var var_forall_in) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
-      string "forall" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc style range ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
     );
     Pattern.(trm_apps2 (trm_specific_var var_group) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
       string "for" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc style range ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body

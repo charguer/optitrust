@@ -30,3 +30,15 @@ void caller() {
   __ghost(any_proof, "P := __is_true(2 + 2 == 4)");
   int z = g(__call_with(div_exact(12, 2), "q := 6, proof := __admitted"));
 }
+
+__ghost_ret dependant_proof() {
+  __requires("P: int -> Prop");
+  __requires("proof: forall (x: int) -> P(x)");
+}
+
+void dependant_test() {
+  __requires("H: forall (x: int) (y: int) -> __is_true(x + y == y + x)");
+  __ghost(any_proof, "P := __is_true(2 + 3 == 3 + 2), proof := H(2, 3)");
+  __ghost(dependant_proof,
+          "P := fun x -> __is_true(x + 0 == 0 + x), proof := fun x -> H(x, 0)");
+}

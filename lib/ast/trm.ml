@@ -1466,8 +1466,8 @@ let rec trm_bottom_up (f : trm -> trm) (t : trm) : trm =
 let trm_iter (f : trm -> unit) (t : trm) : unit =
   ignore (trm_map (fun t -> f t; t) t)
 
-
-(* TODO: this is different from trm_free_vars because bound variables are not treated. delete ? *)
+(** [trm_used_vars t]: similar to [trm_free_vars] but bound variables that have at least one occurence are also listed.
+  This can be used for deciding whether a bound identifier is unused inside [t]. *)
 let trm_used_vars (t: trm): Var_set.t =
   let vars = ref Var_set.empty in
   let rec aux t = match trm_var_inv t with
