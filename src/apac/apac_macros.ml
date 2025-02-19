@@ -374,7 +374,7 @@ let execution_time_cutoff : string = "APAC_EXECUTION_TIME_CUTOFF"
     task to be worth of spawning. *)
 let execution_time_min : string = "2.22100e-6"
 
-(** [pow]: an implementation of [model_pow] to include in the parallel
+(** [pow]: an implementation of [!model_pow] to include in the parallel
     source code when using execution time modeling (see [section:modeling]). *)
 let pow : string = "
 template <class T> T " ^ model_pow ^ "(int exp, const T & base) {
