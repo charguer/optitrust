@@ -320,3 +320,16 @@ let sequentials : vars ref = ref []
 (** [globals]: a map of global variables to their types and flags indicating
     whether they are written to from within a parallel region. *)
 let globals : (typ * bool) Var_map.t ref = ref Var_map.empty
+
+(** [put_cutoff]: a flag deciding whether to include the definition of the
+    [ApacCutOff] variable (see [!Apac_macros.apac_variable]) in the resulting
+    source code. Indeed, we need to include the definition only if the user asks
+    for execution time modeling which yields to execution time estimation
+    formulas. *)
+let put_cutoff : bool ref = ref false
+
+(** [put_pow]: a flag deciding whether to include the definition
+    [!Apac_macros.pow] in the resulting source code. Indeed, we need to include
+    the definition only if the user asks for execution time modeling which
+    yields to execution time estimation formulas involving powers. *)
+let put_pow : bool ref = ref false

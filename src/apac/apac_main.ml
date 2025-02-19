@@ -157,7 +157,7 @@ let compile () : unit =
         cOr [[cMark Apac_macros.candidate_mark];
              [cFunDefAndDecl !Apac_flags.main]]
       ];
-  if !Apac_flags.profile then
+  if !Apac_flags.profile && !Apac_records.put_cutoff then
     !? "Cut off according to execution time model"
       Apac_parallelization.cutoff_execution_time ();
   !? "Output parallel source code"

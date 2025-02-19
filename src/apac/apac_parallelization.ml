@@ -1406,7 +1406,8 @@ let cutoff_count_and_depth (tg : target) : unit =
 (** [cutoff_execution_time ()]: adds to the abstract syntax tree of the input
     program the definition of a global variable allowing for task granularity
     control relying on execution time models as well as the definition of a
-    power computing function the latter may resort to in its formulas.
+    power computing function if at least one of the latter resorts to in its
+    formula (see [!Apac_records.put_pow]).
 
     For example, let us consider the following C source code.
 
@@ -1443,7 +1444,7 @@ let cutoff_count_and_depth (tg : target) : unit =
     generation of parallel source code with OpenMP task-based programming
     pragmas. The [cutoff_execution_time] pass is responsible only for declaring
     and initializing the granularity control variable as well as the power
-    function. *)
+    function, if necessary. *)
 let cutoff_execution_time () : unit =
   Target.apply_at_target_paths (fun t ->
       (** Deconstruct the sequence term [t] representing the root of the
@@ -1454,20 +1455,26 @@ let cutoff_execution_time () : unit =
       let s = trm_inv ~error trm_seq_inv t in
       (** Build the definition term [co] of the global variable [ApacCutOff]
           (see type [!type:apac_variable]) while [init]ializing it to the value
-          of the environment variable [!Apac_macros.execution_time_cutoff], if
-          set, or to the default value [!Apac_macros.execution_time_min]. *)
-      let init = code (Expr
-                         ("getenv(\"" ^ Apac_macros.execution_time_cutoff ^
-                            "\") ? atof(getenv(\"" ^
-                              Apac_macros.execution_time_cutoff ^
-                                "\")) : " ^ Apac_macros.execution_time_min)) in
+          of [!Apac_macros.execution_time_cutoff], if set, or to the default
+          value [!Apac_macros.execution_time_min] otherwise. *)
+      let init =
+        code (Expr
+                ("getenv(\"" ^ Apac_macros.execution_time_cutoff ^
+                   "\") ? atof(getenv(\"" ^
+                     Apac_macros.execution_time_cutoff ^
+                       "\")) : " ^ Apac_macros.execution_time_min)) in
       let co = new_var (Apac_macros.get_apac_variable ApacCutOff) in
       let co = trm_let_immut (co, Typ.typ_double ()) init in
       (** Include the definition [!Apac_macros.pow] of the function
-          [!Apac_macros.model_pow] to compute powers. *)
-      let pow = code (Stmt Apac_macros.pow) in
-      (** Insert the definitions [co] and [pow] at the beginning of [s] and *)
-      let s = Mlist.insert_sublist_at 0 [co; pow] s in
+          [!Apac_macros.model_pow] to compute powers, if there is at least one
+          formula inovlving a power expression. *)
+      let definitions =
+        if !Apac_records.put_pow then
+          [co; code (Stmt Apac_macros.pow)]
+        else [co]
+      in
+      (** Insert the [definitions] at the beginning of [s] and *)
+      let s = Mlist.insert_sublist_at 0 definitions s in
       (** re-build [s]. *)
       trm_seq ~ctx:t.ctx ~annot:t.annot s
     ) []

@@ -358,14 +358,21 @@ let modelize (tg : target) : unit =
         let exp = int_of_string (Str.matched_group 1 op) in
         let base = int_of_string (Str.matched_group 2 op) in
         if Int_map.mem base p then
-          let exp = trm_val (Val_lit (Lit_int exp)) in
-          let base = Int_map.find base p in
-          (** Building the power function variable term using
-              [trm_toplevel_free_var] allows us to use it without declaring
-              it in the abstract syntax tree of the input program. *)
-          let f = trm_toplevel_free_var Apac_macros.model_pow in
-          (** The resulting call is like [apac_fpow(exponent, base)]. *)
-          trm_apps f [exp; base]
+          begin
+            (** If [op] contains a valid power expression, it means we'll need
+                to include the definition [!Apac_macros.pow] in the resulting
+                source code, so we have to tell the compiler to do so through
+                the [!Apac_records.put_pow] flag. *)
+            Apac_records.put_pow := true;
+            let exp = trm_val (Val_lit (Lit_int exp)) in
+            let base = Int_map.find base p in
+            (** Building the power function variable term using
+                [trm_toplevel_free_var] allows us to use it without declaring it
+                in the abstract syntax tree of the input program. *)
+            let f = trm_toplevel_free_var Apac_macros.model_pow in
+            (** The resulting call is like [apac_fpow(exponent, base)]. *)
+            trm_apps f [exp; base]
+          end
         else
           raise (UnknownParameter base)
       else
@@ -584,7 +591,12 @@ let optimize (tg : target) : unit =
               we do not need to control whether [v] becomes a parallelizable
               task at runtime. We already know it's worth it. *)
           if (not const) then
-            t.cost <- f
+            begin
+              (** Also, tell the compiler that we have at least one non-constant
+                  formula in the task candidate graph. *)
+              Apac_records.put_cutoff := true;
+              t.cost <- f
+            end
       end;
     (** When [v] features nested candidate graphs, process the substatements. *)
     List.iter (fun gl ->
