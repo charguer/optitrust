@@ -137,9 +137,17 @@ let typ_fun ?loc (args : typ list) (res : typ) : typ =
 
 let typ_pure_fun_var = toplevel_typvar "pure_fun"
 let typ_pure_fun_constr = typ_var typ_pure_fun_var
-(** [typ_pure_fun ?loc args res]: function type constructor *)
-let typ_pure_fun ?loc (args : typ list) (res : typ) : typ =
-  typ_apps ?loc typ_pure_fun_constr (res :: args)
+
+(** Pure function type constructors:
+  Pure functions are terminating and cannot perform side effects, therefore they can be used inside specifications. *)
+
+(** [typ_pure_fun ?loc args res]: pure polymorphic function type constructor *)
+let typ_pure_fun ?loc ?annot (args: (var * typ) list) (res: typ) =
+  typ_apps ?loc typ_pure_fun_constr [typ_make (Trm_fun (args, typ_type, res, FunSpecUnknown))]
+
+(** [typ_pure_simple_fun ?loc args res]: pure function type smart constructor for non polymorphic functions *)
+let typ_pure_simple_fun ?loc (args : typ list) (res : typ) : typ =
+  typ_pure_fun (List.map (fun ty -> (new_var "", ty)) args) res
 
 let typ_range_var = toplevel_typvar "Range"
 let typ_range = typ_var typ_range_var
@@ -211,9 +219,9 @@ let typ_fun_inv (ty: typ) : (typ list * typ) option =
   | Some (v, res :: args) when var_eq v typ_fun_var -> Some (args, res)
   | _ -> None
 
-let typ_pure_fun_inv (ty: typ) : (typ list * typ) option =
+let typ_pure_fun_inv (ty: typ) : (typed_var list * typ) option =
   match typ_apps_inv ty with
-  | Some (v, res :: args) when var_eq v typ_pure_fun_var -> Some (args, res)
+  | Some (v, [{ desc = Trm_fun (args, _, res, _) }]) when var_eq v typ_pure_fun_var -> Some (args, res)
   | _ -> None
 
 let typ_constr_inv (ty: typ): var option =

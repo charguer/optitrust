@@ -212,10 +212,12 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
     (* Use the typ_hint to fill auto arguments types *)
     let args, rettyp_hint = match Option.bind typ_hint typ_pure_fun_inv with
     | Some (arg_typs, rettyp) ->
-      begin match List.map2 (fun exp_arg_typ (x, decl_arg_typ) ->
+      begin match List.map2 (fun (exp_arg_name, exp_arg_typ) (x, decl_arg_typ) ->
         if is_typ_auto decl_arg_typ then (x, exp_arg_typ) else (x, decl_arg_typ)) arg_typs args
       with
-      | args -> args, Some rettyp
+      | args ->
+        (* LATER: We might need to substitute [exp_arg_name <- x] in [rettyp] here *)
+        args, Some rettyp
       | exception Invalid_argument _ ->
         failwith "A function of type '%s' is expected but the function '%s' has arity %d" (Ast_to_c.typ_to_string (typ_pure_fun arg_typs rettyp)) (Ast_to_c.ast_to_string t) (List.length args)
       end
@@ -226,7 +228,7 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
     let rettyp = compute_pure_typ { env with res = env.res @ args } ?typ_hint:rettyp_hint body in
     if not (is_typ_auto asked_rettyp || are_same_trm rettyp asked_rettyp) then
       failwith "The function has a wrong return type (%s instead of %s)" (Ast_to_c.typ_to_string rettyp) (Ast_to_c.typ_to_string asked_rettyp);
-    typ_pure_fun (List.map snd args) rettyp
+    typ_pure_fun args rettyp
 
   | Trm_prim (typ, prim) ->
     begin match prim with
@@ -234,20 +236,20 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
       begin match unop with
         | Unop_plus | Unop_minus ->
           if not (is_typ_numeric typ) then failwith "Cannot apply unary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
-          typ_pure_fun [typ] typ
+          typ_pure_simple_fun [typ] typ
 
         | Unop_bitwise_neg ->
           if not (is_typ_fixed_int typ) then failwith "Cannot apply unary ~ on a non fixed-size type";
-          typ_pure_fun [typ] typ
+          typ_pure_simple_fun [typ] typ
 
         | Unop_neg ->
           if not (is_typ_bool typ) then failwith "Cannot apply negation operator on a non boolean";
-          typ_pure_fun [typ] typ
+          typ_pure_simple_fun [typ] typ
 
         | Unop_cast dest_typ ->
           if not (is_typ_builtin typ) then failwith "Cannot apply cast from the non primitive type '%s'" (Ast_to_c.typ_to_string typ);
           if not (is_typ_builtin dest_typ) then failwith "Cannot apply cast to the non primitive type '%s'" (Ast_to_c.typ_to_string dest_typ);
-          typ_pure_fun [typ] dest_typ
+          typ_pure_simple_fun [typ] dest_typ
 
         | _ -> failwith "Unary operator %s is not a pure operator" (Ast_to_c.ast_to_string (trm_prim typ prim))
       end;
@@ -256,23 +258,23 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
       begin match binop with
         | Binop_add | Binop_sub | Binop_mul | Binop_exact_div ->
           if not (is_typ_numeric typ) then failwith "Cannot apply binary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
-          typ_pure_fun [typ; typ] typ
+          typ_pure_simple_fun [typ; typ] typ
 
         | Binop_trunc_div | Binop_trunc_mod ->
           if not (is_typ_integer typ) then failwith "Cannot apply binary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
-          typ_pure_fun [typ; typ] typ
+          typ_pure_simple_fun [typ; typ] typ
 
         | Binop_eq | Binop_neq | Binop_le | Binop_lt | Binop_ge | Binop_gt ->
           if not (is_typ_numeric typ) then failwith "Cannot apply binary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
-          typ_pure_fun [typ; typ] typ_bool
+          typ_pure_simple_fun [typ; typ] typ_bool
 
         | Binop_bitwise_and | Binop_bitwise_or | Binop_shiftl | Binop_shiftr ->
           if not (is_typ_integer typ) then failwith "Cannot apply binary %s on a non integer type" (Ast_to_c.ast_to_string (trm_prim typ prim));
-          typ_pure_fun [typ; typ] typ
+          typ_pure_simple_fun [typ; typ] typ
 
         | Binop_xor ->
           if not (is_typ_integer typ || is_typ_bool typ) then failwith "Cannot apply binary operator ^ on a non integer or boolean type" (Ast_to_c.ast_to_string (trm_prim typ prim));
-          typ_pure_fun [typ; typ] typ
+          typ_pure_simple_fun [typ; typ] typ
 
         | _ -> failwith "Binary operator %s is not a pure operator" (Ast_to_c.ast_to_string (trm_prim typ prim))
       end
@@ -328,26 +330,41 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
         if not (is_typ_integer arg_typ) then failwith "MINDEX should only be applied on integer arguments but here has argument '%s' of type '%s'" (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ)
         ) args;
       typ_int
-    | Trm_var xf, _ when var_eq xf typ_fun_var || var_eq xf typ_pure_fun_var ->
+    | Trm_var xf, _ when var_eq xf typ_fun_var ->
       List.iter (fun arg ->
-        let arg_typ = compute_pure_typ env arg in
-        assert (is_typ_sort arg_typ)
+        let arg_sort = compute_pure_typ env arg in
+        assert (is_typ_sort arg_sort)
         ) args;
       typ_type
+    | Trm_var xf, _ when var_eq xf typ_pure_fun_var ->
+      begin match args with
+      | [{ desc = Trm_fun (args, _, res_typ, _) }] ->
+        let env = List.fold_left (fun env (arg, arg_typ) ->
+            let arg_sort = compute_pure_typ env arg_typ in
+            assert (is_typ_sort arg_sort);
+            { env with res = env.res @ [(arg, arg_typ)] }
+          ) env args in
+        let res_sort = compute_pure_typ env res_typ in
+        assert (is_typ_sort res_sort);
+        res_sort (* LATER: Be careful with predicativity here ! *)
+      | _ -> failwith "typ_pure_fun must have only one function argument"
+      end
     | _ ->
       let f_typ = compute_pure_typ env f in
       match typ_pure_fun_inv f_typ with
-      | Some (argstyp, rettyp) ->
-        if List.length argstyp <> List.length args then
+      | Some (expected_args, rettyp) ->
+        if List.length expected_args <> List.length args then
           failwith "Incorrect number of arguments when applying '%s'" (Ast_to_c.ast_to_string f);
-        List.iter2 (fun arg expected_typ ->
+        let subst = List.fold_left2 (fun subst arg (expected_arg, expected_typ) ->
+            let expected_typ = trm_subst subst expected_typ in
             let arg_typ = compute_pure_typ env ~typ_hint:expected_typ arg in
             if not (are_same_trm arg_typ expected_typ) then begin
               (*Printf.printf "%s\n" (resource_list_to_string env);*)
               failwith "In pure expression '%s': argument '%s' has type '%s' where '%s' is expected" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ) (Ast_to_c.typ_to_string expected_typ)
             end;
-          ) args argstyp;
-        rettyp
+            Var_map.add expected_arg arg subst
+          ) Var_map.empty args expected_args in
+        trm_subst subst rettyp
       | None -> failwith "Cannot apply a term that is not a pure function in a pure context"
     end
   | _ -> failwith "Non pure expression found in a pure context"
@@ -1152,14 +1169,10 @@ let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): uni
 let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
   let pure_prim prim =
     let pure_prim_typ = compute_pure_typ empty_pure_env (trm_prim typ prim) in
-    let argtyps, rettyp = trm_inv ~error:"Pure type of the pure operator should be a pure_fun" typ_pure_fun_inv pure_prim_typ in
-    let func_typ = typ_fun argtyps rettyp in
-    let args, pure_pre = List.fold_right (fun argtyp (args, pure_pre) ->
-      let arg_var = new_anon_hyp () in
-      (arg_var :: args, (arg_var, argtyp) :: pure_pre)
-      ) argtyps ([], []) in
-    let contract = { pre = Resource_set.make ~pure:pure_pre (); post = Resource_set.make ~pure:[var_result, rettyp] ~aliases:(Var_map.singleton var_result (trm_apps (trm_prim typ prim) (List.map trm_var args))) () } in
-    func_typ, { args; contract; inverse = None }
+    let args, rettyp = trm_inv ~error:"Pure type of the pure operator should be a pure_fun" typ_pure_fun_inv pure_prim_typ in
+    let func_typ = typ_fun (List.map snd args) rettyp in
+    let contract = { pre = Resource_set.make ~pure:args (); post = Resource_set.make ~pure:[var_result, rettyp] ~aliases:(Var_map.singleton var_result (trm_apps (trm_prim typ prim) (List.map (fun (a, _) -> trm_var a) args))) () } in
+    func_typ, { args = List.map fst args; contract; inverse = None }
   in
   let find_unop_spec (unop: unary_op) =
     match unop with
@@ -1264,7 +1277,7 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
   | Prim_binop op -> find_binop_spec op
   | Prim_compound_assign_op op ->
     let pure_binop_typ = compute_pure_typ empty_pure_env (trm_prim typ (Prim_binop op)) in
-    if not (are_same_trm pure_binop_typ (typ_pure_fun [typ; typ] typ)) then
+    if not (are_same_trm pure_binop_typ (typ_pure_simple_fun [typ; typ] typ)) then
       failwith "Invalid compound assign operator";
     let dest_var = new_hyp "dest" in
     let operand_var = new_hyp "operand" in
@@ -1921,26 +1934,25 @@ let init_ctx = Resource_set.make ~pure:[
   typ_f64_var, typ_type;
   typ_bool_var, typ_type;
   typ_char_var, typ_type;
-  typ_ptr_var, typ_pure_fun [typ_type] typ_type;
-  typ_const_var, typ_pure_fun [typ_type] typ_type;
+  typ_ptr_var, typ_pure_simple_fun [typ_type] typ_type;
+  typ_const_var, typ_pure_simple_fun [typ_type] typ_type;
   typ_range_var, typ_type;
-  Resource_formula.var_range, typ_pure_fun [typ_int; typ_int; typ_int] typ_range;
-  Resource_formula.var_forall_in, typ_pure_fun [typ_range; typ_pure_fun [typ_int] typ_prop] typ_prop;
-  Resource_formula.var_group, typ_pure_fun [typ_range; typ_pure_fun [typ_int] typ_hprop] typ_hprop;
+  Resource_formula.var_range, typ_pure_simple_fun [typ_int; typ_int; typ_int] typ_range;
+  Resource_formula.var_group, typ_pure_simple_fun [typ_range; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_frac, typ_type;
-  Resource_formula.var_read_only, typ_pure_fun [Resource_formula.typ_frac; typ_hprop] typ_hprop;
-  Resource_formula.var_uninit, typ_pure_fun [typ_hprop] typ_hprop;
-  Resource_formula.var_is_true, typ_pure_fun [typ_bool] typ_prop;
-  Resource_formula.var_is_false, typ_pure_fun [typ_bool] typ_prop;
-  Resource_formula.var_not, typ_pure_fun [typ_prop] typ_prop;
-  Resource_formula.var_and, typ_pure_fun [typ_prop; typ_prop] typ_prop;
-  Resource_formula.var_or, typ_pure_fun [typ_prop; typ_prop] typ_prop;
-  Resource_formula.var_in_range, typ_pure_fun [typ_int; typ_range] typ_prop;
-  Resource_formula.var_is_subrange, typ_pure_fun [typ_range; typ_range] typ_prop;
-  Resource_formula.var_range_count, typ_pure_fun [typ_range] typ_int;
-  Resource_formula.var_wand, typ_pure_fun [typ_hprop; typ_hprop] typ_hprop;
-  Resource_formula.var_frac_div, typ_pure_fun [typ_frac; typ_int] typ_frac;
-  Resource_formula.var_frac_sub, typ_pure_fun [typ_frac; typ_frac] typ_frac;
+  Resource_formula.var_read_only, typ_pure_simple_fun [Resource_formula.typ_frac; typ_hprop] typ_hprop;
+  Resource_formula.var_uninit, typ_pure_simple_fun [typ_hprop] typ_hprop;
+  Resource_formula.var_is_true, typ_pure_simple_fun [typ_bool] typ_prop;
+  Resource_formula.var_is_false, typ_pure_simple_fun [typ_bool] typ_prop;
+  Resource_formula.var_not, typ_pure_simple_fun [typ_prop] typ_prop;
+  Resource_formula.var_and, typ_pure_simple_fun [typ_prop; typ_prop] typ_prop;
+  Resource_formula.var_or, typ_pure_simple_fun [typ_prop; typ_prop] typ_prop;
+  Resource_formula.var_in_range, typ_pure_simple_fun [typ_int; typ_range] typ_prop;
+  Resource_formula.var_is_subrange, typ_pure_simple_fun [typ_range; typ_range] typ_prop;
+  Resource_formula.var_range_count, typ_pure_simple_fun [typ_range] typ_int;
+  Resource_formula.var_wand, typ_pure_simple_fun [typ_hprop; typ_hprop] typ_hprop;
+  Resource_formula.var_frac_div, typ_pure_simple_fun [typ_frac; typ_int] typ_frac;
+  Resource_formula.var_frac_sub, typ_pure_simple_fun [typ_frac; typ_frac] typ_frac;
   Resource_trm.var_ghost_ret, typ_type;
   Resource_trm.var_ghost_fn, typ_type; (* Maybe add an alias to trm_fun [] trm_ghost_ret *)
   var_ignore, typ_auto;

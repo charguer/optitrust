@@ -16,7 +16,7 @@ void f1(int* y) {
       x++;
     }
     __ghost(swap_groups,
-            "outer_range := 0..4, inner_range := 0..4, items := fun b, c -> "
+            "outer_range := 0..4, inner_range := 0..4, items := fun b c -> "
             "&y[MINDEX2(4, 4, b, c)] ~> Cell");
     for (int c = 0; c < 4; c++) {
       __strict();
@@ -28,7 +28,7 @@ void f1(int* y) {
       }
     }
     __ghost(swap_groups,
-            "outer_range := 0..4, inner_range := 0..4, items := fun c, b -> "
+            "outer_range := 0..4, inner_range := 0..4, items := fun c b -> "
             "&y[MINDEX2(4, 4, b, c)] ~> Cell");
     for (int b = 0; b < 4; b++) {
       __strict();

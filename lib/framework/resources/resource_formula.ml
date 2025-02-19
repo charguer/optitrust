@@ -171,9 +171,6 @@ let trm_range = trm_var var_range
 let formula_range (start: trm) (stop: trm) (step: trm) =
   trm_apps ~annot:formula_annot trm_range [start; stop; step]
 
-let var_forall_in = toplevel_var "Forall_in"
-let trm_forall_in = trm_var var_forall_in
-
 let var_group = toplevel_var "Group"
 let trm_group = trm_var var_group
 
@@ -228,9 +225,6 @@ module Pattern = struct
 
   let formula_uninit f_formula =
     trm_apps1 (trm_specific_var var_uninit) f_formula
-
-  let formula_forall_in f_range f_forall_body =
-    trm_apps2 (trm_specific_var var_forall_in) f_range f_forall_body
 
   let formula_group f_range f_group_body =
     trm_apps2 (trm_specific_var var_group) f_range f_group_body
@@ -309,16 +303,22 @@ let formula_loop_range (range: loop_range): formula =
   if range.direction <> DirUp then failwith "formula_loop_range only supports DirUp";
   formula_range range.start range.stop range.step
 
+let formula_forall_in (index: var) (range: trm) (fi: formula) : formula =
+  typ_pure_fun [(index, typ_int); (new_anon_hyp (), formula_in_range (trm_var index) range)] fi
+
 let formula_forall_range (range: loop_range) (fi: formula): formula =
   let range_var = new_var ~namespaces:range.index.namespaces range.index.name in
   let fi = trm_subst_var range.index (trm_var range_var) fi in
-  trm_apps ~annot:formula_annot trm_forall_in [formula_loop_range range; formula_fun [range_var, typ_int] fi]
+  formula_forall_in range_var (formula_loop_range range) fi
+
+let formula_group (index: var) (range: trm) (fi: formula) =
+  trm_apps ~annot:formula_annot trm_group [range; formula_fun [index, typ_int] fi]
 
 let formula_group_range (range: loop_range) : formula -> formula =
   formula_map_under_mode (fun fi ->
     let range_var = new_var ~namespaces:range.index.namespaces range.index.name in
     let fi = trm_subst_var range.index (trm_var range_var) fi in
-    trm_apps ~annot:formula_annot trm_group [formula_loop_range range; formula_fun [range_var, typ_int] fi]
+    formula_group range_var (formula_loop_range range) fi
   )
 
 let formula_matrix_inv (f: formula): (trm * trm list) option =

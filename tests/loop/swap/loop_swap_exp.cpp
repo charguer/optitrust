@@ -3,7 +3,7 @@
 void demo_both_par(int* t, int n, int m) {
   __modifies("for i in 0..n -> for j in 0..m -> &t[i * m + j] ~> Cell");
   __ghost(swap_groups,
-          "outer_range := 0..n, inner_range := 0..m, items := fun i, j -> &t[i "
+          "outer_range := 0..n, inner_range := 0..m, items := fun i j -> &t[i "
           "* m + j] ~> Cell");
   for (int j = 0; j < m; j++) {
     __strict();
@@ -15,7 +15,7 @@ void demo_both_par(int* t, int n, int m) {
     }
   }
   __ghost(swap_groups,
-          "outer_range := 0..m, inner_range := 0..n, items := fun j, i -> &t[i "
+          "outer_range := 0..m, inner_range := 0..n, items := fun j i -> &t[i "
           "* m + j] ~> Cell");
 }
 
@@ -35,7 +35,7 @@ void demo_outer_par(int* t, int n) {
 void g(int* t) {
   __modifies("t ~> Matrix3(7, 10, 20)");
   __ghost(swap_groups,
-          "outer_range := 0..7, inner_range := 0..10, items := fun a, b -> for "
+          "outer_range := 0..7, inner_range := 0..10, items := fun a b -> for "
           "c in 0..20 -> &t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell");
   for (int b = 0; b < 10; b++) {
     __strict();
@@ -43,10 +43,10 @@ void g(int* t) {
         "for a in 0..7 -> for c in 0..20 -> &t[MINDEX3(7, 10, 20, a, b, c)] ~> "
         "Cell");
     __ghost(swap_groups,
-            "outer_range := 0..7, inner_range := 0..20, items := fun a, c -> "
+            "outer_range := 0..7, inner_range := 0..20, items := fun a c -> "
             "&t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell");
     __ghost(swap_groups,
-            "outer_range := 0..20, inner_range := 0..7, items := fun c, a -> "
+            "outer_range := 0..20, inner_range := 0..7, items := fun c a -> "
             "&t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell");
     for (int a = 0; a < 7; a++) {
       __strict();
@@ -58,14 +58,14 @@ void g(int* t) {
       }
     }
     __ghost(swap_groups,
-            "outer_range := 0..7, inner_range := 0..20, items := fun a, c -> "
+            "outer_range := 0..7, inner_range := 0..20, items := fun a c -> "
             "&t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell");
     __ghost(swap_groups,
-            "outer_range := 0..20, inner_range := 0..7, items := fun c, a -> "
+            "outer_range := 0..20, inner_range := 0..7, items := fun c a -> "
             "&t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell");
   }
   __ghost(swap_groups,
-          "outer_range := 0..10, inner_range := 0..7, items := fun b, a -> for "
+          "outer_range := 0..10, inner_range := 0..7, items := fun b a -> for "
           "c in 0..20 -> &t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell");
   for (int i = 0; i < 10; i++) {
     __strict();
@@ -80,7 +80,7 @@ void f(int* t, int* u, int* v, int n, int m) {
   __modifies("v ~> Matrix2(n, m)");
   __reads("u ~> Matrix1(n)");
   __ghost(swap_groups,
-          "outer_range := 0..n, inner_range := 0..m, items := fun x, y -> "
+          "outer_range := 0..n, inner_range := 0..m, items := fun x y -> "
           "&v[MINDEX2(n, m, x, y)] ~> Cell");
   for (int y = 0; y < m; y++) {
     __strict();
@@ -97,7 +97,7 @@ void f(int* t, int* u, int* v, int n, int m) {
     }
   }
   __ghost(swap_groups,
-          "outer_range := 0..m, inner_range := 0..n, items := fun y, x -> "
+          "outer_range := 0..m, inner_range := 0..n, items := fun y x -> "
           "&v[MINDEX2(n, m, x, y)] ~> Cell");
 }
 
