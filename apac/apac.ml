@@ -116,11 +116,11 @@ let purpose (option : options) : string =
                           parallelizable tasks. By default, FACTOR is " ^
                            (string_of_int !Apac_flags.count_max_thread_factor)
                            ^ ". Note that it is also possible to set FACTOR \
-                              using the`" ^
+                              using the `" ^
                              Apac_macros.count_max ^
                                "' environment variable or allow the submission \
                                 of an unlimited number of parallelizable tasks \
-                                using the`" ^
+                                using the `" ^
                                  Apac_macros.count_infinite ^
                                    "' environment variable when running the \
                                     resulting task-based parallel application."
@@ -132,7 +132,7 @@ let purpose (option : options) : string =
                             Apac_macros.count_max ^
                               "' environment variable or allow the nesting of \
                                an unlimited number of parallelizable tasks \
-                               using the`" ^
+                               using the `" ^
                                 Apac_macros.count_infinite ^
                                   "' environment variable when running the \
                                    resulting task-based parallel application."
