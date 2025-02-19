@@ -171,9 +171,9 @@ let usage () : string =
 
 let info () : unit =
   pl "Written by Marek Felšöci.";
-  pl "Report bugs to: <marek.felsoci@inria.fr.>";
+  pl "Report bugs to: <marek.felsoci@lip6.fr>";
   pl "Source code available at: \
-      <https://gitlab.inria.fr/postdoc-mfelsoci/apac>"
+      <https://github.com/charguer/optitrust/tree/apac/main>"
 
 let help () : unit =
   pl (usage ());
