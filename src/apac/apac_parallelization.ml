@@ -1310,7 +1310,7 @@ let cutoff_count_and_depth (tg : target) : unit =
                              expected a function definition." in
                 let _, ort, oa, ob = trm_inv ~error trm_let_fun_inv r.ast in
                 (** We then re-build this function definition again, but we
-                    rename it to [name]. *)
+                    rename it to [v]. *)
                 trm_let_fun v ort oa ob
               in
               sequentials := (sequential, (tBefore :: (target_of_path p))) ::
