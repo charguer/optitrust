@@ -1104,11 +1104,16 @@ let insert_tasks (tg : target) : unit =
     [!Apac_flags.cutoff_count] and [!Apac_flags.cutoff_depth]. The pass also
     adds to the abstract syntax tree of the input program the [#include]
     directives and definitions of global variables involved in these granularity
-    control mechanisms.
+    control mechanisms. Note that the parallelism depth-based control mechanism
+    switches from the prallel implementation of a function to its sequential
+    implementation when the execution reaches the maximum parallelism depth. For
+    this to work, the pass must also ensure that the output source code contains
+    both implementations of the target function.
 
     For example, let us consider the following C source code and let us suppose
     that both [!Apac_flags.cutoff_count] and [!Apac_flags.cutoff_depth] are set
-    to [true].
+    to [true] and that there is no existing sequential implementation of the
+    function [c] in the input source code.
 
     {[
     void f(int * tab) { tab[0] += 42; }
@@ -1129,7 +1134,11 @@ let insert_tasks (tg : target) : unit =
     [!Apac_macros.candidate_body_mark]. In the first place, the pass adds to the
     beginning of this sequence the definitions of [ApacCountOk],
     [ApacDepthLocal] and [ApacDepth] (see enumeration
-    [!type:Apac_macros.apac_variable]).
+    [!type:Apac_macros.apac_variable]). It also encapsulates the original body
+    of [c] into an if-conditional choosing between the parallel body of [c] and
+    the sequential implementation of [c]. Note that in this case, the compiler
+    has to generate a sequential implementation of [c]. Its name thus starts
+    with [!Apac_macros.depth_sequential].
 
     {[
     void f(int * tab) { tab[0] += 42; }
@@ -1142,19 +1151,60 @@ let insert_tasks (tg : target) : unit =
       int __apac_depth_local = __apac_depth;
       int __apac_depth_ok =
         __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
-    /*@__apac_candidate_body*/ {
-        f(tab);
-        for(int i = 0; i < size; i++) {
-          p(tab[i]);
-        }
-      } /*@__apac_candidate_body*/
+      if(__apac_depth_ok) {
+        /*@__apac_candidate_body*/ {
+          f(tab);
+          for(int i = 0; i < size; i++) {
+            p(tab[i]);
+          }
+        } /*@__apac_candidate_body*/
+      } else {
+        __apac_sequential_c(tab, size);  
+      }
     } /*@__apac_candidate*/
     ]}
 
-    Then, the pass extends the abstract syntax tree of the input program with
-    the global definitions of [ApacCountInfinite], [ApacDepthInfinite],
-    [ApacCountMax], [ApacDepthMax], [ApacCount] and [ApacDepth] (see enumeration
-    [!type:Apac_macros.apac_variable]). Finally, it ensures the presence of
+    Then, the pass includes the generated sequential implementation of [c] in
+    the abstract syntax tree. Note that if the sequential implementation of [c]
+    had calls to functions with sequential implementations, the pass would also
+    ensure that the sequential implementation of [c] calls only sequential
+    implementations of other functions or itself if [c] was recursive.
+
+    {[
+    void f(int * tab) { tab[0] += 42; }
+
+    void p(int & v) { int a = 15; int b = a + 2; int c = a + b + v++; }
+
+    void __apac_sequential_c(int * tab, int size) {
+      f(tab);
+      for(int i = 0; i < size; i++) {
+        p(tab[i]);
+      }
+    }
+    
+    /*@__apac_candidate*/ void c(int * tab, int size) {
+      int __apac_count_ok =
+        __apac_count_infinite || __apac_count < __apac_count_max;
+      int __apac_depth_local = __apac_depth;
+      int __apac_depth_ok =
+        __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
+      if(__apac_depth_ok) {
+        /*@__apac_candidate_body*/ {
+          f(tab);
+          for(int i = 0; i < size; i++) {
+            p(tab[i]);
+          }
+        } /*@__apac_candidate_body*/
+      } else {
+        __apac_sequential_c(tab, size);  
+      }
+    } /*@__apac_candidate*/
+    ]}
+
+    Finally, the pass extends the resulting abstract syntax tree with the global
+    definitions of [ApacCountInfinite], [ApacDepthInfinite], [ApacCountMax],
+    [ApacDepthMax], [ApacCount] and [ApacDepth] (see enumeration
+    [!type:Apac_macros.apac_variable]). It also ensures the presence of
     [#include] directives for the headers [omp.h] and [stdlib.h] the granularity
     control mechanism relies on.
 
