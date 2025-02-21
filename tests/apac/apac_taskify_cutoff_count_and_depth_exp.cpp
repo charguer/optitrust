@@ -119,7 +119,7 @@ void c(int* tab, int size) {
 
 int __apac_sequential_main() {
   int* t = (int*)malloc(4 * sizeof(int));
-  c(t, 4);
+  __apac_sequential_c(t, 4);
   free(t);
   return 0;
 }
