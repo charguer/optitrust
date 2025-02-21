@@ -378,34 +378,7 @@ and compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx
   | Some evar_ctx -> evar_ctx
   | None -> raise_mismatching_type t actual_typ expected_typ evar_ctx
 
-let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx): unification_ctx option =
-  let subst_ctx = Var_map.fold (fun var subst ctx ->
-    match subst with
-    | Resolved t -> Var_map.add var t ctx
-    | Unknown _ -> ctx) evar_ctx Var_map.empty
-  in
-  let formula = trm_subst subst_ctx formula in
-  let arith_solved = Pattern.pattern_match formula [
-    Pattern.(trm_apps2 (trm_specific_var var_in_range) !__ (formula_range !__ !__ !__)) (fun index start stop step () ->
-      Arith_core.(check_geq index start && check_lt index stop && check_eq (trm_trunc_mod index step) (trm_int 0))
-    );
-    Pattern.(trm_apps2 (trm_specific_var var_is_subrange) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step () ->
-      Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_trunc_mod sub_step step) (trm_int 0))
-    );
-    Pattern.(formula_is_true (trm_eq !__ !__)) (fun t1 t2 () -> Arith_core.check_eq t1 t2);
-    Pattern.(formula_is_true (trm_neq !__ !__)) (fun t1 t2 () -> Arith_core.check_neq t1 t2);
-    Pattern.(formula_is_true (trm_gt !__ !__)) (fun t1 t2 () -> Arith_core.check_gt t1 t2);
-    Pattern.(formula_is_true (trm_ge !__ !__)) (fun t1 t2 () -> Arith_core.check_geq t1 t2);
-    Pattern.(formula_is_true (trm_lt !__ !__)) (fun t1 t2 () -> Arith_core.check_lt t1 t2);
-    Pattern.(formula_is_true (trm_le !__ !__)) (fun t1 t2 () -> Arith_core.check_leq t1 t2);
-    Pattern.__ (fun () -> false)
-  ] in
-  if arith_solved then
-    let evar_ctx = Var_map.add x (Resolved formula_arith_checked) evar_ctx in
-    Some evar_ctx
-  else
-    None
-
+let pure_goal_solver: (resource_item -> unification_ctx -> unification_ctx option) ref = ref (fun formula evar_ctx -> None)
 
 (** [unify_pure (x, formula) env evar_ctx] unifies the given [formula] with one of the resources in [env.res].
 
@@ -413,7 +386,7 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx):
 
    Also add a binding from [x] to the found resource in [evar_ctx].
    If it fails raise a {!Resource_not_found} exception. *)
-let find_pure ((x, formula): resource_item) (env: pure_env) ?(goal_solver = arith_goal_solver) (evar_ctx: unification_ctx): unification_ctx =
+let find_pure ((x, formula): resource_item) (env: pure_env) ?(goal_solver = !pure_goal_solver) (evar_ctx: unification_ctx): unification_ctx =
   (* TODO: Add flag to disallow pure instantiation ? *)
   let find_formula formula (hyp_candidate, formula_candidate) =
     Option.map (fun evar_ctx -> Var_map.add x (Resolved (trm_var hyp_candidate)) evar_ctx)

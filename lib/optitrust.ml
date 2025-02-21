@@ -1,3 +1,4 @@
 include Optitrust_utils
 include Optitrust_ast
 include Optitrust_framework
+include Optitrust_transfo

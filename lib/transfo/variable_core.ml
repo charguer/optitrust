@@ -245,11 +245,6 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
   in
   snd (aux t)
 
-(** [remove_get_operations_on_var_temporary x t]: to be removed. *)
-let rec remove_get_operations_on_var_temporary (x : var) (t : trm) : trm = (* ARTHUR *)
-  match t.desc with
-  | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get)}, [{desc = Trm_var y;_}as ty], _) when y = x -> ty
-  | _ -> trm_map (remove_get_operations_on_var_temporary x) t
 
 (** [to_nonconst_at index t]: transforms a constant into a mutable variable.
       [index] - the index of the targeted declaration inside its surrounding sequence,

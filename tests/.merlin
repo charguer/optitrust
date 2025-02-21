@@ -4,3 +4,4 @@ B ../_build/default/lib/.optitrust.objs/byte
 B ../_build/default/lib/utils/.optitrust_utils.objs/byte
 B ../_build/default/lib/ast/.optitrust_ast.objs/byte
 B ../_build/default/lib/framework/.optitrust_framework.objs/byte
+B ../_build/default/lib/transfo/.optitrust_transfo.objs/byte

@@ -18,6 +18,4 @@ let _ = Run.script_cpp (fun () ->
 
     !! Resources.(set_loop_contract ~strict:false [__xreads("&M[MINDEX1(n, j)] ~> Cell")]) [cFunBody "non_strict"; cFor "j"];
     (*!! Trace.apply Scope.unique_alpha_rename;*)
-
-    Resources.show ();
 )
