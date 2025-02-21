@@ -214,8 +214,14 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
         let targs = List.combine xargs typ_args in
         (* LATER ARTHUR: we need to replace "get p" by "p" for each argument "p" that did not have type const *)
         (* let body = t2 in *)
+        (* ARTHUR: to be removed. *)
+        let rec remove_get_operations_on_var_temporary (x : var) (t : trm) : trm = (*  *)
+          match t.desc with
+          | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get)}, [{desc = Trm_var y;_}as ty], _) when y = x -> ty
+          | _ -> trm_map (remove_get_operations_on_var_temporary x) t
+        in
         let body = List.fold_left (fun tacc x ->
-          Variable_core.remove_get_operations_on_var_temporary x tacc) t2 xargs in
+          remove_get_operations_on_var_temporary x tacc) t2 xargs in
         let func = trm_fun targs typ_ret body in
         find_var x func
 

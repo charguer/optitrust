@@ -201,7 +201,7 @@ let inline_struct_accesses (x : field) (t : trm) : trm =
           if contains_field_access x base'
             then aux z base'
             else if outer_field <> "" then
-              let updated_field = Convention.name_app z outer_field in
+              let updated_field = Naming_policy.name_app z outer_field in
               trm_struct_access ?field_typ:t.typ ~struct_typ base' updated_field
             else trm_map (aux "") t
         | _ -> trm_fail f "Record_core.inline_struct_access: suspicious struct access"
@@ -212,7 +212,7 @@ let inline_struct_accesses (x : field) (t : trm) : trm =
           if contains_field_access x base'
             then aux z base'
             else if outer_field <> "" then
-              let updated_field = Convention.name_app z outer_field in
+              let updated_field = Naming_policy.name_app z outer_field in
               trm_struct_get ~struct_typ base' updated_field
             else trm_map (aux "") t
         | _ -> trm_fail f "Record_core.inline_struct_access: suspicious struct access"
@@ -298,7 +298,7 @@ let reveal_field_at (field_to_reveal : field) (index : int) (t : trm) : trm =
           in
 
           let inner_type_field_list = Internal.rename_record_members (fun f ->
-             Convention.name_app field_to_reveal f) inner_type_field_list in
+             Naming_policy.name_app field_to_reveal f) inner_type_field_list in
 
           let typ_update (ty : typ) : typ =
             match typ_array_inv field_type with
@@ -526,7 +526,7 @@ let to_variables_at (index : int) (t : trm) : trm =
     ] in
     let init_list = Option.map (trm_inv ~error:"expected a struct initialization" trm_record_inv) init_opt in
     let var_decls = List.mapi (fun i (sf, ty) ->
-      let field_var = new_var (Convention.name_app x.name sf) in
+      let field_var = new_var (Naming_policy.name_app x.name sf) in
       fields := !fields @ [sf, ty, field_var];
       begin match init_list with
       | None ->
