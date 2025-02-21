@@ -577,18 +577,11 @@ let apply_bottom_up_if_debug (recurse : bool) (cleanup : bool) (e : expr) : expr
 (*                          From trm to expr                                 *)
 (******************************************************************************)
 
-(* Hooks to avoid circular dependency *)
-let hook_not_set (t:trm) : 'a = failwith "hook not set in arith_core"
-let hook_trm_is_pure : (trm -> bool) ref = ref hook_not_set
-let hook_is_not_self_interfering : (trm -> bool) ref = ref hook_not_set
-let hook_is_deletable : (trm -> bool) ref = ref hook_not_set
-
-
 (* DEPRECATED
 (** [is_syntactically_ro t] approximates whether [t] should be
     considered redundant and deletable when resource information is missing *)
 let is_syntactically_ro (t : trm) : bool =
-  if !Flags.check_validity then !hook_trm_is_pure t else
+  if !Flags.check_validity then Resources.trm_is_pure t else
     Pattern.pattern_match t [
       Pattern.(trm_var __) (fun () -> true);
       Pattern.(trm_int __) (fun () -> true);
@@ -609,7 +602,7 @@ let get_purity (t : trm) : purity =
             criteria first, because it does not recurse.
      LATER: optimize trm_is_pure to avoid allocation,
      LATER: extend trm_is_pure with an option to allow read operations. *)
-  if !hook_trm_is_pure t then begin
+  if Resources.trm_is_pure t then begin
     { redundant = true;
       deletable = true }
   end else begin
@@ -620,8 +613,8 @@ let get_purity (t : trm) : purity =
     end else begin
       try
         (* Else, try resource-based criteria *)
-        let redundant = !hook_is_not_self_interfering t in
-        let deletable = !hook_is_deletable t in
+        let redundant = Resources.is_not_self_interfering t in
+        let deletable = Resources.is_deletable t in
         { redundant; deletable }
       with _ ->
        (* If resources are not available,

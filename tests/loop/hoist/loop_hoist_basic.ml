@@ -5,7 +5,6 @@ open Target
 let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun () ->
-  !! Resources.show ();
   let (x, _) = find_var "x" [] in
   let (z, _) = find_var "z" [] in
   let (y, _) = find_var "y" [] in
@@ -50,6 +49,5 @@ let _ = Run.script_cpp (fun () ->
         try Matrix.simpl_index_add_on t
         with Contextualized_error _ -> t)) path
       ) paths;
-    Resources.show ();
   )
 )

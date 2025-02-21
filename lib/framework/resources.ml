@@ -53,7 +53,6 @@ let around_instrs (instrs : trm mlist) : (resource_set * resource_set) =
 let trm_is_pure (t: trm): bool =
   (* TODO: ? look at resource usage, empty linear usage is pure *)
   Option.is_some (Resource_formula.formula_of_trm t)
-let _ = Arith_core.hook_trm_is_pure := trm_is_pure
 
 (** If output_new_fracs is given, do not add new fractions to the pure precondition but add them to the list instead. *)
 let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (contract: fun_contract) (post_inst: used_resource_set) (usage: resource_usage_map): fun_contract =
@@ -692,7 +691,6 @@ let assert_not_self_interfering (t : trm) : unit =
 let is_not_self_interfering (t : trm) : bool =
    try assert_not_self_interfering t; true
    with Contextualized_error _ -> false
-let _ = Arith_core.hook_is_not_self_interfering := is_not_self_interfering
 
 (** <private>
     Checks that the term [t] can be deleted.
@@ -708,7 +706,6 @@ let is_deletable (t : trm) : bool =
     | Ensured | ArbitrarilyChosen | ConsumedFull | ConsumedUninit | Produced -> false
     in
   Var_map.fold (fun h usage deletable -> deletable && is_ro usage) (Var_map.remove Resource_computation.var_result res_usage) true
-let _ = Arith_core.hook_is_deletable := is_deletable
 
 (** Checks that duplicating the instruction at index [index] after [skip] instructions in the sequence [seq] would be redundant.
 
@@ -741,9 +738,3 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
     ) interferences)));
   ()
 
-(* TEMPORARY for backward compatibility -- TODO: substitute them in tests *)
-let show () =
-  ensure_computed ();
-  Show.res ()
-
-let show_ast () = Show.ast ()

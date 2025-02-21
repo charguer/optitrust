@@ -23,11 +23,6 @@ let _ = Run.script_cpp (fun () ->
     FIXME: marks on == doesn't seem to work
   !! Variable.init_detach [cVarInit "a"]; *)
 
-  (* Show the current ast *)
-  Resources.show_ast();
-  (* Show the resources *)
-  Resources.show();
-
   (* Showing operation with step at front *)
   !! Label.add "m1" [cVarDef "b"];
   ShowAt.trm [cVarDef "a"];
