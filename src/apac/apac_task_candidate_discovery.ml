@@ -1539,8 +1539,13 @@ let disqualify_candidates (tg : target) : unit =
       (** Find its function record [r] in [!Apac_records.functions]. *)
       let r = Var_Hashtbl.find functions f in
       (** If [f] has no taskifiable task candidates, restore its original
-          abstract syntax tree, except for the [!Apac_flags.main] function. *)
+          abstract syntax tree and update the [taskify] flag in [r], except for
+          the [!Apac_flags.main] function. *)
       if f.name <> !Apac_flags.main &&
-           not (TaskGraphTraverse.has_taskifiable r.graph) then r.ast          
+           not (TaskGraphTraverse.has_taskifiable r.graph) then
+        begin
+          r.taskify <- false;
+          r.ast
+        end
       else t
     ) tg

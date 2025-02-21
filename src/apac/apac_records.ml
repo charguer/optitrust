@@ -17,7 +17,8 @@ module FunctionRecord : sig
       scope : s;
       writes : Var_set.t;
       ast : trm;
-      sequential : n
+      sequential : n;
+      mutable taskify : bool
     }
   val kind : typ -> varkind
   val create :
@@ -97,7 +98,10 @@ end = struct
         ast : trm;
         (** [sequential]: name of the sequential implementation of the
             function. *)
-        sequential : n
+        sequential : n;
+        (** [taskify]: flag telling us whether the function the taskification
+            candidate requirements (see [!section:candidate_preselection]). *)
+        mutable taskify : bool
       }
 
     (** [FunctionRecords.classify ty]: attributes an access classification to a
@@ -208,7 +212,8 @@ end = struct
         scope = scope;
         writes = writes;
         ast = ast;
-        sequential = sequential
+        sequential = sequential;
+        taskify = false
       }
     
     (** [FunctionRecord.constify const args]: the function takes as argument a

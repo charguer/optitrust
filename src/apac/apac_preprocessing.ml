@@ -219,10 +219,11 @@ let record_globals (tg : target) : unit =
 (** [select_candidates tg]: expects the target [tg] to point at a function
     definition. If the corresponding function meets the requirements of a
     taskification candidate, the pass marks it with
-    [!Apac_macros.candidate_mark]. To consider a function a taskification
-    candidate, it must feature at least two calls to a function having a record
-    in [!Apac_records.functions] or one call to such a function and one loop
-    nest. *)
+    [!Apac_macros.candidate_mark] and updates the [taskify] flag in its function
+    record (see [!module:FunctionRecords]). To consider a function a
+    taskification candidate, it must feature at least two calls to a function
+    having a record in [!Apac_records.functions] or one call to such a function
+    and one loop nest. *)
 let select_candidates (tg : target) : unit =
   (** Iterate over each target function definition term [t] and mark each
       function meeting the taskification candidate requirements with
@@ -255,9 +256,17 @@ let select_candidates (tg : target) : unit =
             record in [!Apac_records.functions] or one call to such a function
             and at least one loop. If this condition verifies, we can consider
             [f] a taskification candidate and mark its definition term [t] with
-            [!Apac_macros.candidate_mark]. Otherwise, we return [t] as-is. *)
-        if (calls > 1) || (calls > 0 && loops > 0) then
-          Mark.trm_add_mark Apac_macros.candidate_mark t
+            [!Apac_macros.candidate_mark] as well as update the [taskify] flag
+            in its function record (see [!module:FunctionRecords]). Otherwise,
+            we return [t] as-is. *)
+        if (calls > 1) ||
+             (calls > 0 && loops > 0) &&
+               (Var_Hashtbl.mem Apac_records.functions f) then
+          begin
+            let r = Var_Hashtbl.find Apac_records.functions f in
+            r.taskify <- true;
+            Mark.trm_add_mark Apac_macros.candidate_mark t
+          end
         else t
       else t
     ) tg
