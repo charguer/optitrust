@@ -1332,6 +1332,52 @@ let cutoff_count_and_depth (tg : target) : unit =
   List.iter (fun (sequential, target) ->
       Sequence_basic.insert sequential target
     ) !sequentials;
+  (** Within the bodies of generated sequential function implementations, i.e.
+      the functions the name of which starts with
+      [!Apac_macros.depth_sequential], replace calls to parallel functions with
+      calls to their corresponding sequential versions. *)
+  Target.apply_at_target_paths (fun t ->
+      (** Deconstruct the definition term [t] of the sequential function [f]
+          into its return type [ret_ty], the list of its arguments [args] and
+          its [body] sequence. *)
+      let error = "Apac_parallelization.cutoff_count_and_depth: expected a \
+                   target to a function definition." in
+      let (f, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
+      (** For each function call within [body], *)
+      let replace =
+        trm_fold (fun acc t ->
+            match t.desc with
+            (** check whether it is a call to a function with a function record
+                in [!functions]. *)
+            | Trm_apps ({ desc = Trm_var (_ , f); _ }, _)
+                 when Var_Hashtbl.mem functions f ->
+               (** If so, retrieve the function record [r] of [f]. *)
+               let r = Var_Hashtbl.find functions f in
+               (** If [f] has a generated sequential implementation and if it is
+                   a candidate for taskification, record [f] together with its
+                   sequential implementation function variable [v] in the
+                   [replace] map. *)
+               begin match r.sequential with
+               | GenerateSequential v when r.taskify -> Var_map.add f v acc
+               | _ -> acc
+               end
+            | _ -> acc               
+          ) Var_map.empty body
+      in
+      (** Then, for each mapping in the [replace] map, *)
+      let body =
+        Var_map.fold (fun before after acc ->
+            (** We substitute the occurrences of the original function name
+                variable, i.e. [before], by the corresponding sequential
+                function name variable, i.e. [after] in [body]. *)
+            trm_subst_var before (trm_var after) acc
+          ) replace body
+      in
+      (** Finally, we re-build the definition of [f] with the updated [body]. *)
+      trm_let_fun f ret_ty args body
+    ) [
+      nbAny; cFunDefAndDecl ~regexp:true (Apac_macros.depth_sequential ^ ".*")
+    ];
   (** Introduce the global granularity control variables. *)
   Target.apply_at_target_paths (fun t ->
       (** Deconstruct the sequence term [t] representing the root of the
