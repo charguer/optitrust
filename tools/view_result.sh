@@ -47,7 +47,8 @@ LINE=$3
 OPTIONS="${@:4}"
 
 DIRNAME=$(dirname $FILEPATH)
-FILEBASE=$(basename $FILEPATH .ml)
+FILEBASE=$(basename $FILEPATH)
+FILEBASE=${FILEBASE%.*}
 
 # Additional environment variables.
 ${FLAGS:=""}
