@@ -843,7 +843,10 @@ and aux_class_destructor_to_doc style ?(semicolon : bool = false)  (spec_annot  
 (** [aux_fun_to_doc style ~semicolon inline f r tvl b]: converts a function declaration to pprint document *)
 and aux_fun_to_doc style ?(semicolon : bool = false) ?(const : bool = false) ?(inline : bool = false) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dinline = if inline then string "inline" else empty in
-  let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc style (var_to_doc style) tv) tvl) in
+  let var_or_anon_to_doc var =
+    if is_anon_var var || String.starts_with ~prefix:"#" var.name then empty else var_to_doc style var
+  in
+  let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc style var_or_anon_to_doc tv) tvl) in
   let dr = typ_to_doc style r in
   let const = if const then string "const" else empty in
   separate (blank 1) [dinline; dr; var_to_doc style f; parens argd; const; decorate_trm style b]
