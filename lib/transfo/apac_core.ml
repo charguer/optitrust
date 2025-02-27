@@ -306,7 +306,7 @@ let trm_strip_accesses_and_references_and_get_lvar (t : trm) : lvar option =
   let rec aux (l : label) (t : trm) : lvar option =
     match t.desc with
     (* [t] is a unary operation *)
-    | Trm_apps ({ desc = Trm_prim (_, Prim_unop op); _ }, [t], _) ->
+    | Trm_apps ({ desc = Trm_prim (_, Prim_unop op); _ }, [t], _, _) ->
        begin
          match op with
          (* Whenever we stumble upon a structure access or get operation, we
@@ -321,7 +321,7 @@ let trm_strip_accesses_and_references_and_get_lvar (t : trm) : lvar option =
     (* [t] is a binary operation corresponding to an array access *)
     | Trm_apps ({ desc = Trm_prim (_, Prim_binop array_access)
                              (* We continue to recurse on the internal term. *)
-                           ; _ }, [t; _], _) -> aux l t
+                           ; _ }, [t; _], _, _) -> aux l t
     (* [t] actually leads to a variable *)
     | Trm_var var ->
        (* Use [var] and the label [l] to build the associated labelled
@@ -367,9 +367,9 @@ let trm_resolve_binop_lval_and_get_with_deref (t : trm) : (lvar * bool) option =
        Continue resolution on the latter. *)
     | Trm_apps ({
             desc = Trm_prim (_, Prim_binop (Binop_array_access));
-            _ }, [t; _], _) -> aux true l t
+            _ }, [t; _], _, _) -> aux true l t
     (* [t] is a unary operation. *)
-    | Trm_apps ({ desc = Trm_prim (_, Prim_unop (op)); _ }, [t], _) ->
+    | Trm_apps ({ desc = Trm_prim (_, Prim_unop (op)); _ }, [t], _, _) ->
        begin
          match op with
          (* A get operation, e.g. [*operand], as well as a structure access,
@@ -398,7 +398,7 @@ let trm_resolve_var_in_unop_or_array_access_and_get (t : trm) : lvar option =
   let rec aux (l : label) (t : trm) : lvar option =
     match t.desc with
     (* [t] is a unary operation *)
-    | Trm_apps ({ desc = Trm_prim (_, Prim_unop op); _ }, [term], _) ->
+    | Trm_apps ({ desc = Trm_prim (_, Prim_unop op); _ }, [term], _, _) ->
        begin
          match op with
          (* Whenever we stumble upon a structure access or get operation, we
@@ -419,7 +419,7 @@ let trm_resolve_var_in_unop_or_array_access_and_get (t : trm) : lvar option =
     | Trm_apps ({
             desc = Trm_prim (_, Prim_binop (Binop_array_access));
             (* We continue to recurse on the internal term. *)
-            _}, [term; _], _) -> aux l term
+            _}, [term; _], _, _) -> aux l term
     (* [t] actually leads to a variable *)
     | Trm_var var ->
        (* Use [var] and the label [l] to build the associated labelled
@@ -441,7 +441,7 @@ let trm_resolve_pointer_and_aliased_variable
   let rec aux (degree : int) (l : label) (t : trm) : (lvar * lvar) option =
     match t.desc with
     (* [t] is a unary operation *)
-    | Trm_apps ({ desc = Trm_prim (_, Prim_unop op); _ }, [t], _) ->
+    | Trm_apps ({ desc = Trm_prim (_, Prim_unop op); _ }, [t], _, _) ->
        begin match op with
          (* When it is a get operation such as [*i], the pointer degree
             decreases. *)
@@ -463,9 +463,9 @@ let trm_resolve_pointer_and_aliased_variable
     | Trm_apps ({
             desc = Trm_prim (_, Prim_binop (Binop_array_access));
             (* We continue to recurse on the internal term. *)
-            _ }, [t; _], _) -> aux (degree - 1) l t
+            _ }, [t; _], _, _) -> aux (degree - 1) l t
     (* [t] is a binary operation of another type *)
-    | Trm_apps ({ desc = Trm_prim (_, Prim_binop _ ); _ }, [lhs; rhs], _) ->
+    | Trm_apps ({ desc = Trm_prim (_, Prim_binop _ ); _ }, [lhs; rhs], _, _) ->
        (* We continue to recurse on both the left and the right internal
           terms. *)
        begin match (aux degree l lhs, aux degree l rhs) with
@@ -497,7 +497,7 @@ let trm_resolve_pointer_and_aliased_variable
 let rec trm_can_resolve_pointer (t : trm) : bool =
     match t.desc with
     (* [t] is unary operation: strip, update degree and recurse. *)
-    | Trm_apps ({ desc = Trm_prim (_, Prim_unop op); _ }, [t], _) ->
+    | Trm_apps ({ desc = Trm_prim (_, Prim_unop op); _ }, [t], _, _) ->
        begin match op with
        | Unop_get
          | Unop_address
@@ -508,10 +508,10 @@ let rec trm_can_resolve_pointer (t : trm) : bool =
        degree and recurse. *)
     | Trm_apps ({
             desc = Trm_prim (_, Prim_binop (Binop_array_access));
-            _ }, [t; _], _) -> trm_can_resolve_pointer t
+            _ }, [t; _], _, _) -> trm_can_resolve_pointer t
     (* [t] is a binary operation of another type: strip, update degree and
        recurse on both left and right-hand sides. *)
-    | Trm_apps ({ desc = Trm_prim (_, Prim_binop _ ); _ }, [lhs; rhs], _) ->
+    | Trm_apps ({ desc = Trm_prim (_, Prim_binop _ ); _ }, [lhs; rhs], _, _) ->
        (trm_can_resolve_pointer lhs) || (trm_can_resolve_pointer rhs)
     (* [t] actually leads to a variable: success. Return [true]. *)
     | Trm_var _ -> true
@@ -766,7 +766,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
       | Trm_while _ ->
        trm_iter (aux aliases fun_var) fun_body
     (* Function call: update dependencies. *)
-    | Trm_apps ({ desc = Trm_var name; _ }, args, _) when
+    | Trm_apps ({ desc = Trm_var name; _ }, args, _, _) when
            Var_Hashtbl.mem const_records name ->
        (* Find the corresponding function constification record containing the
           constification records of all of the arguments. *)
@@ -821,7 +821,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
          ) args;
        trm_iter (aux aliases fun_var) fun_body
     (* Variable declaration: update list of aliases. *)
-    | Trm_let (lval, { desc = Trm_apps (_, [rval], _); _ }) ->
+    | Trm_let (lval, { desc = Trm_apps (_, [rval], _, _); _ }) ->
        let _ =
          trm_let_update_aliases ~reference:(trm_has_cstyle Reference fun_body)
            lval rval aliases in

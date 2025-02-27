@@ -170,7 +170,7 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
   if not persistant then Unix.unlink ser_filename;
 
   (* Possibly perform the decoding *)
-  let ast = if !Flags.bypass_cfeatures then Scope_computation.infer_var_ids ast else C_encoding.cfeatures_elim ast in
+  let ast = if !Flags.bypass_cfeatures then Scope_computation.infer_var_ids ast else C_encoding.decode_from_c ast in
   (* Return the header and the ast *)
   (header, ast)
 
@@ -532,14 +532,14 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
     let ast =
       if style.decode then begin
         try
-          C_encoding.cfeatures_intro fromto_style ast
+          C_encoding.encode_to_c fromto_style ast
         with
         | Scope_computation.InvalidVarId msg ->
           Tools.warn "output_prog could not decode due do invalid var ids: %s" msg;
           (* TODO: add comment in code or in trace by returning info to callers *)
-          C_encoding.meta_intro fromto_style ast
+          C_encoding.encode_meta fromto_style ast
       end else
-        C_encoding.meta_intro fromto_style ast
+        C_encoding.encode_meta fromto_style ast
       in
     (* Print the code into file, using the specified style *)
     let cstyle = match style.print with
@@ -1121,7 +1121,7 @@ and recompute_resources_on_ast ?(missing_types = false) () : unit =
   let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
   (* Compute a typed AST *)
 
-  (* Printf.printf "%s\n" (AstC_to_c.ast_to_string ~style (Ast_fromto_AstC.(meta_intro ~skip_var_ids:true (style_of_custom_style custom_style)) t)); *)
+  (* Printf.printf "%s\n" (AstC_to_c.ast_to_string ~style (Ast_fromto_AstC.(encode_meta ~skip_var_ids:true (style_of_custom_style custom_style)) t)); *)
   try
     the_trace.cur_ast <- Resource_computation.trm_recompute_resources ~missing_types t;
     the_trace.cur_ast_typed <- true;

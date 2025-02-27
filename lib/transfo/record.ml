@@ -46,7 +46,7 @@ let set_implicit (tg : Target.target) : unit =
   Target.iter (fun p ->
     let tg_trm = Target.resolve_path p in
     match tg_trm.desc with
-    | Trm_apps (_, [lt;rt], _) ->
+    | Trm_apps (_, [lt;rt], _, _) ->
       let tid_r = Internal.get_typvar_from_trm ~first_match:false rt in
       let tid_l = Internal.get_typvar_from_trm ~first_match:false lt in
       let tvar = match tid_r, tid_l with

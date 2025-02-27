@@ -163,7 +163,7 @@ let rec get_typvar_from_typ (ty : typ) : typvar option =
 *)
 let rec get_typvar_from_trm ?(first_match : bool = true) (t : trm) : typvar option =
   match t.desc with
-  | Trm_apps (_,[base], _) ->
+  | Trm_apps (_,[base], _, _) ->
     begin match t.typ with
     | Some typ ->
       begin match get_typvar_from_typ typ with

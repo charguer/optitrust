@@ -48,7 +48,7 @@ let precedence_ternary_cond = (3, RtoL)
    *)
 let precedence_trm (t : trm) : precedence =
   match t.desc with
-  | Trm_apps (f, _, _) ->
+  | Trm_apps (f, _, _, _) ->
      begin match trm_prim_inv f with
      | Some (_, p) -> precedence_prim p
      | _ -> (16, LtoR)

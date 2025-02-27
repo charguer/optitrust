@@ -90,7 +90,7 @@ let%transfo read_last_write ~write:(write : target) (tg : target) : unit =
   | None -> failwith "uninline: write target does point to any node" in
   let written_trm =
     match write_trm.desc with
-    | Trm_apps (_, [_;rhs], _) when is_set_operation write_trm -> rhs
+    | Trm_apps (_, [_;rhs], _, _) when is_set_operation write_trm -> rhs
     | Trm_let (_, init) ->
       begin match trm_ref_inv_init init with
       | Some init -> init

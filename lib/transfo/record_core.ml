@@ -6,7 +6,7 @@ open Target
 let set_explicit_on (t : trm) : trm =
   (* TODO: needs refactoring *)
   match t.desc with
-  | Trm_apps (f, [lt; rt], _) ->
+  | Trm_apps (f, [lt; rt], _, _) ->
     let lt = begin match trm_prim_inv f with
       | Some (_, Prim_binop Binop_set) -> lt
       | _ -> trm_fail f "expected set operator"
@@ -90,7 +90,7 @@ let set_explicit_on (t : trm) : trm =
     in
     (* TODO: handle unfolded resource overlap between rhs and lhs *)
     let ((before, after), set_one) = begin match rt.desc with
-    | Trm_apps (_, [rt1], _) when is_get_operation rt ->
+    | Trm_apps (_, [rt1], _, _) when is_get_operation rt ->
       (* lt = get(rt1) --> lt.f = get(rt1.f) *)
       (* NOTE: already checked by ghosts
         check_pure "rhs" rt; *)
@@ -99,7 +99,7 @@ let set_explicit_on (t : trm) : trm =
           (trm_get ~typ:ty (trm_struct_access ~field_typ:ty ~struct_typ rt1 sf))
       in
       (unfold_cells [Writes, lt; Reads, rt1], set_one)
-    | Trm_apps (_, st, _) when Option.is_some (trm_record_inv rt) ->
+    | Trm_apps (_, st, _, _) when Option.is_some (trm_record_inv rt) ->
       (* lt = { .f = v; .. } --> lt.f = v *)
       let set_one i (sf, ty) =
         trm_set (trm_struct_access ~field_typ:ty ~struct_typ lt sf) (List.nth st i)
@@ -123,13 +123,13 @@ let set_implicit_on (t: trm) : trm =
   | Trm_seq (tl, None) ->
     let rhs_trms = Mlist.fold_left (fun acc instr ->
       match instr.desc with
-      | Trm_apps (_, [_;rhs], _) ->
+      | Trm_apps (_, [_;rhs], _, _) ->
         begin match rhs.desc with
-        | Trm_apps (f', [rt], _)  ->
+        | Trm_apps (f', [rt], _, _)  ->
           begin match f'.desc with
           | Trm_prim (_, Prim_unop Unop_get) ->
             begin match rt.desc with
-            | Trm_apps (f'', [rt], _) ->
+            | Trm_apps (f'', [rt], _, _) ->
               begin match f''.desc with
               | Trm_prim (_, Prim_unop (Unop_struct_access _))
               | Trm_prim (_, Prim_unop (Unop_struct_get _)) ->
@@ -150,11 +150,11 @@ let set_implicit_on (t: trm) : trm =
     in
     let first_instruction = Mlist.nth tl 0 in
     begin match first_instruction.desc with
-    | Trm_apps (f,[lhs;_], _) ->
+    | Trm_apps (f,[lhs;_], _, _) ->
       begin match f.desc with
       | Trm_prim (_, Prim_binop Binop_set) ->
         let struct_typ, lt = begin match lhs.desc with
-        | Trm_apps (f', [lt], _) ->
+        | Trm_apps (f', [lt], _, _) ->
           begin match f'.desc with
           | Trm_prim (struct_typ, Prim_unop (Unop_struct_access _))
           | Trm_prim (struct_typ, Prim_unop (Unop_struct_get _)) -> struct_typ, lt
@@ -178,7 +178,7 @@ let set_implicit_on (t: trm) : trm =
 let contains_field_access (f : field) (t : trm) : bool =
   let rec aux (t : trm) : bool =
    match t.desc with
-   | Trm_apps (f', tl, _) ->
+   | Trm_apps (f', tl, _, _) ->
       begin match f'.desc with
       | Trm_prim (_, Prim_unop (Unop_struct_access f1)) -> f = f1
       | Trm_prim (_, Prim_unop (Unop_struct_get f1)) -> f = f1
@@ -193,7 +193,7 @@ let contains_field_access (f : field) (t : trm) : bool =
 let inline_struct_accesses (x : field) (t : trm) : trm =
   let rec aux (outer_field : string) (t : trm) : trm =
     match t.desc with
-    | Trm_apps (f, base, _) ->
+    | Trm_apps (f, base, _, _) ->
       begin match f.desc with
       | Trm_prim (struct_typ, Prim_unop (Unop_struct_access z)) ->
         begin match base with
@@ -565,7 +565,7 @@ type rename = Rename.t
 let rename_struct_accesses (struct_name : typvar) (rename : rename) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_apps (f, [base], _) ->
+    | Trm_apps (f, [base], _, _) ->
       begin match f.desc with
       | Trm_prim (access_typ, Prim_unop (Unop_struct_access y)) ->
         Pattern.pattern_match base.typ [
@@ -583,12 +583,12 @@ let rename_struct_accesses (struct_name : typvar) (rename : rename) (t : trm) : 
         ]
       | _ -> trm_map aux t
       end
-    | Trm_apps ({desc = Trm_var qf; _} as f, args, ghost_args) when trm_has_cstyle Method_call t ->
+    | Trm_apps ({desc = Trm_var qf; _} as f, args, ghost_args, ghost_bind) when trm_has_cstyle Method_call t ->
       let member_base = fst (List.uncons args) in
       Pattern.pattern_match (get_operation_arg member_base).typ [
         Pattern.(some (typ_constr (var_eq struct_name))) (fun () ->
           let renamed_var = { namespaces = qf.namespaces; name = rename qf.name; id = qf.id } in
-          trm_apps ~annot:t.annot ?typ:t.typ ~ghost_args {f with desc = Trm_var renamed_var} args
+          trm_apps ~annot:t.annot ?typ:t.typ ~ghost_args ~ghost_bind {f with desc = Trm_var renamed_var} args
         );
         Pattern.__ (fun () -> trm_map aux t)
       ]
@@ -643,7 +643,7 @@ let update_fields_type_on (pattern : string) (typ_update : typ -> typ) (t : trm)
 let simpl_proj_on (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_apps (f, [struct_list], _) ->
+    | Trm_apps (f, [struct_list], _, _) ->
       begin match trm_prim_inv f with
       | Some (_, Prim_unop (Unop_struct_get x)) ->
         begin match trm_record_inv struct_list with

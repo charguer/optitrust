@@ -60,7 +60,7 @@ let fun_def_on (spec_name : string) (spec_args : (trm option) list) (t : trm) : 
         from the current call should be kept.*)
 let fun_call_on (spec_name : var) (args_to_choose : bool list) (t : trm) : trm =
   match t.desc with
-  | Trm_apps (_f, args, _) ->
+  | Trm_apps (_f, args, _, _) ->
     let new_args = List.fold_left2 (fun acc b t1 ->
       if b
         then t1 :: acc

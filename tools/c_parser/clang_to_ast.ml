@@ -709,6 +709,7 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
 
   | Call {callee = f; args = el} ->
     let tf = tr_expr f in
+    let el = List.filter (fun (e : expr) -> match e.desc with DefaultArg -> false | _ -> true) el in
     (* DEPREACTED let tf = trm_add_cstyle_clang_cursor (cursor_of_node f) tf in*)
     begin match tf.desc with
     | Trm_var x when var_has_name "exact_div" x ->

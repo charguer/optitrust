@@ -55,7 +55,7 @@ let rec formula_of_trm (t: trm): formula option =
   let open Option.Monad in
   match t.desc with
   | Trm_var _ | Trm_lit _ | Trm_prim _ -> Some t
-  | Trm_apps (fn, args, _) ->
+  | Trm_apps (fn, args, _, _) ->
     let* f_args = try Some (List.map (fun arg -> Option.get (formula_of_trm arg)) args) with Invalid_argument _ -> None in
     begin match trm_prim_inv fn with
       | Some (_, Prim_binop Binop_add)

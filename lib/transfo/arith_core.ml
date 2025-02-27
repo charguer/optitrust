@@ -671,13 +671,13 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
      | Trm_lit (Lit_int (typ, n)) -> expr_int ?loc ~typ:(to_expr_typ typ) n
      | Trm_lit (Lit_float (typ, n)) -> expr_float ?loc ~typ:(to_expr_typ typ) n
      (* Recognize unary operators *)
-     | Trm_apps (f, [t1], _) ->
+     | Trm_apps (f, [t1], _, _) ->
        begin match trm_prim_inv f with
         | Some (typ, Prim_unop Unop_minus) -> expr_neg ?loc ~typ:(to_expr_typ typ) (aux t1)
         | _ -> force_atom ()
        end
      (* Recognize binary operators *)
-     | Trm_apps (f, [t1; t2], _) ->
+     | Trm_apps (f, [t1; t2], _, _) ->
        begin match trm_prim_inv f with
         | Some (typ, Prim_binop op) ->
           let typ = to_expr_typ typ in

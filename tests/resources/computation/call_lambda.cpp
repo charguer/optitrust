@@ -29,6 +29,6 @@ void f() {
     __consumes("&x ~> Cell");
     __produces("for _ in 0..1 -> &x ~> Cell");
     __ghost(freeze_cell, "p := &x"); },
-    [&]{ __ghost(unfreeze_cell, "p := &x"); }), "");
+    [&]{ __ghost(unfreeze_cell, "p := &x"); }));
   __GHOST_END(pair);
 }

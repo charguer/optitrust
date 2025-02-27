@@ -63,7 +63,7 @@ let%transfo local_name
   let get_type_and_dims (t : trm) (tg1 : target) : typ * trms =
     let var_type = begin match t.desc with
       | Trm_let ((_, ty), _) -> get_inner_ptr_type ty
-      | Trm_apps (_, [lhs; _rhs], _) when is_set_operation t ->
+      | Trm_apps (_, [lhs; _rhs], _, _) when is_set_operation t ->
         begin match lhs.typ with
         | Some ty -> ty
         | None -> trm_fail t (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s\n'" (var_to_string v))

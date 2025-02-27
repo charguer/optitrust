@@ -267,7 +267,7 @@ Ex:
   an error, not a mode that silently deletes the boggus lines.
 
 - Serialization does not work yet with CPP member functions; eg cpp_varids.ml
-  and see comment in class_member_elim
+  and see comment in decode_class_member
 
 - Keep marks on reparse: tests same ASt and reuse marks at paths
 

@@ -326,7 +326,7 @@ let%transfo fix_types_in_contracts (_u: unit): unit =
   Trace.recompute_resources ~missing_types:true ();
   let rec add_missing_types (t: trm) =
     match t.desc with
-    | Trm_apps ({ desc = Trm_prim (prim_typ, Prim_unop Unop_struct_access field) }, [base], []) when is_typ_auto prim_typ ->
+    | Trm_apps ({ desc = Trm_prim (prim_typ, Prim_unop Unop_struct_access field) }, [base], _, _) when is_typ_auto prim_typ ->
       let base_typ = Option.unsome_or_else base.typ (fun () -> trm_fail t "Could not infer type of struct access") in
       let struct_typ = typ_inv t typ_ptr_inv base_typ in
       trm_like ~old:t (trm_struct_access ~struct_typ base field)
@@ -387,7 +387,7 @@ type unparsed_fun_contract = (fun_contract_clause_type * string) list
 type unparsed_loop_contract = (loop_contract_clause_type * string) list
 
 let with_desugared_res push_fn clause (x, formula) contract =
-  push_fn clause (x, (desugar_formula (C_encoding.caddress_elim formula))) contract
+  push_fn clause (x, (desugar_formula (C_encoding.decode_caddress formula))) contract
 
 let parse_fun_contract =
   parse_contract_clauses empty_fun_contract (with_desugared_res push_fun_contract_clause)
@@ -511,7 +511,7 @@ let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
 
   let rec specialize_input_fracs t =
     match t.desc, t.ctx.ctx_resources_contract_invoc with
-    | Trm_apps (fn, args, gargs), Some invoc ->
+    | Trm_apps (fn, args, gargs, gbind), Some invoc ->
       let new_gargs = List.fold_left (fun gargs { hyp; inst_by } ->
         match trm_var_inv inst_by with
         | Some var ->
@@ -521,7 +521,7 @@ let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
           end
         | None -> gargs
         ) gargs invoc.contract_inst.used_pure in
-      let t = if gargs == new_gargs then t else trm_alter ~desc:(Trm_apps (fn, args, new_gargs)) t in
+      let t = if gargs == new_gargs then t else trm_alter ~desc:(Trm_apps (fn, args, new_gargs, gbind)) t in
       trm_map specialize_input_fracs t
     | _ -> trm_map specialize_input_fracs t
   in

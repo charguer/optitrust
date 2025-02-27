@@ -227,15 +227,15 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
     in
     match t.desc with
     | Trm_var y when y = x -> (true, { t with typ = fix_typ t })
-    | Trm_apps (_, [t1], _) when is_get_operation t ->
+    | Trm_apps (_, [t1], _, _) when is_get_operation t ->
       let r, t1' = aux t1 in
       (false, if r then t1' else trm_get ~annot:t.annot t1')
-    | Trm_apps ({desc = Trm_prim (struct_typ, Prim_unop (Unop_struct_access f))}, [t1], _) ->
+    | Trm_apps ({desc = Trm_prim (struct_typ, Prim_unop (Unop_struct_access f))}, [t1], _, _) ->
       let field_typ = Option.bind t.typ typ_ptr_inv in
       let r, t1' = aux t1 in
       if r then (true, trm_struct_get ?field_typ ~struct_typ ~annot:t.annot t1' f)
       else (false, trm_struct_access ?field_typ ~struct_typ ~annot:t.annot t1' f)
-    | Trm_apps ({desc = Trm_prim (_typ, Prim_binop (Binop_array_access))}, [t1; t2], _) ->
+    | Trm_apps ({desc = Trm_prim (_typ, Prim_binop (Binop_array_access))}, [t1; t2], _, _) ->
       let elem_typ = Option.bind t.typ typ_ptr_inv in
       let r, t1' = aux t1 in
       let _, t2' = aux t2 in
@@ -280,7 +280,7 @@ let to_const_at (index : int) (t : trm) : trm =
     (* Search if there are any write operations on variable x *)
     Mlist.iter (fun t1 ->
       begin match t1.desc with
-      | Trm_apps (_, [ls; _rs], _) when is_set_operation t1 ->
+      | Trm_apps (_, [ls; _rs], _, _) when is_set_operation t1 ->
         begin match ls.desc with
         | Trm_var y when y = x -> trm_fail ls "Variable_core.to_const: variables with one or more write operations can't be converted to immutable ones"
         | _ ->

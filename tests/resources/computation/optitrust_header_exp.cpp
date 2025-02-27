@@ -1,6 +1,8 @@
 #include <optitrust_intrinsics.h>
 
-__ghost_fn __ghost_begin(__ghost_fn, __ghost_args) { return __admitted; }
+__ghost_fn __ghost_begin(__ghost_fn, __ghost_args, __ghost_bind) {
+  return __admitted;
+}
 
 void __ghost_end(__ghost_fn) {}
 
@@ -77,6 +79,12 @@ void MMEMCPY_double(double* dest, int d_offset, double* src, int s_offset,
   memcpy(&dest[d_offset], &src[s_offset], length * sizeof(double));
 }
 
+__ghost_ret assert_prop() {
+  __requires("P: Prop");
+  __requires("proof: P");
+  __ensures("proof: P");
+}
+
 __ghost_ret assume() {
   __requires("P: Prop");
   __ensures("H: P");
@@ -109,7 +117,7 @@ __ghost_ret hide() {
 
 __ghost_ret hide_rev() {
   __reverts(hide);
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __ghost_ret wand_simplify() {
@@ -387,7 +395,7 @@ __ghost_ret group_focus() {
 __ghost_ret group_unfocus() {
   __reverts(group_focus);
   __admitted();
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __ghost_ret group_ro_focus() {
@@ -405,7 +413,7 @@ __ghost_ret group_ro_focus() {
 __ghost_ret group_ro_unfocus() {
   __reverts(group_ro_focus);
   __admitted();
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __ghost_ret group_uninit_focus() {
@@ -421,7 +429,7 @@ __ghost_ret group_uninit_focus() {
 
 __ghost_ret group_uninit_unfocus() {
   __reverts(group_uninit_focus);
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __ghost_ret group2_ro_focus() {
@@ -441,7 +449,7 @@ __ghost_ret group2_ro_focus() {
 
 __ghost_ret group2_ro_unfocus() {
   __reverts(group2_ro_focus);
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __ghost_ret group_focus_subrange() {
@@ -457,7 +465,7 @@ __ghost_ret group_focus_subrange() {
 
 __ghost_ret group_unfocus_subrange() {
   __reverts(group_focus_subrange);
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __ghost_ret group_focus_subrange_ro() {
@@ -475,7 +483,7 @@ __ghost_ret group_focus_subrange_ro() {
 
 __ghost_ret group_unfocus_subrange_ro() {
   __reverts(group_focus_subrange_ro);
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __ghost_ret group_focus_subrange_uninit() {
@@ -493,7 +501,7 @@ __ghost_ret group_focus_subrange_uninit() {
 
 __ghost_ret group_unfocus_subrange_uninit() {
   __reverts(group_focus_subrange_uninit);
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __ghost_ret group2_focus_subrange_uninit() {
@@ -733,12 +741,12 @@ __ghost_ret matrix2_focus() {
   __produces("&M[MINDEX2(m, n, i, j)] ~> Cell");
   __ghost(group_focus, "i := i, bound_check := bound_check_i");
   __ghost(group_focus, "i := j, bound_check := bound_check_j");
-  __ghost(wand_simplify, "");
+  __ghost(wand_simplify);
 }
 
 __ghost_ret matrix2_unfocus() {
   __reverts(matrix2_focus);
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __ghost_ret matrix1_focus() {
@@ -755,7 +763,7 @@ __ghost_ret matrix1_focus() {
 
 __ghost_ret matrix1_unfocus() {
   __reverts(matrix1_focus);
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __ghost_ret matrix1_ro_focus() {
@@ -776,7 +784,7 @@ __ghost_ret matrix1_ro_focus() {
 __ghost_ret matrix1_ro_unfocus() {
   __reverts(matrix1_ro_focus);
   __admitted();
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __ghost_ret matrix2_ro_focus() {
@@ -796,13 +804,13 @@ __ghost_ret matrix2_ro_focus() {
   __produces("_RO(f, &M[MINDEX2(m, n, i, j)] ~> Cell)");
   __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check_i");
   __ghost(group_ro_focus, "f := f, i := j, bound_check := bound_check_j");
-  __ghost(wand_simplify, "");
+  __ghost(wand_simplify);
 }
 
 __ghost_ret matrix2_ro_unfocus() {
   __reverts(matrix2_ro_focus);
   __admitted();
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __ghost_ret matrix2_contiguous() {

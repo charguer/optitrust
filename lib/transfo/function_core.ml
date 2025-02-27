@@ -64,7 +64,8 @@ let replace_return_with_assign_goto ?(exit_label = "exit") ?(res_ptr_name = "res
       [t] - ast of the sequence containing the function call. *)
 let beta_reduce_on ?(body_mark : mark = no_mark) ?(subst_mark : mark = no_mark) (t : trm) : trm =
   match t.desc with
-  | Trm_apps (tfun, fun_call_args, fun_ghost_args) ->
+  | Trm_apps (tfun, fun_call_args, fun_ghost_args, fun_ghost_bind) ->
+    (* TODO: Add assertion to name the ensured resources according to [fun_ghost_bind] *)
     begin match tfun.desc with
     | Trm_fun (args, ret_ty, body, _) ->
       let fun_decl_arg_vars = fst (List.split args) in
@@ -99,13 +100,13 @@ let beta_reduce_on ?(body_mark : mark = no_mark) ?(subst_mark : mark = no_mark) 
 (* TODO: Replace by a form of unfold that works for any variable *)
 let inline_on ?(body_mark = no_mark) ?(subst_mark = no_mark) (t: trm): trm =
   match t.desc with
-  | Trm_apps (tfun, fun_call_args, fun_ghost_args) ->
+  | Trm_apps (tfun, fun_call_args, fun_ghost_args, fun_ghost_bind) ->
     begin match tfun.desc with
     | Trm_var f ->
       begin match Internal.toplevel_decl f with
       | Some decl ->
         let _, _, fn_def = trm_inv trm_let_inv decl in
-        beta_reduce_on ~body_mark ~subst_mark (trm_apps fn_def fun_call_args ~ghost_args:fun_ghost_args)
+        beta_reduce_on ~body_mark ~subst_mark (trm_apps fn_def fun_call_args ~ghost_args:fun_ghost_args ~ghost_bind:fun_ghost_bind)
       | _ -> trm_fail tfun (sprintf "Function_core.inline_on: couldn't find the toplevel decl for the targeted function call '%s'" (var_to_string f))
       end
     | Trm_fun _ -> beta_reduce_on ~body_mark ~subst_mark t
@@ -127,7 +128,7 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
   try
     Arith_core.(
     match t.desc with
-    | Trm_apps (f, [ls; rs], _) when is_set_operation t -> (* LATER: use a proper inversor? *)
+    | Trm_apps (f, [ls; rs], _, _) when is_set_operation t -> (* LATER: use a proper inversor? *)
       (* t  =  set(ls, rs) *)
       (* Let's define the check that a given subterm is a [get(ls)] *)
       let is_get_of_ls (ti:trm) : bool =
@@ -319,7 +320,7 @@ let replace_with_change_args_on (new_fun_name : var) (arg_mapper : trms -> trms)
   (* to change name and keep namespaces/id:
   let fv = trm_inv ~error trm_var_inv f in
   { namespaces = fv.namespaces; name = new_fun_name; id = fv.id } *)
-  trm_replace (Trm_apps ((trm_var new_fun_name), arg_mapper args, [])) t
+  trm_replace (Trm_apps ((trm_var new_fun_name), arg_mapper args, [], [])) t
 
 (** [dps_def_at index arg func t]: changes the destination pasing style,
      [index] - index of the targeted function definition on its surrounding sequence,
@@ -378,9 +379,9 @@ let dps_def_at (index : int) (arg_name : string) ?(fn_name : string = "") (t : t
     [t] - ast of the write operation. *)
 let dps_call_on (dps : string) (t : trm) : trm =
   match t.desc with
-  | Trm_apps (_, [lhs; rhs], _) when is_set_operation t ->
+  | Trm_apps (_, [lhs; rhs], _, _) when is_set_operation t ->
     begin match rhs.desc with
-    | Trm_apps ({desc = Trm_var f; _}, args, _) ->
+    | Trm_apps ({desc = Trm_var f; _}, args, _, _) ->
         let dps_name = if dps = "" then f.name ^ "_dps" else dps in
         (* TODO: avoid using name_to_var, take var as arg. *)
         trm_apps (trm_var (name_to_var dps_name)) (args @ [lhs])

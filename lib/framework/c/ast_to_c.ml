@@ -608,7 +608,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
               surround 2 1 lsep dinstrs rsep
           in
           dattr ^^ res
-    | Trm_apps (f, tl, _) ->
+    | Trm_apps (f, tl, _, _) ->
       dattr ^^ apps_to_doc style ~annot:t.annot ~print_struct_init_type ~prec f tl ^^ dsemi
     | Trm_while (b, t) ->
       let db = decorate_trm style b in
@@ -733,9 +733,9 @@ and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm
         blank 1 ^^ string "/* typing time: " ^^ string (string_of_float microsec) ^^ string " */"
       end in *)
     static ^^ blank 1 ^^ dexectime ^^ trm_let_fun_to_doc ~semicolon style fun_annot (fst tv) rettyp args body ^^ hidden
-  | Trm_apps (_, args, _) when trm_has_cstyle Constructed_init init ->
+  | Trm_apps (_, args, _, _) when trm_has_cstyle Constructed_init init ->
     dtx ^^ blank 1 ^^ list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (decorate_trm style) args) ^^ dsemi
-  | Trm_apps (_, tl, _) when trm_has_cstyle Brace_init init && Option.is_some (trm_array_inv init) ->
+  | Trm_apps (_, tl, _, _) when trm_has_cstyle Brace_init init && Option.is_some (trm_array_inv init) ->
     dtx ^^ list_to_doc ~bounds:[lbrace; rbrace] ~sep:empty (List.map (decorate_trm style) tl) ^^ dsemi
   | _ ->
     dtx ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style ~force_expr:true ~print_struct_init_type:false init ^^ dsemi

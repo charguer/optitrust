@@ -25,7 +25,7 @@
 %token <string> IDENT
 %token <int> INT_LIT
 %token LPAR RPAR LBRACKET RBRACKET
-%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW COLON_EQUAL DOT DOTDOT
+%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW COLON_EQUAL REV_ARROW DOT DOTDOT
 %token FUN FORALL FOR IN EOF
 %token PLUS MINUS STAR SLASH PERCENT
 %token EQUAL LT GT LEQ GEQ NEQ
@@ -34,6 +34,7 @@
 
 %start <contract_resource_item list> resource_list
 %start <resource_item list> ghost_arg_list
+%start <(var * var) list> ghost_bind
 
 %%
 
@@ -158,3 +159,12 @@ ghost_arg:
 
 ghost_arg_list:
   | ghost_args=separated_list(COMMA, ghost_arg); EOF { ghost_args }
+
+single_ghost_bind:
+  | bound_var=IDENT; REV_ARROW; contract_var=IDENT
+    { (name_to_var bound_var, name_to_var contract_var) }
+  | bound_var=IDENT
+    { (name_to_var bound_var, dummy_var) }
+
+ghost_bind:
+  | ghost_bind=separated_list(COMMA, single_ghost_bind); EOF { ghost_bind }

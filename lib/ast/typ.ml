@@ -42,7 +42,7 @@ let typ_unit_var = toplevel_typvar "unit"
 let typ_unit = typ_var typ_unit_var
 
 let typ_apps ?loc (t: typ) (args: trm list) =
-  typ_make ?loc (Trm_apps (t, args, []))
+  typ_make ?loc (Trm_apps (t, args, [], []))
 
 let typ_auto_var = toplevel_typvar "auto"
 let typ_auto = typ_var typ_auto_var
@@ -180,7 +180,7 @@ let typ_var_inv (ty : typ) : typvar option =
 
 let typ_apps_inv (ty : typ) : (typvar * typ list) option =
   match ty.desc with
-  | Trm_apps ({ desc = Trm_var v }, args, []) -> Some (v, args)
+  | Trm_apps ({ desc = Trm_var v }, args, [], []) -> Some (v, args)
   | _ -> None
 
 (** [typ_const_inv ty]: get the inner type of a const *)

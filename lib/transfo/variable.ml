@@ -389,7 +389,7 @@ let%transfo inline_and_rename ?(simpl: target -> unit = default_inline_simpl) (t
         | Trm_var x ->
           inline ~simpl spec_target;
           renames (ByList [(x.name,y.name)]) tg_scope
-        | Trm_apps (_, [{desc = Trm_var x;_}], _) when is_get_operation init ->
+        | Trm_apps (_, [{desc = Trm_var x;_}], _, _) when is_get_operation init ->
           inline ~simpl spec_target;
           renames (ByList [(x.name,y.name)]) tg_scope
         | _ ->

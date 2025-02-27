@@ -38,7 +38,7 @@ let mindex (dims : trms) (indices : trms) : trm =
 (** [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t] *)
 let mindex_inv (t : trm) : (trms * trms) option =
   match t.desc with
-  | Trm_apps (f, dims_and_indices, _) ->
+  | Trm_apps (f, dims_and_indices, _, _) ->
     let n = List.length dims_and_indices in
     if (n mod 2 = 0 && n/2 <= max_nb_dims) then
       begin match f.desc with
@@ -104,7 +104,7 @@ let get ?(typ: typ option) (base : trm) (dims : trms) (indices : trms) : trm =
 (** [get_inv t]: gets the trm inside a get oepration on an access. *)
 let get_inv (t : trm) : (trm * trms * trms) option =
   match t.desc with
-  | Trm_apps (_f,[base], _) when is_get_operation t -> access_inv base
+  | Trm_apps (_f,[base], _, _) when is_get_operation t -> access_inv base
   | _ -> None
 
 (** [set base dims indices arg]: creates a set operation on which the address where the write is done
@@ -117,7 +117,7 @@ let set (base : trm) (dims : trms) (indices : trms) (arg : trm) : trm =
 (** [set_inv t]: returns the arguments used in the function [set]. *)
 let set_inv (t : trm) : (trm * trms * trms * trm) option =
   match t.desc with
-  | Trm_apps (_f, [addr;v], _) when is_set_operation t ->
+  | Trm_apps (_f, [addr;v], _, _) when is_set_operation t ->
     begin match access_inv addr with
     | Some (base, dims, indices) -> Some (base, dims, indices, v)
     | None -> None

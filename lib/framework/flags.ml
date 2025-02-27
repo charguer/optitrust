@@ -94,9 +94,9 @@ let code_print_width = ref 80
    (* TODO: could it be true by default? *)
 let use_light_diff : bool ref = ref false
 
-(** [bypass_cfeatures]: flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them.
-   It affects the behavior of the parsing function [c_parser] to bypass [cfeatures_elim].
-   It affects the behavior of the printipng function [output_prog] to bypass [cfeatures_intro].
+(** [bypass_cfeatures]: flag used for debugging the [decode_from_c/intro] functions, by bypassing them.
+   It affects the behavior of the parsing function [c_parser] to bypass [decode_from_c].
+   It affects the behavior of the printipng function [output_prog] to bypass [encode_to_c].
    Note: this option is orthogonal to [print_optitrust_syntax]; beware, however, that it makes
    no sense to print encoded terms without [print_optitrust_syntax] activated. *)
 let bypass_cfeatures : bool ref = ref false

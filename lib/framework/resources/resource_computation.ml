@@ -282,8 +282,9 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
       | _ -> failwith "Primitive operator %s is not a pure operator" (Ast_to_c.ast_to_string (trm_prim typ prim))
     end
 
-  | Trm_apps (f, args, gargs) ->
+  | Trm_apps (f, args, gargs, gbind) ->
     if gargs <> [] then failwith "Pure functions do not have ghost arguments";
+    if gbind <> [] then failwith "Pure functions do not have ghost output bindings";
     begin match f.desc, args with
     | Trm_prim (_, Prim_binop Binop_array_access), [arr; index] ->
       let arr_typ = compute_pure_typ env arr in
@@ -699,12 +700,13 @@ let assert_resource_impl (res_from: resource_set) (res_to: resource_set) : used_
 
 (** [compute_produced_resources subst_ctx contract_post] returns the resources produced
     by [contract_post] given the [subst_ctx] instantation of the contract. *)
-let compute_produced_resources (subst_ctx: tmap) (contract_post: resource_set)
+let compute_produced_resources (subst_ctx: tmap) ?(ensured_renaming = Var_map.empty) (contract_post: resource_set)
   : produced_resource_set =
   (* LATER: Manage higher order returned function *)
+  let ensured_renaming = Var_map.add var_result var_result ensured_renaming in
   let (contract_hyp_names, subst_ctx, aliases), pure =
     List.fold_left_map (fun (contract_names, subst_ctx, aliases) (h, formula) ->
-        let produced_hyp = if var_eq h var_result then var_result else new_anon_hyp () in
+        let produced_hyp = Option.unsome_or_else (Var_map.find_opt h ensured_renaming) new_anon_hyp in
         let contract_names = Var_map.add produced_hyp h contract_names in
         let produced_formula = trm_subst subst_ctx formula in
         let aliases = match Var_map.find_opt h contract_post.aliases with
@@ -1055,9 +1057,10 @@ let debug_print_computation_stack = false
   and the resources available after [t].
 
   If provided, [subst_ctx] is a specialization context applied to [contract].
+  If provided, [ensured_renaming] is a partial map from ensured names in [contract] to new hypotesis names available after [t].
   Sets [t.ctx.ctx_resources_contract_invoc].
     *)
-let compute_contract_invoc (contract: fun_contract) ?(inst_map: tmap = Var_map.empty) (res: resource_set) (t: trm): resource_usage_map * resource_set =
+let compute_contract_invoc (contract: fun_contract) ?(inst_map: tmap = Var_map.empty) ?(ensured_renaming = Var_map.empty) (res: resource_set) (t: trm): resource_usage_map * resource_set =
   if debug_print_computation_stack then
     Tools.debug "compute_contract_invoc:\n%s\n==>\n%s" (resource_set_to_string contract.pre) (resource_set_to_string contract.post);
   let subst_ctx, res_used, res_frame = extract_resources ~split_frac:true ~inst_map res contract.pre in
@@ -1065,7 +1068,7 @@ let compute_contract_invoc (contract: fun_contract) ?(inst_map: tmap = Var_map.e
   let usage = used_set_to_usage_map res_used in
   let new_fracs = new_fracs_from_used_set res_used in
   let usage = List.fold_left (fun usage (frac, _) -> Var_map.add frac ArbitrarilyChosen usage) usage new_fracs in
-  let res_produced = compute_produced_resources subst_ctx contract.post in
+  let res_produced = compute_produced_resources ~ensured_renaming subst_ctx contract.post in
 
   let new_res, usage_after, ro_simpl_steps = resource_merge_after_frame ~aliases:res.aliases res_produced res_frame in
   let new_res = { new_res with pure = new_fracs @ new_res.pure } in
@@ -1494,7 +1497,7 @@ let rec compute_resources
       let res_after = Resource_set.rename_var var_result var res_after in
       usage_map, Some res_after
 
-    | Trm_apps (fn, effective_args, ghost_args) ->
+    | Trm_apps (fn, effective_args, ghost_args, ghost_bind) ->
       (* Retrieve a function specification in a given context *)
       begin try
         let** fn_var, res_after_fn, fn_post, fn_usage_map = compute_subexpr_resources res fn in
@@ -1524,14 +1527,16 @@ let rec compute_resources
         let res_after_args = { res_after_args with linear = linear_res_after_args } in
         let usage_map = add_joined_frac_usage ro_simpl_steps args_usage_map in
 
-        let ghost_args_vars = ref Var_set.empty in
         let inst_map = List.fold_left (fun inst_map (ghost_var, ghost_inst) ->
-          if Var_set.mem ghost_var !ghost_args_vars then (failwith "Ghost argument %s given twice for function %s" (var_to_string ghost_var) (Ast_to_c.ast_to_string fn));
-          ghost_args_vars := Var_set.add ghost_var !ghost_args_vars;
+          if Var_map.mem ghost_var inst_map then (failwith "Ghost argument %s given twice for function %s" (var_to_string ghost_var) (Ast_to_c.ast_to_string fn));
           Var_map.add ghost_var ghost_inst inst_map) inst_map ghost_args
         in
+        let ensured_renaming = List.fold_left (fun ensured_renaming (bound_var, contract_var) ->
+          if Var_map.mem contract_var ensured_renaming then (failwith "Ghost binding %s given twice for function %s" (var_to_string contract_var) (Ast_to_c.ast_to_string fn));
+          Var_map.add contract_var bound_var ensured_renaming) Var_map.empty ghost_bind
+        in
 
-        let call_usage_map, res_after = compute_contract_invoc spec.contract ~inst_map res_after_args t in
+        let call_usage_map, res_after = compute_contract_invoc spec.contract ~inst_map ~ensured_renaming res_after_args t in
         let usage_map = List.fold_left (fun usage_map (_, ghost_inst) ->
             let ghost_inst_fv = trm_free_vars ghost_inst in
             Var_set.fold (fun x -> Var_map.add x Required) ghost_inst_fv usage_map
@@ -1618,7 +1623,7 @@ let rec compute_resources
            Store the reverse of the instantiated contract as the contract for _Res.
         *)
         let usage_map, res, contract_invoc = Pattern.pattern_match effective_args [
-          Pattern.(!(trm_apps !__ nil __) ^:: nil) (fun ghost_call ghost_fn () ->
+          Pattern.(!(trm_apps !__ nil __ __) ^:: nil) (fun ghost_call ghost_fn () ->
             let usage_map, res = compute_resources (Some res) ghost_call in
             let resources_after_ghost_fn = Option.unsome ghost_fn.ctx.ctx_resources_after in
             let spec = Resource_set.find_result_fun_spec  resources_after_ghost_fn in

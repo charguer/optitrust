@@ -176,7 +176,7 @@ let debug_intro = false
 let intro_at ?(name: string option) ?(end_mark: mark = no_mark) (i: int) (t_seq: trm) : trm =
   let seq, result = trm_inv ~error:"Ghost_pair.intro_on: Expect a sequence" trm_seq_inv t_seq in
   let seq_before, ghost_begin, seq_after = Mlist.get_item_and_its_relatives i seq in
-  let ghost_call = trm_inv ~error:"Ghost_pair.intro_on: Should target a ghost call" Resource_trm.ghost_inv ghost_begin in
+  let ghost_call = trm_inv ~error:"Ghost_pair.intro_on: Should target a ghost call" Resource_trm.ghost_call_inv ghost_begin in
 
   let invoc_linear_pre_and_post t =
     match t.ctx.ctx_resources_contract_invoc with
@@ -206,7 +206,7 @@ let intro_at ?(name: string option) ?(end_mark: mark = no_mark) (i: int) (t_seq:
   let exception FoundInverse of int * trm in
   try
     Mlist.iteri (fun i t ->
-      match Resource_trm.ghost_inv t with
+      match Resource_trm.ghost_call_inv t with
       | Some end_ghost_call ->
         let correct_mark = trm_add_mark_is_noop end_mark t in
         if correct_mark then
@@ -240,7 +240,7 @@ let%transfo intro ?(name: string option) ?(end_mark: mark = no_mark) (tg: target
 let elim_at ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (i: int) (t_seq: trm): trm =
   let seq, result = trm_inv ~error:"Ghost_pair.elim_on: Expect a sequence" trm_seq_inv t_seq in
   let seq_before, ghost_begin, seq_after = Mlist.get_item_and_its_relatives i seq in
-  let pair_var, { ghost_fn; ghost_args } = trm_inv ~error:"Ghost_pair.elim_on: Should target a ghost_begin" Resource_trm.ghost_begin_inv ghost_begin in
+  let pair_var, { ghost_fn; ghost_args; ghost_bind } = trm_inv ~error:"Ghost_pair.elim_on: Should target a ghost_begin" Resource_trm.ghost_begin_inv ghost_begin in
 
   let exception FoundEnd of int in
   try
@@ -257,8 +257,8 @@ let elim_at ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (i: int) (
       | None -> failwith "Found a non reversible ghost pair"
     in
 
-    let seq_after = Mlist.replace_at i (trm_add_mark mark_end (Resource_trm.ghost { ghost_fn = inverse_ghost_fn; ghost_args })) seq_after in
-    let seq = Mlist.merge_list [seq_before; Mlist.of_list [trm_add_mark mark_begin (Resource_trm.ghost { ghost_fn = without_inverse ghost_fn; ghost_args })]; seq_after] in
+    let seq_after = Mlist.replace_at i (trm_add_mark mark_end (Resource_trm.ghost { ghost_fn = inverse_ghost_fn; ghost_args; ghost_bind = [] })) seq_after in
+    let seq = Mlist.merge_list [seq_before; Mlist.of_list [trm_add_mark mark_begin (Resource_trm.ghost { ghost_fn = without_inverse ghost_fn; ghost_args; ghost_bind })]; seq_after] in
     trm_replace (Trm_seq (seq, result)) t_seq
 
 (** Split a ghost pair into two independant ghost calls *)

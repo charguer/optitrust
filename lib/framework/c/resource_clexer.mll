@@ -21,6 +21,7 @@ rule lex_resources = parse
   | "forall" { FORALL }
   | "in" { IN }
   | ":=" { COLON_EQUAL }
+  | "<-" { REV_ARROW }
   | '(' { LPAR }
   | ')' { RPAR }
   | '[' { LBRACKET }

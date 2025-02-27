@@ -51,12 +51,13 @@ let trm_seq (instrs: 'a -> trm mlist -> 'b) (result: 'b -> var option -> 'c) (k:
     k
   | None -> raise Next
 
-let trm_apps (fn: 'a -> trm -> 'b) (args: 'b -> trm list -> 'c) (ghost_args: 'c -> resource_item list -> 'd) (k: 'a) (t: trm): 'd =
+let trm_apps (fn: 'a -> trm -> 'b) (args: 'b -> trm list -> 'c) (ghost_args: 'c -> resource_item list -> 'd) (ghost_bind: 'd -> (var * var) list -> 'e) (k: 'a) (t: trm): 'e =
   match t.desc with
-  | Trm_apps (f, a, ga) ->
+  | Trm_apps (f, a, ga, gb) ->
     let k = fn k f in
     let k = args k a in
     let k = ghost_args k ga in
+    let k = ghost_bind k gb in
     k
   | _ -> raise Next
 
@@ -84,10 +85,10 @@ let (^::) (fh: 'a -> 't -> 'b) (ft: 'b -> 't list -> 'c) (k: 'a) (l: 't list): '
     k
   | _ -> raise Next
 
-let trm_apps0 fn = trm_apps fn nil __
-let trm_apps1 fn arg1 = trm_apps fn (arg1 ^:: nil) __
-let trm_apps2 fn arg1 arg2 = trm_apps fn (arg1 ^:: arg2 ^:: nil) __
-let trm_apps3 fn arg1 arg2 arg3 = trm_apps fn (arg1 ^:: arg2 ^:: arg3 ^:: nil) __
+let trm_apps0 fn = trm_apps fn nil __ __
+let trm_apps1 fn arg1 = trm_apps fn (arg1 ^:: nil) __ __
+let trm_apps2 fn arg1 arg2 = trm_apps fn (arg1 ^:: arg2 ^:: nil) __ __
+let trm_apps3 fn arg1 arg2 arg3 = trm_apps fn (arg1 ^:: arg2 ^:: arg3 ^:: nil) __ __
 
 let trm_lit (f: 'a -> lit -> 'b) (k: 'a) (t: trm): 'b =
   match trm_lit_inv t with

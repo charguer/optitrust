@@ -551,7 +551,7 @@ let match_regexp_str (r : rexp) (s : string) : bool =
 (* LATER: this could be passed as argument throughout the function calls *)
 (* This variable should only be modified by [Target.with_stringreprs_available] *)
 (* Keep in mind that the stringrepr is not available for AST nodes that are removed
-   during the computation of [cfeatures_intro], that is, during the translations
+   during the computation of [encode_to_c], that is, during the translations
    from OptiTrust AST to the C AST. *)
 let stringreprs : (stringreprid, string) Hashtbl.t option ref = ref None
 
@@ -582,7 +582,7 @@ let get_stringrepr (t : trm) : string =
           begin match Hashtbl.find_opt m id with
           | None ->
               (* This term must correspond to a node that was removed during
-                 [cfeatures_intro], hence not printed *)
+                 [encode_to_c], hence not printed *)
               if !Flags.debug_stringreprs then begin
                 Tools.warn "missing stringrepr for id %i" id;
                 print t;
@@ -788,7 +788,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
     ty_pred tx &&
     check_args cl_args args &&
     check_target p_body body
-  | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args, _) ->
+  | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args, _, _) ->
     if not accept_encoded then
       begin match f.desc with
       | Trm_prim (_, Prim_ref)
@@ -836,7 +836,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
     end
   | Constr_hastype pred , _ ->
     check_hastype pred t
-  | Constr_var_init, Trm_apps ({desc = Trm_prim (_, (Prim_ref | Prim_ref_uninit)); _}, _, _) -> false
+  | Constr_var_init, Trm_apps ({desc = Trm_prim (_, (Prim_ref | Prim_ref_uninit)); _}, _, _, _) -> false
   | Constr_var_init, _ -> true
   | Constr_omp (pred, _), _ -> trm_has_pragma pred t
   | Constr_namespace cn, Trm_namespace (name, _, _) -> check_name cn name
@@ -1401,7 +1401,7 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
       (add_dir Dir_then (aux_body then_t)) @
       (* else *)
       (add_dir Dir_else (aux_body else_t))
-    | Trm_apps (f, args, ghost_args) ->
+    | Trm_apps (f, args, ghost_args, ghost_bind) ->
       (* fun *)
       (add_dir Dir_app_fun (aux f)) @
       (* args *)
@@ -1487,8 +1487,8 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
      add_dir Dir_for_start (aux range.start)
   | Dir_for_stop, Trm_for (range, _, _) ->
      add_dir Dir_for_stop (aux range.stop)
-  | Dir_app_fun, Trm_apps (f, _, _) -> add_dir Dir_app_fun (aux f)
-  | Dir_arg_nth n, Trm_apps (_, tl, _) ->
+  | Dir_app_fun, Trm_apps (f, _, _, _) -> add_dir Dir_app_fun (aux f)
+  | Dir_arg_nth n, Trm_apps (_, tl, _, _) ->
      app_to_nth_dflt tl n (fun nth_t ->
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_arg_nth n, Trm_fun (arg, _, _, _) ->

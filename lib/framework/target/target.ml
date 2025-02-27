@@ -1214,7 +1214,7 @@ let compute_stringreprs ?(topfuns:Constr.constr_name list option) (f : trm->bool
   Ast_to_c.init_stringreprs ();
   let cstyle = Ast_to_c.style_for_stringrepr in
   let fromto_style = C_encoding.{ cstyle; typing = Style.typing_annot } in
-  let t3_c_syntax = C_encoding.cfeatures_intro fromto_style (trm_erase_var_ids t3) in
+  let t3_c_syntax = C_encoding.encode_to_c fromto_style (trm_erase_var_ids t3) in
   let _doc = Ast_to_c.(ast_to_doc cstyle) t3_c_syntax in (* fill in the [Ast_to_c.stringreprs] table, ignore the result *)
   let m = Ast_to_c.get_and_clear_stringreprs () in
   t2, m (* we return t2, not t3, because t3 has hidden bodies *)
