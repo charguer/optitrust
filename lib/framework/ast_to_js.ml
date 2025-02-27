@@ -233,7 +233,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "seq";
           children_to_field (List.mapi ichild_to_json (List.map aux l));
           (strquote "result", strquote result.name)]
-    | Trm_apps (f,args,_) ->
+    | Trm_apps (f,args,_,_) ->
         let args_children = List.mapi (ichild_to_json ~prefix:"_arg" ) (List.map aux args) in
         let children = (child_to_json "fun" (aux f)) :: args_children in
         [ kind_to_field "app";

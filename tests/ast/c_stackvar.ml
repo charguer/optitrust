@@ -16,7 +16,7 @@ let filename =
 let _ = Run.script_cpp ~filename (fun () ->
   Scope.infer_var_ids ();
   (* TODO  let t = Trace.ast() in *)
-  !! Trace.apply stackvar_elim;   (* Press F6 on this line to see the encoding *) (* Press Alt+F6 to check the blank diff of the round-trip *)
-  !! Trace.apply stackvar_intro; (* Press F6 on this line to see the decoding *)
+  !! Trace.apply decode_stackvar;   (* Press F6 on this line to see the encoding *) (* Press Alt+F6 to check the blank diff of the round-trip *)
+  !! Trace.apply encode_stackvar; (* Press F6 on this line to see the decoding *)
   !! Trace.check_recover_original(); (* Press F6 on this line to see a blank diff if successful, or an error message if round-trip fails *)
  )

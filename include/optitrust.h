@@ -3,16 +3,16 @@
 
 #include <optitrust_intrinsics.h>
 
-inline __ghost_fn __ghost_begin(__ghost_fn, __ghost_args) { return __admitted; }
+inline __ghost_fn __ghost_begin(__ghost_fn, __ghost_args = "", __ghost_bind = "") { return __admitted; }
 inline void __ghost_end(__ghost_fn) {}
 
-#define __GHOST_BEGIN(rev_ghost, ghost, ghost_args) const __ghost_fn rev_ghost = __ghost_begin(ghost, ghost_args)
+#define __GHOST_BEGIN(rev_ghost, ...) const __ghost_fn rev_ghost = __ghost_begin(__VA_ARGS__)
 #define __GHOST_END(rev_ghost) __ghost_end(rev_ghost)
 
 inline __ghost_fn __with_reverse(__ghost_fn g, __ghost_fn g_rev) { return g; }
 inline void __reverts(__ghost_fn) {}
 
-#define __GHOST_BEGIN_CUSTOM(rev_ghost, forward_ghost, backward_ghost) __GHOST_BEGIN(rev_ghost, __with_reverse(forward_ghost, backward_ghost), "")
+#define __GHOST_BEGIN_CUSTOM(rev_ghost, forward_ghost, backward_ghost) __GHOST_BEGIN(rev_ghost, __with_reverse(forward_ghost, backward_ghost))
 
 /* ---- Matrix Functions ---- */
 
@@ -86,6 +86,13 @@ DEFINE_MMEMCPY(double)
 
 /* ---- Ghosts ---- */
 
+// asserts that a property is true to generate a new pure proposition
+__GHOST(assert_prop) {
+  __requires("P: Prop");
+  __requires("proof: P");
+  __ensures("proof: P");
+}
+
 // assumes a formula with no need to prove it later
 __GHOST(assume) {
   __requires("P: Prop");
@@ -118,7 +125,7 @@ __GHOST(hide) {
 
 __GHOST(hide_rev) {
   __reverts(hide);
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __GHOST(wand_simplify) {
@@ -375,7 +382,7 @@ __GHOST(group_focus) {
 __GHOST(group_unfocus) {
   __reverts(group_focus);
   __admitted(); // for efficiency
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __GHOST(group_ro_focus) {
@@ -389,7 +396,7 @@ __GHOST(group_ro_focus) {
 __GHOST(group_ro_unfocus) {
   __reverts(group_ro_focus);
   __admitted(); // for performance
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 
 }
 
@@ -404,7 +411,7 @@ __GHOST(group_uninit_focus) {
 __GHOST(group_uninit_unfocus) {
   __reverts(group_uninit_focus);
 
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __GHOST(group2_ro_focus) {
@@ -420,7 +427,7 @@ __GHOST(group2_ro_focus) {
 __GHOST(group2_ro_unfocus) {
   __reverts(group2_ro_focus);
 
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __GHOST(group_focus_subrange) {
@@ -433,7 +440,7 @@ __GHOST(group_focus_subrange) {
 
 __GHOST(group_unfocus_subrange) {
   __reverts(group_focus_subrange);
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __GHOST(group_focus_subrange_ro) {
@@ -447,7 +454,7 @@ __GHOST(group_focus_subrange_ro) {
 
 __GHOST(group_unfocus_subrange_ro) {
   __reverts(group_focus_subrange_ro);
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __GHOST(group_focus_subrange_uninit) {
@@ -462,7 +469,7 @@ __GHOST(group_focus_subrange_uninit) {
 
 __GHOST(group_unfocus_subrange_uninit) {
   __reverts(group_focus_subrange_uninit);
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __GHOST(group2_focus_subrange_uninit) {
@@ -724,13 +731,13 @@ __GHOST(matrix2_focus)  {
 
   __ghost(group_focus, "i := i, bound_check := bound_check_i");
   __ghost(group_focus, "i := j, bound_check := bound_check_j");
-  __ghost(wand_simplify, "");
+  __ghost(wand_simplify);
 }
 
 __GHOST(matrix2_unfocus) {
   __reverts(matrix2_focus);
 
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __GHOST(matrix1_focus) {
@@ -745,7 +752,7 @@ __GHOST(matrix1_focus) {
 __GHOST(matrix1_unfocus) {
   __reverts(matrix1_focus);
 
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __GHOST(matrix1_ro_focus) {
@@ -760,7 +767,7 @@ __GHOST(matrix1_ro_focus) {
 __GHOST(matrix1_ro_unfocus) {
   __reverts(matrix1_ro_focus);
   __admitted(); // for efficiency
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 __GHOST(matrix2_ro_focus) {
@@ -772,13 +779,13 @@ __GHOST(matrix2_ro_focus) {
 
   __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check_i");
   __ghost(group_ro_focus, "f := f, i := j, bound_check := bound_check_j");
-  __ghost(wand_simplify, "");
+  __ghost(wand_simplify);
 }
 
 __GHOST(matrix2_ro_unfocus) {
   __reverts(matrix2_ro_focus);
   __admitted(); // for efficiency
-  __ghost(close_wand, "");
+  __ghost(close_wand);
 }
 
 // matrix*_contiguous

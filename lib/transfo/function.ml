@@ -84,7 +84,7 @@ let%transfo inline ?(resname : string = "")
 
       let call_trm = Target.resolve_path p in
       begin match call_trm.desc with
-        | Trm_apps ({desc = Trm_var f}, xs, _) ->
+        | Trm_apps ({desc = Trm_var f}, xs, _, _) ->
           function_names := Var_set.add f !function_names
         | _ ->  trm_fail call_trm "Function.get_function_name_from_call: couldn't get the name of the called function"
       end;

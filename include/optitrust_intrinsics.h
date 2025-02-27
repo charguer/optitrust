@@ -10,26 +10,28 @@
 
 /* ---- Resource Annotations ---- */
 
+typedef const char* __resource_list;
+
 inline void __pure() {}
-inline void __requires(const char*) {}
-inline void __ensures(const char*) {}
-inline void __reads(const char*) {}
-inline void __writes(const char*) {}
-inline void __modifies(const char*) {}
-inline void __consumes(const char*) {}
-inline void __produces(const char*) {}
+inline void __requires(__resource_list) {}
+inline void __ensures(__resource_list) {}
+inline void __reads(__resource_list) {}
+inline void __writes(__resource_list) {}
+inline void __modifies(__resource_list) {}
+inline void __consumes(__resource_list) {}
+inline void __produces(__resource_list) {}
 
 inline void __strict() {}
-inline void __xrequires(const char*) {}
-inline void __xensures(const char*) {}
-inline void __xreads(const char*) {}
-inline void __xwrites(const char*) {}
-inline void __xmodifies(const char*) {}
-inline void __xconsumes(const char*) {}
-inline void __xproduces(const char*) {}
-inline void __invariant(const char*) {}
-inline void __smodifies(const char*) {}
-inline void __sreads(const char*) {}
+inline void __xrequires(__resource_list) {}
+inline void __xensures(__resource_list) {}
+inline void __xreads(__resource_list) {}
+inline void __xwrites(__resource_list) {}
+inline void __xmodifies(__resource_list) {}
+inline void __xconsumes(__resource_list) {}
+inline void __xproduces(__resource_list) {}
+inline void __invariant(__resource_list) {}
+inline void __smodifies(__resource_list) {}
+inline void __sreads(__resource_list) {}
 
 inline void __admitted() {}
 
@@ -52,22 +54,17 @@ typedef std::function<__ghost_ret()> __ghost_fn;
 
 // Argument type for ghost functions
 typedef const char* __ghost_args;
+typedef const char* __ghost_bind;
 
 // Marcro for ghost function prototype
 #define __GHOST(f) inline __ghost_ret f()
 
 // Invoke a ghost function
-inline void __ghost(__ghost_fn, __ghost_args) {}
+inline void __ghost(__ghost_fn, __ghost_args = "", __ghost_bind = "") {}
 
 /// Postfix call for specifying ghost arguments
 inline void __with(__ghost_args) {}
-template<typename T> T __call_with(T ret_val, __ghost_args) { return ret_val; }
-
-// TODO: bind et call_with
-/*
-template<typename T> T __bind(T ret_val, const char*) { return ret_val; }
-inline void __rename(const char*) {}
-*/
-
+inline void __bind(__ghost_bind) {}
+template<typename T> T __call_with(T ret_val, __ghost_args = "", __ghost_bind = "") { return ret_val; }
 
 #endif

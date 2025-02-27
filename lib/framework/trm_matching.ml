@@ -186,7 +186,7 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
 
     (* Case for treating a match against a pattern such as [body(i)],
        where [body] is a pattern variable that corresponds to a function. *)
-    | Trm_apps (({ desc = Trm_var x; _} as trm_x), ts1, _), _ when higher_order_inst && is_var x ->
+    | Trm_apps (({ desc = Trm_var x; _} as trm_x), ts1, _, _), _ when higher_order_inst && is_var x ->
         let typ_args, typ_ret =
           Pattern.pattern_match trm_x.typ [
             Pattern.(some (typ_fun !__ !__)) (fun typ_args typ_ret () -> (typ_args, typ_ret));
@@ -203,7 +203,7 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
         let xargs = List.mapi (fun i ti -> match ti.desc with
           | Trm_var x
           (* LATER: find out if it is really correct to igore the get operation here *)
-          | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get); _}, [{desc = Trm_var x; _}], _) -> x
+          | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get); _}, [{desc = Trm_var x; _}], _, _) -> x
           | _ -> msg1 i ti) ts1 in
         (* DEPRECATED
           let msg2 i = trm_fail t2 (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s is not found in the instantiation map" i x) in
@@ -217,7 +217,7 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
         (* ARTHUR: to be removed. *)
         let rec remove_get_operations_on_var_temporary (x : var) (t : trm) : trm = (*  *)
           match t.desc with
-          | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get)}, [{desc = Trm_var y;_}as ty], _) when y = x -> ty
+          | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get)}, [{desc = Trm_var y;_}as ty], _, _) when y = x -> ty
           | _ -> trm_map (remove_get_operations_on_var_temporary x) t
         in
         let body = List.fold_left (fun tacc x ->
@@ -244,7 +244,7 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
         if Mlist.length tl1 <> Mlist.length tl2 then mismatch ();
         aux_with_bindings (Mlist.to_list tl1) (Mlist.to_list tl2)
 
-    | Trm_apps (f1, ts1, _), Trm_apps (f2, ts2, _) ->
+    | Trm_apps (f1, ts1, _, _), Trm_apps (f2, ts2, _, _) ->
         aux f1 f2;
         aux_list ts1 ts2;
 

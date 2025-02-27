@@ -1150,7 +1150,7 @@ let%transfo unfold_bound (tg : target) : unit =
       begin match range.stop.desc with
       | Trm_var x ->
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name]
-      | Trm_apps (_, [{desc = Trm_var x;_}], _) when is_get_operation range.stop ->
+      | Trm_apps (_, [{desc = Trm_var x;_}], _, _) when is_get_operation range.stop ->
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name]
       | _ -> trm_fail tg_trm "Loop.unfold_bound: can't unfold loop bounds that are not variables"
       end

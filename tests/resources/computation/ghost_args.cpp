@@ -14,22 +14,37 @@ void f() {
 
 int g(int x) {
   __pure();
-  __admitted();
   return x;
 }
 
-__GHOST(any_proof) {
-  __requires("P: Prop, proof: P");
+__GHOST(exist_opposite) {
+  __requires("x: int");
+  __ensures("y: int");
+  __ensures("x + y = 0");
+  __admitted();
+}
+
+int gen_pythagorean() {
+  __ensures("y: int, z: int");
+  __ensures("_Res * _Res = y * y + z * z");
+  __ghost(assert_prop, "P := 5 * 5 = 4 * 4 + 3 * 3");
+  return 5;
 }
 
 void caller() {
   __pure();
   // int x = div_exact(6, 3); // Typing fails when uncommented
-  int y = div_exact(6, 3); __with("q := 2, proof := __admitted");
+  const int y = div_exact(6, 3); __with("q := 2");
   f(); __with("6");
-  __ghost(any_proof, "P := 2+2 = 4");
+  __ghost(assert_prop, "P := 2+2 = 4");
 
-  int z = g(__call_with(div_exact(12, 2), "q := 6, proof := __admitted"));
+  const int z = g(__call_with(div_exact(12, 2), "q := 6"));
+
+  __ghost(exist_opposite, "x := 5", "a <- y");
+  __ghost(assert_prop, "P := 5 + a = 0");
+
+  const int k = gen_pythagorean(); __bind("i, j");
+  __ghost(assert_prop, "P := k * k = i * i + j * j");
 }
 
 __GHOST(dependant_proof) {
@@ -38,7 +53,7 @@ __GHOST(dependant_proof) {
 
 void dependant_test() {
   __requires("H: forall (x:int) (y:int) -> x + y = y + x");
-  __ghost(any_proof, "P := 2+3 = 3+2, proof := H(2, 3)");
+  __ghost(assert_prop, "P := 2+3 = 3+2, proof := H(2, 3)");
   __ghost(dependant_proof, "P := fun x -> x + 0 = 0 + x, proof := fun (x:int) -> H(x, 0)");
   //should fail : __ghost(dependant_proof, "P := fun x -> x + 0 = 0 + x, proof := fun (x: int) -> H(0, x)");
 }

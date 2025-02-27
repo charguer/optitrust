@@ -152,8 +152,8 @@ let trm_seq_nomarks ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (tl 
 
 (** [trm_apps ~annot ?loc ?typ ?ctx f args]: function call *)
 let trm_apps ?(annot = trm_annot_default) ?(loc) ?(typ)
-  ?(ctx : ctx option) ?(ghost_args = []) (f : trm) (args : trms) : trm =
-  trm_make ~annot ?loc ?typ ?ctx (Trm_apps (f, args, ghost_args))
+  ?(ctx : ctx option) ?(ghost_args = []) ?(ghost_bind = []) (f : trm) (args : trms) : trm =
+  trm_make ~annot ?loc ?typ ?ctx (Trm_apps (f, args, ghost_args, ghost_bind))
 
 (** [trm_while ~annot ?loc ?ctx cond body]: while loop *)
 let trm_while ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (cond : trm) (body : trm) : trm =
@@ -274,16 +274,18 @@ let trm_step_one = trm_step_one_post
 type ghost_call = {
   ghost_fn: trm;
   ghost_args: (var * formula) list;
+  ghost_bind: (var * var) list;
 }
 
 let trm_ghost_force ({ ghost_fn; ghost_args } : ghost_call): trm =
-  trm_add_attribute GhostCall (trm_apps ghost_fn [] ~ghost_args)
+  trm_add_attribute GhostInstr (trm_apps ghost_fn [] ~ghost_args)
 
-let ghost_call (ghost_var: var) (ghost_args: (string * formula) list): ghost_call =
-  { ghost_fn = trm_var ghost_var; ghost_args = List.map (fun (g, t) -> (name_to_var g, t)) ghost_args }
+let ghost_call (ghost_var: var) ?(ghost_bind = []) (ghost_args: (string * formula) list): ghost_call =
+  { ghost_fn = trm_var ghost_var; ghost_args = List.map (fun (g, t) -> (name_to_var g, t)) ghost_args; ghost_bind }
 
 let ghost_closure_call contract body =
-  { ghost_fn = trm_fun [] typ_auto ~contract:(FunSpecContract contract) body; ghost_args = [] }
+  (* LATER: Maybe we should use a better ghost_bind clause by examining contract *)
+  { ghost_fn = trm_fun [] typ_auto ~contract:(FunSpecContract contract) body; ghost_args = []; ghost_bind = [] }
 
 (*****************************************************************************)
 
@@ -534,7 +536,7 @@ let trm_let_fun_inv (t : trm) : (var * typ * typed_vars * trm * fun_spec) option
     Otherwise it returns [None]. *)
 let trm_apps_inv (t : trm) : (trm * trm list) option =
   match t.desc with
-  | Trm_apps (f, tl, _) -> Some (f, tl)
+  | Trm_apps (f, tl, _, _) -> Some (f, tl)
   | _ -> None
 
 (** [trm_seq_inv t]: returns the components of a [trm_seq] constructor when [t] is a sequence.
@@ -660,7 +662,7 @@ let trm_var_get_inv (t : trm) : var option =
 let trm_prod_inv (t : trm) : trm list =
   let rec aux (indepth : bool) (acc : trm list) (t : trm) : trm list =
     match t.desc with
-    | Trm_apps ({desc = Trm_prim (_, Prim_binop (Binop_mul)); _}, [l; r], _) -> (aux true acc l) @ (aux true acc r)
+    | Trm_apps ({desc = Trm_prim (_, Prim_binop (Binop_mul)); _}, [l; r], _, _) -> (aux true acc l) @ (aux true acc r)
     | _ -> if indepth then acc @ [t] else acc
   in aux false [] t
 
@@ -697,7 +699,7 @@ let for_loop_index (t : trm) : var =
         - for (int i = …; …) *)
      begin match init.desc with
     | Trm_apps ({desc = Trm_prim (_, Prim_binop Binop_set); _},
-                 [{desc = Trm_var x; _}; _], _) -> x
+                 [{desc = Trm_var x; _}; _], _, _) -> x
      | _ -> begin match trm_var_inv init with
             | Some x -> x
             | None -> trm_fail init "Ast.for_loop_index: could't get the loop index"
@@ -740,13 +742,13 @@ let trm_seq_add_last (t_insert : trm) (t : trm) : trm =
 (** [is_get_operation t]: checks if [t] is a get operation(read operation) *)
 let is_get_operation (t : trm) : bool =
   match t.desc with
-  | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get)}, _, _) -> true
+  | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get)}, _, _, _) -> true
   | _ -> false
 
 (** [is_ref_operation t] checks if [t] is new operation *)
 let is_ref_operation (t : trm) : bool =
   match t.desc with
-  | Trm_apps (f, _, _) ->
+  | Trm_apps (f, _, _, _) ->
     begin match trm_prim_inv f with
     | Some (_, Prim_ref) -> true
     | _ -> false
@@ -759,7 +761,7 @@ let trm_set_inv (t : trm) : (trm * trm) option =
 (** [is_set_operation t]: checks if [t] is a set operation(write operation) *)
 let is_set_operation (t : trm) : bool =
   match t.desc with
-  | Trm_apps (f, _, _) ->
+  | Trm_apps (f, _, _, _) ->
     begin match trm_prim_inv f with
     | Some (_, Prim_binop Binop_set) | Some (_, Prim_compound_assign_op _) -> true
     | _ -> false
@@ -770,12 +772,12 @@ let is_set_operation (t : trm) : bool =
 (** [is_compound_assignment]: checks if [t] is a compound assignment *)
 let is_compound_assignment (t : trm) : bool =
   match t.desc with
-  | Trm_apps ({ desc = Trm_prim (_, Prim_compound_assign_op _)}, _, _) -> true
+  | Trm_apps ({ desc = Trm_prim (_, Prim_compound_assign_op _)}, _, _, _) -> true
   | _ -> false
 
 (** [is_access t]: check if t is a struct or array access *)
 let is_access (t : trm) : bool = match t.desc with
-  | Trm_apps (f, _, _) ->
+  | Trm_apps (f, _, _, _) ->
     begin match trm_prim_inv f with
     | Some (_, p) ->
       begin match p with
@@ -790,13 +792,13 @@ let is_access (t : trm) : bool = match t.desc with
 (** [get_operation_arg t]: gets the arg of a get operation. *)
 let get_operation_arg (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get); _}, [t1], _) -> t1
+  | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get); _}, [t1], _, _) -> t1
   | _ -> t
 
 (** [ref_operation_arg t]: get the argument of the encoded new operation. *)
 let ref_operation_arg (t : trm) : trm =
   match t.desc with
-  | Trm_apps (_, [arg], _) when is_ref_operation t -> arg
+  | Trm_apps (_, [arg], _, _) when is_ref_operation t -> arg
   | _ -> t
 
 
@@ -855,7 +857,7 @@ let trm_is_var (t : trm) : bool =
 let rec trm_is_val_or_var (t : trm) : bool =
 match t.desc with
 | Trm_var _ | Trm_lit _ | Trm_prim _ -> true
-| Trm_apps (_, [var_occ], _) when is_get_operation t -> trm_is_val_or_var var_occ
+| Trm_apps (_, [var_occ], _, _) when is_get_operation t -> trm_is_val_or_var var_occ
 | _ -> false
 
 (** [is_prefix_unary unop]: checks if [unop] is a prefix unary operator *)
@@ -876,7 +878,7 @@ let is_unary_compound_assign (unop : unary_op) : bool =
 (** [trm_is_unary_compound_assign t] checks whether [t] represents a unary  compound assignment: e.g., increment or decrement operation. *)
 let trm_is_unary_compound_assign (t : trm) : bool =
   match t.desc with
-  | Trm_apps ({ desc = Trm_prim (_, Prim_unop op); _}, _, _) when is_unary_compound_assign op -> true
+  | Trm_apps ({ desc = Trm_prim (_, Prim_unop op); _}, _, _, _) when is_unary_compound_assign op -> true
   | _ -> false
 
 (** [trm_for_inv t]: gets the loop range from loop [t] *)
@@ -1033,7 +1035,7 @@ let is_prim_arith (p : prim) : bool =
 (** [is_prim_arith_call t]: checks if [t] is a function call to a primitive arithmetic operation *)
 let is_prim_arith_call (t : trm) : bool =
   match t.desc with
-  | Trm_apps ({desc = Trm_prim (_, p)}, args, _) when is_prim_arith p -> true
+  | Trm_apps ({desc = Trm_prim (_, p)}, args, _, _) when is_prim_arith p -> true
   | _ -> false
 
 (** [trm_struct_access ~annot ?typ base field]: creates a struct_access encoding *)
@@ -1043,7 +1045,7 @@ let trm_struct_access ?(annot = trm_annot_default) ?(loc: location) ?(field_typ 
 (** [trm_struct_access_inv t]: if [t] is  a struct access then return its base and the accessed field; else None *)
 let trm_struct_access_inv (t : trm) : (trm * field) option =
   match t.desc with
-  | Trm_apps ({desc = Trm_prim (typ, Prim_unop (Unop_struct_access f));_}, [base], _) -> Some ({ base with typ = Some (typ_ptr typ) }, f)
+  | Trm_apps ({desc = Trm_prim (typ, Prim_unop (Unop_struct_access f));_}, [base], _, _) -> Some ({ base with typ = Some (typ_ptr typ) }, f)
   | _ -> None
 
 (** [trm_struct_get ~annot ?typ base field]: creates a struct_get encoding *)
@@ -1053,7 +1055,7 @@ let trm_struct_get ?(annot = trm_annot_default) ?(loc: location) ?(field_typ : t
 (** [struct_get_inv t]: if [t] is a struct get then return its base and the accesses field; else none *)
 let trm_struct_get_inv (t : trm) : (trm * field) option =
   match t.desc with
-  | Trm_apps ({desc = Trm_prim (typ, Prim_unop (Unop_struct_get f));_}, [base], _) -> Some ({ base with typ = Some typ }, f)
+  | Trm_apps ({desc = Trm_prim (typ, Prim_unop (Unop_struct_get f));_}, [base], _, _) -> Some ({ base with typ = Some typ }, f)
   | _ -> None
 
 (** [trm_array_access ~annot ?typ base index]: creates array_access(base, index) encoding *)
@@ -1135,7 +1137,7 @@ let empty_ast : trm =
     and the value that has been assigned to; else None *)
 let set_struct_access_inv (t : trm) : (trm * field * trm) option =
   match t.desc with
-  | Trm_apps (_, [lhs; rhs], _) when is_set_operation t ->
+  | Trm_apps (_, [lhs; rhs], _, _) when is_set_operation t ->
    begin match trm_struct_access_inv lhs with
    | Some (base, f) -> Some (base, f, rhs)
    | _ -> None
@@ -1146,7 +1148,7 @@ let set_struct_access_inv (t : trm) : (trm * field * trm) option =
      value that has been assigned to.  *)
 let set_struct_get_inv (t : trm) : (trm * field * trm) option =
   match t.desc with
-  | Trm_apps (_, [lhs; rhs], _) when is_set_operation t ->
+  | Trm_apps (_, [lhs; rhs], _, _) when is_set_operation t ->
     begin match trm_struct_get_inv lhs with
     | Some (base, f) -> Some (base, f, rhs)
     | _ -> None
@@ -1351,14 +1353,14 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
     if (share_if_no_change(*redundant*) && tl == tl')
       then t
       else (trm_seq ~annot ?loc ~ctx ?typ ?result tl')
-  | Trm_apps (func, args, ghost_args) ->
+  | Trm_apps (func, args, ghost_args, ghost_bind) ->
     let func' = f func in
     let args' = list_map f (==) args in
     let ghost_args' = resource_items_map ghost_args in
     if (share_if_no_change(*redundant*) && func' == func && args' == args && ghost_args' == ghost_args)
       then t
       (* warning: may have different type *)
-      else (trm_apps ~annot ?loc ?typ ~ctx ~ghost_args:ghost_args' func' args')
+      else (trm_apps ~annot ?loc ?typ ~ctx ~ghost_args:ghost_args' ~ghost_bind func' args')
   | Trm_while (cond, body) ->
     let cond' = f cond in
     let body' = f body in
@@ -1512,7 +1514,10 @@ let trm_map_vars_ret_ctx
 
     | Trm_let ((var, typ), body) ->
       let _, typ' = f_map ctx typ in
-      let _, body' = f_map ctx body in
+      (* FIXME: Because we have ghost binders attached to function calls,
+         we need to let the context of the body flow out.
+         This is very weird since let are not abstractions anymore... *)
+      let ctx, body' = f_map ctx body in
       let cont_ctx, var' = map_binder ctx var false in
       let t' = if (body == body' && var == var' && typ == typ')
         then t
@@ -1624,22 +1629,26 @@ let trm_map_vars_ret_ctx
       let ctx = if no_scope then !cont_ctx else exit_scope ctx !cont_ctx t' in
       (ctx, t')
 
-    | Trm_apps (func, args, ghost_args) ->
+    | Trm_apps (func, args, ghost_args, ghost_bind) ->
       let _, func' = f_map ctx func in
       let args' = List.map (fun arg -> snd (f_map ctx arg)) args in
       let ghost_args' = List.map (fun (g, t) -> (g, snd (f_map ctx t))) ghost_args in
+      let ctx, ghost_bind' = List.fold_left_map (fun ctx (bound_var, contract_var) ->
+        let ctx, new_bound_var = map_binder ctx bound_var false in
+        ctx, (new_bound_var, contract_var)) ctx ghost_bind in
       begin match func'.desc, enter_beta_redex with
       | Trm_fun (params, _, body, FunSpecUnknown), Some enter_beta_redex ->
-        (* LATER: deal with ghost_args and spec *)
+        (* LATER: deal with ghost_args, ghost_bind and spec *)
         let args_inst = List.map2 (fun (param, _) arg -> (param, arg)) params args' in
         let inner_ctx = enter_beta_redex ctx args_inst in
         (ctx, snd (f_map inner_ctx body))
       | _ ->
         let args' = if List.for_all2 (==) args args' then args else args' in
         let ghost_args' = if List.for_all2 (==) ghost_args ghost_args' then ghost_args else ghost_args' in
-        let t' = if (func' == func && args' == args && ghost_args' == ghost_args)
+        let ghost_bind' = if List.for_all2 (==) ghost_bind ghost_bind' then ghost_bind else ghost_bind' in
+        let t' = if (func' == func && args' == args && ghost_args' == ghost_args && ghost_bind' == ghost_bind)
           then t
-          else (trm_apps ~annot ?loc ?typ ~ctx:t_ctx ~ghost_args:ghost_args' func' args')
+          else (trm_apps ~annot ?loc ?typ ~ctx:t_ctx ~ghost_args:ghost_args' ~ghost_bind:ghost_bind' func' args')
         in
         (ctx, t')
       end
@@ -1804,14 +1813,15 @@ let trm_rename_vars_ret_ctx
   ?(post_process: 'ctx -> trm -> 'ctx * trm = fun ctx t -> (ctx, t))
   (map_var: 'ctx -> var -> var)
   ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> ctx, map_var ctx bind)
-  ?(map_ghost_arg_name: 'ctx -> trm -> var -> var = fun ctx _ g -> map_var ctx g)
+  ?(map_contract_name: 'ctx -> trm -> bool -> var -> var = fun ctx fn is_out g -> map_var ctx g)
   (ctx: 'ctx) (t: trm): 'ctx * trm =
   trm_map_vars_ret_ctx ~keep_ctx ~enter_scope ~exit_scope ~post_process:(fun ctx t ->
     match t.desc with
-    | Trm_apps (fn, args, ghost_args) when ghost_args <> [] ->
-      let map_ghost_arg_name = map_ghost_arg_name ctx fn in
-      let ghost_args = List.map (fun (g, gt) -> (map_ghost_arg_name g, gt)) ghost_args in
-      post_process ctx (trm_alter ~desc:(Trm_apps (fn, args, ghost_args)) t)
+    | Trm_apps (fn, args, ghost_args, ghost_bind) when ghost_args <> [] || ghost_bind <> [] ->
+      let map_contract_name = map_contract_name ctx fn in
+      let ghost_args = List.map (fun (g, gt) -> (map_contract_name false g, gt)) ghost_args in
+      let ghost_bind = List.map (fun (bound_var, contract_var) -> (bound_var, map_contract_name true contract_var)) ghost_bind in
+      post_process ctx (trm_alter ~desc:(Trm_apps (fn, args, ghost_args, ghost_bind)) t)
     | Trm_fun (args, rettyp, body, FunSpecReverts other_fn) ->
       let other_fn' = map_var ctx other_fn in
       post_process ctx (trm_alter ~desc:(Trm_fun (args, rettyp, body, FunSpecReverts other_fn')) t)
@@ -1828,9 +1838,9 @@ let trm_rename_vars
   ?(post_process: 'ctx -> trm -> 'ctx * trm = fun ctx t -> (ctx, t))
   (map_var: 'ctx -> var -> var)
   ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, map_var ctx bind))
-  ?(map_ghost_arg_name: 'ctx -> trm -> var -> var = fun ctx _ g -> map_var ctx g)
+  ?(map_contract_name: 'ctx -> trm -> bool -> var -> var = fun ctx _ _ g -> map_var ctx g)
   (ctx: 'ctx) (t: trm): trm =
-  snd (trm_rename_vars_ret_ctx ~keep_ctx ~enter_scope ~exit_scope ~post_process map_var ~map_binder ~map_ghost_arg_name ctx t)
+  snd (trm_rename_vars_ret_ctx ~keep_ctx ~enter_scope ~exit_scope ~post_process map_var ~map_binder ~map_contract_name ctx t)
 
 let trm_iter_vars
   ?(enter_scope: 'ctx -> trm -> 'ctx = fun ctx t -> ctx)
@@ -1838,13 +1848,13 @@ let trm_iter_vars
   ?(post_process: 'ctx -> trm -> 'ctx = fun ctx _ -> ctx)
   (iter_var: 'ctx -> var -> unit)
   ?(iter_binder: 'ctx -> var -> bool -> 'ctx = fun ctx bind is_predecl -> iter_var ctx bind; ctx)
-  ?(iter_ghost_arg_name: 'ctx -> trm -> var -> unit = fun ctx _ g -> iter_var ctx g)
+  ?(iter_contract_name: 'ctx -> trm -> bool -> var -> unit = fun ctx _ _ g -> iter_var ctx g)
   (ctx: 'ctx) (t: trm): unit =
   ignore (trm_rename_vars ~keep_ctx:true ~enter_scope ~exit_scope
     ~post_process:(fun ctx trm -> (post_process ctx trm, trm))
     (fun ctx x -> iter_var ctx x; x)
     ~map_binder:(fun ctx bind is_predecl -> (iter_binder ctx bind is_predecl, bind))
-    ~map_ghost_arg_name:(fun ctx fn g -> iter_ghost_arg_name ctx fn g; g)
+    ~map_contract_name:(fun ctx fn out g -> iter_contract_name ctx fn out g; g)
     ctx t)
 
 (** Erase variable identifiers, useful for e.g. embedding a subexpression in a new context. *)
@@ -1942,7 +1952,8 @@ let rec unfold_if_resolved_evar (t: trm) (evar_ctx: 'a unification_ctx): trm * '
     | _ -> t, evar_ctx
     end
   (* Immediate beta redex replacement *)
-  | Trm_apps (apps_fn, args, ghost_args) ->
+  | Trm_apps (apps_fn, args, ghost_args, ghost_bind) ->
+    (* LATER: Deal with ghost_args and ghost_bind ? *)
     let fn, evar_ctx = unfold_if_resolved_evar apps_fn evar_ctx in
     if fn == apps_fn then t, evar_ctx else
     begin match trm_fun_inv fn with
@@ -2009,7 +2020,7 @@ let rec unify_trm ?(on_failure = fun a b -> ()) (t_left: trm) (t_right: trm) (ev
       (* FIXME: This can fail because primitives may recursively contain types and terms *)
       if pe = p then unify_trm ~on_failure ty tye evar_ctx validate_inst else None
 
-    | Trm_apps (fe, argse, ghost_args) ->
+    | Trm_apps (fe, argse, ghost_args, ghost_bind) ->
       let* f, args = trm_apps_inv t_left in
       let* evar_ctx = unify_trm ~on_failure f fe evar_ctx validate_inst in
       begin try

@@ -1008,7 +1008,7 @@ let%transfo scale_range (index : string) (factor : trm)
 
 let simplify_ghost_group_scale_on_opt (t : trm) : trm option =
   let open Option.Monad in
-  let* ghost_call = Resource_trm.ghost_inv t in
+  let* ghost_call = Resource_trm.ghost_call_inv t in
   let* gv = trm_var_inv ghost_call.ghost_fn in
   let is_group_scale = var_eq gv ghost_group_scale ||
     var_eq gv ghost_group_scale_ro ||

@@ -78,7 +78,7 @@ let rec desugar_formula (formula: formula): formula =
   (* Warning: this function can be called on formulas with unresolved variable ids, therefore, we need to invert it by name *)
   (* With incremental var-id resolution we could heavily simplify this *)
   Pattern.pattern_match formula [
-    Pattern.(formula_model !__ (trm_apps (trm_var !__) !__ __)) (fun var f args () ->
+    Pattern.(formula_model !__ (trm_apps (trm_var !__) !__ __ __)) (fun var f args () ->
         if f.name <> sprintf "Matrix%d" (List.length args) then raise_notrace Pattern.Next;
         formula_matrix var args
       );
@@ -234,14 +234,14 @@ let specialize_contract contract args =
 (* TODO: rename and move elsewhere. *)
 let trm_specialized_ghost_closure ?(remove_contract = false) (ghost_call: trm) =
   Pattern.pattern_match ghost_call [
-    Pattern.(trm_apps (trm_fun_with_contract nil !__ !__) nil !__) (fun ghost_body contract ghost_args () ->
+    Pattern.(trm_apps (trm_fun_with_contract nil !__ !__) nil !__ __) (fun ghost_body contract ghost_args () ->
       let subst = List.fold_left (fun subst (g, t) -> Var_map.add g t subst) Var_map.empty ghost_args in
       let body = trm_subst subst ghost_body in
       let contract = if remove_contract then FunSpecUnknown else FunSpecContract (specialize_contract contract subst) in
       trm_fun [] typ_auto body ~contract
     );
-    Pattern.(trm_apps !__ nil nil) (fun ghost_fn () -> ghost_fn);
-    Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args () ->
+    Pattern.(trm_apps !__ nil nil nil) (fun ghost_fn () -> ghost_fn);
+    Pattern.(trm_apps !__ nil !__ !__) (fun ghost_fn ghost_args ghost_bind () ->
       (* TODO: Handle this case by recovering the contract of the called function *)
       failwith "trm_specialized_ghost_closure: Unhandled complex ghost call that is not a closure"
     );

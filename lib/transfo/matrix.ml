@@ -11,7 +11,7 @@ let%transfo biject (fun_bij : var) (tg : target) : unit =
     match tg_trm.desc with
     | Trm_let ((p, _), _) ->
       Expr.replace_fun fun_bij [nbAny; cCellAccess ~base:[cVarId p] ~index:[cCall ""] (); cCall ~regexp:true "MINDEX."]
-    | Trm_apps (_, [{desc = Trm_var p}; _], _)  when is_set_operation tg_trm ->
+    | Trm_apps (_, [{desc = Trm_var p}; _], _, _)  when is_set_operation tg_trm ->
       Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVarId p] ~index:[cCall ""] (); cCall ~regexp:true "MINDEX."])
     | _ -> trm_fail tg_trm "biject: expected a variable declaration"
   ) tg

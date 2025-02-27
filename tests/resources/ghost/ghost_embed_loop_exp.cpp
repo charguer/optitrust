@@ -15,28 +15,24 @@ __ghost_ret unfreeze_cell() {
 
 void f(float* M, int n) {
   __modifies("for i in 0..n -> &M[i] ~> Cell");
-  __ghost(
-      [&]() {
-        __consumes("for i in 0..n -> &M[i] ~> Cell");
-        __produces("for i in 0..n -> for _ in 0..1 -> &M[i] ~> Cell");
-        for (int i = 0; i < n; ++i) {
-          __strict();
-          __xconsumes("&M[i] ~> Cell");
-          __xproduces("for _ in 0..1 -> &M[i] ~> Cell");
-          __ghost(freeze_cell, "p := &M[i]");
-        }
-      },
-      "");
-  __ghost(
-      [&]() {
-        __consumes("for i in 0..n -> for _ in 0..1 -> &M[i] ~> Cell");
-        __produces("for i in 0..n -> &M[i] ~> Cell");
-        for (int i = 0; i < n; ++i) {
-          __strict();
-          __xconsumes("for _ in 0..1 -> &M[i] ~> Cell");
-          __xproduces("&M[i] ~> Cell");
-          __ghost(unfreeze_cell, "p := &M[i]");
-        }
-      },
-      "");
+  __ghost([&]() {
+    __consumes("for i in 0..n -> &M[i] ~> Cell");
+    __produces("for i in 0..n -> for _ in 0..1 -> &M[i] ~> Cell");
+    for (int i = 0; i < n; ++i) {
+      __strict();
+      __xconsumes("&M[i] ~> Cell");
+      __xproduces("for _ in 0..1 -> &M[i] ~> Cell");
+      __ghost(freeze_cell, "p := &M[i]");
+    }
+  });
+  __ghost([&]() {
+    __consumes("for i in 0..n -> for _ in 0..1 -> &M[i] ~> Cell");
+    __produces("for i in 0..n -> &M[i] ~> Cell");
+    for (int i = 0; i < n; ++i) {
+      __strict();
+      __xconsumes("for _ in 0..1 -> &M[i] ~> Cell");
+      __xproduces("&M[i] ~> Cell");
+      __ghost(unfreeze_cell, "p := &M[i]");
+    }
+  });
 }

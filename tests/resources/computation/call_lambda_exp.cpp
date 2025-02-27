@@ -24,14 +24,12 @@ void f() {
     x += 1;
     *a += 1;
   }(&y);
-  const __ghost_fn pair =
-      __ghost_begin(__with_reverse(
-                        [&]() {
-                          __consumes("&x ~> Cell");
-                          __produces("for _ in 0..1 -> &x ~> Cell");
-                          __ghost(freeze_cell, "p := &x");
-                        },
-                        [&]() { __ghost(unfreeze_cell, "p := &x"); }),
-                    "");
+  const __ghost_fn pair = __ghost_begin(__with_reverse(
+      [&]() {
+        __consumes("&x ~> Cell");
+        __produces("for _ in 0..1 -> &x ~> Cell");
+        __ghost(freeze_cell, "p := &x");
+      },
+      [&]() { __ghost(unfreeze_cell, "p := &x"); }));
   __ghost_end(pair);
 }

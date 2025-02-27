@@ -29,7 +29,7 @@ let apply_rule_bottom_up ~(mark : mark) (rule : rewrite_rule) (t : trm) : trm =
 (** [compute_on t]: applies arithmetic simplifications on trm [t]. *)
 let compute_on (t : trm) : trm =
   match t.desc with
-  | Trm_apps (f, ts, _) ->
+  | Trm_apps (f, ts, _, _) ->
     begin match (trm_prim_inv f), ts with
     | Some (_, Prim_unop p), [t1] ->
       begin match trm_lit_inv t1 with

@@ -111,16 +111,16 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
         { t with desc = Trm_for_c (aux init, cond, step, body, contract)}
       | Dir_for_c_step, Trm_for_c (init, cond, step, body, contract) ->
         { t with desc = Trm_for_c (init, cond, aux step, body, contract)}
-      | Dir_app_fun, Trm_apps (f, tl, gargs) ->
+      | Dir_app_fun, Trm_apps (f, tl, gargs, gbind) ->
         (*
           warning: the type of f may change
           -> print and reparse to have the right type
         *)
-        { t with desc = Trm_apps (aux f, tl, gargs)}
-      | Dir_arg_nth n, Trm_apps (f, tl, gargs) ->
-        { t with desc = Trm_apps (f, List.update_nth n aux tl, gargs)}
-      | Dir_ghost_arg_nth n, Trm_apps (f, tl, gargs) ->
-        { t with desc = Trm_apps (f, tl, List.update_nth n aux_resource_item gargs)}
+        { t with desc = Trm_apps (aux f, tl, gargs, gbind)}
+      | Dir_arg_nth n, Trm_apps (f, tl, gargs, gbind) ->
+        { t with desc = Trm_apps (f, List.update_nth n aux tl, gargs, gbind)}
+      | Dir_ghost_arg_nth n, Trm_apps (f, tl, gargs, gbind) ->
+        { t with desc = Trm_apps (f, tl, List.update_nth n aux_resource_item gargs, gbind)}
       | Dir_arg_nth n, Trm_fun (txl, tx, body, contract) ->
         let txl' =
           List.update_nth n
@@ -320,10 +320,10 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         | _ -> aux step ctx
         end *)
         aux step
-      | Dir_app_fun, Trm_apps (f, _, _) -> aux f
-      | Dir_arg_nth n, Trm_apps (_, tl, _) ->
+      | Dir_app_fun, Trm_apps (f, _, _, _) -> aux f
+      | Dir_arg_nth n, Trm_apps (_, tl, _, _) ->
         app_to_nth dl tl n (fun nth_t -> aux nth_t)
-      | Dir_ghost_arg_nth n, Trm_apps (_, _, gl) ->
+      | Dir_ghost_arg_nth n, Trm_apps (_, _, gl, _) ->
         app_to_nth dl gl n (fun (_, nth_t) -> aux nth_t)
       | Dir_arg_nth n, Trm_fun (arg, _, _, _) ->
         app_to_nth dl arg n

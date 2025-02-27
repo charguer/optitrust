@@ -11,11 +11,11 @@ open Resource_formula
 let var_admitted = toplevel_var "__admitted"
 let var_justif = toplevel_var "justif"
 
-let ghost_inv t =
+let ghost_call_inv t =
   Pattern.pattern_match t [
-    Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args () ->
-      if not (trm_has_attribute GhostCall t) then raise_notrace Pattern.Next;
-      Some { ghost_fn; ghost_args }
+    Pattern.(trm_apps !__ nil !__ !__) (fun ghost_fn ghost_args ghost_bind () ->
+      if not (trm_has_attribute GhostInstr t) then raise_notrace Pattern.Next;
+      Some { ghost_fn; ghost_args; ghost_bind }
     );
     Pattern.__ (fun () -> None)
   ]
@@ -51,12 +51,12 @@ let ghost (g : ghost_call): trm =
 
 let ghost_begin (ghost_pair_var: var) (ghost_call: ghost_call) : trm =
   void_when_resource_typing_disabled (fun () ->
-    trm_add_attribute GhostCall (trm_let (ghost_pair_var, typ_ghost_fn)
+    trm_add_attribute GhostInstr (trm_let (ghost_pair_var, typ_ghost_fn)
       (trm_apps (trm_var var_ghost_begin) [ghost ghost_call])))
 
 let ghost_end (ghost_pair_var: var): trm =
   void_when_resource_typing_disabled (fun () ->
-    trm_add_attribute GhostCall (trm_apps (trm_var var_ghost_end) [trm_var ghost_pair_var]))
+    trm_add_attribute GhostInstr (trm_apps (trm_var var_ghost_end) [trm_var ghost_pair_var]))
 
 let ghost_pair ?(name: string option) (ghost_call: ghost_call) : var * trm * trm =
   let ghost_pair_var = generate_ghost_pair_var ?name () in
@@ -68,7 +68,7 @@ let ghost_custom_pair ?(name: string option) (forward_fn: trm) (backward_fn: trm
   let ghost_pair_var = generate_ghost_pair_var ?name () in
   let ghost_with_reverse = trm_apps (trm_var var_with_reverse) [forward_fn; backward_fn] in
   (ghost_pair_var,
-   ghost_begin ghost_pair_var { ghost_fn = ghost_with_reverse; ghost_args = [] },
+   ghost_begin ghost_pair_var { ghost_fn = ghost_with_reverse; ghost_args = []; ghost_bind = [] },
    ghost_end ghost_pair_var)
 
 let ghost_scope ?(pair_name: string option) (ghost_call: ghost_call) (t: trm): trm =
@@ -77,8 +77,8 @@ let ghost_scope ?(pair_name: string option) (ghost_call: ghost_call) (t: trm): t
 
 let ghost_begin_inv (t: trm): (var * ghost_call) option =
   Pattern.pattern_match t [
-    Pattern.(trm_let !__ __ (trm_apps1 (trm_specific_var var_ghost_begin) (trm_apps !__ nil !__))) (fun pair_var ghost_fn ghost_args () ->
-      Some (pair_var, { ghost_fn; ghost_args })
+    Pattern.(trm_let !__ __ (trm_apps1 (trm_specific_var var_ghost_begin) (trm_apps !__ nil !__ !__))) (fun pair_var ghost_fn ghost_args ghost_bind () ->
+      Some (pair_var, { ghost_fn; ghost_args; ghost_bind })
     );
     Pattern.__ (fun () -> None)
   ]
@@ -99,15 +99,19 @@ let admitted ?(justif: trm option) (): trm =
 module Pattern = struct
   include Pattern
 
-  let admitted fghost_args = trm_apps (trm_specific_var var_admitted) nil fghost_args
+  let admitted justif_opt =
+    let fghost_args k args =
+      match args with
+      | [] -> justif_opt k None
+      | [(_, j)] -> justif_opt k (Some j)
+      | _ -> raise Next
+    in
+    trm_apps (trm_specific_var var_admitted) nil fghost_args nil
 end
 
-let admitted_inv (t : trm) : (resource_item list) option =
-  Pattern.pattern_match t [
-    Pattern.(admitted !__) (fun ghost_args () ->
-      Some ghost_args
-    );
-    Pattern.(__) (fun () -> None)
+let admitted_inv (t : trm) : (formula option) option =
+  Pattern.pattern_match_opt t [
+    Pattern.(admitted !__) (fun justif_opt () -> justif_opt)
   ]
 
 let ghost_admitted ?(justif: trm option) (contract: fun_contract): trm =
@@ -138,7 +142,7 @@ let may_ghost_intro_alias (x : var) (t : trm) (res : resource_set) : trm =
   else ghost_intro_alias x t
 
 let is_ghost_alias (t : trm) : bool =
-  begin match ghost_inv t with
+  begin match ghost_call_inv t with
   | Some { ghost_fn = g; _ } ->
     begin match trm_var_inv g with
     | Some v when var_eq var_assert_alias v -> true
@@ -181,20 +185,23 @@ let to_prove (f: formula): trm =
 let delete_annots_on
   ?(delete_contracts = true)
   ?(delete_ghost = true)
-  ?(on_delete_to_prove = fun formula -> ())
+  ?(on_delete_to_prove: (formula -> unit) option)
   (t : trm) : trm =
   let rec aux t =
     let test_is_ghost t =
-      match ghost_inv t with
-      | Some gc ->
-        begin match trm_var_inv gc.ghost_fn with
-        | Some v when var_eq v var_ghost_to_prove ->
-          assert (List.length gc.ghost_args = 1);
-          on_delete_to_prove (snd (List.hd gc.ghost_args))
-        | _ -> ()
+      if (trm_has_attribute GhostInstr t) then begin
+        begin match on_delete_to_prove with
+        | Some on_delete_to_prove ->
+          Pattern.pattern_match t [
+            Pattern.(trm_apps (trm_specific_var var_ghost_to_prove) nil (pair __ !__ ^:: nil) __) (fun prop_to_prove () ->
+              on_delete_to_prove prop_to_prove
+            );
+            Pattern.__ (fun () -> ())
+          ]
+        | None -> ()
         end;
         true
-      | None -> false
+      end else false
     in
     let t =
       if delete_ghost &&
