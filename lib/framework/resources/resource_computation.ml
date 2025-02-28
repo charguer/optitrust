@@ -261,7 +261,7 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
           typ_pure_simple_fun [typ; typ] typ
 
         | Binop_trunc_div | Binop_trunc_mod ->
-          if not (is_typ_integer typ) then failwith "Cannot apply binary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
+          if not (is_typ_integer typ) then failwith "Cannot apply binary %s on a non integer type" (Ast_to_c.ast_to_string (trm_prim typ prim));
           typ_pure_simple_fun [typ; typ] typ
 
         | Binop_eq | Binop_neq | Binop_le | Binop_lt | Binop_ge | Binop_gt ->
@@ -1121,17 +1121,23 @@ let delete_stack_allocs instrs res =
   let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
   (removed_res, linear)
 
-let check_resource_set_types ~(pure_ctx: pure_env) (res: resource_set): pure_env =
-  let pure_ctx = List.fold_left (fun pure_ctx (pure_var, typ) ->
+let check_pure_resource_types ~(pure_ctx: pure_env) (pure_res: pure_resource_set): pure_env =
+  List.fold_left (fun pure_ctx (pure_var, typ) ->
       let sort = compute_pure_typ pure_ctx typ in
       if not (is_typ_sort sort) then failwith "Pure resource '%s' has type '%s' that is not in Type or Prop" (var_to_string pure_var) (Ast_to_c.typ_to_string sort);
       { pure_ctx with res = pure_ctx.res @ [(pure_var, typ)] }
-    ) pure_ctx res.pure
-  in
+    ) pure_ctx pure_res
+
+let check_linear_resource_types ~(pure_ctx: pure_env) (linear_res: linear_resource_set): unit =
   List.iter (fun (lin_var, formula) ->
       let typ = compute_pure_typ pure_ctx formula in
       if not (is_typ_hprop typ) then failwith "Linear resource %s has a type that is not an HProp" (var_to_string lin_var);
-    ) res.linear;
+    ) linear_res
+
+let check_resource_set_types ~(pure_ctx: pure_env) (res: resource_set): pure_env =
+  let pure_ctx = check_pure_resource_types ~pure_ctx res.pure
+  in
+  check_linear_resource_types ~pure_ctx res.linear;
   (* LATER: Should check fun_contracts when higher order functions are supported *)
   assert (Var_map.is_empty res.fun_specs);
   assert (Var_map.is_empty res.aliases); (* Normally there is no aliases in contracts *)
@@ -1141,6 +1147,12 @@ let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): uni
   let pure_ctx = check_resource_set_types ~pure_ctx contract.pre in
   let _ = check_resource_set_types ~pure_ctx contract.post in
   ()
+
+let check_loop_contract_types ~(pure_ctx: pure_env) (contract: loop_contract): unit =
+  let pure_ctx = check_pure_resource_types ~pure_ctx contract.loop_ghosts in
+  check_fun_contract_types ~pure_ctx contract.iter_contract;
+  check_linear_resource_types ~pure_ctx contract.parallel_reads;
+  ignore (check_resource_set_types ~pure_ctx contract.invariant)
 
 let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
   let pure_prim prim =
@@ -1695,6 +1707,10 @@ let rec compute_resources
 
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
     | Trm_for (range, body, contract) ->
+      let contract_ctx = pure_env res in
+      let contract_ctx = { contract_ctx with res = (range.index, typ_int) :: contract_ctx.res } in
+      check_loop_contract_types ~pure_ctx:contract_ctx contract;
+
       let outer_contract = contract_outside_loop range contract in
       let usage_map, res_after = compute_contract_invoc outer_contract res t in
 
