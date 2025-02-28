@@ -149,16 +149,16 @@ let local_name_tile_on (mark_dims : mark)
   ) nd_range dims;
   let tile_dims =
     if !needs_to_replace_accesses
-    then List.map (fun (a, b) -> trm_add_mark mark_dims (trm_sub b a)) nd_range
+    then List.map (fun (a, b) -> trm_add_mark mark_dims (trm_sub_int b a)) nd_range
     else dims
   in
   let tile_indices =
     if !needs_to_replace_accesses
-    then List.map2 (fun (offset, _) ind -> trm_sub ind offset) nd_range indices
+    then List.map2 (fun (offset, _) ind -> trm_sub_int ind offset) nd_range indices
     else indices
   in
   let (new_t, elem_ty) = if !needs_to_replace_accesses then begin
-    let map_indices = List.map (fun (offset, _) -> fun i -> trm_sub i offset) nd_range in
+    let map_indices = List.map (fun (offset, _) -> fun i -> trm_sub_int i offset) nd_range in
     let ret_dims_and_typ = ref (Option.map (fun t -> (dims, t)) elem_ty) in
     let new_t = Matrix_core.replace_all_accesses var local_var tile_dims
       ~ret_dims_and_typ map_indices mark_accesses t in
@@ -377,8 +377,9 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                       trm_for { index; start = trm_int 1; direction = DirUp; stop = dim; step = trm_step_one () } (set base new_dims new_indices init_val;)]
                     in
 
-                  let op_fun (l_arg : trm) (r_arg : trm) = trm_compound_assign op l_arg r_arg in
-                  let acc_trm  =
+                  (* FIXME: typ_int on next line seems weird and is probably wrong... *)
+                  let op_fun (l_arg : trm) (r_arg : trm) = trm_compound_assign ~typ:typ_int op l_arg r_arg in
+                  let acc_trm =
                   if acc_in_place
                     then
                     if acc_provided
@@ -386,7 +387,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                       else begin
                         trm_seq_nomarks [
                           trm_set (get_operation_arg old_var_access) (trm_get (access (base) new_dims ((trm_int 0) :: indices)));
-                          trm_for { index; start = trm_int 1; direction = DirUp; stop = dim; step = trm_step_one () } ( op_fun (get_operation_arg old_var_access) (trm_get new_access))]
+                          trm_for { index; start = trm_int 1; direction = DirUp; stop = dim; step = trm_step_one () } (op_fun (get_operation_arg old_var_access) (trm_get new_access))]
                       end
                     else
                       if not acc_provided then trm_fail t "Matrix_core.delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
@@ -547,7 +548,7 @@ let simpl_index_add_on (t : trm) : trm =
       (List.hd long) :: (compute_idxs (delta - 1) (List.tl long) short)
     else match (long, short) with
     | (l :: l_rest, s :: s_rest) ->
-      (trm_add l s) :: (compute_idxs 0 l_rest s_rest)
+      (trm_add_int l s) :: (compute_idxs 0 l_rest s_rest)
     | ([], []) -> []
     | _ -> assert false
   in
@@ -577,7 +578,7 @@ let simpl_access_of_access_on (t : trm) : trm =
   | None -> trm_inv ~error trm_array_get_inv t
   in
   let (base0, i0) = trm_inv ~error trm_array_access_inv base1 in
-  trm_array_access base0 (trm_add i0 i1)
+  trm_array_access base0 (trm_add_int i0 i1)
 
 (** [simpl_access_of_access]: simplifies &((&p[i0])[i1]) into &p[i0 + i1]
 
@@ -751,7 +752,7 @@ let elim_mindex_on_opt (simpl : trm -> trm) (t : trm) : trm option =
   let rec generate_index (acc : trm) (dims : trms) (idxs : trms) : trm =
     match (dims, idxs) with
     | (d :: dr, i :: ir) ->
-      let new_acc = trm_add acc (List.fold_left trm_mul i dr) in
+      let new_acc = trm_add_int acc (List.fold_left trm_mul_int i dr) in
       generate_index new_acc dr ir
     | _ -> acc
   in
@@ -761,7 +762,7 @@ let elim_mindex_on_opt (simpl : trm -> trm) (t : trm) : trm option =
 
 let elim_msize_on_opt (simpl: trm -> trm) (t : trm) : trm option =
   match msize_inv t with
-  | Some dims -> Some (simpl (List.fold_right trm_mul dims (trm_int 1)))
+  | Some dims -> Some (simpl (List.fold_right trm_mul_int dims (trm_int 1)))
   | None -> None
 
 let elim_mops_on_opt (simpl: trm -> trm) (t : trm) =
@@ -803,7 +804,7 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
       begin match trm_var_inv f with
       | Some v when v = var -> begin
         new_dims := List.update_nth dim (fun _ -> n) dims;
-        let new_indices = List.update_nth dim (fun i -> trm_trunc_mod i n) indices in
+        let new_indices = List.update_nth dim (fun i -> trm_trunc_mod_int i n) indices in
         Matrix_trm.access ~annot:t.annot f !new_dims new_indices
         end
       | _ -> trm_map update_accesses_and_alloc t

@@ -55,7 +55,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
     let (count, iteration_to_index) =
       if trm_is_one step
         then (stop, fun i -> i)
-        else (trm_trunc_div stop step, fun i -> trm_mul i step)
+        else (trm_trunc_div_int stop step, fun i -> trm_mul_int i step)
     in
     let ratio : int option =
       match trm_int_inv count, trm_int_inv tile_size with
@@ -71,11 +71,9 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
     let tile_count =
       match ratio with
       | Some r -> trm_int r
-      | None -> trm_exact_div count tile_size
+      | None -> trm_exact_div_int count tile_size
       in
-    let iteration = trm_add
-    (trm_mul (trm_var ?typ:start.typ tile_index) tile_size)
-    (trm_var ?typ:start.typ index)
+    let iteration = trm_add_int (trm_mul_int (trm_var tile_index) tile_size) (trm_var index)
     in
     let new_index = iteration_to_index iteration in
     let outer_range = { index = tile_index; start = (trm_int 0); direction = DirUp; stop = tile_count; step = trm_step_one () } in
@@ -97,7 +95,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
           post = Resource_set.subst_var index new_index contract.iter_contract.post };
         strict = true } in
 
-      let outer_index = iteration_to_index (trm_mul (trm_var ?typ:start.typ tile_index) tile_size) in
+      let outer_index = iteration_to_index (trm_mul_int (trm_var ?typ:start.typ tile_index) tile_size) in
 
       let contract_outer = {
         loop_ghosts = contract.loop_ghosts;
@@ -140,7 +138,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
     let inner_loop = match bound with
       | TileBoundMin ->
         let tile_bound =
-          if trm_is_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index) (trm_mul tile_size step) in
+          if trm_is_one step then trm_add_int (trm_var tile_index) tile_size else trm_add_int (trm_var tile_index) (trm_mul_int tile_size step) in
         let tile_bound =
           trm_apps (trm_var (name_to_var "min")) [stop; tile_bound] in
         trm_for { index; start = trm_var tile_index; direction; stop = tile_bound; step } body
@@ -148,16 +146,16 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
         let init = trm_let_mut (index, typ_int) (trm_var tile_index) in
         let cond = trm_and (trm_ineq direction (trm_var_get index)
           (if trm_is_one step
-            then (trm_add (trm_var tile_index) tile_size)
-            else (trm_add (trm_var tile_index) (trm_mul tile_size step) ))) (trm_ineq direction (trm_var_get index) stop)
+            then (trm_add_int (trm_var tile_index) tile_size)
+            else (trm_add_int (trm_var tile_index) (trm_mul_int tile_size step)))) (trm_ineq direction (trm_var_get index) stop)
           in
         let step =  if trm_is_one step then trm_post_incr (trm_var index)
-          else trm_compound_assign Binop_add (trm_var index) step in
+          else trm_compound_assign ~typ:typ_int Binop_add (trm_var index) step in
         let new_body = trm_subst_var index (trm_var_get index) body in
         trm_for_c init cond step new_body
       | TileDivides -> assert false
     in
-    let outer_loop_step = if trm_is_one step then tile_size else (trm_mul tile_size step) in
+    let outer_loop_step = if trm_is_one step then tile_size else (trm_mul_int tile_size step) in
     let outer_loop =
         trm_for { index = tile_index; start; direction; stop; step = outer_loop_step } (trm_seq_nomarks [inner_loop])
     in
@@ -201,7 +199,7 @@ let grid_enumerate_on (indices_and_bounds : (string * trm) list) (t : trm) : trm
     | Trm_seq (tl, None) ->
         let old_loop_index_val = List.fold_lefti (fun i acc (ind, bnd) ->
             if i = 0 then let acc = trm_var ind in acc
-            else trm_add (trm_mul acc bnd) (trm_var ind)
+            else trm_add_int (trm_mul_int acc bnd) (trm_var ind)
           ) (trm_unit ()) indices_and_bounds in
         let old_loop_index_decl = trm_let (range.index, typ_int) old_loop_index_val in
         let new_tl = Mlist.insert_at 0 old_loop_index_decl tl in
@@ -301,7 +299,7 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
   in
   let new_indices = match trm_int_inv start with
     | Some n -> List.init nb_iter (fun i -> trm_int (n + i * step))
-    | None -> List.init nb_iter (fun i -> trm_add start (trm_int (i * step)))
+    | None -> List.init nb_iter (fun i -> trm_add_int start (trm_int (i * step)))
   in
   let new_indices = List.map (trm_add_mark subst_mark) new_indices in
   let unrolled_body = List.map (fun new_index ->
@@ -351,17 +349,17 @@ let to_unit_steps_on (new_index : string) (t : trm) : trm =
     match trm_lit_inv start with
     | Some (Lit_int (_, 0)) ->
       stop
-    | _ -> trm_sub stop start
+    | _ -> trm_sub_int stop start
   in
 
   let new_stop = match direction with
-    | DirUp -> (trm_trunc_div (aux start stop) step)
-    | DirUpEq -> (trm_trunc_div (aux start stop) step)
-    | DirDown -> (trm_trunc_div (aux start stop) step)
-    | DirDownEq -> (trm_trunc_div (aux start stop) step)
+    | DirUp -> (trm_trunc_div_int (aux start stop) step)
+    | DirUpEq -> (trm_trunc_div_int (aux start stop) step)
+    | DirDown -> (trm_trunc_div_int (aux start stop) step)
+    | DirDownEq -> (trm_trunc_div_int (aux start stop) step)
   in
   (* TODO: this should be an immutable binding *)
-  let new_decl = trm_let_mut (index, typ_int) (trm_add start (trm_mul (trm_var new_index) step)) in
+  let new_decl = trm_let_mut (index, typ_int) (trm_add_int start (trm_mul_int (trm_var new_index) step)) in
   trm_for { index = new_index; start = trm_int 0; direction; stop = new_stop; step = trm_step_one () }
     (trm_seq (Mlist.insert_at 0 new_decl body_trms ))
 
@@ -417,7 +415,7 @@ let split_range_at (nb : int) (cut : trm) (t : trm) : trm =
     | _, {desc = Trm_lit (Lit_unit);_} ->
       begin match trm_int_inv range.start with
       | Some start -> trm_int (start + nb)
-      | None -> trm_add range.start (trm_int nb)
+      | None -> trm_add_int range.start (trm_int nb)
       end
     | n, c -> trm_fail t "Loop_core.split_range_aux: can't provide both the nb and cut args"
   in

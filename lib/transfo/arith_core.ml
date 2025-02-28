@@ -1379,7 +1379,7 @@ let trm_int_inv t =
 
 (** [check_int_compare cmp t1 t2] tries to statically check that [cmp t1 t2] always holds. *)
 let check_int_compare (cmp: int -> int -> bool) (t1: trm) (t2: trm) : bool =
-  let t = simplify true (fun e -> gather (compute e)) (trm_sub t1 t2) in
+  let t = simplify true (fun e -> gather (compute e)) (trm_sub_int t1 t2) in
   match trm_int_inv t with
   | Some i when cmp i 0 -> true
   | _ -> false

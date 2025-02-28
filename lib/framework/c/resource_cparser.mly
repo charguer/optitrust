@@ -74,37 +74,37 @@ address_formula:
 
 arith_factor:
   | a=arith_factor; STAR; b=atomic_formula;
-    { trm_mul a b }
+    { trm_mul ~typ:typ_int a b }
   | a=arith_factor; SLASH; b=atomic_formula;
-    { trm_trunc_div a b }
+    { trm_trunc_div ~typ:typ_int a b }
   | a=arith_factor; PERCENT; b=atomic_formula;
-    { trm_trunc_mod a b }
+    { trm_trunc_mod ~typ:typ_int a b }
   | a=atomic_formula;
     { a }
 
 arith_term:
   | a=arith_term; PLUS; b=arith_factor;
-    { trm_add a b }
+    { trm_add ~typ:typ_int a b }
   | a=arith_term; MINUS; b=arith_factor;
-    { trm_sub a b }
+    { trm_sub ~typ:typ_int a b }
   | MINUS; b=arith_factor;
-    { trm_minus b }
+    { trm_minus ~typ:typ_int b }
   | a=arith_factor;
     { a }
 
 formula_cmp:
   | a=arith_term; EQUAL; b=arith_term;
-    { formula_eq a b }
+    { formula_eq ~typ:typ_int a b }
   | a=arith_term; LT; b=arith_term;
-    { formula_lt a b }
+    { formula_lt ~typ:typ_int a b }
   | a=arith_term; GT; b=arith_term;
-    { formula_gt a b }
+    { formula_gt ~typ:typ_int a b }
   | a=arith_term; LEQ; b=arith_term;
-    { formula_leq a b }
+    { formula_leq ~typ:typ_int a b }
   | a=arith_term; GEQ; b=arith_term;
-    { formula_geq a b }
+    { formula_geq ~typ:typ_int a b }
   | a=arith_term; NEQ; b=arith_term;
-    { formula_neq a b }
+    { formula_neq ~typ:typ_int a b }
   | start=arith_term; DOTDOT; stop=arith_term;
     { formula_range start stop (trm_int 1) }
   | a=arith_term;

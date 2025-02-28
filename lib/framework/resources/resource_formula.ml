@@ -127,12 +127,12 @@ and neg_bool_formula_to_prop (t: formula): formula =
     Pattern.__ (fun () -> formula_is_false t)
   ]
 
-let formula_eq ?typ t1 t2 = formula_is_true (trm_eq ?typ t1 t2)
-let formula_neq ?typ t1 t2 = formula_is_true (trm_neq ?typ t1 t2)
-let formula_lt ?typ t1 t2 = formula_is_true (trm_lt ?typ t1 t2)
-let formula_gt ?typ t1 t2 = formula_is_true (trm_gt ?typ t1 t2)
-let formula_leq ?typ t1 t2 = formula_is_true (trm_le ?typ t1 t2)
-let formula_geq ?typ t1 t2 = formula_is_true (trm_ge ?typ t1 t2)
+let formula_eq ~typ t1 t2 = formula_is_true (trm_eq ~typ t1 t2)
+let formula_neq ~typ t1 t2 = formula_is_true (trm_neq ~typ t1 t2)
+let formula_lt ~typ t1 t2 = formula_is_true (trm_lt ~typ t1 t2)
+let formula_gt ~typ t1 t2 = formula_is_true (trm_gt ~typ t1 t2)
+let formula_leq ~typ t1 t2 = formula_is_true (trm_le ~typ t1 t2)
+let formula_geq ~typ t1 t2 = formula_is_true (trm_ge ~typ t1 t2)
 
 (* -------- SMART FORMULA CONSTRUCTORS, INVERTERS and COMBINATORS -------- *)
 

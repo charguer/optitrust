@@ -107,7 +107,7 @@ let elim_inline_on (mark_simpl : mark) (red_p : path) (t : trm) : trm =
   let t2 = Path.apply_on_path (fun red_t ->
     let error = "expected call to reduce" in
     let (start, stop, input, n, m, j) = trm_inv ~error reduce_inv red_t in
-    let nb_elems = Arith_core.(simplify true (fun e -> gather (compute e))) (trm_sub stop start) in
+    let nb_elems = Arith_core.(simplify true (fun e -> gather (compute e))) (trm_sub_int stop start) in
     match trm_int_inv nb_elems with
     | Some nb_elems ->
       let acc_typ = Option.value ~default:typ_u16 red_t.typ in
@@ -115,7 +115,7 @@ let elim_inline_on (mark_simpl : mark) (red_p : path) (t : trm) : trm =
         trm_cast acc_typ (trm_int 0)
       end else begin
         let values = List.init nb_elems (fun k ->
-          let i = trm_add_mark mark_simpl (trm_add start (trm_int k)) in
+          let i = trm_add_mark mark_simpl (trm_add_int start (trm_int k)) in
           let focuses_prev = !focuses in
           focuses := (fun x -> focuses_prev (trm_seq_nobrace_nomarks [
             (* is_subrange(start..stop, 0..n) --> in_range(k, 0..n) *)
@@ -220,14 +220,14 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
   let acc_typ = Option.get red.typ in
   let make_reduce start stop = reduce start stop input n m j in
   let step = range.step in
-  let base_reduce = make_reduce range.start (trm_add_mark mark_simpl (trm_add range.start delta)) in
+  let base_reduce = make_reduce range.start (trm_add_mark mark_simpl (trm_add_int range.start delta)) in
   let index = trm_var range.index in
-  let rec_stop = trm_add index delta in
-  let rec_reduce_add_start = trm_add_mark mark_simpl (trm_sub rec_stop step) in
+  let rec_stop = trm_add_int index delta in
+  let rec_reduce_add_start = trm_add_mark mark_simpl (trm_sub_int rec_stop step) in
   let rec_reduce_add = make_reduce rec_reduce_add_start rec_stop in
-  let rec_reduce_sub_start = trm_add_mark mark_simpl (trm_sub index step) in
+  let rec_reduce_sub_start = trm_add_mark mark_simpl (trm_sub_int index step) in
   let rec_reduce_sub = make_reduce rec_reduce_sub_start index in
-  let new_range = { range with start = trm_add_mark mark_simpl (trm_add range.start step) } in
+  let new_range = { range with start = trm_add_mark mark_simpl (trm_add_int range.start step) } in
   if !Flags.check_validity then begin
     let open Resource_formula in
     let dispatch_ghosts ghost ro_ghost uninit_ghost formula =
@@ -301,7 +301,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
       Trm (trm_for new_range (trm_seq_helper [
         TrmMlist before_instrs;
         (* trm_compound_assign Binop_add (trm_var acc) value *)
-        Trm (trm_set (trm_var acc) (trm_sub (trm_add (trm_var_get acc) rec_reduce_add) rec_reduce_sub));
+        Trm (trm_set (trm_var acc) (trm_sub_int (trm_add_int (trm_var_get acc) rec_reduce_add) rec_reduce_sub));
         Trm (trm_set out (trm_var_get acc));
         TrmMlist after_instrs;
       ]));

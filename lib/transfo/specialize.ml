@@ -8,12 +8,13 @@ let%transfo variable ~(var : string) ~(value : trm)
   ?(mark_then : mark = no_mark) ?(mark_else : mark = no_mark)
   ?(simpl : target -> unit = Arith.default_simpl)
   (tg : target) : unit =
-  let (var, _) = find_var var tg in
+  let (var, typ) = find_var var tg in
+  let typ = Option.unsome_or_else typ (fun () -> failwith "Could not guess type of variable %s" (var_to_string var)) in
   Marks.with_marks (fun next_mark ->
     let mark_then = Mark.reuse_or_next next_mark mark_then in
     let mark_else = Mark.reuse_or_next next_mark mark_else in
     Target.iter (fun p ->
-      let cond = trm_eq (trm_var var) value in
+      let cond = trm_eq ~typ (trm_var var) value in
       If.insert ~cond ~mark_then ~mark_else (target_of_path p);
       Variable.subst ~simpl ~subst:var ~put:value [cMark mark_then];
     ) tg)

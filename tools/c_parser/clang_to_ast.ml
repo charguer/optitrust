@@ -715,7 +715,8 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
     | Trm_var x when var_has_name "exact_div" x ->
       begin match List.map tr_expr el with
       | [n; b] ->
-        trm_exact_div ?loc ?typ n b
+        let typ = Option.unsome_or_else typ (fun () -> failwith "%s: Missing type on exact_div" (loc_to_string loc)) in
+        trm_exact_div ?loc ~typ n b
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: 'exact_div' expects two arguments"
       end
     | Trm_var x when var_has_name "operator=" x ->
