@@ -1400,8 +1400,8 @@ let autogen_alpha_rename style (t : trm) : trm =
 (** [decode_from_c t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let decode_from_c: trm -> trm =
-  debug_before_after_trm "decode_from_c" (fun t ->
-  decode_contract t |>
+  debug_before_after_trm "decode_from_c" (fun t -> t |>
+  decode_contract |>
   decode_ghost_annot |>
   decode_class_member |>
   decode_method_call |>
@@ -1419,7 +1419,8 @@ let decode_from_c: trm -> trm =
 (** [encode_to_c t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let encode_to_c (style : style) : trm -> trm =
   debug_before_after_trm "encode_to_c" (fun t ->
-  Scope_computation.infer_var_ids t |>
+  t |>
+  Scope_computation.infer_var_ids |>
   encode_alloc style |>
   encode_formula_sugar |>
   encode_expr_in_seq |>
@@ -1431,7 +1432,6 @@ let encode_to_c (style : style) : trm -> trm =
   encode_class_member |>
   autogen_alpha_rename style |>
   encode_or_remove_ghost_annot style |>
-  autogen_alpha_rename style |>
   encode_contract style
   )
 
@@ -1443,7 +1443,6 @@ let encode_meta ?(skip_var_ids = false) (style: style) : trm -> trm =
   encode_formula_sugar |>
   autogen_alpha_rename style |>
   encode_or_remove_ghost_annot style |>
-  autogen_alpha_rename style |>
   encode_contract style
 
 
