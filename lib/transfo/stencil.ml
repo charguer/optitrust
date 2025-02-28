@@ -154,7 +154,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
       in
       let sizes = List.map2 (fun tile_size overlap ->
         if is_trm_int 0 overlap then tile_size
-        else trm_add tile_size overlap
+        else trm_add_int tile_size overlap
       ) tile overlap_tile in
       let steps = tile in
       let inner_loop_indices = may_slide (Var_set.elements writes) sizes steps ~simpl p in
@@ -202,7 +202,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
       if may_eliminate then
         Matrix.elim alloc_instr
       else begin
-        let touched_nd_tiles = List.map2 (fun size idx -> (trm_var idx, trm_add (trm_var idx) size)) sizes outer_loop_indices in
+        let touched_nd_tiles = List.map2 (fun size idx -> (trm_var idx, trm_add_int (trm_var idx) size)) sizes outer_loop_indices in
         let untouched_nd_tiles = List.map (fun size -> (trm_int 0, size)) (List.drop (List.length sizes) dims) in
         let nd_tiles = touched_nd_tiles @ untouched_nd_tiles in
         Matrix.local_name_tile_after ~var:var.name ~alloc_instr ~simpl ~tile:nd_tiles (target_of_path inner_p);

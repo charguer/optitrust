@@ -1348,7 +1348,7 @@ let encode_alloc (style: style) (t: trm): trm =
     Pattern.pattern_match t [
       Pattern.(trm_new_uninit !__) (fun ty () ->
         match typ_array_inv ty with
-        | Some (elemty, Some size) -> trm_like ~old:t (trm_cast (typ_ptr elemty) (trm_apps (trm_var var_malloc) [trm_mul size (trm_sizeof elemty)]))
+        | Some (elemty, Some size) -> trm_like ~old:t (trm_cast (typ_ptr elemty) (trm_apps (trm_var var_malloc) [trm_mul_int size (trm_sizeof elemty)]))
         | _ -> trm_like ~old:t (trm_cast (typ_ptr ty) (trm_apps (trm_var var_malloc) [trm_sizeof ty]))
       );
       Pattern.(trm_new (typ_array !__ (some !__)) (trm_null __)) (fun basety nbelems () ->

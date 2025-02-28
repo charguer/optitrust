@@ -36,10 +36,10 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: Resource_computat
   let formula = trm_subst subst_ctx formula in
   let arith_solved = Pattern.pattern_match formula [
     Pattern.(trm_apps2 (trm_specific_var var_in_range) !__ (formula_range !__ !__ !__)) (fun index start stop step () ->
-      Arith_core.(check_geq index start && check_lt index stop && check_eq (trm_trunc_mod index step) (trm_int 0))
+      Arith_core.(check_geq index start && check_lt index stop && check_eq (trm_trunc_mod_int index step) (trm_int 0))
     );
     Pattern.(trm_apps2 (trm_specific_var var_is_subrange) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step () ->
-      Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_trunc_mod sub_step step) (trm_int 0))
+      Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_trunc_mod_int sub_step step) (trm_int 0))
     );
     Pattern.(formula_is_true (trm_eq !__ !__)) (fun t1 t2 () -> check_eq t1 t2);
     Pattern.(formula_is_true (trm_neq !__ !__)) (fun t1 t2 () -> check_neq t1 t2);

@@ -68,15 +68,15 @@ let memcpy ~(typ: typ)
     (* if offset = [] then trm_int 0 else *)
     let (sum_terms, _) = List.fold_left (fun (sum_terms, multipliers) dim_offset ->
       let multipliers = List.drop_one_or_else (fun () -> []) multipliers in
-      let sum_term = List.fold_left trm_mul dim_offset multipliers in
+      let sum_term = List.fold_left trm_mul_int dim_offset multipliers in
       let sum_terms = sum_terms @ [sum_term] in
       (sum_terms, multipliers)
     ) ([], dims) offset in
-    List.fold_right trm_add sum_terms (trm_int 0)
+    List.fold_right trm_add_int sum_terms (trm_int 0)
   in
   let d_flat_offset = compute_flat_offset d_offset dol d_dims in
   let s_flat_offset = compute_flat_offset s_offset sol s_dims in
-  let flat_elems = List.reduce_left trm_mul copy_dims in
+  let flat_elems = List.reduce_left trm_mul_int copy_dims in
   let t = trm_apps (trm_var (mmemcpy_var typ))
     [dest; d_flat_offset; src; s_flat_offset; flat_elems] in
 

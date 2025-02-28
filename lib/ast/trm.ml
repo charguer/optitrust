@@ -2083,22 +2083,22 @@ let trm_cast ?(annot : trm_annot = trm_annot_default) ?(loc) ?(ty_from: typ opti
   trm_apps ?loc ~typ:ty_to ~annot (trm_unop (typ_or_auto ty_from) (Unop_cast ty_to)) [t]
 
 (** [trm_minus ?loc ?ctx ?typ t]: generates -t *)
-let trm_minus ?(annot : trm_annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(typ : typ = typ_int) (t: trm) =
+let trm_minus ?(annot : trm_annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ~(typ : typ) (t: trm) =
   trm_val_unop Unop_minus ~annot ?loc ?ctx typ t
 
 (** [trm_plus ?loc ?ctx ?typ t]: generates +t *)
-let trm_plus ?(annot : trm_annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(typ : typ = typ_int) (t: trm) =
+let trm_plus ?(annot : trm_annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ~(typ : typ) (t: trm) =
   trm_val_unop Unop_plus ~annot ?loc ?ctx typ t
 
   (** [trm_bitwise_neg ?loc ?ctx ?typ t]: generates ~t *)
-let trm_bitwise_neg ?(annot : trm_annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(typ : typ = typ_int) (t: trm) =
+let trm_bitwise_neg ?(annot : trm_annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ~(typ : typ) (t: trm) =
   trm_val_unop Unop_bitwise_neg ~annot ?loc ?ctx typ t
 
   (** [trm_neg ?loc ?ctx t]: generates !t *)
 let trm_neg ?(annot : trm_annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (t: trm) =
   trm_val_unop Unop_neg ~annot ?loc ?ctx typ_bool t
 
-let trm_cmp_binop (binop: binary_op) ?(loc) ?(ctx : ctx option) ?(typ: typ = typ_int) (t1 : trm) (t2 : trm) : trm =
+let trm_cmp_binop (binop: binary_op) ?(loc) ?(ctx : ctx option) ~(typ: typ) (t1 : trm) (t2 : trm) : trm =
   trm_apps ?loc ?ctx ~typ:typ_bool (trm_binop typ binop) [t1; t2]
 
 (** [trm_eq ?loc ?ctx ?typ t1 t2]: generates t1 = t2 *)
@@ -2127,12 +2127,12 @@ let trm_gt = trm_cmp_binop Binop_gt
     The operator is provided implicitly through the [ineq_sng] arg *)
 let trm_ineq (ineq_sgn : loop_dir) (t1 : trm) (t2 : trm) : trm =
   match ineq_sgn with
-  | DirUp -> trm_lt t1 t2
-  | DirUpEq -> trm_le t1 t2
-  | DirDown ->  trm_gt t1 t2
-  | DirDownEq -> trm_ge t1 t2
+  | DirUp -> trm_lt ~typ:typ_int t1 t2
+  | DirUpEq -> trm_le ~typ:typ_int t1 t2
+  | DirDown ->  trm_gt ~typ:typ_int t1 t2
+  | DirDownEq -> trm_ge ~typ:typ_int t1 t2
 
-let trm_arith_binop (binop: binary_op) ?(loc) ?(ctx : ctx option) ?(typ: typ = typ_int) (t1 : trm) (t2 : trm) : trm =
+let trm_arith_binop (binop: binary_op) ?(loc) ?(ctx : ctx option) ~(typ: typ) (t1 : trm) (t2 : trm) : trm =
   trm_apps ?loc ?ctx ~typ (trm_binop typ binop) [t1; t2]
 
 (** [trm_sub t1 t2]: generates t1 - t2 *)
@@ -2157,6 +2157,13 @@ let trm_trunc_div = trm_arith_binop Binop_trunc_div
 (** [trm_trunc_mod t1 t2]: generates t1 % t2 *)
 let trm_trunc_mod = trm_arith_binop Binop_trunc_mod
 
+let trm_add_int = trm_add ~typ:typ_int
+let trm_sub_int = trm_sub ~typ:typ_int
+let trm_mul_int = trm_mul ~typ:typ_int
+let trm_exact_div_int = trm_exact_div ~typ:typ_int
+let trm_trunc_div_int = trm_trunc_div ~typ:typ_int
+let trm_trunc_mod_int = trm_trunc_mod ~typ:typ_int
+
 (** [trm_bit_and t1 t2]: generates t1 & t2 *)
 let trm_bit_and = trm_arith_binop Binop_bitwise_and
 
@@ -2173,7 +2180,7 @@ let trm_shiftr = trm_arith_binop Binop_shiftr
 let trm_xor = trm_arith_binop Binop_xor
 
 (** [trm_compound_assign ~annot ?ctx ?loc ?typ binop t1 t2]: generates a compound operation, ex t1+=t2*)
-let trm_compound_assign ?(annot : trm_annot = trm_annot_default) ?(ctx : ctx option) ?(loc) ?(typ = typ_auto)
+let trm_compound_assign ?(annot : trm_annot = trm_annot_default) ?(ctx : ctx option) ?(loc) ~(typ)
   (binop : binary_op) (t1 : trm) (t2 : trm) : trm =
   trm_apps ?loc ~annot ?ctx ~typ:typ_unit (trm_prim typ (Prim_compound_assign_op binop)) [t1; t2]
 

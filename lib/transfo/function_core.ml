@@ -190,7 +190,8 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
         in
       (* Finally we build the infix operation *)
       let rs2 = expr_to_trm atoms expr2 in
-      let res = trm_compound_assign ~annot:t.annot ?typ:rs.typ binop ls rs2 in
+      let typ = Option.unsome_or_else rs.typ (fun () -> trm_fail rs "use_infix_ops_on: missing type") in
+      let res = trm_compound_assign ~annot:t.annot ~typ binop ls rs2 in
       res
     | _-> fail "use_infix_ops_on: expected a set operation to be targeted"
     )

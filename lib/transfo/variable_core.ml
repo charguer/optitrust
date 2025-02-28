@@ -102,7 +102,7 @@ let delocalize_at (array_size : trm) (ops : local_ops) (index : string) (t : trm
     let var_type = (get_inner_ptr_type tx) in
     let init_trm, op = begin match ops with
       | Local_arith (li, op) ->
-          trm_lit li, (trm_compound_assign op
+          trm_lit li, (trm_compound_assign ~typ:(typ_of_lit li) op
                               curr_var_trm
                               (trm_get (trm_array_access (trm_var_get ~typ:var_type local_var) (trm_var index))))
       | Local_obj (clear_f, transfer_f, _) ->

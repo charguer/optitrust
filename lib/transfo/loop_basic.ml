@@ -71,11 +71,11 @@ let collapse_on (simpl_mark : mark) (index : string)
     Tools.string_subst "${j}" rj.index.name) in
   let var_k = trm_var ~typ:(typ_int) k in
   let rk = {
-    index = k; start = trm_int 0; stop = trm_add_mark simpl_mark (trm_mul nbi nbj);
+    index = k; start = trm_int 0; stop = trm_add_mark simpl_mark (trm_mul_int nbi nbj);
     direction = DirUp; step = trm_step_one ()
   } in
-  let new_i = trm_add_mark simpl_mark (* (trm_add ri.start = 0 *) (trm_trunc_div var_k nbj) in
-  let new_j = trm_add_mark simpl_mark (* (trm_add rj.start = 0 *) (trm_trunc_mod var_k nbj) in
+  let new_i = trm_add_mark simpl_mark (* (trm_add ri.start = 0 *) (trm_trunc_div_int var_k nbj) in
+  let new_j = trm_add_mark simpl_mark (* (trm_add rj.start = 0 *) (trm_trunc_mod_int var_k nbj) in
   let subst = Var_map.(empty |> add ri.index new_i |> add rj.index new_j) in
   (* TODO: works when invariants are the same, and pre/post are the same modulo a star,
     still need to insert ghosts to flatten the double star. *)
@@ -113,8 +113,8 @@ let collapse_on (simpl_mark : mark) (index : string)
   let t2 = trm_for ~contract rk (trm_subst subst body2) in
   if !Flags.check_validity then begin
     Resource_formula.(Resource_trm.(trm_seq_helper ~braces:false [
-      Trm (assume (formula_geq ri.stop (trm_int 0)));
-      Trm (assume (formula_geq rj.stop (trm_int 0)));
+      Trm (assume (formula_geq ~typ:typ_int ri.stop (trm_int 0)));
+      Trm (assume (formula_geq ~typ:typ_int rj.stop (trm_int 0)));
       TrmList ghosts_before;
       Trm t2;
       TrmList ghosts_after
@@ -193,14 +193,14 @@ let hoist_on (name : string)
   assert (direction = DirUp); (* TODO: other directions *)
   let (array_size, new_index) =
     if trm_is_one step then
-      (trm_sub stop start, trm_sub (trm_var index) start)
+      (trm_sub_int stop start, trm_sub_int (trm_var index) start)
     else
       (* i = start; i < stop; i += step *)
       let trm_ceil_div a b =
-        trm_trunc_div (trm_add a (trm_sub b (trm_int 1))) b
+        trm_trunc_div_int (trm_add_int a (trm_sub_int b (trm_int 1))) b
       in
-      (trm_ceil_div (trm_sub stop start) step,
-        trm_trunc_div (trm_sub (trm_var index) start) step)
+      (trm_ceil_div (trm_sub_int stop start) step,
+        trm_trunc_div_int (trm_sub_int (trm_var index) start) step)
   in
   let body_instrs, _ = trm_inv ~error trm_seq_inv body in
   let elem_ty = ref typ_auto in
@@ -883,14 +883,14 @@ let shift_range_on (kind : shift_kind) =
     (* spec:
       let start' = trm_add start shift in
       let stop' = trm_add stop shift in *)
-    | ShiftBy s -> (s, trm_add start s, trm_add stop s)
+    | ShiftBy s -> (s, trm_add_int start s, trm_add_int stop s)
     (* NOTE: assuming int type *)
-    | StartAtZero -> (trm_minus start, trm_int 0, trm_sub stop start)
-    | StartAt v -> (trm_sub v start, v, trm_add stop (trm_sub v start))
-    | StopAt v -> (trm_sub v stop, trm_add start (trm_sub v stop), v)
+    | StartAtZero -> (trm_minus ~typ:typ_int start, trm_int 0, trm_sub_int stop start)
+    | StartAt v -> (trm_sub_int v start, v, trm_add_int stop (trm_sub_int v start))
+    | StopAt v -> (trm_sub_int v stop, trm_add_int start (trm_sub_int v stop), v)
     in
     let range' = { index = index'; start = start'; direction; stop = stop'; step } in
-    let index_expr = trm_sub (trm_var ~typ:typ_int index') shift in
+    let index_expr = trm_sub_int (trm_var ~typ:typ_int index') shift in
     (range', index_expr, shift)
   in
   let open Resource_formula in
@@ -954,10 +954,10 @@ let scale_range_on (factor : trm) =
     let new_step =
       match trm_lit_inv step with
       | Some (Lit_int (_, 1)) -> factor
-      | _ -> trm_mul factor step
+      | _ -> trm_mul_int factor step
     in
     let new_stop = match direction with
-      | DirUp -> (trm_mul factor stop)
+      | DirUp -> (trm_mul_int factor stop)
       | DirUpEq | DirDown | DirDownEq -> failwith "scale_range: only up to loops are supported."
     in
     let range' = { index = index'; start = new_start; direction; stop = new_stop; step = new_step } in
@@ -965,7 +965,7 @@ let scale_range_on (factor : trm) =
     (range', index_expr, ())
   in
   let open Resource_formula in
-  let to_prove = [Resource_trm.to_prove (formula_neq factor (trm_int ~typ:typ_int 0))] in
+  let to_prove = [Resource_trm.to_prove (formula_neq ~typ:typ_int factor (trm_int ~typ:typ_int 0))] in
   let scale_ghosts ghost ghost_ro ghost_uninit r r' () =
     List.map (fun (_, formula) ->
       (* TODO: factorize generic ghost mode code for all transfos *)
@@ -1069,19 +1069,19 @@ let extend_range_on (start_extension : extension_kind) (stop_extension : extensi
     then Option.get (If_core.may_merge t)
     else t
   in
-  let if_before_stop body = trm_seq_nomarks [make_if (trm_lt (trm_var index) stop) body] in
-  let if_after_start body = trm_seq_nomarks [make_if (trm_le start (trm_var index)) body] in
+  let if_before_stop body = trm_seq_nomarks [make_if (trm_lt ~typ:typ_int (trm_var index) stop) body] in
+  let if_after_start body = trm_seq_nomarks [make_if (trm_le ~typ:typ_int start (trm_var index)) body] in
   let (stop', body') = begin match stop_extension with
   | ExtendNothing -> (stop, body)
   | ExtendToZero -> failwith "not implemented yet"
   | ExtendTo v -> (v, if_before_stop body)
-  | ExtendBy v -> (trm_add stop v, if_before_stop body)
+  | ExtendBy v -> (trm_add_int stop v, if_before_stop body)
   end in
   let (start', body'') = begin match start_extension with
   | ExtendNothing -> (start, body')
   | ExtendToZero -> (trm_int 0, if_after_start body')
   | ExtendTo v -> (v, if_after_start body')
-  | ExtendBy v -> (trm_sub start v, if_after_start body')
+  | ExtendBy v -> (trm_sub_int start v, if_after_start body')
   end in
   trm_for ~annot:t.annot { index; start = start'; direction; stop = stop'; step } body''
 
@@ -1104,7 +1104,7 @@ let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_
   let ({ index; start; direction; stop; step }, body, _contract) = trm_inv ~error trm_for_inv t in
   let tile_index = new_var (Tools.string_subst "${id}" index.name tile_index) in
   let tile_bound =
-   if trm_is_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index) (trm_mul tile_size step) in
+   if trm_is_one step then trm_add_int (trm_var tile_index) tile_size else trm_add_int (trm_var tile_index) (trm_mul_int tile_size step) in
   let inner_loop =
   begin match bound with
   | TileBoundMin ->
@@ -1117,19 +1117,19 @@ let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_
     let init = trm_let_mut (index, typ_int) (trm_var tile_index) in
     let cond = trm_and (trm_ineq direction (trm_var_get index)
       (if trm_is_one step
-        then (trm_add (trm_var tile_index) tile_size)
-        else (trm_add (trm_var tile_index) (trm_mul tile_size step) ))) (trm_ineq direction (trm_var_get index) stop)
+        then (trm_add_int (trm_var tile_index) tile_size)
+        else (trm_add_int (trm_var tile_index) (trm_mul_int tile_size step) ))) (trm_ineq direction (trm_var_get index) stop)
       in
-    let step =  if trm_is_one step then trm_post_incr (trm_var index)
-      else trm_compound_assign Binop_add (trm_var index) step in
+    let step = if trm_is_one step then trm_post_incr (trm_var index)
+      else trm_compound_assign ~typ:typ_int Binop_add (trm_var index) step in
     let new_body = trm_subst_var index (trm_var_get index) body in
     trm_for_c init cond step new_body
   end in
   (* NOTE: only outer loop differs from tiling? *)
   let may_scale x = if trm_is_one step
-    then x else trm_mul x step in
+    then x else trm_mul_int x step in
   let outer_loop_step = may_scale tile_step in
-  let outer_stop = (trm_add stop (may_scale (trm_sub tile_step tile_size))) in
+  let outer_stop = (trm_add_int stop (may_scale (trm_sub_int tile_step tile_size))) in
   let outer_loop =
       trm_for { index = tile_index; start; direction; stop = outer_stop; step = outer_loop_step } (trm_seq_nomarks [inner_loop])
   in
