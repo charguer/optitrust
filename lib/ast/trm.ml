@@ -1861,7 +1861,7 @@ let trm_iter_vars
 let trm_erase_var_ids (t : trm) : trm =
   let rec aux t =
     match trm_var_inv t with
-    | Some x -> trm_var ~annot:t.annot ?loc:t.loc ?typ:t.typ ~ctx:t.ctx (name_to_var ~namespaces:x.namespaces x.name)
+    | Some x when not (is_anon_var x) -> trm_var ~annot:t.annot ?loc:t.loc ?typ:t.typ ~ctx:t.ctx (name_to_var ~namespaces:x.namespaces x.name)
     | _ -> trm_map aux t
   in
   aux t

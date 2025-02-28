@@ -900,6 +900,7 @@ let new_var ?(namespaces: string list = []) (name : string) : var =
 (** Refers to a variable by name, letting its identifier be inferred.
     This variable cannot be stored in a [varmap] before its identifier is inferred. *)
 let name_to_var ?(namespaces: string list = []) (name : string) : var =
+  if name = "" then failwith "Cannot create an anonymous variable with unset id";
   { namespaces; name; id = unset_var_id }
 
 module Toplevel_id = struct

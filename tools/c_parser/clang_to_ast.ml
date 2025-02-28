@@ -998,7 +998,7 @@ and tr_function_decl ?loc ({linkage = _; function_type = t; nested_name_specifie
         | Some { non_variadic; _ } -> non_variadic
       in
       let args = List.combine (List.map
-        (fun {decoration = _; desc = {qual_type = _; name = n; default = _}} -> (name_to_var n))
+        (fun {decoration = _; desc = {qual_type = _; name = n; default = _}} -> if n = "" then new_var "" else name_to_var n)
         params) args_t
       in
       List.iter (fun (y, ty) -> ctx_var_add y ty) args;

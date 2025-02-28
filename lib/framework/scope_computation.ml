@@ -73,7 +73,6 @@ let toplevel_scope_ctx (): scope_ctx = {
 
 (* LATER: #var-id, flag to disable check for performance *)
 (* cost: traverse the AST in O(n) and O(m log m) where m is the number of binders. *)
-(* TODO: raise error or ignore the dummy ids (-1) *)
 let check_unique_var_ids (t : trm) : unit =
   (* FIXME: This does not catch all the duplicated variable ids. Especially in contracts. *)
   (* LATER: refactor with function mapping over bindings? *)
@@ -114,7 +113,8 @@ let scope_ctx_record_rename ~failure_allowed var scope_ctx =
 let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
   let qualified = (var.namespaces, var.name) in
   let infer_var_id () =
-    (* Case 1: infer var id according to name. *)
+    if is_anon_var var then raise (InvalidVarId "Cannot infer an id for an anonymous variable");
+    (* infer var id according to name. *)
     match Qualified_map.find_opt qualified scope_ctx.var_ids with
     | Some id -> { namespaces = var.namespaces; name = var.name; id }
     (* If the variable is not found in the current context, it should be a toplevel variable.
@@ -124,7 +124,7 @@ let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
   in
   let check_var_id () =
     if failure_allowed then begin
-      (* Case 3: check var id consisent with name. *)
+      (* check var id consisent with name. *)
       if is_toplevel_var var then
         begin if not (var_eq (toplevel_var ~namespaces:var.namespaces var.name) var) then
           raise (InvalidVarId (sprintf "toplevel variable %s has a wrong id" (var_to_string var)))
