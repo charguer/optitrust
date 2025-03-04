@@ -74,6 +74,10 @@ Includes matrix multiplication, convolution, packaed convolution, depthwise conv
 
 - See Futhark publications
 
+# Computational Geometry
+
+- [GEOS?](https://libgeos.org/)
+
 # Fundamental Software Case Studies
 
 - Optimized data structure implementations (HashMap, ..).
