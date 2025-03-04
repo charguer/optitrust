@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Variant of view_result.sh that is able to:
 # - if ${VIEW} is "save_intermediate_state" then save the state at a given line,

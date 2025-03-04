@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Usage:
 #   ./tools/open_diff.sh ${FILEBASE} ${FILEEXT}

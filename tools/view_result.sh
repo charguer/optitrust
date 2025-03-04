@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Usage:
 #   ./tools/view_result.sh ${MODE} ${FILEPATH} ${LINENUMBER} ${OPTIONS}

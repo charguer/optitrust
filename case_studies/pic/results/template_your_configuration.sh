@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Fix the number of MPI nodes to 1
 nb_sockets=1

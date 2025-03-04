@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script to execute call ./check.sh on multiple runs with multiple parameters
 

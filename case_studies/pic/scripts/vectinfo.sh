@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # usage: ./vectinfo.sh filename.c mode
 #  - the filename.c is searched for in the ../simulations folder

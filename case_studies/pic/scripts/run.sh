@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Usage:  ./run.sh ${TARGET}
 #  where ${TARGET} is either a C filename from the folder simulations/

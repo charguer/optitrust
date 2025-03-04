@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Reports the number of million particles that can be fit on a given RAM size.
 #

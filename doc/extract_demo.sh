@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Given a unit test file, extract the lines between the first '!!' and
 # until the closing parenthesis at a head of a line.

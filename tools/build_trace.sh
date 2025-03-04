@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 TOOLS_FOLDER=$(dirname -- "$( readlink -f -- "$0"; )")
 TOOLS_FOLDER=$(realpath --relative-to=. ${TOOLS_FOLDER})

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Generate "config_`hostname`.sh" with parameters
 
@@ -37,7 +37,7 @@ fi
 #---------------------------------------------
 # Generated output
 
-echo "#!/bin/bash" > ${OUTPUT}
+echo "#!/usr/bin/env bash" > ${OUTPUT}
 echo "nb_cores=\"${NBCORES}\"" >> ${OUTPUT}
 #grep ^cpu\\scores /proc/cpuinfo | uniq | awk '{print nb_cores=$4}' >> ${OUTPUT}
 echo "compilers=\"${COMPILERS}\"" >> ${OUTPUT}

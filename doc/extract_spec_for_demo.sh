@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Given a file containing a piece of script, e.g.  !! Foo.bar args
 # extract the documentation of function [bar] from source file [Foo].

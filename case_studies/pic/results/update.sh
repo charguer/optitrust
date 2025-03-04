@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # ./update.sh
 #   recompiles the pic_optimized.c file

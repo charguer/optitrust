@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 TOOLS_FOLDER=$(dirname -- "$( readlink -f -- "$0"; )")
 OPTITRUST_FOLDER=$(dirname "${TOOLS_FOLDER}")

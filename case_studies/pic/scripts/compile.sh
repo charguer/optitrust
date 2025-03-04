@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Usage:  ./compile.sh ${TARGET} [${CHECKER_OUTFILE}]
 #  where ${TARGET} is a C filename from the folder simulations/

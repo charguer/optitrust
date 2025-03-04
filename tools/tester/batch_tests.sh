@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Take as argument a list of .ml files containing tests.
 # Concatenate these tests, with the following processing.

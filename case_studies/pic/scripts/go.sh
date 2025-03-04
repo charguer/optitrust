@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ./vectinfo.sh pic_optimized.c
 #./compile.sh pic_demo.c 1

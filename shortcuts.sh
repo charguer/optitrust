@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Script to display the list of OptiTrust shorcuts in use
 # Usage: ./shortcuts.sh

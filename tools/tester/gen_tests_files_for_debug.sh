@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Usage: from the root of the OptiTrust repo, call:
 #   tools/tester/gen_tests_files_for_debug.sh

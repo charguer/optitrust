@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This script calls `tests/tester.ml` by:
 # (1) changing the working directory to be the root of OptiTrust
@@ -23,7 +23,7 @@ CMD="export OCAMLRUNPARAM=b && dune exec optitrust_tester -- ${FOLDER_RELATIVE_P
 
 # Save the command for run commands
 if [ "${FIRSTARG}" = "run" ]; then
-  echo "#!/bin/bash" > ./tester_last.sh
+  echo "#!/usr/bin/env bash" > ./tester_last.sh
   echo "cd ${OPTITRUST_ABSOLUTE_PATH}; ${CMD}" >> ./tester_last.sh
   chmod +x ./tester_last.sh
 fi

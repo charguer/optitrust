@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 nb_cores="4"
 compilers="gcc icc"
 nb_particles=359000000

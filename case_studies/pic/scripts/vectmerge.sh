@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # usage: ./vectmerge.sh filename.c mode
 #  - the filename.c is searched for in the ../simulations folder
