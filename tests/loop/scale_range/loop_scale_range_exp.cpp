@@ -39,11 +39,11 @@ void arrays(int N, int* w, int* r, int* f) {
   __reads("r ~> Matrix1(N)");
   __ghost(to_prove, "P := __is_true(2 != 0)");
   __ghost(group_scale_uninit,
-          "stop := N, step := 1, items := fun i -> &w[MINDEX1(N, i)] ~> Cell, "
-          "factor := 2, new_step := 2, new_stop := 2 * N");
+          "stop := N, step := 1, items := fun (i: int) -> &w[MINDEX1(N, i)] ~> "
+          "Cell, factor := 2, new_step := 2, new_stop := 2 * N");
   __ghost(group_scale,
-          "stop := N, step := 1, items := fun i -> &f[MINDEX1(N, i)] ~> Cell, "
-          "factor := 2, new_step := 2, new_stop := 2 * N");
+          "stop := N, step := 1, items := fun (i: int) -> &f[MINDEX1(N, i)] ~> "
+          "Cell, factor := 2, new_step := 2, new_stop := 2 * N");
   __ghost([&]() {
     __modifies(
         "for __TMP_3 in range(0, 2 * N, 2) -> &f[MINDEX1(N, exact_div(__TMP_3, "
@@ -82,9 +82,9 @@ void arrays(int N, int* w, int* r, int* f) {
     __with("justif := arith_simpl");
   });
   __ghost(group_unscale,
-          "stop := N, step := 1, items := fun i -> &w[MINDEX1(N, i)] ~> Cell, "
-          "factor := 2, new_step := 2, new_stop := 2 * N");
+          "stop := N, step := 1, items := fun (i: int) -> &w[MINDEX1(N, i)] ~> "
+          "Cell, factor := 2, new_step := 2, new_stop := 2 * N");
   __ghost(group_unscale,
-          "stop := N, step := 1, items := fun i -> &f[MINDEX1(N, i)] ~> Cell, "
-          "factor := 2, new_step := 2, new_stop := 2 * N");
+          "stop := N, step := 1, items := fun (i: int) -> &f[MINDEX1(N, i)] ~> "
+          "Cell, factor := 2, new_step := 2, new_stop := 2 * N");
 }

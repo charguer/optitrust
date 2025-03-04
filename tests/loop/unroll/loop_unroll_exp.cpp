@@ -34,15 +34,18 @@ void iter_contract_ro(int* M) {
   __reads("M ~> Matrix1(3)");
   int acc = 0;
   const __ghost_fn __ghost_pair_1 = __ghost_begin(
-      group_ro_focus, "i := 0, items := fun x -> &M[MINDEX1(3, x)] ~> Cell");
+      group_ro_focus,
+      "i := 0, items := fun (x: int) -> &M[MINDEX1(3, x)] ~> Cell");
   acc += M[MINDEX1(3, 0)];
   __ghost_end(__ghost_pair_1);
   const __ghost_fn __ghost_pair_110 = __ghost_begin(
-      group_ro_focus, "i := 1, items := fun x -> &M[MINDEX1(3, x)] ~> Cell");
+      group_ro_focus,
+      "i := 1, items := fun (x: int) -> &M[MINDEX1(3, x)] ~> Cell");
   acc += M[MINDEX1(3, 1)];
   __ghost_end(__ghost_pair_110);
   const __ghost_fn __ghost_pair_111 = __ghost_begin(
-      group_ro_focus, "i := 2, items := fun x -> &M[MINDEX1(3, x)] ~> Cell");
+      group_ro_focus,
+      "i := 2, items := fun (x: int) -> &M[MINDEX1(3, x)] ~> Cell");
   acc += M[MINDEX1(3, 2)];
   __ghost_end(__ghost_pair_111);
 }

@@ -17,7 +17,8 @@ __ghost_ret two_closures() {
 
 void f() {
   __requires("P: int -> Prop");
-  __ghost(test, "f := fun i -> P(i), k := 0, valid := __admitted");
+  __requires("P(0)");
+  __ghost(test, "f := fun i -> P(i), k := 0");
   __ghost(test, "f := fun i -> P(i + 1), k := 0");
   __ghost(two_closures, "f := fun g -> g(1), g := fun x -> P(x - 1)");
 }

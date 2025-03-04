@@ -59,8 +59,14 @@ typedef const char* __ghost_bind;
 // Marcro for ghost function prototype
 #define __GHOST(f) inline __ghost_ret f()
 
+// Return type of a ghost call, cannot be void because we need to be able to call ghosts at toplevel
+struct __ghost_unit {};
+
 // Invoke a ghost function
-inline void __ghost(__ghost_fn, __ghost_args = "", __ghost_bind = "") {}
+inline __ghost_unit __ghost_call(__ghost_fn, __ghost_args = "", __ghost_bind = "") { return {}; }
+#define __MERGE_IDENT(a,b) a##b
+#define __GHOST_CALL(id, ...) static __ghost_unit __MERGE_IDENT(__ghost__, id) = __ghost_call(__VA_ARGS__)
+#define __ghost(...) __GHOST_CALL(__COUNTER__, __VA_ARGS__)
 
 /// Postfix call for specifying ghost arguments
 inline void __with(__ghost_args) {}

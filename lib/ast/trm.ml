@@ -277,11 +277,11 @@ type ghost_call = {
   ghost_bind: (var * var) list;
 }
 
-let trm_ghost_force ({ ghost_fn; ghost_args } : ghost_call): trm =
-  trm_add_attribute GhostInstr (trm_apps ghost_fn [] ~ghost_args)
+let trm_ghost_force ({ ghost_fn; ghost_args; ghost_bind } : ghost_call): trm =
+  trm_add_attribute GhostInstr (trm_apps ghost_fn [] ~ghost_args ~ghost_bind)
 
 let ghost_call (ghost_var: var) ?(ghost_bind = []) (ghost_args: (string * formula) list): ghost_call =
-  { ghost_fn = trm_var ghost_var; ghost_args = List.map (fun (g, t) -> (name_to_var g, t)) ghost_args; ghost_bind }
+  { ghost_fn = trm_var ghost_var; ghost_args = List.map (fun (g, t) -> (name_to_var g, t)) ghost_args; ghost_bind = List.map (fun (v, n) -> (v, name_to_var n)) ghost_bind }
 
 let ghost_closure_call contract body =
   (* LATER: Maybe we should use a better ghost_bind clause by examining contract *)
@@ -2258,11 +2258,11 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
   let t_map = ref Var_map.empty in
     let rec aux (t : trm) : trm =
       match trm_let_fun_inv t with
-      | Some (f, ty, tv, _, _) ->
+      | Some (f, ty, tv, _, contract) ->
         if f_pred f then begin
           t_map := Var_map.add f t !t_map;
           (* replace the body with an empty body with an annotation *)
-          let t2 = trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_unit ()) in
+          let t2 = trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_unit ()) ~contract in
           trm_add_cstyle BodyHiddenForLightDiff t2
         end else
           t

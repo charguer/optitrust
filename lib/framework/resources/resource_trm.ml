@@ -11,6 +11,10 @@ open Resource_formula
 let var_admitted = toplevel_var "__admitted"
 let var_justif = toplevel_var "justif"
 
+let var_ghost_define = toplevel_var "define"
+let var_assert_inhabited = toplevel_var "assert_inhabited"
+let var_assert_prop = toplevel_var "assert_prop"
+
 let ghost_call_inv t =
   Pattern.pattern_match t [
     Pattern.(trm_apps !__ nil !__ !__) (fun ghost_fn ghost_args ghost_bind () ->
@@ -169,13 +173,46 @@ let var_ghost_in_range_extend = toplevel_var "in_range_extend"
 
 (* let var_ghost_subrange_to_group_in_range = toplevel_var "subrange_to_group_in_range" *)
 
-let var_ghost_assume = toplevel_var "assume"
+let var_arbitrary = toplevel_var "arbitrary"
+let var_admit = toplevel_var "admit"
 
+let var_ghost_assert_prop = toplevel_var "assert_prop"
+
+let ghost_assert (name: var) (prop: trm): trm =
+  ghost (ghost_call var_ghost_assert_prop ["P", prop] ~ghost_bind:[name, "proof"])
+
+let ghost_assert_inv (t: trm): (var * trm) option =
+  match ghost_call_inv t with
+  | Some { ghost_fn; ghost_args; ghost_bind } -> begin match trm_var_inv ghost_fn with
+    | Some ghost_fn when var_eq ghost_fn var_ghost_assert_prop ->
+      let open Option.Monad in
+      let* prop = List.find_map (fun (x, t) -> if x.name = "prop" then Some t else None) ghost_args in
+      let* name = List.find_map (fun (x, y) -> if y.name = "proof" then Some x else None) ghost_bind in
+      Some (name, prop)
+    | _ -> None
+    end
+  | _ -> None
+
+let ghost_proof (name: var) ?(prop: trm option) (proof: trm): trm =
+  ghost (ghost_call var_ghost_assert_prop (Option.to_list (Option.map (fun prop -> "P", prop) prop) @ ["proof", proof]) ~ghost_bind:[name, "proof"])
+
+let ghost_proof_inv (t: trm): (var * trm) option =
+  match ghost_call_inv t with
+  | Some { ghost_fn; ghost_args; ghost_bind } -> begin match trm_var_inv ghost_fn with
+    | Some ghost_fn when var_eq ghost_fn var_ghost_assert_prop ->
+      let open Option.Monad in
+      let* proof = List.find_map (fun (x, t) -> if x.name = "proof" then Some t else None) ghost_args in
+      let* name = List.find_map (fun (x, y) -> if y.name = "proof" then Some x else None) ghost_bind in
+      Some (name, proof)
+    | _ -> None
+    end
+  | _ -> None
+
+let var_ghost_assume = toplevel_var "assume"
 let assume (f: formula): trm =
   ghost (ghost_call var_ghost_assume ["P", f])
 
 let var_ghost_to_prove = toplevel_var "to_prove"
-
 let to_prove (f: formula): trm =
   ghost (ghost_call var_ghost_to_prove ["P", f])
 

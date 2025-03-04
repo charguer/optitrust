@@ -46,8 +46,8 @@ void matrix_copy(int* D, int* S) {
   __modifies("D ~> Matrix1(1024)");
   __reads("S ~> Matrix1(1024)");
   __ghost(tile_divides,
-          "tile_count := 256, tile_size := 4, size := 1024, items := fun i -> "
-          "&D[MINDEX1(1024, i)] ~> Cell");
+          "tile_count := 256, tile_size := 4, size := 1024, items := fun (i: "
+          "int) -> &D[MINDEX1(1024, i)] ~> Cell");
   for (int bi = 0; bi < 256; bi++) {
     __strict();
     __sreads("S ~> Matrix1(1024)");
@@ -66,6 +66,6 @@ void matrix_copy(int* D, int* S) {
     }
   }
   __ghost(untile_divides,
-          "tile_count := 256, tile_size := 4, size := 1024, items := fun i -> "
-          "&D[MINDEX1(1024, i)] ~> Cell");
+          "tile_count := 256, tile_size := 4, size := 1024, items := fun (i: "
+          "int) -> &D[MINDEX1(1024, i)] ~> Cell");
 }

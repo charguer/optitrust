@@ -3,6 +3,8 @@
 
 #include <optitrust_intrinsics.h>
 
+/* ---- Primitive for ghost pairs ---- */
+
 inline __ghost_fn __ghost_begin(__ghost_fn, __ghost_args = "", __ghost_bind = "") { return __admitted; }
 inline void __ghost_end(__ghost_fn) {}
 
@@ -13,6 +15,55 @@ inline __ghost_fn __with_reverse(__ghost_fn g, __ghost_fn g_rev) { return g; }
 inline void __reverts(__ghost_fn) {}
 
 #define __GHOST_BEGIN_CUSTOM(rev_ghost, forward_ghost, backward_ghost) __GHOST_BEGIN(rev_ghost, __with_reverse(forward_ghost, backward_ghost))
+
+/* ---- Adding resources to context and checking assertions ---- */
+
+__GHOST(assert_inhabited) {
+  /* Both names x are shared with the define intrinsic */
+  __requires("T: Type, x: T");
+  __ensures("x: T");
+}
+#define __DECL(name, type) __GHOST_CALL(name, assert_inhabited, "x:=arbitrary(" type ")", #name "<-x")
+
+inline __ghost_ret define() {} // need to be builtin until we handle aliases in post-conditions
+#define __DEF(name, def) __GHOST_CALL(name, define, "x:=" def, #name "<-x")
+#define __DEF_TYPED(name, type, def) __GHOST_CALL(name, define, "T:=" type ", x:=" def, #name "<-x")
+
+// asserts that a property is true to generate a new pure proposition
+__GHOST(assert_prop) {
+  __requires("P: Prop, proof: P");
+  __ensures("proof: P");
+}
+
+#define __ASSERT(name, prop) __GHOST_CALL(name, assert_prop, "P:=" prop, #name "<-proof")
+#define __PROOF_OF(name, prop, proof) __GHOST_CALL(name, assert_prop, "P:=" prop ", proof:=" proof, #name "<-proof")
+#define __PROOF(name, proof) __GHOST_CALL(name, assert_prop, "proof:=" proof, #name "<-proof")
+#define __AXIOM(name, prop) __PROOF(name, "admit(" prop ")")
+// LATER: classify admit: user_admit(P), trust_transfo(P), tactic("tac"), interactive(P)
+
+__GHOST(assert_eq) {
+  /* Names x and y are used in assert_alias code */
+  __requires("x: int, y: int, eq: x = y");
+  // __ensures("eq: x = y"); // FIXME: We should probably remember the equality fact for later, but this currently breaks the ability to join after a pure fission.
+}
+
+inline __ghost_ret assert_alias() {} // need to be builtin until we handle aliases in post-conditions
+
+// FIXME: Explain here why this is useful and can it be used in formulas ?
+// assumes a formula with no need to prove it later
+__GHOST(assume) {
+  __requires("P: Prop");
+  __ensures("H: P");
+  __admitted();
+}
+
+// FIXME: Why not simply using assert_prop with proof left to be inferred ?
+// defers proving a formula to later
+__GHOST(to_prove) {
+  __requires("P: Prop");
+  __ensures("H: P");
+  __admitted();
+}
 
 /* ---- Matrix Functions ---- */
 
@@ -84,28 +135,9 @@ DEFINE_MMEMCPY(int)
 DEFINE_MMEMCPY(float)
 DEFINE_MMEMCPY(double)
 
-/* ---- Ghosts ---- */
+/* ---- Ghosts to manipulate heap propositions ---- */
 
-// asserts that a property is true to generate a new pure proposition
-__GHOST(assert_prop) {
-  __requires("P: Prop");
-  __requires("proof: P");
-  __ensures("proof: P");
-}
-
-// assumes a formula with no need to prove it later
-__GHOST(assume) {
-  __requires("P: Prop");
-  __ensures("H: P");
-  __admitted();
-}
-
-// defers proving a formula to later
-__GHOST(to_prove) {
-  __requires("P: Prop");
-  __ensures("H: P");
-  __admitted();
-}
+__DECL(Wand, "HProp * HProp -> HProp");
 
 __GHOST(close_wand) {
   /* LATER: Replace that id with a generated name on the respective open */
@@ -144,6 +176,10 @@ __GHOST(forget_init) {
 }
 
 /* ---- In Range ---- */
+
+__DECL(in_range, "int * Range -> Prop");
+__DECL(is_subrange, "Range * Range -> Prop");
+__DECL(range_count, "Range -> int");
 
 __GHOST(in_range_extend) {
   __requires("x: int, r1: Range, r2: Range");
@@ -884,16 +920,6 @@ __GHOST(mindex3_contiguous_ro_rev) {
   __reverts(mindex3_contiguous_ro);
   __admitted();
 }
-
-/* ---- Ghosts to check assertions ---- */
-
-__GHOST(assert_eq) {
-  /* Names x and y are used in assert_alias code */
-  __requires("x: int, y: int, eq: x = y");
-}
-
-inline __ghost_ret assert_alias() {}
-
 
 /* ---- Arithmetic Functions ---- */
 

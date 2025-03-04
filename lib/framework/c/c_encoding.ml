@@ -746,7 +746,7 @@ let rec decode_ghost_annot (t: trm): trm =
         let ghost_args, ghost_bind = parse_ghost_args_and_bind ghost_args_opt in
         trm_alter ~desc:(Trm_apps (fn, args, ghost_args, ghost_bind)) t
       );
-    Pattern.(trm_apps (trm_var_with_name "__ghost") (!__ ^:: !__) __ __) (fun ghost_fn ghost_args_opt () ->
+    Pattern.(trm_let __ (trm_var_with_name "__ghost_unit") (trm_apps (trm_var_with_name "__ghost_call") (!__ ^:: !__) __ __)) (fun ghost_fn ghost_args_opt () ->
         let ghost_fn = decode_ghost_annot ghost_fn in
         let ghost_args, ghost_bind = parse_ghost_args_and_bind ghost_args_opt in
         trm_alter ~annot:{t.annot with trm_annot_attributes = [GhostInstr]} ~desc:(Trm_apps (ghost_fn, [], ghost_args, ghost_bind)) t
@@ -1174,7 +1174,7 @@ let computed_resources_intro (style: style) (t: trm): trm =
   aux t
 
 let rec encode_contract (style: style) (t: trm): trm =
-  if not style.typing.typing_contracts then t else
+  if not style.typing.typing_contracts || trm_has_cstyle BodyHiddenForLightDiff t then t else
 
   (* debug_current_stage "encode_contract"; *)
   let push_named_formulas (contract_prim: var) ?(used_vars: Var_set.t option) (named_formulas: resource_item list) (t: trm): trm =

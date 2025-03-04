@@ -48,11 +48,13 @@ void arrays(int N, int* w, int* r, int* f) {
   __writes("w ~> Matrix1(N)");
   __reads("r ~> Matrix1(N)");
   __ghost(group_shift_uninit,
-          "start := 0, stop := N, step := 1, items := fun i -> &w[MINDEX1(N, "
-          "i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop := N + 2");
+          "start := 0, stop := N, step := 1, items := fun (i: int) -> "
+          "&w[MINDEX1(N, i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop "
+          ":= N + 2");
   __ghost(group_shift,
-          "start := 0, stop := N, step := 1, items := fun i -> &f[MINDEX1(N, "
-          "i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop := N + 2");
+          "start := 0, stop := N, step := 1, items := fun (i: int) -> "
+          "&f[MINDEX1(N, i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop "
+          ":= N + 2");
   __ghost([&]() {
     __consumes(
         "for __TMP_4 in 0 + 2..N + 2 -> &f[MINDEX1(N, __TMP_4 - 2)] ~> Cell");
@@ -96,9 +98,11 @@ void arrays(int N, int* w, int* r, int* f) {
     __with("justif := arith_simpl");
   });
   __ghost(group_unshift,
-          "start := 0, stop := N, step := 1, items := fun i -> &w[MINDEX1(N, "
-          "i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop := N + 2");
+          "start := 0, stop := N, step := 1, items := fun (i: int) -> "
+          "&w[MINDEX1(N, i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop "
+          ":= N + 2");
   __ghost(group_unshift,
-          "start := 0, stop := N, step := 1, items := fun i -> &f[MINDEX1(N, "
-          "i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop := N + 2");
+          "start := 0, stop := N, step := 1, items := fun (i: int) -> "
+          "&f[MINDEX1(N, i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop "
+          ":= N + 2");
 }

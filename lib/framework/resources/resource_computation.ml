@@ -199,9 +199,6 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
   | Trm_var v ->
     begin match Resource_set.find_pure v (Resource_set.make ~pure:env.res ()) with
     | Some typ -> typ
-    | None when var_eq v Resource_trm.var_admitted ->
-      (* LATER: Deal with __admitted in contracts in a cleaner way and disallow the case where neither t.typ not typ_hint are defined *)
-      typ_or_auto (Option.or_ t.typ typ_hint)
     | None -> failwith "Variable '%s' could not be found in environment" (var_to_string v)
     end
   | Trm_lit l -> typ_of_lit l
@@ -374,6 +371,13 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
   typ
 
 and compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx: unification_ctx) =
+  let expected_typ = match trm_var_inv expected_typ with
+    | Some v -> begin match Var_map.find_opt v evar_ctx with
+      | Some (Resolved ty) -> ty
+      | _ -> expected_typ
+      end
+    | None -> expected_typ
+  in
   let actual_typ = compute_pure_typ env ~typ_hint:expected_typ t in
   match unify_trm actual_typ expected_typ evar_ctx (compute_and_unify_typ env) with
   | Some evar_ctx -> evar_ctx
@@ -939,7 +943,7 @@ exception ResourceError of trm * resource_error_phase * exn
 
 let _ = Printexc.register_printer (function
   | MismatchingType (t, actual_typ, expected_typ) ->
-    Some (Printf.sprintf "Expression '%s' is of type '%s', but was expected of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.typ_to_string actual_typ) (Ast_to_c.typ_to_string expected_typ))
+    Some (Printf.sprintf "Expression '%s' is of type '%s', but was expected of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string actual_typ) (Ast_to_c.ast_to_string expected_typ))
   | Resource_not_found (kind, item, context) ->
     Some (Printf.sprintf "%s resource not found:\n%s\nIn context:\n%s" (resource_kind_to_string kind) (named_formula_to_string item) (resource_list_to_string context))
   | Spec_not_found fn ->
@@ -1672,8 +1676,23 @@ let rec compute_resources
           Pattern.__ (fun () -> failwith "__ghost_end expects a single variable as argument")
         ]
 
+      | Spec_not_found fn when var_eq fn Resource_trm.var_ghost_define ->
+        if effective_args <> [] then failwith "ghost define expects only ghost arguments";
+        let ghost_call = trm_apps ~annot:referent (trm_var Resource_trm.var_assert_inhabited) [] ~ghost_args ~ghost_bind in
+        let usage_map, res = compute_resources (Some res) ghost_call in
+        let** res in
+        let def = ref None in
+        List.iter (fun (arg, value) -> if arg.name = "x" then def := Some value) ghost_args;
+        let def = Option.unsome ~error:"Missing definition in ghost define" !def in
+        let out_var = match ghost_bind with
+          | [var, contract_var] when contract_var.name = "x" -> var
+          | _ -> failwith "Invalid output variable in ghost define"
+        in
+        let res = Resource_set.add_alias out_var def res in
+        usage_map, Some res
+
       | Spec_not_found fn when var_eq fn Resource_trm.var_assert_alias ->
-        if effective_args <> [] then failwith "__assert_alias expects only ghost arguments";
+        if effective_args <> [] then failwith "assert_alias expects only ghost arguments";
         let ghost_call = trm_apps ~annot:referent (trm_var Resource_trm.var_assert_eq) [] ~ghost_args in
         let usage_map, res = compute_resources (Some res) ghost_call in
         let** res in
@@ -1683,7 +1702,7 @@ let rec compute_resources
         List.iter (fun (arg, value) -> match arg.name with
         | "x" when !var = None -> begin match trm_var_inv value with
           | Some x -> var := Some x
-          | None -> failwith "__assert_alias expects a simple variable as first argument (got %s)" (Ast_to_c.ast_to_string value)
+          | None -> failwith "assert_alias expects a simple variable as first argument (got %s)" (Ast_to_c.ast_to_string value)
           end
         | "y" when !subst = None -> subst := Some value
         | _ -> ()) (ghost_args @ Option.value ~default:[] (Option.map (fun inv -> List.map (fun { hyp; inst_by } -> (hyp, inst_by)) inv.contract_inst.used_pure) ghost_call.ctx.ctx_resources_contract_invoc));
@@ -1941,14 +1960,13 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_formula.var_not, typ_pure_simple_fun [typ_prop] typ_prop;
   Resource_formula.var_and, typ_pure_simple_fun [typ_prop; typ_prop] typ_prop;
   Resource_formula.var_or, typ_pure_simple_fun [typ_prop; typ_prop] typ_prop;
-  Resource_formula.var_in_range, typ_pure_simple_fun [typ_int; typ_range] typ_prop;
-  Resource_formula.var_is_subrange, typ_pure_simple_fun [typ_range; typ_range] typ_prop;
-  Resource_formula.var_range_count, typ_pure_simple_fun [typ_range] typ_int;
-  Resource_formula.var_wand, typ_pure_simple_fun [typ_hprop; typ_hprop] typ_hprop;
   Resource_formula.var_frac_div, typ_pure_simple_fun [typ_frac; typ_int] typ_frac;
   Resource_formula.var_frac_sub, typ_pure_simple_fun [typ_frac; typ_frac] typ_frac;
   Resource_trm.var_ghost_ret, typ_type;
   Resource_trm.var_ghost_fn, typ_type; (* Maybe add an alias to trm_fun [] trm_ghost_ret *)
+  Resource_trm.var_arbitrary, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_var typ));
+  Resource_trm.var_admit, (let prop = new_var "P" in typ_pure_fun [prop, typ_prop] (typ_var prop));
+  Resource_trm.var_admitted, typ_auto;
   var_ignore, typ_auto;
 ] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_specs) ()
 

@@ -249,12 +249,12 @@ let rec typ_desc_to_doc style (t : typ) : document =
               var_to_doc style arg
             else underscore
           in
-          lparen ^^ darg ^^ colon ^^ space ^^ typ_to_doc style typ ^^ rparen
+          lparen ^^ darg ^^ colon ^^ space ^^ trm_to_doc style typ ^^ rparen
         in
         let dargs = list_to_doc ~sep:empty (List.map arg_to_doc args) in
         string "forall" ^^ space ^^ dargs ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ dret
       else
-        let dargs = list_to_doc ~sep:(space ^^ star) (List.map (fun (_, ty) -> typ_to_doc style ty) args) in
+        let dargs = list_to_doc ~sep:(space ^^ star) (List.map (fun (_, ty) -> trm_to_doc style ty) args) in
         dargs ^^ space ^^ string "->" ^^ blank 1 ^^ dret
     );
     Pattern.(trm_apps1 (typ_var (var_eq typ_typeof_var)) !__) (fun t () ->
@@ -864,7 +864,7 @@ and trm_let_fun_to_doc style ?(semicolon : bool = false) (fun_annot : cstyle_ann
 
 (** [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function from a resource formula to a pprint document. *)
 and formula_fun_to_doc style (ty : typ) (tvl : typed_vars) (b : trm) : document =
-  string "fun" ^^ blank 1 ^^ separate (blank 1) (List.map (fun (v, _) -> var_to_doc style v) tvl) ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style b
+  string "fun" ^^ blank 1 ^^ separate (blank 1) (List.map (fun (v, ty) -> if is_typ_auto ty then var_to_doc style v else lparen ^^ var_to_doc style v ^^ colon ^^ blank 1 ^^ trm_to_doc style ty ^^ rparen) tvl) ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style b
 
 (** [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function to a pprint document. *)
 and trm_fun_to_doc style ?(semicolon : bool = false) (ty : typ) (tvl : typed_vars) (b : trm) : document =

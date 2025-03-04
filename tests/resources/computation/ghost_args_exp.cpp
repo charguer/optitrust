@@ -54,5 +54,6 @@ void dependant_test() {
   __requires("H: forall (x: int) (y: int) -> __is_true(x + y == y + x)");
   __ghost(assert_prop, "P := __is_true(2 + 3 == 3 + 2), proof := H(2, 3)");
   __ghost(dependant_proof,
-          "P := fun x -> __is_true(x + 0 == 0 + x), proof := fun x -> H(x, 0)");
+          "P := fun x -> __is_true(x + 0 == 0 + x), proof := fun (x: int) -> "
+          "H(x, 0)");
 }

@@ -10,6 +10,40 @@ __ghost_fn __with_reverse(__ghost_fn g, __ghost_fn g_rev) { return g; }
 
 void __reverts(__ghost_fn) {}
 
+__ghost_ret assert_inhabited() {
+  __requires("T: Type");
+  __requires("x: T");
+  __ensures("x: T");
+}
+
+__ghost_ret define() {}
+
+__ghost_ret assert_prop() {
+  __requires("P: Prop");
+  __requires("proof: P");
+  __ensures("proof: P");
+}
+
+__ghost_ret assert_eq() {
+  __requires("x: int");
+  __requires("y: int");
+  __requires("eq: __is_true(x == y)");
+}
+
+__ghost_ret assert_alias() {}
+
+__ghost_ret assume() {
+  __requires("P: Prop");
+  __ensures("H: P");
+  __admitted();
+}
+
+__ghost_ret to_prove() {
+  __requires("P: Prop");
+  __ensures("H: P");
+  __admitted();
+}
+
 int MINDEX0() { return 0; }
 
 int MINDEX1(int N1, int i1) { return i1; }
@@ -79,23 +113,8 @@ void MMEMCPY_double(double* dest, int d_offset, double* src, int s_offset,
   memcpy(&dest[d_offset], &src[s_offset], length * sizeof(double));
 }
 
-__ghost_ret assert_prop() {
-  __requires("P: Prop");
-  __requires("proof: P");
-  __ensures("proof: P");
-}
-
-__ghost_ret assume() {
-  __requires("P: Prop");
-  __ensures("H: P");
-  __admitted();
-}
-
-__ghost_ret to_prove() {
-  __requires("P: Prop");
-  __ensures("H: P");
-  __admitted();
-}
+__ghost(assert_inhabited, "x := arbitrary(HProp * HProp -> HProp)",
+        "Wand <- x");
 
 __ghost_ret close_wand() {
   __requires("H1: HProp");
@@ -136,6 +155,14 @@ __ghost_ret forget_init() {
   __produces("_Uninit(H)");
   __admitted();
 }
+
+__ghost(assert_inhabited, "x := arbitrary(int * Range -> Prop)",
+        "in_range <- x");
+
+__ghost(assert_inhabited, "x := arbitrary(Range * Range -> Prop)",
+        "is_subrange <- x");
+
+__ghost(assert_inhabited, "x := arbitrary(Range -> int)", "range_count <- x");
 
 __ghost_ret in_range_extend() {
   __requires("x: int");
@@ -713,12 +740,12 @@ __ghost_ret group_split_pure() {
   __requires("items: int -> Prop");
   __requires("bound_check: in_range(split, range(start, stop, step))");
   __requires(
-      "forall (i: int) (_: in_range<i, range(start, stop, step)>) -> items(i)");
+      "forall (i: int) (_: in_range(i, range(start, stop, step))) -> items(i)");
   __ensures(
-      "forall (i: int) (_: in_range<i, range(start, split, step)>) -> "
+      "forall (i: int) (_: in_range(i, range(start, split, step))) -> "
       "items(i)");
   __ensures(
-      "forall (i: int) (_: in_range<i, range(split, stop, step)>) -> items(i)");
+      "forall (i: int) (_: in_range(i, range(split, stop, step))) -> items(i)");
   __admitted();
 }
 
@@ -971,14 +998,6 @@ __ghost_ret mindex3_contiguous_ro_rev() {
   __reverts(mindex3_contiguous_ro);
   __admitted();
 }
-
-__ghost_ret assert_eq() {
-  __requires("x: int");
-  __requires("y: int");
-  __requires("eq: __is_true(x == y)");
-}
-
-__ghost_ret assert_alias() {}
 
 int exact_div(int n, int b) {
   __pure();

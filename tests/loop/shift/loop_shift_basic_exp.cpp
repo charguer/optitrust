@@ -37,8 +37,9 @@ void seq_array() {
 void excl_array(int* t, int n) {
   __modifies("t ~> Matrix1(n)");
   __ghost(group_shift,
-          "start := 0, stop := n, step := 1, items := fun i -> &t[MINDEX1(n, "
-          "i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop := n + 2");
+          "start := 0, stop := n, step := 1, items := fun (i: int) -> "
+          "&t[MINDEX1(n, i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop "
+          ":= n + 2");
   for (int j = 0 + 2; j < n + 2; j++) {
     __strict();
     __xmodifies("&t[MINDEX1(n, j - 2)] ~> Cell");
@@ -47,6 +48,7 @@ void excl_array(int* t, int n) {
     t[MINDEX1(n, i)] += i;
   }
   __ghost(group_unshift,
-          "start := 0, stop := n, step := 1, items := fun i -> &t[MINDEX1(n, "
-          "i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop := n + 2");
+          "start := 0, stop := n, step := 1, items := fun (i: int) -> "
+          "&t[MINDEX1(n, i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop "
+          ":= n + 2");
 }
