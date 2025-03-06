@@ -69,9 +69,11 @@ let beta_reduce_on ?(body_mark : mark = no_mark) ?(subst_mark : mark = no_mark) 
     begin match tfun.desc with
     | Trm_fun (args, ret_ty, body, _) ->
       let fun_decl_arg_vars = fst (List.split args) in
-      let subst_map = Var_map.of_seq (Seq.append
-        (List.to_seq (List.map2 (fun dv cv -> (dv, (trm_add_mark subst_mark cv))) fun_decl_arg_vars fun_call_args))
-        (Seq.map (fun (g, f) -> (g, trm_add_mark subst_mark f)) (List.to_seq fun_ghost_args)))
+      let subst_map = List.fold_left (fun subst_map { hyp; inst_by } -> Var_map.add hyp inst_by subst_map) Var_map.empty (Option.map_or (fun invoc -> invoc.contract_inst.used_pure) [] t.ctx.ctx_resources_contract_invoc)
+      in
+      let subst_map = List.fold_left (fun subst_map (g, f) -> Var_map.add g (trm_add_mark subst_mark f) subst_map) subst_map fun_ghost_args
+      in
+      let subst_map = List.fold_left2 (fun subst_map dv cv -> Var_map.add dv (trm_add_mark subst_mark cv) subst_map) subst_map fun_decl_arg_vars fun_call_args
       in
       if !Flags.check_validity then begin
         Var_map.iter (fun _ arg_val ->
@@ -106,11 +108,11 @@ let inline_on ?(body_mark = no_mark) ?(subst_mark = no_mark) (t: trm): trm =
       begin match Internal.toplevel_decl f with
       | Some decl ->
         let _, _, fn_def = trm_inv trm_let_inv decl in
-        beta_reduce_on ~body_mark ~subst_mark (trm_apps fn_def fun_call_args ~ghost_args:fun_ghost_args ~ghost_bind:fun_ghost_bind)
+        beta_reduce_on ~body_mark ~subst_mark (trm_apps fn_def fun_call_args ~ghost_args:(fun_ghost_args) ~ghost_bind:fun_ghost_bind ~ctx:t.ctx)
       | _ -> trm_fail tfun (sprintf "Function_core.inline_on: couldn't find the toplevel decl for the targeted function call '%s'" (var_to_string f))
       end
     | Trm_fun _ -> beta_reduce_on ~body_mark ~subst_mark t
-    | _ -> trm_fail tfun "Function_core.inline_on: expected either a function call or a beta-redex"
+    | _ -> trm_fail tfun "Function_core.inline_on: expected either a function variable or a beta-redex"
     end
   | _ -> trm_fail t "Function_core.inline_on: expected a target to a function call"
 
