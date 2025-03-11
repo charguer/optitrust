@@ -1816,9 +1816,9 @@ let check_exit ~(line:int) : unit (* may not return *) =
    call to script_cpp, and obtaining the end position of this construction. *)
 let check_exit_at_end () : unit (* may not return *) =
   if  Flags.is_targetting_line() then begin
-    close_smallstep_if_needed();
     if !Flags.only_big_steps
-      then close_bigstep_if_needed();
+      then close_bigstep_if_needed()
+      else close_smallstep_if_needed();
     produce_output_and_exit()
   end
 

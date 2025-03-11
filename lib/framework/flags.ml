@@ -224,13 +224,15 @@ let string_to_steps_selector (s:string) : steps_selector =
   | "all" -> Steps_all
   | _ -> failwith "invalid step selector, should be one of 'none', 'script', 'important', 'effectful', 'all'"
 
-(* Options to control which steps are exported in the trace. *)
+(* Options to control which steps are exported in the trace.
+   Be careful that a step not exported cannot be viewed even in step diff mode. *)
 let save_steps : steps_selector option ref = ref None
 
 let get_save_steps (): steps_selector =
   match !save_steps with
   | Some save_steps -> save_steps
   | None when request_trace () -> Steps_all
+  | None when is_targetting_line () -> Steps_script
   | None -> Steps_none
 
 let process_save_steps (s: string) =
