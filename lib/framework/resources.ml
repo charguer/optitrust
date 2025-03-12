@@ -274,7 +274,7 @@ let minimize_loop_contract contract post_inst usage =
   let new_linear_invariant, added_par_reads = List.fold_right (fun (hyp, formula) (lin_inv, par_reads) ->
     match Var_map.find_opt hyp usage with
     | None -> (lin_inv, par_reads)
-    | Some (Required | Ensured | ArbitrarilyChosen) -> failwith "minimize_loop_contract: the linear resource %s is used like a pure resource" (var_to_string hyp)
+    | Some (Required | Ensured | ArbitrarilyChosen | Cleared) -> failwith "minimize_loop_contract: the linear resource %s is used like a pure resource" (var_to_string hyp)
     | Some (SplittedFrac | JoinedFrac) ->
       let { formula } = formula_read_only_inv_all formula in
       let frac_var, frac_ghost = new_frac () in
@@ -577,8 +577,8 @@ let collect_interferences (before : resource_usage_map) (after : resource_usage_
     match (a_res_usage, b_res_usage) with
     | _, None
     | None, _ -> None
-    | Some (Ensured | Produced | ConsumedFull | ConsumedUninit), _
-    | _, Some (Ensured | Produced | ConsumedFull | ConsumedUninit) -> Some (a_res_usage, b_res_usage)
+    | Some (Ensured | Cleared | Produced | ConsumedFull | ConsumedUninit), _
+    | _, Some (Ensured | Cleared | Produced | ConsumedFull | ConsumedUninit) -> Some (a_res_usage, b_res_usage)
     | _ -> None
   in
   Var_map.merge res_merge before after
@@ -646,14 +646,14 @@ let deletable (t : trm) : unit =
     match Var_map.find_opt h res_usage with
     | Some ConsumedFull -> trm_fail t "trm has self interfering resource usage"
     | Some ConsumedUninit -> true
-    | Some (SplittedFrac|JoinedFrac) | None -> false
-    | Some (Produced|Required|Ensured|ArbitrarilyChosen) -> trm_fail t "trm has invalid resource usage"
+    | Some (SplittedFrac | JoinedFrac) | None -> false
+    | Some (Produced | Required | Ensured | ArbitrarilyChosen | Cleared) -> trm_fail t "trm has invalid resource usage"
   ) res_before.linear in
   let res_produced = List.filter (fun (h, f) ->
     match Var_map.find_opt h res_usage with
     | Some Produced -> true
-    | Some (SplittedFrac|JoinedFrac) | None -> false
-    | Some (ConsumedFull|ConsumedUninit|Required|Ensured|ArbitrarilyChosen) -> trm_fail t "trm has invalid resource usage"
+    | Some (SplittedFrac | JoinedFrac) | None -> false
+    | Some (ConsumedFull | ConsumedUninit | Required | Ensured | ArbitrarilyChosen | Cleared) -> trm_fail t "trm has invalid resource usage"
   ) res_after.linear in
   ignore (Resource_computation.subtract_linear_resource_set res_produced res_used_uninit)
 
@@ -672,15 +672,15 @@ let assert_not_self_interfering (t : trm) : unit =
     match Var_map.find_opt h res_usage with
     | Some ConsumedFull -> trm_fail t "trm has self interfering resource usage"
     | Some ConsumedUninit -> true
-    | Some (SplittedFrac|JoinedFrac) | None -> false
-    | Some (Produced|Required|Ensured|ArbitrarilyChosen) -> trm_fail t "trm has invalid resource usage"
+    | Some (SplittedFrac | JoinedFrac) | None -> false
+    | Some (Produced | Required | Ensured | ArbitrarilyChosen | Cleared) -> trm_fail t "trm has invalid resource usage"
   ) res_before.linear in
   (* TODO: if res_used_uninit is empty, we should have a fast path to succeed *)
   let res_produced = List.filter (fun (h, f) ->
     match Var_map.find_opt h res_usage with
     | Some Produced -> true
-    | Some (SplittedFrac|JoinedFrac) | None -> false
-    | Some (ConsumedFull|ConsumedUninit|Required|Ensured|ArbitrarilyChosen) -> trm_fail t "trm has invalid resource usage"
+    | Some (SplittedFrac | JoinedFrac) | None -> false
+    | Some (ConsumedFull | ConsumedUninit | Required | Ensured | ArbitrarilyChosen | Cleared) -> trm_fail t "trm has invalid resource usage"
   ) res_after.linear in
   ignore (Resource_computation.subtract_linear_resource_set res_produced res_used_uninit)
 
@@ -702,7 +702,7 @@ let is_deletable (t : trm) : bool =
   let res_usage = usage_of_trm t in
   let is_ro (r:resource_usage) : bool =
     match r with
-    | SplittedFrac | JoinedFrac | Required -> true
+    | SplittedFrac | JoinedFrac | Required | Cleared -> true
     | Ensured | ArbitrarilyChosen | ConsumedFull | ConsumedUninit | Produced -> false
     in
   Var_map.fold (fun h usage deletable -> deletable && is_ro usage) (Var_map.remove Resource_computation.var_result res_usage) true
@@ -721,7 +721,7 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
   let res = usage_of_trm instr in
   let usage_interferes hyp res_usage =
     match res_usage with
-    | Required | Ensured | ArbitrarilyChosen | SplittedFrac | JoinedFrac -> false
+    | Required | Ensured | ArbitrarilyChosen | Cleared | SplittedFrac | JoinedFrac -> false
     | ConsumedFull | ConsumedUninit | Produced -> Var_map.mem hyp res
   in
   let instr_interference i t =

@@ -80,19 +80,29 @@ let ghost_scope ?(pair_name: string option) (ghost_call: ghost_call) (t: trm): t
   Nobrace.trm_seq_nomarks [ghost_begin; t; ghost_end]
 
 let ghost_begin_inv (t: trm): (var * ghost_call) option =
-  Pattern.pattern_match t [
+  Pattern.pattern_match_opt t [
     Pattern.(trm_let !__ __ (trm_apps1 (trm_specific_var var_ghost_begin) (trm_apps !__ nil !__ !__))) (fun pair_var ghost_fn ghost_args ghost_bind () ->
-      Some (pair_var, { ghost_fn; ghost_args; ghost_bind })
-    );
-    Pattern.__ (fun () -> None)
+      (pair_var, { ghost_fn; ghost_args; ghost_bind })
+    )
   ]
 
 let ghost_end_inv (t: trm): var option =
-  Pattern.pattern_match t [
-    Pattern.(trm_apps1 (trm_specific_var var_ghost_end) (trm_var !__)) (fun pair_var () -> Some pair_var);
-    Pattern.__ (fun () -> None)
+  Pattern.pattern_match_opt t [
+    Pattern.(trm_apps1 (trm_specific_var var_ghost_end) (trm_var !__)) (fun pair_var () -> pair_var);
   ]
 
+let var_clear = toplevel_var "__clear"
+let ghost_clear (x: var) =
+  void_when_resource_typing_disabled (fun () ->
+    trm_add_attribute GhostInstr (trm_apps (trm_var var_clear) [trm_var x])
+  )
+
+let ghost_clear_inv (t: trm) =
+  Pattern.pattern_match_opt t [
+    Pattern.(trm_apps1 (trm_specific_var var_clear) (trm_var !__)) (fun v () -> v)
+  ]
+
+(* This API for admitted is borken with usage ! Admitted should be only accepted inside contracts, and not anywhere in a sequence. *)
 let admitted ?(justif: trm option) (): trm =
   let ghost_args = match justif with
     | None -> []

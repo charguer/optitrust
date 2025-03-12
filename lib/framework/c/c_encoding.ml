@@ -758,6 +758,9 @@ let rec decode_ghost_annot (t: trm): trm =
           trm_alter ~annot:{t.annot with trm_annot_attributes = [GhostInstr]} ~desc:(Trm_apps (ghost_fn, [], ghost_args, ghost_bind)) t
         ]
       );
+    Pattern.(trm_apps (trm_var_with_name "__clear") (trm_string !__ ^:: __) __ __) (fun hyp_name () ->
+        trm_alter ~loc:t.loc (Resource_trm.ghost_clear (name_to_var hyp_name))
+      );
     Pattern.(trm_seq !__ !__) (fun seq result () -> trm_alter ~desc:(Trm_seq (Mlist.of_list (decode_ghost_annot_in_seq (Mlist.to_list seq)), result)) t);
     Pattern.__ (fun () -> trm_map decode_ghost_annot t)
   ]
@@ -847,6 +850,9 @@ let encode_ghost_annot (style: style) (t: trm) : trm =
         Pattern.(trm_let !__ !__ (trm_apps1 (trm_specific_var Resource_trm.var_ghost_begin) !(trm_apps !__ nil !__ !__))) (fun ghost_pair typ ghost_call ghost_fn ghost_args ghost_bind () ->
           let ghost_fn = aux ghost_fn in
           trm_like ~old:(trm_error_merge ~from:ghost_call t) (trm_let (ghost_pair, typ) (trm_apps (trm_var Resource_trm.var_ghost_begin) (ghost_fn :: ghost_args_and_bind_to_opt_args ghost_args ghost_bind)))
+        );
+        Pattern.(trm_apps1 !(trm_specific_var Resource_trm.var_clear) (trm_var !__)) (fun f v () ->
+          trm_like ~old:t (trm_apps f [trm_string (var_name v)])
         );
         Pattern.__ (fun () -> trm_map aux t)
       ]) seq in
@@ -1090,6 +1096,7 @@ let ctx_usage_map_to_strings res_used =
     | Required -> sprintf "%s" name
     | Ensured -> sprintf "Ensured %s" name
     | ArbitrarilyChosen -> sprintf "Arbitrary %s" name
+    | Cleared -> sprintf "Cleared %s" name
     | ConsumedFull -> sprintf "Full %s" name
     | ConsumedUninit -> sprintf "Uninit %s" name
     | SplittedFrac -> sprintf "Subfrac %s" name

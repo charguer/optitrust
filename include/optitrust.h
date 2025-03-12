@@ -16,6 +16,8 @@ inline void __reverts(__ghost_fn) {}
 
 #define __GHOST_BEGIN_CUSTOM(rev_ghost, forward_ghost, backward_ghost) __GHOST_BEGIN(rev_ghost, __with_reverse(forward_ghost, backward_ghost))
 
+inline __ghost_ret __clear(__ghost_args) {} // primitive to remove a pure fact from the context
+
 /* ---- Adding resources to context and checking assertions ---- */
 
 __GHOST(assert_inhabited) {

@@ -78,8 +78,11 @@ let update_usage (hyp: var) (current_usage: resource_usage option) (extra_usage:
   | Some Required, Some Required -> Some Required
   | Some Ensured, Some Required -> Some Ensured
   | Some ArbitrarilyChosen, Some Required -> Some ArbitrarilyChosen
+  | Some Required, Some Cleared -> Some Cleared
+  | Some (Ensured | ArbitrarilyChosen), Some Cleared -> None
   | Some (Required | ArbitrarilyChosen | Ensured), Some (Ensured | ArbitrarilyChosen) -> failwith "Ensured resource %s share id with another one" (var_to_string hyp)
-  | Some (Required | Ensured | ArbitrarilyChosen), _ | _, Some (Required | Ensured | ArbitrarilyChosen) ->
+  | Some Cleared, Some (Required | Ensured | ArbitrarilyChosen | Cleared) -> failwith "Pure resource %s used after beeing cleared" (var_to_string hyp)
+  | Some (Required | Ensured | ArbitrarilyChosen | Cleared), _ | _, Some (Required | Ensured | ArbitrarilyChosen | Cleared) ->
     failwith "Resource %s is used both as a pure and as a linear resource" (var_to_string hyp)
   | Some Produced, Some (ConsumedFull | ConsumedUninit) -> None
   | Some Produced, Some (SplittedFrac | JoinedFrac) -> Some Produced
@@ -986,7 +989,7 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
       post_modifs := Var_map.add hyp RemoveUnused !post_modifs;
       frame := (hyp, formula) :: !frame;
       None
-    | Some (Required | Ensured | ArbitrarilyChosen) -> failwith "minimize_linear_triple: the linear resource %s is used like a pure resource" (var_to_string hyp)
+    | Some (Required | Ensured | ArbitrarilyChosen | Cleared) -> failwith "minimize_linear_triple: the linear resource %s is used like a pure resource" (var_to_string hyp)
     | Some Produced -> failwith "minimize_linear_triple: Produced resource %s has the same id as a contract resource" (var_to_string hyp)
     | Some ConsumedFull -> Some (hyp, formula)
     | Some ConsumedUninit ->
@@ -1666,14 +1669,22 @@ let rec compute_resources
         end
 
       | Spec_not_found fn when var_eq fn Resource_trm.var_ghost_end ->
-        (* Calls the closure made by GHOST_BEGIN and removes it from the pure context to ensure good scoping. *)
+        (* Calls the closure made by GHOST_BEGIN and clears it from the pure context to ensure good scoping. *)
         Pattern.pattern_match effective_args [
           Pattern.(!(trm_var !__) ^:: nil) (fun fn fn_var () ->
             (* LATER: Maybe check that the variable is indeed introduced by __ghost_begin *)
             let usage_map, res = compute_resources (Some res) (trm_apps ~annot:referent fn []) in
-            usage_map, Option.map (fun res -> { res with fun_specs = Var_map.remove fn_var res.fun_specs }) res
+            Option.map (add_usage fn_var Cleared) usage_map, Option.map (Resource_set.remove_pure fn_var) res
           );
           Pattern.__ (fun () -> failwith "__ghost_end expects a single variable as argument")
+        ]
+
+      | Spec_not_found fn when var_eq fn Resource_trm.var_clear ->
+        Pattern.pattern_match effective_args [
+          Pattern.((trm_var !__) ^:: nil) (fun hyp () ->
+            Some (Var_map.singleton hyp Cleared), Some (Resource_set.remove_pure hyp res)
+          );
+          Pattern.__ (fun () -> failwith "__clear expects a single variable as argument")
         ]
 
       | Spec_not_found fn when var_eq fn Resource_trm.var_ghost_define ->
@@ -1797,8 +1808,8 @@ let rec compute_resources
               in
               match ut, ue with
               | (Some Required, (Some Required | None)) | (None, Some Required) -> Some Required
-              | (Some (Ensured | ArbitrarilyChosen) | None), (Some (Ensured | ArbitrarilyChosen) | None) -> None
-              | (Some (Required | Ensured | ArbitrarilyChosen), _) | (_, Some (Required | Ensured | ArbitrarilyChosen)) ->
+              | (Some (Ensured | ArbitrarilyChosen | Cleared) | None), (Some (Ensured | ArbitrarilyChosen | Cleared) | None) -> None
+              | (Some (Required | Ensured | ArbitrarilyChosen | Cleared), _) | (_, Some (Required | Ensured | ArbitrarilyChosen | Cleared)) ->
                 on_conflict "mixed in pure and linear"
               | (None, _) | (_, None) ->
                 on_conflict "consumed in a branch but not in the other"

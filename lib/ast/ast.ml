@@ -647,6 +647,7 @@ and resource_usage =
   | Required
   | Ensured
   | ArbitrarilyChosen
+  | Cleared
   | ConsumedFull
   | ConsumedUninit
   | SplittedFrac
@@ -969,6 +970,7 @@ let resource_usage_opt_to_string = function
 | Some Required -> "Required"
 | Some Ensured -> "Ensured"
 | Some ArbitrarilyChosen -> "ArbitrarilyChosen"
+| Some Cleared -> "ArbitrarilyChosen"
 | Some SplittedFrac -> "SplittedFrac"
 | Some ConsumedUninit -> "ConsumedUninit"
 | Some ConsumedFull -> "ConsumedFull"

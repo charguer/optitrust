@@ -10,6 +10,8 @@ __ghost_fn __with_reverse(__ghost_fn g, __ghost_fn g_rev) { return g; }
 
 void __reverts(__ghost_fn) {}
 
+__ghost_ret __clear(__ghost_args) {}
+
 __ghost_ret assert_inhabited() {
   __requires("T: Type");
   __requires("x: T");

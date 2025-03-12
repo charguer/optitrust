@@ -1,20 +1,22 @@
 #include <optitrust.h>
 
+__ghost(assert_inhabited, "x := arbitrary(int -> Prop)", "Triv <- x");
+
 __ghost_ret trivial_init() {
   __requires("k: int");
-  __ensures("__is_true(k == k)");
+  __ensures("Triv(k)");
   __admitted();
 }
 
 __ghost_ret trivial_change() {
   __requires("k: int");
   __requires("old_k: int");
-  __requires("__is_true(old_k == old_k)");
-  __ensures("__is_true(k == k)");
+  __requires("Triv(old_k)");
+  __ensures("Triv(k)");
   __admitted();
 }
 
-void req_triv(int k) { __requires("__is_true(k == k)"); }
+void req_triv(int k) { __requires("Triv(k)"); }
 
 void f() {
   __pure();

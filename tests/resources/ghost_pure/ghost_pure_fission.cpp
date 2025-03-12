@@ -1,19 +1,21 @@
 #include <optitrust.h>
 
+__DECL(Triv, "int -> Prop");
+
 __GHOST(trivial_init) {
   __requires("k: int");
-  __ensures("k = k");
+  __ensures("Triv(k)");
   __admitted();
 }
 
 __GHOST(trivial_change) {
-  __requires("k: int, old_k: int, old_k = old_k");
-  __ensures("k = k");
+  __requires("k: int, old_k: int, Triv(old_k)");
+  __ensures("Triv(k)");
   __admitted();
 }
 
 void req_triv(int k) {
-  __requires("k = k");
+  __requires("Triv(k)");
 }
 
 void f() {

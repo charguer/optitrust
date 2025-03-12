@@ -1919,6 +1919,12 @@ let trm_subst
 let trm_subst_var (x : var) (u : trm) (t : trm) =
   trm_subst (Var_map.singleton x u) t
 
+(** [trm_vars_subst s t]: rename variables inside [t] according to the substitution map [s] *)
+let trm_vars_subst (subst_map: var varmap) (t: trm) =
+  trm_rename_vars (fun () x -> match Var_map.find_opt x subst_map with
+    | Some y -> y
+    | None -> x) () t
+
 (* The value associated with an existential variable (evar).
    It is generic over the type of information stored when the value is unknown. *)
 type 'a evar_resolution =
