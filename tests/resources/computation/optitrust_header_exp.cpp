@@ -261,7 +261,7 @@ __ghost_ret ro_fork_group() {
   __requires("H: HProp");
   __requires("r: Range");
   __consumes("_RO(f, H)");
-  __produces("_RO(f / range_count(r), for _ in r -> H)");
+  __produces("_RO(f / range_count(r), for #_1 in r -> H)");
   __admitted();
 }
 

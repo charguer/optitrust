@@ -274,7 +274,7 @@ let trm_step_one = trm_step_one_post
 type ghost_call = {
   ghost_fn: trm;
   ghost_args: (var * formula) list;
-  ghost_bind: (var * var) list;
+  ghost_bind: (var option * var) list;
 }
 
 let trm_ghost_force ({ ghost_fn; ghost_args; ghost_bind } : ghost_call): trm =
@@ -1634,7 +1634,12 @@ let trm_map_vars_ret_ctx
       let args' = List.map (fun arg -> snd (f_map ctx arg)) args in
       let ghost_args' = List.map (fun (g, t) -> (g, snd (f_map ctx t))) ghost_args in
       let ctx, ghost_bind' = List.fold_left_map (fun ctx (bound_var, contract_var) ->
-        let ctx, new_bound_var = map_binder ctx bound_var false in
+        let ctx, new_bound_var = match bound_var with
+          | Some x ->
+            let ctx, new_bound_var = map_binder ctx x false in
+            ctx, Some new_bound_var
+          | None -> ctx, None
+        in
         ctx, (new_bound_var, contract_var)) ctx ghost_bind in
       begin match func'.desc, enter_beta_redex with
       | Trm_fun (params, _, body, FunSpecUnknown), Some enter_beta_redex ->

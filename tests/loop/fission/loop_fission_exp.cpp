@@ -239,7 +239,7 @@ void specialize_one_fork() {
     __requires("#_1: _Fraction");
     __xconsumes("_RO(#_1, &x ~> Cell)");
     __xproduces(
-        "_RO(#_1 / 2 / range_count(0..5), for _ in 0..5 -> &x ~> Cell)");
+        "_RO(#_1 / 2 / range_count(0..5), for #_2 in 0..5 -> &x ~> Cell)");
     __xproduces("_RO(#_1 / 2, &x ~> Cell)");
     __ghost(ro_split2, "f := #_1, H := &x ~> Cell");
     __ghost(ro_fork_group, "f := #_1 / 2, H := &x ~> Cell, r := 0..5");
@@ -248,7 +248,7 @@ void specialize_one_fork() {
     __strict();
     __requires("#_1: _Fraction");
     __xconsumes(
-        "_RO(#_1 / 2 / range_count(0..5), for _ in 0..5 -> &x ~> Cell)");
+        "_RO(#_1 / 2 / range_count(0..5), for #_2 in 0..5 -> &x ~> Cell)");
     __xconsumes("_RO(#_1 / 2, &x ~> Cell)");
     __xproduces("_RO(#_1, &x ~> Cell)");
     __ghost(ro_allow_join2, "f := #_1, H := &x ~> Cell");
@@ -272,9 +272,9 @@ void specialize_two_forks() {
     __requires("#_1: _Fraction");
     __xconsumes("_RO(#_1, &x ~> Cell)");
     __xproduces(
-        "_RO(#_1 / 3 / range_count(0..5), for _ in 0..5 -> &x ~> Cell)");
+        "_RO(#_1 / 3 / range_count(0..5), for #_2 in 0..5 -> &x ~> Cell)");
     __xproduces(
-        "_RO(#_1 / 3 / range_count(0..5), for _ in 0..5 -> &x ~> Cell)");
+        "_RO(#_1 / 3 / range_count(0..5), for #_3 in 0..5 -> &x ~> Cell)");
     __xproduces("_RO(#_1 / 3, &x ~> Cell)");
     __ghost(ro_split3, "f := #_1, H := &x ~> Cell");
     __ghost(ro_fork_group, "f := #_1 / 3, H := &x ~> Cell, r := 0..5");
@@ -284,9 +284,9 @@ void specialize_two_forks() {
     __strict();
     __requires("#_1: _Fraction");
     __xconsumes(
-        "_RO(#_1 / 3 / range_count(0..5), for _ in 0..5 -> &x ~> Cell)");
+        "_RO(#_1 / 3 / range_count(0..5), for #_2 in 0..5 -> &x ~> Cell)");
     __xconsumes(
-        "_RO(#_1 / 3 / range_count(0..5), for _ in 0..5 -> &x ~> Cell)");
+        "_RO(#_1 / 3 / range_count(0..5), for #_3 in 0..5 -> &x ~> Cell)");
     __xconsumes("_RO(#_1 / 3, &x ~> Cell)");
     __xproduces("_RO(#_1, &x ~> Cell)");
     __ghost(ro_allow_join3, "f := #_1, H := &x ~> Cell");
@@ -311,9 +311,9 @@ void specialize_two_forks_twice() {
     __requires("#_1: _Fraction");
     __xconsumes("_RO(#_1, &x ~> Cell)");
     __xproduces(
-        "_RO(#_1 / 2 / 2 / range_count(0..5), for _ in 0..5 -> &x ~> Cell)");
+        "_RO(#_1 / 2 / 2 / range_count(0..5), for #_2 in 0..5 -> &x ~> Cell)");
     __xproduces(
-        "_RO(#_1 / 2 / range_count(0..5), for _ in 0..5 -> &x ~> Cell)");
+        "_RO(#_1 / 2 / range_count(0..5), for #_3 in 0..5 -> &x ~> Cell)");
     __xproduces("_RO(#_1 / 2 / 2, &x ~> Cell)");
     __ghost(ro_split2, "f := #_1, H := &x ~> Cell");
     __ghost(ro_split2, "f := #_1 / 2, H := &x ~> Cell");
@@ -324,7 +324,7 @@ void specialize_two_forks_twice() {
     __strict();
     __requires("#_1: _Fraction");
     __xconsumes(
-        "_RO(#_1 / 2 / 2 / range_count(0..5), for _ in 0..5 -> &x ~> Cell)");
+        "_RO(#_1 / 2 / 2 / range_count(0..5), for #_2 in 0..5 -> &x ~> Cell)");
     __xconsumes("_RO(#_1 / 2 / 2, &x ~> Cell)");
     __xproduces("_RO(#_1 / 2, &x ~> Cell)");
     __ghost(ro_allow_join2, "f := #_1 / 2, H := &x ~> Cell");

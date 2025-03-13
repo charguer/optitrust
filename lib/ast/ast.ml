@@ -261,7 +261,7 @@ and trm_desc =
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm  (* if (x > 0) {x += 1} else{x -= 1} *)
   | Trm_seq of trm mlist * var option (* { st1; st2; st3; x } the optional variable (x) acts as the result value of the sequence *)
-  | Trm_apps of trm * trm list * resource_item list * ((var * var) list) (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2", "out <- a")*)
+  | Trm_apps of trm * trm list * resource_item list * ((var option * var) list) (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2", "out <- a")*)
   | Trm_for of loop_range * trm * loop_contract
   | Trm_for_c of trm * trm * trm * trm * resource_set option (* TODO: Remove from here and desugar into while *)
   | Trm_while of trm * trm     (* while (t1) { t2 } *) (* TODO: Add resource_set invariant *)

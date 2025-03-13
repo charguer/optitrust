@@ -51,7 +51,7 @@ let trm_seq (instrs: 'a -> trm mlist -> 'b) (result: 'b -> var option -> 'c) (k:
     k
   | None -> raise Next
 
-let trm_apps (fn: 'a -> trm -> 'b) (args: 'b -> trm list -> 'c) (ghost_args: 'c -> resource_item list -> 'd) (ghost_bind: 'd -> (var * var) list -> 'e) (k: 'a) (t: trm): 'e =
+let trm_apps (fn: 'a -> trm -> 'b) (args: 'b -> trm list -> 'c) (ghost_args: 'c -> resource_item list -> 'd) (ghost_bind: 'd -> (var option * var) list -> 'e) (k: 'a) (t: trm): 'e =
   match t.desc with
   | Trm_apps (f, a, ga, gb) ->
     let k = fn k f in

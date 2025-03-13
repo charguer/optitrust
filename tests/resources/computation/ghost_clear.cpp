@@ -49,3 +49,10 @@ void clear_in_lambda() {
   };
   req_triv(0);
 }
+
+void bind_clear(int k) {
+  __pure();
+  __ASSERT(_, "k = k");
+  __ASSERT(refl_k, "k = k");
+  __ASSERT(_, "k = k");
+}

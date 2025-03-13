@@ -710,29 +710,48 @@ let assert_resource_impl (res_from: resource_set) (res_to: resource_set) : used_
 let compute_produced_resources (subst_ctx: tmap) ?(ensured_renaming = Var_map.empty) (contract_post: resource_set)
   : produced_resource_set =
   (* LATER: Manage higher order returned function *)
-  let ensured_renaming = Var_map.add var_result var_result ensured_renaming in
-  let (contract_hyp_names, subst_ctx, aliases), pure =
-    List.fold_left_map (fun (contract_names, subst_ctx, aliases) (h, formula) ->
-        let produced_hyp = Option.unsome_or_else (Var_map.find_opt h ensured_renaming) new_anon_hyp in
-        let contract_names = Var_map.add produced_hyp h contract_names in
-        let produced_formula = trm_subst subst_ctx formula in
-        let aliases = match Var_map.find_opt h contract_post.aliases with
-          | Some alias -> Var_map.add produced_hyp (trm_subst subst_ctx alias) aliases
-          | None -> aliases
-        in
-        let subst_ctx = if var_eq h var_result then subst_ctx else Var_map.add h (trm_var produced_hyp) subst_ctx in
-        (contract_names, subst_ctx, aliases), (produced_hyp, produced_formula)
-      ) (Var_map.empty, subst_ctx, Var_map.empty) contract_post.pure
+  let ensured_renaming = Var_map.add var_result (Some var_result) ensured_renaming in
+  let exception ClearedVarOccurence of var in
+  let trm_subst = trm_subst ~on_subst:(fun old_v t ->
+    match trm_var_inv t with
+    | Some v when var_eq v dummy_var ->
+      let old_v = trm_inv trm_var_inv old_v in
+      raise (ClearedVarOccurence old_v)
+    | _ -> t
+  ) in
+  let pure_rev, contract_hyp_names, subst_ctx, aliases =
+    List.fold_left (fun (pure_rev, contract_names, subst_ctx, aliases) (h, formula) ->
+        let produced_hyp = Option.unsome_or_else (Var_map.find_opt h ensured_renaming) (fun () -> Some (new_anon_hyp ())) in
+        match produced_hyp with
+        | Some produced_hyp ->
+          begin try
+            let contract_names = Var_map.add produced_hyp h contract_names in
+            let produced_formula = trm_subst subst_ctx formula in
+            let aliases = match Var_map.find_opt h contract_post.aliases with
+              | Some alias -> Var_map.add produced_hyp (trm_subst subst_ctx alias) aliases
+              | _ -> aliases
+            in
+            let subst_ctx = if var_eq h var_result then subst_ctx else Var_map.add h (trm_var produced_hyp) subst_ctx in
+            (produced_hyp, produced_formula) :: pure_rev, contract_names, subst_ctx, aliases
+          with ClearedVarOccurence _ ->
+            pure_rev, contract_names, Var_map.add h (trm_var dummy_var) subst_ctx, aliases
+          end
+        | _ ->
+          pure_rev, contract_names, Var_map.add h (trm_var dummy_var) subst_ctx, aliases
+      ) ([], Var_map.empty, subst_ctx, Var_map.empty) contract_post.pure
   in
   let contract_hyp_names, linear =
     List.fold_left_map (fun contract_names (h, formula) ->
-      let produced_hyp = new_anon_hyp () in
-      let contract_names = Var_map.add produced_hyp h contract_names in
-      let produced_formula = trm_subst subst_ctx formula in
-      contract_names, (produced_hyp, produced_formula)
+      try
+        let produced_hyp = new_anon_hyp () in
+        let contract_names = Var_map.add produced_hyp h contract_names in
+        let produced_formula = trm_subst subst_ctx formula in
+        contract_names, (produced_hyp, produced_formula)
+      with ClearedVarOccurence x ->
+        failwith "Produced resources depend on variable '%s' which is set to be cleared" (var_to_string x)
     ) contract_hyp_names contract_post.linear
   in
-  let produced_res = { pure; linear; aliases; fun_specs = Var_map.empty; struct_fields = Var_map.empty; } in
+  let produced_res = { pure = List.rev pure_rev; linear; aliases; fun_specs = Var_map.empty; struct_fields = Var_map.empty; } in
   { produced_res; contract_hyp_names }
 
 (** Internal type to represent RO formula frac wands. *)
@@ -1696,7 +1715,7 @@ let rec compute_resources
         List.iter (fun (arg, value) -> if arg.name = "x" then def := Some value) ghost_args;
         let def = Option.unsome ~error:"Missing definition in ghost define" !def in
         let out_var = match ghost_bind with
-          | [var, contract_var] when contract_var.name = "x" -> var
+          | [Some var, contract_var] when contract_var.name = "x" -> var
           | _ -> failwith "Invalid output variable in ghost define"
         in
         let res = Resource_set.add_alias out_var def res in

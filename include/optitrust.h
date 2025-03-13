@@ -25,11 +25,11 @@ __GHOST(assert_inhabited) {
   __requires("T: Type, x: T");
   __ensures("x: T");
 }
-#define __DECL(name, type) __GHOST_CALL(name, assert_inhabited, "x:=arbitrary(" type ")", #name "<-x")
+#define __DECL(name, type) __ghost(assert_inhabited, "x:=arbitrary(" type ")", #name "<-x")
 
 inline __ghost_ret define() {} // need to be builtin until we handle aliases in post-conditions
-#define __DEF(name, def) __GHOST_CALL(name, define, "x:=" def, #name "<-x")
-#define __DEF_TYPED(name, type, def) __GHOST_CALL(name, define, "T:=" type ", x:=" def, #name "<-x")
+#define __DEF(name, def) __ghost(define, "x:=" def, #name "<-x")
+#define __DEF_TYPED(name, type, def) __ghost(define, "T:=" type ", x:=" def, #name "<-x")
 
 // asserts that a property is true to generate a new pure proposition
 __GHOST(assert_prop) {
@@ -37,9 +37,9 @@ __GHOST(assert_prop) {
   __ensures("proof: P");
 }
 
-#define __ASSERT(name, prop) __GHOST_CALL(name, assert_prop, "P:=" prop, #name "<-proof")
-#define __PROOF_OF(name, prop, proof) __GHOST_CALL(name, assert_prop, "P:=" prop ", proof:=" proof, #name "<-proof")
-#define __PROOF(name, proof) __GHOST_CALL(name, assert_prop, "proof:=" proof, #name "<-proof")
+#define __ASSERT(name, prop) __ghost(assert_prop, "P:=" prop, #name "<-proof")
+#define __PROOF_OF(name, prop, proof) __ghost(assert_prop, "P:=" prop ", proof:=" proof, #name "<-proof")
+#define __PROOF(name, proof) __ghost(assert_prop, "proof:=" proof, #name "<-proof")
 #define __AXIOM(name, prop) __PROOF(name, "admit(" prop ")")
 // LATER: classify admit: user_admit(P), trust_transfo(P), tactic("tac"), interactive(P)
 

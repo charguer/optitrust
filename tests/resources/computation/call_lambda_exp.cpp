@@ -4,7 +4,7 @@ __ghost_ret freeze_cell() {
   __requires("T: Type");
   __requires("p: ptr(T)");
   __consumes("p ~> Cell");
-  __produces("for _ in 0..1 -> p ~> Cell");
+  __produces("for #_1 in 0..1 -> p ~> Cell");
   __admitted();
 }
 
@@ -27,7 +27,7 @@ void f() {
   const __ghost_fn pair = __ghost_begin(__with_reverse(
       [&]() {
         __consumes("&x ~> Cell");
-        __produces("for _ in 0..1 -> &x ~> Cell");
+        __produces("for #_1 in 0..1 -> &x ~> Cell");
         __ghost(freeze_cell, "p := &x");
       },
       [&]() { __ghost(unfreeze_cell, "p := &x"); }));

@@ -811,7 +811,11 @@ let encode_ghost_annot (style: style) (t: trm) : trm =
       trm_string (String.concat ", " (List.map (fun (ghost_var, ghost_formula) -> sprintf "%s := %s" (var_name ghost_var) (formula_to_string style ghost_formula)) ghost_args))
     in
     let ghost_bind_to_trm_string ghost_bind =
-      trm_string (String.concat ", " (List.map (fun (bound_var, contract_var) -> sprintf "%s <- %s" (var_name bound_var) (var_name contract_var)) ghost_bind))
+      let bound_var_name var = match var with
+        | Some var -> var_name var
+        | None -> "_"
+      in
+      trm_string (String.concat ", " (List.map (fun (bound_var, contract_var) -> sprintf "%s <- %s" (bound_var_name bound_var) (var_name contract_var)) ghost_bind))
     in
     let ghost_args_and_bind_to_opt_args ghost_args ghost_bind =
       if ghost_bind = [] then

@@ -25,7 +25,7 @@
 %token <string> IDENT
 %token <int> INT_LIT
 %token LPAR RPAR LBRACKET RBRACKET
-%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW COLON_EQUAL REV_ARROW DOT DOTDOT
+%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW COLON_EQUAL REV_ARROW DOT DOTDOT UNDERSCORE
 %token FUN FORALL FOR IN EOF
 %token PLUS MINUS STAR SLASH PERCENT
 %token EQUAL LT GT LEQ GEQ NEQ
@@ -34,7 +34,7 @@
 
 %start <contract_resource_item list> resource_list
 %start <resource_item list> ghost_arg_list
-%start <(var * var) list> ghost_bind
+%start <(var option * var) list> ghost_bind
 
 %%
 
@@ -122,11 +122,17 @@ formula_arrow:
   | a=formula_cmp;
     { a }
 
-fun_arg:
+binder:
   | x=IDENT
-    { (name_to_var x, typ_auto) }
-  | LPAR; x=IDENT; COLON; typ=formula; RPAR
-    { (name_to_var x, typ) }
+    { name_to_var x }
+  | UNDERSCORE
+    { new_anon_hyp () }
+
+fun_arg:
+  | x=binder
+    { (x, typ_auto) }
+  | LPAR; x=binder; COLON; typ=formula; RPAR
+    { (x, typ) }
 
 formula:
   | f=formula_arrow;
@@ -137,10 +143,10 @@ formula:
     { formula_fun args body }
   | FORALL; args=nonempty_list(fun_arg); ARROW; body=formula;
     { typ_pure_fun args body }
-  | FORALL; index=IDENT; IN; range=formula_cmp; ARROW; body=formula;
-    { formula_forall_in (name_to_var index) range body }
-  | FOR; index=IDENT; IN; range=formula_cmp; ARROW; body=formula;
-    { formula_group (name_to_var index) range body }
+  | FORALL; index=binder; IN; range=formula_cmp; ARROW; body=formula;
+    { formula_forall_in index range body }
+  | FOR; index=binder; IN; range=formula_cmp; ARROW; body=formula;
+    { formula_group index range body }
 
 resource:
   | f=formula
@@ -162,9 +168,13 @@ ghost_arg_list:
 
 single_ghost_bind:
   | bound_var=IDENT; REV_ARROW; contract_var=IDENT
-    { (name_to_var bound_var, name_to_var contract_var) }
+    { (Some (name_to_var bound_var), name_to_var contract_var) }
   | bound_var=IDENT
-    { (name_to_var bound_var, dummy_var) }
+    { (Some (name_to_var bound_var), dummy_var) }
+  | UNDERSCORE; REV_ARROW; contract_var=IDENT
+    { (None, name_to_var contract_var) }
+  | UNDERSCORE
+    { (None, dummy_var) }
 
 ghost_bind:
   | ghost_bind=separated_list(COMMA, single_ghost_bind); EOF { ghost_bind }
