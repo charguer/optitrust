@@ -28,14 +28,39 @@ It takes about 30 minutes to install the required OCaml software.
 Installation of system packages:
 
 ```sh
-   sudo apt-get install opam clang clang-format libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev
+   sudo apt-get install libomp-dev pkg-config zlib1g-dev
    # for C++ headers support:
    sudo apt-get install libc++-dev
-   # optional, only if you prefer using `meld` over `code -d`:
+   # optional, only if you prefer using `meld` over `code -d` for viewing diffs:
    sudo apt-get install meld
 ```
 
-Installation of OCaml ecosystem:
+Install Clang 17. IMPORTANT: later versions are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang clang-format libclang-dev llvm-dev`). You can try this procedure:
+
+```
+  wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
+  sudo add-apt-repository "deb http://apt.llvm.org/oracular/ llvm-toolchain-oracular-17 main"
+  sudo apt install clang-17 clang-tools-17 clang-17-doc libclang-common-17-dev libclang-17-dev libclang1-17 clang-format-17 clangd-17 libc++-17-dev libfuzzer-17-dev lldb-17 lld-17 libc++abi-17-dev
+```
+
+ Alternatively, you can try the automatic installation script, described on `https://ubuntuhandbook.org/index.php/2023/09/how-to-install-clang-17-or-16-in-ubuntu-22-04-20-04/`.
+
+```
+  wget https://apt.llvm.org/llvm.sh
+  chmod u+x llvm.sh
+  sudo ./llvm.sh 17
+  # check:   clang-17 --version
+  # removal: sudo apt remove --autoremove clang-17 lldb-17 lld-17 clangd-17
+```
+
+Installation of Opam, the OCaml package manager (don't use `sudo apt-get install opam` as it might give you an out of date version).
+The following one-liner is advertised on `https://opam.ocaml.org/doc/Install.html`.
+
+```
+  bash -c "sh <(curl -fsSL https://opam.ocaml.org/install.sh)"
+```
+
+Installation of the opam switch with relevant packages:
 
 ```sh
    opam init
@@ -51,6 +76,8 @@ Installation of OCaml ecosystem:
    # then in any case execute the last line below
    eval $(opam env)
 ```
+
+ Note: clangml 4.8.0 is from Sept 2022.
 
 ### Install precommit hooks
 
