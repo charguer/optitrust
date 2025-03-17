@@ -99,7 +99,7 @@ let%transfo minimize_all_in_seq (tg : target) : unit =
 let fission_at (mark_between : mark) (split_i : int) (seq : trm) : trm =
   let error = "Ghost_pair.fission_at: expected sequence" in
   let instrs, result = trm_inv ~error trm_seq_inv seq in
-  let tl1, tl2 = Mlist.split split_i instrs in
+  let tl1, middle_marks, tl2 = Mlist.split_on_marks split_i instrs in
 
   (* 1. Find all scope begins before split point. *)
   let begins_stack = ref [] in
@@ -138,7 +138,7 @@ let fission_at (mark_between : mark) (split_i : int) (seq : trm) : trm =
   let tl2' = Mlist.map (trm_subst !subst_after_split) tl2 in
 
   (* 4. Construct resulting sequence. *)
-  trm_seq_helper ~annot:seq.annot ?loc:seq.loc ?result [TrmMlist tl1; TrmList ends; Mark mark_between; TrmList begins; TrmMlist tl2']
+  trm_seq_helper ~annot:seq.annot ?loc:seq.loc ?result [TrmMlist tl1; TrmList ends; Mark mark_between; MarkList middle_marks; TrmList begins; TrmMlist tl2']
 
 (** Distributes the scope of ghost pairs at the targeted sequence interstice. *)
 let%transfo fission ?(mark_between : mark = no_mark) (tg : target) : unit =

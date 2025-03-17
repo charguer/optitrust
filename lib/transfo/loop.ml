@@ -29,6 +29,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     let (_, p_outer_seq) = Path.index_in_seq p_loop in
 
     let m_between = next_mark () in
+    let m_clears = next_mark () in
     if i = 0 then
       Marks.add m_between [cPath p_loop; tBefore]
     else if i = Mlist.length loop_body_instrs then
@@ -37,7 +38,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
       let m_interstice = if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
         let m = next_mark () in
         Ghost_pair.fission ~mark_between:m (target_of_path p_interstice);
-        Ghost_pure.fission [cPath p_loop_body; cMark m];
+        Ghost_pure.fission ~mark_clears:m_clears [cPath p_loop_body; cMark m];
         Ghost_pure.minimize_all_in_seq (target_of_path p_loop_body);
         Resources.specialize_arbitrary_fracs [cPath p_loop_body; cMark m];
         m
@@ -50,6 +51,8 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
       if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
         Ghost_pair.minimize_all_in_seq [nbExact 2; cPath p_outer_seq; cMark m_loops; dBody];
         Resources.loop_minimize [nbExact 2; cPath p_outer_seq; cMark m_loops];
+        Ghost_pure.remove_clears m_clears [occFirst; cPath p_outer_seq; cMark m_loops; dBody];
+        delete_if_void [nbExact 2; cPath p_outer_seq; cMark m_loops]
       end;
     end;
 
@@ -247,7 +250,7 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
       let instr_mark = next_m () in
       Trace.step ~kind:Step_group ~name:(sprintf "%d. move out" i) (fun () ->
       Marks.add instr_mark (target_of_path p);
-      Instr.move_in_seq ~dest:[tFirst] (target_of_path p);
+      Instr_basic.move ~dest:[tFirst] (target_of_path p);
       Loop_basic.move_out ~loop_mark [cMark instr_mark]; (* TODO: use Loop.move_out that includes minimize? *)
       if !Flags.check_validity then Resources.loop_minimize [cMark loop_mark];
       );

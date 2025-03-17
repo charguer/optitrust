@@ -30,7 +30,7 @@ let intro_at (mark : string) (label : label) (index : int) (nb : int) (t : trm) 
   let tl, result = trm_inv ~error trm_seq_inv t in
   let index, nb = if nb < 0 then (index + nb + 1, -nb) else (index, nb) in
   let tl_before, tl_rest = Mlist.split index tl in
-  let tl_seq, tl_after = Mlist.split nb tl_rest in
+  let tl_seq, tl_after = Mlist.split ~left_bias:false nb tl_rest in
   if !Flags.check_validity then begin
     Scope.assert_no_interference ~after_what:"the new sequence" ~on_interference:"out of scope" tl_seq tl_after;
     Trace.justif "local variables are not used after the new sequence"
@@ -112,7 +112,7 @@ let split_at (index : int) (is_fun_body : bool) (t : trm) : trm =
   let error = "Sequence_core.split_at: expected a sequence, containing the location where it is going to be splitted." in
   let tl, result = trm_inv ~error trm_seq_inv t in
   if Option.is_some result then failwith "Sequence_core.split_at: cannot split a sequence with return value";
-  let first_part, last_part = Mlist.split index tl in
+  let first_part, _, last_part = Mlist.split_on_marks index tl in
   let res =
     trm_seq_nobrace_nomarks [trm_seq first_part; trm_seq last_part] in
   if is_fun_body then trm_seq ~annot:t.annot (Mlist.of_list [res]) else res

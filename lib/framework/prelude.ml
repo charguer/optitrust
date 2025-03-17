@@ -29,6 +29,7 @@ type seq_component =
   | TrmList of trm list
   | TrmMlist of trm mlist
   | Mark of mark
+  | MarkList of mark list
   | SeqComponents of seq_component list
 
 let trm_seq_helper ?(annot : trm_annot option) ?(loc : location) ?(result: var option) ?(braces = true) (components: seq_component list) : trm =
@@ -39,6 +40,7 @@ let trm_seq_helper ?(annot : trm_annot option) ?(loc : location) ?(result: var o
     | TrmMlist tml -> Mlist.merge tml acc
     | Mark "" -> acc
     | Mark m -> Mlist.insert_mark_at 0 m acc
+    | MarkList ms -> Mlist.insert_marks_at 0 ms acc
     | SeqComponents cs -> aux cs acc
   ) cs acc in
   let mlist = aux components Mlist.empty in

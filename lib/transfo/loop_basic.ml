@@ -289,7 +289,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
     trm_for_inv t
   in
   let tl, _ = trm_inv trm_seq_inv t_seq in
-  let tl1, tl2 = Mlist.split index tl in
+  let tl1, _, tl2 = Mlist.split_on_marks index tl in
   let fst_contract, snd_contract =
     if not !Flags.check_validity then
       empty_loop_contract, empty_loop_contract
@@ -643,7 +643,7 @@ type empty_range_mode =
     [t] - ast of the for loop.
   *)
 let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range_mode) (trm_index : int) (t : trm) : trm =
-  if (trm_index <> 0) then failwith "Loop_basic.move_out: not targeting the first instruction in a loop";
+  if (trm_index <> 0) then failwith "Loop_basic.move_out: not targeting the first instruction in a loop (got %d instead)" trm_index;
   let error = "Loop_basic.move_out: expected for loop" in
   let (range, body, contract) = trm_inv ~error trm_for_inv t in
   let instrs, _ = trm_inv ~error trm_seq_inv body in
@@ -1166,5 +1166,17 @@ let%transfo delete_void (tg : target) : unit =
       | None ->
         let loop_t = Target.resolve_path p in
         trm_fail loop_t "Loop_basic.delete_void: expected a simple loop with empty body, surrounded by a sequence"
+    ) p_seq
+  ) tg
+
+(** [delete_if_void]: deletes a loop if it has an empty body. *)
+let%transfo delete_if_void (tg : target) : unit =
+  Trace.justif_always_correct ();
+  Target.iter (fun p ->
+    let (i, p_seq) = Path.index_in_seq p in
+    apply_at_path (fun t_seq ->
+      match delete_void_on i t_seq with
+      | Some t -> t
+      | None -> t_seq
     ) p_seq
   ) tg

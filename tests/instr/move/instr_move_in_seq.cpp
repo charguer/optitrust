@@ -10,20 +10,22 @@ void pair(int* M) {
   __GHOST_END(f);
 }
 
+__DECL(Triv, "int -> Prop");
+
 __GHOST(trivial_init) {
   __requires("k: int");
-  __ensures("k = k");
+  __ensures("triv: Triv(k)");
   __admitted();
 }
 
 __GHOST(trivial_change) {
-  __requires("k: int, old_k: int, old_k = old_k");
-  __ensures("k = k");
+  __requires("k: int, old_k: int, old_triv: Triv(old_k)");
+  __ensures("triv: Triv(k)");
   __admitted();
 }
 
 void req_triv(int k) {
-  __requires("k = k");
+  __requires("triv: Triv(k)");
 }
 
 void pure_facts() {

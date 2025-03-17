@@ -200,9 +200,9 @@ void ghost_pure(int m, int n) {
     ensures_not_ghost(5);
     ensures_not_ghost(6);
     ensures_not_ghost(7);
-    __ghost(ensures_pure, "n := 1");
+    __ghost(ensures_pure, "n := 1", "#_1 <- #202");
     requires_pure(1);
-    __ghost(ensures_pure, "n := 3");
+    __ghost(ensures_pure, "n := 3", "#_2 <- #202");
     requires_pure(3);
   }
   for (int i = 0; i < m; i++) {
@@ -213,9 +213,9 @@ void ghost_pure(int m, int n) {
   split:
     __ghost(ensures_pure, "n := 2");
     requires_pure(2);
-    __ghost(ensures_pure, "n := 3");
+    __ghost(ensures_pure, "n := 3", "#_3 <- #202");
     requires_pure(3);
-    __ghost(ensures_pure, "n := 4");
+    __ghost(ensures_pure, "n := 4", "#_4 <- #202");
     requires_pure(4);
     requires_pure(5);
     requires_pure(6);
