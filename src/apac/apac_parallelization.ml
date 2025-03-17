@@ -709,15 +709,18 @@ let place_barriers_on (p : path) (t : trm) : unit =
                 task candidate graphs, if any, as well as the dependencies on
                 new variables. Indeed, a variable must not appear in a pragma
                 before being declared. We process the task candidates in nested
-                task candidate graphs separately through a recurive call to this
-                function (see below). *)
+                task candidate graphs separately through a recursive call to
+                this function (see below). *)
             let temp = Task.copy t in
-            temp.ins <- if t.children <> [[]] then
+            let children =
+              List.exists (fun e -> (List.length e) > 0) t.children
+            in
+            temp.ins <- if children then
                           Dep_set.filter (fun d ->
                               Dep_map.has_with_attribute d Condition t.ioattrs
                             ) t.ins
                         else t.ins;
-            temp.inouts <- if t.children <> [[]] then
+            temp.inouts <- if children then
                              Dep_set.filter (fun d ->
                                  (Dep_map.has_with_attribute
                                     d Condition t.ioattrs)
@@ -944,9 +947,10 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
                    ) t.ins in
       let sync = Dep_set.to_list sync in
       let sync = if (List.length sync) < 1 then [] else [Depend [In sync]] in
+      let children = List.exists (fun e -> (List.length e) > 0) t.children in
       let (firstprivate, ins') =
         if (Task.attributed t WaitForSome) then
-          if t.children <> [[]] then
+          if children then
             (Dep_set.empty,
              Dep_set.filter (fun d ->
                  (Dep_map.has_with_attribute d Condition t.ioattrs) &&
@@ -962,12 +966,13 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
       in
       let ins' = Dep_set.to_list ins' in
       let ins' = if (List.length ins') < 1 then [] else [In ins'] in
-      let inouts' = if (Task.attributed t WaitForSome) && t.children <> [[]]
-                    then
-                      Dep_set.filter (fun d ->
-                          Dep_map.has_with_attribute d Condition t.ioattrs
-                        ) t.inouts
-                    else t.inouts in
+      let inouts' =
+        if (Task.attributed t WaitForSome) && children then
+          Dep_set.filter (fun d ->
+              Dep_map.has_with_attribute d Condition t.ioattrs
+            ) t.inouts
+        else t.inouts
+      in
       let inouts' = Dep_set.filter (fun d ->
                         not (Dep_map.has_with_attribute
                                d NewVariable t.ioattrs)

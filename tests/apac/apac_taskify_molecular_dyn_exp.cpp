@@ -271,6 +271,7 @@ void grid_update(const int nb_particles, const int nb_cells_per_dim, const doubl
         for (int idx_z = 0; idx_z < nb_cells_per_dim; idx_z++) {
           const int* const cell_idx = new const int((idx_x * nb_cells_per_dim + idx_y) * nb_cells_per_dim + idx_z);
           for (int idxPart = 0; idxPart < src_sizes[*cell_idx]; idxPart++) {
+#pragma omp taskwait depend(in : cell_idx, idxPart, particles_forces, time_step) depend(inout : particles_symb)
             src_particles_symb[*cell_idx][idxPart].vx += src_particles_forces[*cell_idx][idxPart].fx / src_particles_symb[*cell_idx][idxPart].weight * time_step;
             src_particles_symb[*cell_idx][idxPart].vy += src_particles_forces[*cell_idx][idxPart].fy / src_particles_symb[*cell_idx][idxPart].weight * time_step;
             src_particles_symb[*cell_idx][idxPart].vz += src_particles_forces[*cell_idx][idxPart].fz / src_particles_symb[*cell_idx][idxPart].weight * time_step;
@@ -370,6 +371,7 @@ void fill_cell_with_rand_particles(Cell* inCell, double box_width, int size) {
     initialize_random_number_generator(box_width);
     for (int idx = 0; idx < size; idx++) {
       Particle_symb* particle = new Particle_symb();
+#pragma omp taskwait depend(inout : particle[0])
       particle->x = random_number();
       particle->y = random_number();
       particle->z = random_number();
@@ -378,6 +380,7 @@ void fill_cell_with_rand_particles(Cell* inCell, double box_width, int size) {
       particle->vy = 0.;
       particle->vz = 0.;
       Particle_forces* particle_forces = new Particle_forces();
+#pragma omp taskwait depend(inout : particle_forces[0])
       particle_forces->fx = random_number();
       particle_forces->fy = random_number();
       particle_forces->fz = random_number();
