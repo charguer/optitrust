@@ -250,8 +250,16 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
       let instr_mark = next_m () in
       Trace.step ~kind:Step_group ~name:(sprintf "%d. move out" i) (fun () ->
       Marks.add instr_mark (target_of_path p);
-      Instr_basic.move ~dest:[tFirst] (target_of_path p);
-      Loop_basic.move_out ~loop_mark [cMark instr_mark]; (* TODO: use Loop.move_out that includes minimize? *)
+      (* TODO: factorize this in a Loop.move_out combi ? *)
+      Instr.move_in_seq ~dest:[tFirst] (target_of_path p);
+      let seq_p, _ = Path.extract_last_dir p in
+      Ghost_pure.minimize_all_in_seq (target_of_path seq_p);
+      let path = Target.resolve_target_exactly_one [cMark instr_mark; tBefore] in
+      let p_seq, instr_index = Path.extract_last_dir_before path in
+      for _ = 0 to instr_index - 1 do
+        Loop_basic.move_out [cPath p_seq; dSeqNth 0];
+      done;
+      Loop_basic.move_out ~loop_mark [cMark instr_mark];
       if !Flags.check_validity then Resources.loop_minimize [cMark loop_mark];
       );
       Target.iter (fun p -> aux (i + 1) rl p) [cMark instr_mark];
