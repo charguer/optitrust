@@ -1120,7 +1120,7 @@ end = struct
          (** Then, for each memory location [l] in [ll] we do the follwing. *)
          List.iter (fun l ->
              (** We build the L-variable corresponding to [l]. *)
-             let lv : lvar = { v = l.variable; l = l.label } in
+             let lv : lvar = { v = l.variable; l = ""(*l.label*) } in
              (** If [lv] is [this], it means that [f] is modifying a member
                  variable of the parent class. Therefore, we will have to
                  unconstify [f]. *)
