@@ -1154,29 +1154,20 @@ end = struct
                      f.name (LVar.to_string lv) l.dereferencements nli;
                  if alias then
                    begin
-                     (** If so, check also whether [lv] has ever been [used] to
-                         modify an argument. *)
-                     let used =
-                       List.fold_left (fun acc (tg', _) ->
-                           let x =
-                             Stack.fold (fun acc' (f'', tg'') ->
-                                 acc' || ((var_eq f f'') && tg' = tg'')
-                               ) false us
-                           in
-                           acc || x
-                         ) false (LVar_Hashtbl.find_all aliases lv)
-                     in
                      (** If [lv] becomes an [alias], for each memory location
                          representing an argument or an alias to an argument
                          [tg] we find in [rval], we add a new entry into
                          [aliases]. This happens, for example, on L3 in the
-                         example below. Also, if [lv] has already been [used] to
-                         modify an argument, we must push the new targets of
-                         [lv] to the unconstification stack too, even if the
-                         arguments will never be modified. This is to prevent us
-                         from assigning a possibly [const] argument to a
-                         posssibly non-[const] alias. Again, see the example
-                         below. *)
+                         example below. [lv] has already been declared as a
+                         non-[const] variable, otherwise we wouldn't be able to
+                         make an assignment to it. So, in the case when we are
+                         not performing a quiet constification, i.e. we will
+                         effectively insert [const] qualifiers into the source
+                         code, we must push the new targets of [lv] to the
+                         unconstification stack too, even if the arguments will
+                         never be modified. This is to prevent us from assigning
+                         a possibly [const] argument to a posssibly non-[const]
+                         alias. Again, see the example below. *)
                      let rval = trm_find_memlocs rval in
                      let rval = aliasing aliases rval in
                      if !Apac_flags.verbose then
@@ -1186,7 +1177,8 @@ end = struct
                          f.name (LVar.to_string lv) l.dereferencements nli;
                      List.iter (fun (_, tg) ->
                          LVar_Hashtbl.add aliases lv (tg, nli);
-                         if used then Stack.push (f, tg) us                           
+                         if (not !Apac_flags.constify_quietly) then
+                           Stack.push (f, tg) us
                        ) rval
                    end
                  else
@@ -1242,7 +1234,16 @@ end = struct
                    is an argument or an alias to an argument [tg]. If so, we
                    have to add a new entry into [aliases]. As we do not know the
                    number of levels of indirections of [lval], we use the number
-                   of levels of indirection [nli] of [rv]. *)
+                   of levels of indirection [nli] of [rv]. Note that [lv] has
+                   already been declared as a non-[const] variable, otherwise we
+                   wouldn't be able to make an assignment to it. So, in the case
+                   when we are not performing a quiet constification, i.e. we
+                   will effectively insert [const] qualifiers into the source
+                   code, we must push the targets of [lv] to the
+                   unconstification stack too, even if the arguments will never
+                   be modified. This is to prevent us from assigning a possibly
+                   [const] argument to a posssibly non-[const] alias. Again, see
+                   the example below. *)
                let rval = trm_find_memlocs rval in
                let rval = aliasing aliases rval in
                List.iter (fun (rv, tg) ->
@@ -1252,7 +1253,9 @@ end = struct
                                     alias to the argument %s (%d levels of \
                                     indirection)\n"
                        f.name (LVar.to_string lv) (LVar.to_string rv) nli;
-                   LVar_Hashtbl.add aliases lv (tg, nli)
+                   LVar_Hashtbl.add aliases lv (tg, nli);
+                   if (not !Apac_flags.constify_quietly) then
+                     Stack.push (f, tg) us
                  ) rval
            ) ll;
          (** Continue the analysis on substatements, if any. *)
