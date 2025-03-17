@@ -87,6 +87,14 @@ type memloc = {
     dereferencements : int
   }
 
+(** [memloc_to_string m]: returns a string form of the memory location [m]. *)
+let memloc_to_string (m : memloc) : string =
+  let vk = if m.kind = Var_mutable then "mutable" else "immutable" in
+  let v = var_to_string m.variable in
+  let d = string_of_int m.dereferencements in
+  let l = if m.label <> "" then m.label else "N/A" in
+  "[" ^ vk  ^ "; " ^ v ^ "; " ^ l ^ "; " ^ d ^ "]"
+
 (** [trm_find_memlocs t]: searches the term [t] for memory locations
     and returns them in a list. If [t] does not contain an identifiable memory
     location, the function returns an empty list. *)
