@@ -292,8 +292,7 @@ let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = 
 
       Ghost_pair.reintro_pairs_at loop_pairs seq_p;
 
-      Ghost_pure.copy_surrounding_inside [cPath seq_p; cMark inner_loop_m];
-      Ghost_pure.minimize_all_in_seq [cPath seq_p; cMark outer_loop_m; dBody];
+      Ghost_pure.move_surrounding_inside [cPath seq_p; cMark inner_loop_m];
       swap_basic [cPath seq_p; cMark outer_loop_m];
     end
   )

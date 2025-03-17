@@ -216,3 +216,27 @@ let copy_inside_from_seq (index: int) (seq: trm): trm =
 let%transfo copy_surrounding_inside (tg: target): unit =
   Target.apply_at_target_paths_in_seq copy_inside_from_seq tg;
   Resources.justif_correct "only changed ghost code"
+
+let move_inside_from_seq (index: int) (seq: trm): trm =
+  let error = "Ghost_pair.move_inside_from_seq: expected sequence" in
+  let instrs, result = trm_inv ~error trm_seq_inv seq in
+  let tl_before, t, tl_after = Mlist.get_item_and_its_relatives index instrs in
+
+  let last_impure_instr = Mlist.fold_lefti (fun i last t ->
+    if is_pure_ghost_call t then last else (i + 1)) 0 tl_before in
+  let tl_before, pure_ghosts_before = Mlist.split last_impure_instr tl_before in
+
+  let new_t = Pattern.pattern_match t [
+    Pattern.(trm_for !__ (trm_seq !__ __) !__) (fun range body contract () ->
+      trm_like ~old:t (trm_for ~contract range (trm_seq_helper [TrmMlist pure_ghosts_before; TrmMlist body]))
+    );
+    (* LATER: Manage other kinds of terms with a notion of inside *)
+    Pattern.__ (fun () -> failwith "Ghost_pair.move_inside_from_seq: the targetted item is not handled")
+  ] in
+
+  trm_like ~old:seq (trm_seq_helper ?result [TrmMlist tl_before; Trm new_t; TrmMlist tl_after])
+
+(** Move all the pure ghosts immediately surrounding the targetted instruction inside this instruction. *)
+let%transfo move_surrounding_inside (tg: target): unit =
+  Target.apply_at_target_paths_in_seq move_inside_from_seq tg;
+  Resources.justif_correct "only changed ghost code"
