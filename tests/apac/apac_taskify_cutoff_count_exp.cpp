@@ -80,27 +80,14 @@ void c(int* tab, int size) {
 }
 
 int main() {
-  int __apac_count_ok = __apac_count_infinite || __apac_count < __apac_count_max;
   int __apac_result;
 #pragma omp parallel
 #pragma omp master
 #pragma omp taskgroup
   {
-    int* t;
-    if (__apac_count_ok) {
-#pragma omp atomic
-      __apac_count++;
-    }
-#pragma omp task default(shared) depend(inout : t, t[0]) if (__apac_count_ok)
-    {
-      t = (int*)malloc(4 * sizeof(int));
-      c(t, 4);
-      free(t);
-      if (__apac_count_ok) {
-#pragma omp atomic
-        __apac_count--;
-      }
-    }
+    int* t = (int*)malloc(4 * sizeof(int));
+    c(t, 4);
+    free(t);
     __apac_result = 0;
     goto __apac_exit;
   __apac_exit:;

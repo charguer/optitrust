@@ -80,6 +80,10 @@ let model_with : string ref = ref ""
     By default, it is the `main' function. *)
 let main : string ref = ref "main"
 
+(** [taskify_main]: determines whether we should insert tasks into the [!main]
+    function. *)
+let taskify_main : bool ref = ref false
+
 (** [cutoff_count]: toggles task granularity control based on a global task
     submission counter (see [ApacCount] in [!type:apac_variable]). See also
     [!Apac_parallelization.cutoff_count_and_depth] and

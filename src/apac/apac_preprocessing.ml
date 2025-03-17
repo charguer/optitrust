@@ -258,13 +258,16 @@ let select_candidates (tg : target) : unit =
             [f] a taskification candidate and mark its definition term [t] with
             [!Apac_macros.candidate_mark] as well as update the [taskify] flag
             in its function record (see [!module:FunctionRecords]). Otherwise,
-            we return [t] as-is. *)
+            we return [t] as-is. If [f] is the [!Apac_flags.main] function,
+            update [!Apac_flags.taskify_main]. *)
         if (calls > 1) ||
              (calls > 0 && loops > 0) &&
                (Var_Hashtbl.mem Apac_records.functions f) then
           begin
             let r = Var_Hashtbl.find Apac_records.functions f in
             r.taskify <- true;
+            if f.name = !Apac_flags.main then
+              Apac_flags.taskify_main := true;
             Mark.trm_add_mark Apac_macros.candidate_mark t
           end
         else t
@@ -1849,9 +1852,10 @@ end
     it before each [goto] statement and returns it in the final [return]
     statement. *)
 
-(** [unify_returns tg]: expects the target [tg] to point at a function
-    definition. It replaces [return] statements within the body of the latter by
-    a single [return] statement through the usage of [goto] jumps.
+(** [unify_returns ?taskify tg]: expects the target [tg] to point at a task
+    candidate function definition. It replaces [return] statements within the
+    body of the latter by a single [return] statement through the usage of
+    [goto] jumps.
 
     First of all, the transformation wraps the body of the target function into
     a sequence and marks it with [!Apac_macros.candidate_body_mark], as well as
@@ -1859,6 +1863,9 @@ end
     function. Then, if the function returns [void], it appends the
     [!Apac_macros.goto_label] to the sequence and replaces each [return]
     statement inside the sequence with a [goto] jumping to that label.
+
+    If [taskify] is set to [false], the transformation does not perform the
+    marking with [!Apac_macros.candidate_body_mark].
 
     For example, the following function definition
 
@@ -1924,7 +1931,7 @@ end
       }
     }
     ]} *)
-let unify_returns (tg : target) : unit =
+let unify_returns ?(taskify : bool = true) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
       Target.apply_at_target_paths (fun t ->
           (** Deconstruct the definition term [t] of the function [f]. *)
@@ -1949,9 +1956,14 @@ let unify_returns (tg : target) : unit =
           let body = trm_seq_add_last
                        (trm_add_label
                           Apac_macros.goto_label (trm_unit())) body in
-          (** Mark the new sequence with [!Apac_macros.candidate_body_mark]. *)
-          let body = Mark.trm_add_mark Apac_macros.candidate_body_mark body in
-          (** and with [!Apac_macros.candidate_main_mark] if [f] is the
+          (** Mark the new sequence with [!Apac_macros.candidate_body_mark] if
+              [!taskify] is [true]. *)
+          let body =
+            if taskify then
+              Mark.trm_add_mark Apac_macros.candidate_body_mark body
+            else body
+          in
+          (** Mark it with [!Apac_macros.candidate_main_mark] if [f] is the
               [!Apac_flags.main] function. *)
           let body =
             if f.name = !Apac_flags.main then

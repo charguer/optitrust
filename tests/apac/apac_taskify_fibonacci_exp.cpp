@@ -34,11 +34,8 @@ int main(int argc, char** argv) {
       n = atoi(argv[1]);
     }
     long long int result;
-#pragma omp task default(shared) depend(in : n) depend(inout : result)
-    {
-      result = fibonacci(n);
-      printf("fibonacci(%d) = %lld\n", n, result);
-    }
+    result = fibonacci(n);
+    printf("fibonacci(%d) = %lld\n", n, result);
     __apac_result = 0;
     goto __apac_exit;
   __apac_exit:;

@@ -46,13 +46,9 @@ int main() {
 #pragma omp master
 #pragma omp taskgroup
   {
-    int* t;
-#pragma omp task default(shared) depend(inout : t, t[0])
-    {
-      t = (int*)malloc(4 * sizeof(int));
-      c(t, 4);
-      free(t);
-    }
+    int* t = (int*)malloc(4 * sizeof(int));
+    c(t, 4);
+    free(t);
     __apac_result = 0;
     goto __apac_exit;
   __apac_exit:;

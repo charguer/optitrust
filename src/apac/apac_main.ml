@@ -51,12 +51,17 @@ let compile () : unit =
       nbAny;
       selector
     ];
-  !? "Unify returns"
+  !? "Unify returns in taskification candidates"
     Apac_preprocessing.unify_returns [
       nbAny;
-      cOr [[cMark Apac_macros.candidate_mark];
-           [cFunDefAndDecl !Apac_flags.main]]
+      cMark Apac_macros.candidate_mark
     ];
+  if not !Apac_flags.taskify_main then
+    !? "Force the unification of returns in the main function"
+      (Apac_preprocessing.unify_returns ~taskify:false) [
+        nbAny;
+        cFunDefAndDecl !Apac_flags.main
+      ];
   !? "Unfold function calls"
     Apac_preprocessing.unfold_function_calls [
       nbAny;
@@ -154,8 +159,7 @@ let compile () : unit =
     !? "Cut off according to task count and/or depth"
       Apac_parallelization.cutoff_count_and_depth [
         nbAny;
-        cOr [[cMark Apac_macros.candidate_mark];
-             [cFunDefAndDecl !Apac_flags.main]]
+        cMark Apac_macros.candidate_mark
       ];
   if !Apac_flags.profile && !Apac_records.put_cutoff then
     !? "Cut off according to execution time model"
