@@ -463,7 +463,6 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Brace_init -> string "Brace_init"
  | Display_null_uppercase -> string "Display_null_uppercase"
  | ResourceFormula -> string "ResourceFormula"
- | ResourceModel -> string "ResourceModel"
  | Type -> string "Type"
  | InjectedClassName -> string "InjectedClassName"
  | BodyHiddenForLightDiff -> string "BodyHiddenForLightDiff"

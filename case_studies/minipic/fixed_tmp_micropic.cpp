@@ -213,7 +213,7 @@ const int nbCorners = 8;
   __produces("_RO(#_1, fieldAtCorners ~> Matrix1(nbCorners))");
   vect* const lFieldAtCorners = MALLOC1(vect, nbCorners);
   __ghost([&] ()   {
-    __consumes("_Uninit(lFieldAtCorners ~> Matrix1(nbCorners))");
+    __consumes("lFieldAtCorners ~> UninitMatrix1(nbCorners)");
     __produces("lFieldAtCorners ~> Matrix1(nbCorners)");
     __admitted();
     __with("justif := shift_groups");
@@ -221,15 +221,15 @@ const int nbCorners = 8;
   for (int i1 = 0; i1 < nbCorners; i1++) {
     __strict();
     __requires("#_2: _Fraction");
-    __xconsumes("_Uninit(&lFieldAtCorners[MINDEX1(nbCorners, i1)] ~> Cell)");
+    __xconsumes("&lFieldAtCorners[MINDEX1(nbCorners, i1)] ~> UninitCell");
     __xconsumes("_RO(#_2, &fieldAtCorners[MINDEX1(nbCorners, i1)] ~> Cell)");
     __xproduces("&lFieldAtCorners[MINDEX1(nbCorners, i1)] ~> Cell");
     __xproduces("_RO(#_2, &fieldAtCorners[MINDEX1(nbCorners, i1)] ~> Cell)");
     __ghost([&] ()   {
-      __consumes("_Uninit(&lFieldAtCorners[MINDEX1(nbCorners, i1)] ~> Cell)");
-      __produces("_Uninit(&lFieldAtCorners[MINDEX1(nbCorners, i1)].x ~> Cell)");
-      __produces("_Uninit(&lFieldAtCorners[MINDEX1(nbCorners, i1)].y ~> Cell)");
-      __produces("_Uninit(&lFieldAtCorners[MINDEX1(nbCorners, i1)].z ~> Cell)");
+      __consumes("&lFieldAtCorners[MINDEX1(nbCorners, i1)] ~> UninitCell");
+      __produces("&lFieldAtCorners[MINDEX1(nbCorners, i1)].x ~> UninitCell");
+      __produces("&lFieldAtCorners[MINDEX1(nbCorners, i1)].y ~> UninitCell");
+      __produces("&lFieldAtCorners[MINDEX1(nbCorners, i1)].z ~> UninitCell");
       __admitted();
     }, "");
     __ghost([&] ()   {
@@ -290,7 +290,7 @@ const int nbCorners = 8;
   }
   particle* const lParticles = MALLOC1(particle, nbParticles);
   __ghost([&] ()   {
-    __consumes("_Uninit(lParticles ~> Matrix1(nbParticles))");
+    __consumes("lParticles ~> UninitMatrix1(nbParticles)");
     __produces("lParticles ~> Matrix1(nbParticles)");
     __admitted();
     __with("justif := shift_groups");
@@ -298,14 +298,14 @@ const int nbCorners = 8;
   for (int i1 = 0; i1 < nbParticles; i1++) {
     __strict();
     __requires("#_2: _Fraction");
-    __xconsumes("_Uninit(&lParticles[MINDEX1(nbParticles, i1)] ~> Cell)");
+    __xconsumes("&lParticles[MINDEX1(nbParticles, i1)] ~> UninitCell");
     __xconsumes("_RO(#_2, &particles[MINDEX1(nbParticles, i1)] ~> Cell)");
     __xproduces("&lParticles[MINDEX1(nbParticles, i1)] ~> Cell");
     __xproduces("_RO(#_2, &particles[MINDEX1(nbParticles, i1)] ~> Cell)");
     __ghost([&] ()   {
-      __consumes("_Uninit(&lParticles[MINDEX1(nbParticles, i1)] ~> Cell)");
-      __produces("_Uninit(&lParticles[MINDEX1(nbParticles, i1)].pos ~> Cell)");
-      __produces("_Uninit(&lParticles[MINDEX1(nbParticles, i1)].speed ~> Cell)");
+      __consumes("&lParticles[MINDEX1(nbParticles, i1)] ~> UninitCell");
+      __produces("&lParticles[MINDEX1(nbParticles, i1)].pos ~> UninitCell");
+      __produces("&lParticles[MINDEX1(nbParticles, i1)].speed ~> UninitCell");
       __admitted();
     }, "");
     __ghost([&] ()   {
@@ -323,10 +323,10 @@ const int nbCorners = 8;
       __admitted();
     }, "");
     __ghost([&] ()   {
-      __consumes("_Uninit(&lParticles[MINDEX1(nbParticles, i1)].pos ~> Cell)");
-      __produces("_Uninit(&lParticles[MINDEX1(nbParticles, i1)].pos.x ~> Cell)");
-      __produces("_Uninit(&lParticles[MINDEX1(nbParticles, i1)].pos.y ~> Cell)");
-      __produces("_Uninit(&lParticles[MINDEX1(nbParticles, i1)].pos.z ~> Cell)");
+      __consumes("&lParticles[MINDEX1(nbParticles, i1)].pos ~> UninitCell");
+      __produces("&lParticles[MINDEX1(nbParticles, i1)].pos.x ~> UninitCell");
+      __produces("&lParticles[MINDEX1(nbParticles, i1)].pos.y ~> UninitCell");
+      __produces("&lParticles[MINDEX1(nbParticles, i1)].pos.z ~> UninitCell");
       __admitted();
     }, "");
     __ghost([&] ()   {
@@ -382,10 +382,10 @@ const int nbCorners = 8;
       __admitted();
     }, "");
     __ghost([&] ()   {
-      __consumes("_Uninit(&lParticles[MINDEX1(nbParticles, i1)].speed ~> Cell)");
-      __produces("_Uninit(&lParticles[MINDEX1(nbParticles, i1)].speed.x ~> Cell)");
-      __produces("_Uninit(&lParticles[MINDEX1(nbParticles, i1)].speed.y ~> Cell)");
-      __produces("_Uninit(&lParticles[MINDEX1(nbParticles, i1)].speed.z ~> Cell)");
+      __consumes("&lParticles[MINDEX1(nbParticles, i1)].speed ~> UninitCell");
+      __produces("&lParticles[MINDEX1(nbParticles, i1)].speed.x ~> UninitCell");
+      __produces("&lParticles[MINDEX1(nbParticles, i1)].speed.y ~> UninitCell");
+      __produces("&lParticles[MINDEX1(nbParticles, i1)].speed.z ~> UninitCell");
       __admitted();
     }, "");
     __ghost([&] ()   {
@@ -504,12 +504,12 @@ const int nbCorners = 8;
               stepDuration * stepDuration)), fieldAtPosZ / (particleCharge / particleMass * (
               stepDuration * stepDuration))}).z + coeffs[MINDEX1(nbCorners, k)] * lFieldAtCorners[MINDEX1(nbCorners, k)].z;
         __ghost([&] ()   {
-          __consumes("_Uninit(&fieldAtPosX ~> Cell)");
-          __consumes("_Uninit(&fieldAtPosY ~> Cell)");
-          __consumes("_Uninit(&fieldAtPosZ ~> Cell)");
-          __produces("_Uninit(&fieldAtPosX ~> Cell)");
-          __produces("_Uninit(&fieldAtPosY ~> Cell)");
-          __produces("_Uninit(&fieldAtPosZ ~> Cell)");
+          __consumes("&fieldAtPosX ~> UninitCell");
+          __consumes("&fieldAtPosY ~> UninitCell");
+          __consumes("&fieldAtPosZ ~> UninitCell");
+          __produces("&fieldAtPosX ~> UninitCell");
+          __produces("&fieldAtPosY ~> UninitCell");
+          __produces("&fieldAtPosZ ~> UninitCell");
           __admitted();
         }, "");
         fieldAtPosX = fieldAtPosTmpX * (particleCharge / particleMass * (stepDuration * stepDuration
@@ -554,10 +554,10 @@ const int nbCorners = 8;
       const double pos2Z = lParticles[MINDEX1(nbParticles, idPart)].pos.z + stepDuration * (
         speed2Z / stepDuration);
       __ghost([&] ()   {
-        __consumes("_Uninit(&lParticles[MINDEX1(nbParticles, idPart)].pos ~> Cell)");
-        __produces("_Uninit(&lParticles[MINDEX1(nbParticles, idPart)].pos.x ~> Cell)");
-        __produces("_Uninit(&lParticles[MINDEX1(nbParticles, idPart)].pos.y ~> Cell)");
-        __produces("_Uninit(&lParticles[MINDEX1(nbParticles, idPart)].pos.z ~> Cell)");
+        __consumes("&lParticles[MINDEX1(nbParticles, idPart)].pos ~> UninitCell");
+        __produces("&lParticles[MINDEX1(nbParticles, idPart)].pos.x ~> UninitCell");
+        __produces("&lParticles[MINDEX1(nbParticles, idPart)].pos.y ~> UninitCell");
+        __produces("&lParticles[MINDEX1(nbParticles, idPart)].pos.z ~> UninitCell");
         __admitted();
       }, "");
       lParticles[MINDEX1(nbParticles, idPart)].pos.x = pos2X;
@@ -571,10 +571,10 @@ const int nbCorners = 8;
         __admitted();
       }, "");
       __ghost([&] ()   {
-        __consumes("_Uninit(&lParticles[MINDEX1(nbParticles, idPart)].speed ~> Cell)");
-        __produces("_Uninit(&lParticles[MINDEX1(nbParticles, idPart)].speed.x ~> Cell)");
-        __produces("_Uninit(&lParticles[MINDEX1(nbParticles, idPart)].speed.y ~> Cell)");
-        __produces("_Uninit(&lParticles[MINDEX1(nbParticles, idPart)].speed.z ~> Cell)");
+        __consumes("&lParticles[MINDEX1(nbParticles, idPart)].speed ~> UninitCell");
+        __produces("&lParticles[MINDEX1(nbParticles, idPart)].speed.x ~> UninitCell");
+        __produces("&lParticles[MINDEX1(nbParticles, idPart)].speed.y ~> UninitCell");
+        __produces("&lParticles[MINDEX1(nbParticles, idPart)].speed.z ~> UninitCell");
         __admitted();
       }, "");
       lParticles[MINDEX1(nbParticles, idPart)].speed.x = speed2X / stepDuration;
@@ -598,14 +598,14 @@ const int nbCorners = 8;
   for (int i1 = 0; i1 < nbParticles; i1++) {
     __strict();
     __requires("#_2: _Fraction");
-    __xconsumes("_Uninit(&particles[MINDEX1(nbParticles, i1)] ~> Cell)");
+    __xconsumes("&particles[MINDEX1(nbParticles, i1)] ~> UninitCell");
     __xconsumes("_RO(#_2, &lParticles[MINDEX1(nbParticles, i1)] ~> Cell)");
     __xproduces("&particles[MINDEX1(nbParticles, i1)] ~> Cell");
     __xproduces("_RO(#_2, &lParticles[MINDEX1(nbParticles, i1)] ~> Cell)");
     __ghost([&] ()   {
-      __consumes("_Uninit(&particles[MINDEX1(nbParticles, i1)] ~> Cell)");
-      __produces("_Uninit(&particles[MINDEX1(nbParticles, i1)].pos ~> Cell)");
-      __produces("_Uninit(&particles[MINDEX1(nbParticles, i1)].speed ~> Cell)");
+      __consumes("&particles[MINDEX1(nbParticles, i1)] ~> UninitCell");
+      __produces("&particles[MINDEX1(nbParticles, i1)].pos ~> UninitCell");
+      __produces("&particles[MINDEX1(nbParticles, i1)].speed ~> UninitCell");
       __admitted();
     }, "");
     __ghost([&] ()   {
@@ -623,10 +623,10 @@ const int nbCorners = 8;
       __admitted();
     }, "");
     __ghost([&] ()   {
-      __consumes("_Uninit(&particles[MINDEX1(nbParticles, i1)].pos ~> Cell)");
-      __produces("_Uninit(&particles[MINDEX1(nbParticles, i1)].pos.x ~> Cell)");
-      __produces("_Uninit(&particles[MINDEX1(nbParticles, i1)].pos.y ~> Cell)");
-      __produces("_Uninit(&particles[MINDEX1(nbParticles, i1)].pos.z ~> Cell)");
+      __consumes("&particles[MINDEX1(nbParticles, i1)].pos ~> UninitCell");
+      __produces("&particles[MINDEX1(nbParticles, i1)].pos.x ~> UninitCell");
+      __produces("&particles[MINDEX1(nbParticles, i1)].pos.y ~> UninitCell");
+      __produces("&particles[MINDEX1(nbParticles, i1)].pos.z ~> UninitCell");
       __admitted();
     }, "");
     __ghost([&] ()   {
@@ -682,10 +682,10 @@ const int nbCorners = 8;
       __admitted();
     }, "");
     __ghost([&] ()   {
-      __consumes("_Uninit(&particles[MINDEX1(nbParticles, i1)].speed ~> Cell)");
-      __produces("_Uninit(&particles[MINDEX1(nbParticles, i1)].speed.x ~> Cell)");
-      __produces("_Uninit(&particles[MINDEX1(nbParticles, i1)].speed.y ~> Cell)");
-      __produces("_Uninit(&particles[MINDEX1(nbParticles, i1)].speed.z ~> Cell)");
+      __consumes("&particles[MINDEX1(nbParticles, i1)].speed ~> UninitCell");
+      __produces("&particles[MINDEX1(nbParticles, i1)].speed.x ~> UninitCell");
+      __produces("&particles[MINDEX1(nbParticles, i1)].speed.y ~> UninitCell");
+      __produces("&particles[MINDEX1(nbParticles, i1)].speed.z ~> UninitCell");
       __admitted();
     }, "");
     __ghost([&] ()   {
@@ -763,14 +763,14 @@ const int nbCorners = 8;
   }
   __ghost([&] ()   {
     __consumes("lParticles ~> Matrix1(nbParticles)");
-    __produces("_Uninit(lParticles ~> Matrix1(nbParticles))");
+    __produces("lParticles ~> UninitMatrix1(nbParticles)");
     __admitted();
     __with("justif := shift_groups");
   }, "");
   free(lParticles);
   __ghost([&] ()   {
-    __consumes("_Uninit(lFieldAtCorners ~> Matrix1(nbCorners))");
-    __produces("_Uninit(lFieldAtCorners ~> Matrix1(nbCorners))");
+    __consumes("lFieldAtCorners ~> UninitMatrix1(nbCorners)");
+    __produces("lFieldAtCorners ~> UninitMatrix1(nbCorners)");
     __admitted();
     __with("justif := shift_groups");
   }, "");

@@ -10,9 +10,9 @@ void f() {
   vect a;
   vect b = {0, 0};
   __ghost([&]() {
-    __consumes("_Uninit(&a ~> Cell)");
-    __produces("_Uninit(&a.x ~> Cell)");
-    __produces("_Uninit(&a.y ~> Cell)");
+    __consumes("&a ~> UninitCell");
+    __produces("&a.x ~> UninitCell");
+    __produces("&a.y ~> UninitCell");
     __admitted();
   });
   __ghost([&]() {

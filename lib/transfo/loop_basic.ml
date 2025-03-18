@@ -57,8 +57,6 @@ let ghost_group_collapse = toplevel_var "group_collapse"
 let ghost_group_uncollapse = toplevel_var "group_uncollapse"
 let ghost_group_collapse_ro = toplevel_var "group_collapse_ro"
 let ghost_group_uncollapse_ro = toplevel_var "group_uncollapse_ro"
-let ghost_group_collapse_uninit = toplevel_var "group_collapse_uninit"
-let ghost_group_uncollapse_uninit = toplevel_var "group_uncollapse_uninit"
 
 (** <private> *)
 let collapse_on (simpl_mark : mark) (index : string)
@@ -81,13 +79,12 @@ let collapse_on (simpl_mark : mark) (index : string)
     still need to insert ghosts to flatten the double star. *)
   (* group_collapse / group_uncollapse*)
   let open Resource_formula in
-  let add_collapse_ghost ghost ghost_ro ghost_uninit =
+  let add_collapse_ghost ghost ghost_ro =
     List.map (fun (_, formula) ->
       (* TODO: factorize generic ghost mode code for all transfos *)
-      let ghost, formula = match formula_mode_inv formula with
-      | Full, f -> ghost, f
-      | RO, f -> ghost_ro, f
-      | Uninit, f -> ghost_uninit, f
+      let ghost, formula = match formula_read_only_inv formula with
+      | Some { formula } -> ghost_ro, formula
+      | None -> ghost, formula
       in
       let items = trm_copy (formula_fun [ri.index, typ_int; rj.index, typ_int] formula) in
       Resource_trm.ghost (ghost_call ghost [
@@ -95,8 +92,8 @@ let collapse_on (simpl_mark : mark) (index : string)
       ])
     )
   in
-  let ghosts_before = add_collapse_ghost ghost_group_collapse ghost_group_collapse_ro ghost_group_collapse_uninit cj.iter_contract.pre.linear in
-  let ghosts_after = add_collapse_ghost ghost_group_uncollapse ghost_group_uncollapse_ro ghost_group_uncollapse_uninit cj.iter_contract.post.linear in
+  let ghosts_before = add_collapse_ghost ghost_group_collapse ghost_group_collapse_ro cj.iter_contract.pre.linear in
+  let ghosts_after = add_collapse_ghost ghost_group_uncollapse ghost_group_uncollapse_ro cj.iter_contract.post.linear in
   let contract = Resource_contract.loop_contract_subst subst cj in
   let body2 = if !Flags.check_validity then
     let instrs, _ = trm_inv ~error:"expected seq" trm_seq_inv body in
@@ -176,12 +173,6 @@ let%transfo collapse ?(simpl_mark : mark = no_mark)
 
     [x_step] - denotes the array name that is going to hoist all the values of the targeted variable
     for each index of the for loop. *)
-(* LATER/ deprecated
-let hoist_old ?(name : string = "${var}_step") ?(array_size : trm option) (tg : target) : unit =
-  Nobrace_transfo.remove_after (fun () ->
-    apply_on_transformed_targets (Path.index_in_surrounding_loop)
-     (fun t (i, p) -> Loop_core.hoist_old name i array_size t p) tg)
-*)
 (* TODO: clean up code *)
 let hoist_on (name : string)
              (mark_alloc : mark) (mark_free : mark) (mark_tmp_var : mark)
@@ -246,12 +237,11 @@ let hoist_on (name : string)
     let indices = (arith_f new_index) :: (List.map trm_var other_indices) in
     let mindex = mindex !new_dims indices in
     let access = trm_array_access (trm_var ~typ:(typ_ptr !elem_ty) !new_var) mindex in
-    let grouped_access = List.fold_right (fun (i, d) acc ->
+    let new_resource = List.fold_right (fun (i, d) acc ->
       (* FIXME: need to match inner loop ranges. *)
       Resource_formula.formula_group_range { index = i; start = trm_int 0; direction = DirUp; stop = d; step = trm_step_one () } acc
-    ) (List.combine other_indices dims) Resource_formula.(formula_cell access) in
-    let new_resource = Resource_formula.(formula_uninit grouped_access) in
-    new_body_instrs, Resource_contract.push_loop_contract_clause (Exclusive Modifies) (Resource_formula.new_anon_hyp (), new_resource) contract
+    ) (List.combine other_indices dims) Resource_formula.(formula_uninit_cell access) in
+    new_body_instrs, Resource_contract.push_loop_contract_clause (Exclusive Preserves) (Resource_formula.new_anon_hyp (), new_resource) contract
   else
     new_body_instrs, contract
   in
@@ -663,9 +653,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
       if not contract.strict then failwith "Need the for loop contract to be strict";
       let instr_usage = Resources.usage_of_trm instr in
       let invariant_written_by_instr = List.filter (Resource_set.(linear_usage_filter instr_usage keep_written)) contract.invariant.linear in
-      List.iter (fun (_, f) -> match Resource_formula.formula_uninit_inv f with
-        | Some _ -> ()
-        | None -> trm_fail instr "The instruction cannot be moved out because it consumes resources that are not uninitialized after the loop (and the loop range could be empty)"
+      List.iter (fun (_, f) -> if not (Resource_formula.is_formula_uninit f) then trm_fail instr "The instruction cannot be moved out because it consumes resources that are not uninitialized after the loop (and the loop range could be empty)"
       ) invariant_written_by_instr
     end;
 
@@ -758,7 +746,7 @@ let move_out_alloc_on (trm_index : int) (t : trm) : trm =
   end;
 
   let open Resource_formula in
-  let contract = { contract with invariant = { contract.invariant with linear = (new_anon_hyp (), formula_uninit (formula_matrix (trm_var array_var) dims)) :: contract.invariant.linear }} in
+  let contract = { contract with invariant = { contract.invariant with linear = (new_anon_hyp (), formula_uninit_matrix (trm_var array_var) dims) :: contract.invariant.linear }} in
   let loop = trm_for ~annot:t.annot ~contract range (trm_seq rest) in
 
   trm_seq_nobrace_nomarks [
@@ -838,10 +826,8 @@ let shift_kind_to_string = function
 
 let ghost_group_shift = toplevel_var "group_shift"
 let ghost_group_shift_ro = toplevel_var "group_shift_ro"
-let ghost_group_shift_uninit = toplevel_var "group_shift_uninit"
 let ghost_group_unshift = toplevel_var "group_unshift"
 let ghost_group_unshift_ro = toplevel_var "group_unshift_ro"
-let ghost_group_unshift_uninit = toplevel_var "group_unshift_uninit"
 
 (** transforms a loop index (e.g. shift, scale). *)
 let transform_range_on
@@ -894,13 +880,12 @@ let shift_range_on (kind : shift_kind) =
     (range', index_expr, shift)
   in
   let open Resource_formula in
-  let shift_ghosts ghost ghost_ro ghost_uninit r r' shift =
+  let shift_ghosts ghost ghost_ro r r' shift =
     List.map (fun (_, formula) ->
       (* TODO: factorize generic ghost mode code for all transfos *)
-      let ghost, formula, extra_params = match formula_mode_inv formula with
-      | Full, f -> ghost, f, []
-      | RO, f -> ghost_ro, f, ["f", (Option.unsome (formula_read_only_inv formula)).frac]
-      | Uninit, f -> ghost_uninit, f, []
+      let ghost, formula, extra_params = match formula_read_only_inv formula with
+      | Some f -> ghost_ro, f.formula, ["f", f.frac]
+      | None -> ghost, formula, []
       in
       let i = new_var r.index.name in
       let items = formula_fun [i, typ_int] (trm_subst_var r.index (trm_var ~typ:typ_int i) formula) in
@@ -911,8 +896,8 @@ let shift_range_on (kind : shift_kind) =
     )
   in
   let to_prove = [] in
-  let pre_res_trans = shift_ghosts ghost_group_shift ghost_group_shift_ro ghost_group_shift_uninit in
-  let post_res_trans = shift_ghosts ghost_group_unshift ghost_group_unshift_ro ghost_group_unshift_uninit in
+  let pre_res_trans = shift_ghosts ghost_group_shift ghost_group_shift_ro in
+  let post_res_trans = shift_ghosts ghost_group_unshift ghost_group_unshift_ro in
   transform_range_on new_range to_prove pre_res_trans post_res_trans
 
 (** [shift_range index kind]: shifts a loop index range according to [kind], using a new [index] name.
@@ -939,10 +924,8 @@ let%transfo shift_range (index : string) (kind : shift_kind)
 
 let ghost_group_scale = toplevel_var "group_scale"
 let ghost_group_scale_ro = toplevel_var "group_scale_ro"
-let ghost_group_scale_uninit = toplevel_var "group_scale_uninit"
 let ghost_group_unscale = toplevel_var "group_unscale"
 let ghost_group_unscale_ro = toplevel_var "group_unscale_ro"
-let ghost_group_unscale_uninit = toplevel_var "group_unscale_uninit"
 
 let scale_range_on (factor : trm) =
   let new_range { index; start; direction; stop; step } index' =
@@ -966,13 +949,12 @@ let scale_range_on (factor : trm) =
   in
   let open Resource_formula in
   let to_prove = [Resource_trm.to_prove (formula_neq ~typ:typ_int factor (trm_int ~typ:typ_int 0))] in
-  let scale_ghosts ghost ghost_ro ghost_uninit r r' () =
+  let scale_ghosts ghost ghost_ro r r' () =
     List.map (fun (_, formula) ->
       (* TODO: factorize generic ghost mode code for all transfos *)
-      let ghost, formula = match formula_mode_inv formula with
-      | Full, f -> ghost, f
-      | RO, f -> ghost_ro, f (* FIXME: wrong fraction splits *)
-      | Uninit, f -> ghost_uninit, f
+      let ghost, formula = match formula_read_only_inv formula with
+      | Some { formula } -> ghost_ro, formula (* FIXME: wrong fraction splits *)
+      | None -> ghost, formula
       in
       let i = new_var r.index.name in
       let items = formula_fun [i, typ_int] (trm_subst_var r.index (trm_var i) formula) in
@@ -981,8 +963,8 @@ let scale_range_on (factor : trm) =
         "factor", factor; "new_step", r'.step; "new_stop", r'.stop])
     )
   in
-  let pre_res_trans = scale_ghosts ghost_group_scale ghost_group_scale_ro ghost_group_scale_uninit in
-  let post_res_trans = scale_ghosts ghost_group_unscale ghost_group_scale_ro ghost_group_scale_uninit in
+  let pre_res_trans = scale_ghosts ghost_group_scale ghost_group_scale_ro in
+  let post_res_trans = scale_ghosts ghost_group_unscale ghost_group_scale_ro in
   transform_range_on new_range to_prove pre_res_trans post_res_trans
 
 (** [scale_range index factor tg]: expects target [tg] to point at a for loop
@@ -1012,10 +994,8 @@ let simplify_ghost_group_scale_on_opt (t : trm) : trm option =
   let* gv = trm_var_inv ghost_call.ghost_fn in
   let is_group_scale = var_eq gv ghost_group_scale ||
     var_eq gv ghost_group_scale_ro ||
-    var_eq gv ghost_group_scale_uninit ||
     var_eq gv ghost_group_unscale ||
-    var_eq gv ghost_group_unscale_ro ||
-    var_eq gv ghost_group_unscale_uninit
+    var_eq gv ghost_group_unscale_ro
   in
   if not is_group_scale then None else begin
     let arg_is name (arg, _) = arg.name = name in

@@ -154,15 +154,15 @@ let replace_all_accesses (prev_v : var) (v : var) (dims : trm list)
 
 (** [pointwise_fors ?reads ?writes ?modifies ranges body] creates nested loops
   with [ranges] over the main body [body].
-  The body has the given [reads], [writes], and [modifies].
+  The body has the given [reads], [writes], and [preserves].
   Each loop contract adds a layer of pointwise Group resources.
   *)
 let pointwise_fors
   ?(reads: formula list = [])
   ?(writes: formula list = [])
-  ?(modifies: formula list = [])
+  ?(preserves: formula list = [])
   (ranges : loop_range list) (body : trm) : trm =
-  let (t, _, _, _) = List.fold_right (fun range (t, reads, writes, modifies) ->
+  let (t, _, _, _) = List.fold_right (fun range (t, reads, writes, preserves) ->
     let push_clauses clause formulas contract =
       List.fold_left (fun contract formula ->
         let res = (Resource_formula.new_anon_hyp (), formula) in
@@ -172,14 +172,14 @@ let pointwise_fors
     let contract = empty_strict_loop_contract
       |> push_clauses (Exclusive Reads) reads
       |> push_clauses (Exclusive Writes) writes
-      |> push_clauses (Exclusive Modifies) modifies
+      |> push_clauses (Exclusive Preserves) preserves
     in
     let t' = trm_for ~contract range (if (is_trm_seq t) then t else trm_seq_nomarks [t]) in
     let reads' = List.map (Resource_formula.formula_group_range range) reads in
     let writes' = List.map (Resource_formula.formula_group_range range) writes in
-    let modifies' = List.map (Resource_formula.formula_group_range range) modifies in
-    (t', reads', writes', modifies')
-  ) ranges (body, reads, writes, modifies)
+    let preserves' = List.map (Resource_formula.formula_group_range range) preserves in
+    (t', reads', writes', preserves')
+  ) ranges (body, reads, writes, preserves)
   in
   t
 

@@ -427,11 +427,19 @@ let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field 
   let aux_resource_items =
     let open Resource_formula in
     List.concat_map (fun (h, r) ->
-      let (mode, inner_r) = formula_mode_inv r in
+      let inner_r, maybe_ro = match formula_read_only_inv r with
+        | Some { frac; formula } -> formula, formula_read_only ~frac
+        | None -> r, fun t -> t
+      in
       Pattern.pattern_match inner_r [
         Pattern.(formula_cell (trm_specific_var var)) (fun () ->
           List.map (fun (f, f_typ, v) ->
-            (new_anon_hyp (), formula_map_under_mode (fun _ -> formula_model (trm_var ~typ:(typ_ptr f_typ) v) (trm_var (var_cell))) r)
+            (new_anon_hyp (), maybe_ro (formula_cell (trm_var ~typ:(typ_ptr f_typ) v)))
+          ) fields
+        );
+        Pattern.(formula_uninit_cell (trm_specific_var var)) (fun () ->
+          List.map (fun (f, f_typ, v) ->
+            (new_anon_hyp (), formula_uninit_cell (trm_var ~typ:(typ_ptr f_typ) v))
           ) fields
         );
         Pattern.__ (fun () -> [(h, r)])

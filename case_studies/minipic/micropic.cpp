@@ -101,15 +101,15 @@ void corner_interpolation_coeff(vect pos, double* r) {
   const double cZ = 1. + -1. * rZ;
   // these ghosts will not be necessary once we have autofocus on array accesses
   __ghost([&] {
-    __consumes("_Uninit(r ~> Matrix1(nbCorners))");
-    __produces("_Uninit(&r[MINDEX1(8, 0)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 1)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 2)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 3)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 4)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 5)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 6)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 7)] ~> Cell)");
+    __consumes("r ~> UninitMatrix1(nbCorners)");
+    __produces("&r[MINDEX1(8, 0)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 1)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 2)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 3)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 4)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 5)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 6)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 7)] ~> UninitCell");
     __admitted();
   }, "");
   r[MINDEX1(8, 0)] = cX * cY * cZ;

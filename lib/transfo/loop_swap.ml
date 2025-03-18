@@ -23,15 +23,11 @@ let swap_on_any_loop (t : trm) : trm =
 
 let var_swap_groups = toplevel_var "swap_groups"
 let var_ro_swap_groups = toplevel_var "ro_swap_groups"
-let var_uninit_swap_groups = toplevel_var "uninit_swap_groups"
 
 let ghost_swap (outer_range: loop_range) inner_range (_, formula) =
   let open Resource_formula in
   let ghost_var, formula = match formula_read_only_inv formula with
-  | Some { formula } -> var_ro_swap_groups, formula
-  | None ->
-    match formula_uninit_inv formula with
-    | Some formula -> var_uninit_swap_groups, formula
+    | Some { formula } -> var_ro_swap_groups, formula
     | None -> var_swap_groups, formula
   in
   let outer_var = new_var outer_range.index.name in
@@ -144,7 +140,7 @@ let swap_on (t: trm): trm =
         swaps_post)
     );
     Pattern.__ (fun () ->
-      assert (not !Flags.check_validity);
+      if !Flags.check_validity then failwith "Loop.swap: not targetting two nested for-loop";
       swap_on_any_loop t)
   ]
 

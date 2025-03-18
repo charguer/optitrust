@@ -17,7 +17,7 @@ void var_wrong1(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(&x ~> Cell)");
+    __smodifies("&x ~> UninitCell");
     __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
     x = i;
     t[MINDEX1(3, i)] = x;
@@ -29,7 +29,7 @@ void var_wrong2(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(&x ~> Cell)");
+    __smodifies("&x ~> UninitCell");
     __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
     t[MINDEX1(3, i)] = 0;
     x = 3;
@@ -54,7 +54,7 @@ void var_wrong4(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(&x ~> Cell)");
+    __smodifies("&x ~> UninitCell");
     __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
     x = 3;
     x++;
@@ -77,7 +77,7 @@ void var_needs_if(int* t, int n) {
 
 void arr(int* t, int* x) {
   __modifies("t ~> Matrix2(3, 5)");
-  __modifies("_Uninit(x ~> Matrix1(5))");
+  __modifies("x ~> UninitMatrix1(5)");
   for (int j = 0; j < 5; j++) {
     __strict();
     __xwrites("&x[MINDEX1(5, j)] ~> Cell");
@@ -98,11 +98,11 @@ void arr(int* t, int* x) {
 
 void arr_wrong1(int* t, int* x) {
   __modifies("t ~> Matrix2(3, 5)");
-  __modifies("_Uninit(x ~> Matrix1(5))");
+  __modifies("x ~> UninitMatrix1(5)");
   int v = 3;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(x ~> Matrix1(5))");
+    __smodifies("x ~> UninitMatrix1(5)");
     __smodifies("&v ~> Cell");
     __xmodifies("for j in 0..5 -> &t[MINDEX2(3, 5, i, j)] ~> Cell");
     for (int j = 0; j < 5; j++) {
@@ -122,14 +122,14 @@ void arr_wrong1(int* t, int* x) {
 }
 
 void test(int* t) {
-  __modifies("_Uninit(t ~> Matrix1(10))");
+  __modifies("t ~> UninitMatrix1(10)");
   int a = 5;
   int b = 6;
   for (int i = 0; i < 10; i++) {
     __strict();
     __sreads("&a ~> Cell");
     __sreads("&b ~> Cell");
-    __xmodifies("_Uninit(&t[MINDEX1(10, i)] ~> Cell)");
+    __xmodifies("&t[MINDEX1(10, i)] ~> UninitCell");
     int r = i;
     int s = i;
     int x = a + b;
@@ -137,7 +137,7 @@ void test(int* t) {
       __strict();
       __smodifies("&x ~> Cell");
       __smodifies("&s ~> Cell");
-      __smodifies("_Uninit(&t[MINDEX1(10, i)] ~> Cell)");
+      __smodifies("&t[MINDEX1(10, i)] ~> UninitCell");
       __sreads("&a ~> Cell");
       __sreads("&b ~> Cell");
       t[MINDEX1(10, i)] = i;

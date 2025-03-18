@@ -26,7 +26,7 @@
 %token <int> INT_LIT
 %token <float> FLOAT_LIT
 %token LPAR RPAR LBRACKET RBRACKET
-%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW COLON_EQUAL REV_ARROW DOT DOTDOT UNDERSCORE
+%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW LONG_SQUIG_ARROW COLON_EQUAL REV_ARROW DOT DOTDOT UNDERSCORE
 %token FUN FORALL FOR IN EOF
 %token PLUS MINUS STAR SLASH PERCENT
 %token EQUAL LT GT LEQ GEQ NEQ
@@ -155,18 +155,24 @@ binder:
 
 fun_arg:
   | x=binder
-    { (x, typ_auto) }
-  | LPAR; x=binder; COLON; typ=formula; RPAR
-    { (x, typ) }
+    { [x, typ_auto] }
+  | LPAR; xs=nonempty_list(binder); COLON; typ=formula; RPAR
+    { List.map (fun x -> (x, typ)) xs }
+
+fun_args:
+  | args=nonempty_list(fun_arg)
+    { List.concat args }
 
 formula:
   | f=formula_arrow;
     { f }
-  | t=atomic_formula; SQUIG_ARROW; f=atomic_formula;
-    { formula_model t f }
-  | FUN; args=nonempty_list(fun_arg); ARROW; body=formula;
+  | t=atomic_formula; SQUIG_ARROW; f=formula;
+    { formula_repr t f }
+  | t=atomic_formula; LONG_SQUIG_ARROW; f=formula;
+    { formula_points_to t f }
+  | FUN; args=fun_args; ARROW; body=formula;
     { formula_fun args body }
-  | FORALL; args=nonempty_list(fun_arg); ARROW; body=formula;
+  | FORALL; args=fun_args; ARROW; body=formula;
     { typ_pure_fun args body }
   | FORALL; index=binder; IN; range=formula_cmp; ARROW; body=formula;
     { formula_forall_in index range body }

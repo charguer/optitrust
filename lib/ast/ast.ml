@@ -435,7 +435,6 @@ and cstyle_annot =
   (* tag for printing using resource or type syntax
      LATER: Use different printers for different languages *)
   | ResourceFormula
-  | ResourceModel
   | Type
 
   | InjectedClassName

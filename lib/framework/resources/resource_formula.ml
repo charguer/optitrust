@@ -14,7 +14,6 @@ type contract_resource_item = var option * formula
 
 (** All formulas should have this annotation. *)
 let formula_annot = {trm_annot_default with trm_annot_cstyle = [ResourceFormula]}
-let formula_model_annot = {trm_annot_default with trm_annot_cstyle = [ResourceFormula; ResourceModel]}
 
 let new_hyp = new_var
 
@@ -25,10 +24,6 @@ let new_anon_hyp (): var =
 (** Primitive function that constructs a read only resource. *)
 let var_read_only = toplevel_var "_RO"
 let trm_read_only = trm_var var_read_only
-
-(** Primitive function that constructs an uninit resource. *)
-let var_uninit = toplevel_var "_Uninit"
-let trm_uninit = trm_var var_uninit
 
 (** Primitive type of fractions. *)
 let var_frac = toplevel_typvar "_Fraction"
@@ -139,30 +134,75 @@ let formula_geq ~typ t1 t2 = formula_is_true (trm_ge ~typ t1 t2)
 let formula_fun ?(rettyp = typ_auto) args body =
   trm_fun ~annot:formula_annot args rettyp body
 
-let formula_model (x: trm) (model: formula): formula =
-  trm_apps ~annot:formula_model_annot model [x]
+let var_repr = toplevel_var "~>"
+let trm_repr = trm_var var_repr
+let formula_repr (var: trm) (repr: formula): formula =
+  trm_apps ~annot:formula_annot trm_repr [var; repr]
 
-let formula_model_inv (t: formula): (trm * formula) option =
+let formula_repr_inv (t: formula): (trm * formula) option =
   match trm_apps_inv t with
-  | Some (tmodel, [tx]) -> Some (tx, tmodel)
+  | Some ({ desc = Trm_var(xf) }, [var; repr]) when var_eq xf var_repr ->
+    Some (var, repr)
   | _ -> None
-
-let formula_read_only ~(frac: formula) (res: formula) =
-  trm_apps ~annot:formula_annot trm_read_only [frac; res]
-
-let formula_uninit (inner_formula: formula): formula =
-  trm_apps ~annot:formula_annot trm_uninit [inner_formula]
 
 let var_cell = toplevel_var "Cell"
 let trm_cell = trm_var var_cell
 
 let formula_cell (addr: trm): formula =
-  formula_model addr trm_cell
+  if !Flags.use_resources_with_models then
+    failwith "formula_cell cannot be used when models are enabled";
+  formula_repr addr trm_cell
 
-let formula_cell_var ?(typ : typ option) (x: var): formula =
-  formula_model (trm_var ?typ:(Option.map typ_ptr typ) x) trm_cell
+let formula_points_to (addr: trm) (value: formula): formula =
+  if !Flags.use_resources_with_models then
+    formula_repr addr (trm_apps trm_cell [value])
+  else
+    formula_cell addr
 
-let var_free = toplevel_var "_Free"
+let formula_cell_inv (t: formula): trm option =
+  let open Option.Monad in
+  let* addr, repr = formula_repr_inv t in
+  let repr_matches = Pattern.pattern_match repr [
+    Pattern.(trm_specific_var var_cell) (fun () ->
+      not !Flags.use_resources_with_models
+    );
+    Pattern.(trm_apps1 (trm_specific_var var_cell) __) (fun () ->
+      !Flags.use_resources_with_models
+    );
+    Pattern.__ (fun () -> false)
+  ] in
+  if repr_matches then Some addr else None
+
+let formula_points_to_inv (t: formula): (trm * formula) option =
+  let open Option.Monad in
+  let* addr, repr = formula_repr_inv t in
+  Pattern.pattern_match_opt repr [
+    Pattern.(trm_specific_var var_cell) (fun () ->
+      Pattern.when_ (not !Flags.use_resources_with_models);
+      (* We need to return a model that will be ignored anyway. *)
+      (addr, trm_cell)
+    );
+    Pattern.(trm_apps1 (trm_specific_var var_cell) !__) (fun model () ->
+      Pattern.when_ (!Flags.use_resources_with_models);
+      (addr, model)
+    )
+  ]
+
+let var_uninit_cell = toplevel_var "UninitCell"
+let trm_uninit_cell = trm_var var_uninit_cell
+let formula_uninit_cell (addr: trm): formula =
+  formula_repr addr trm_uninit_cell
+
+let formula_uninit_cell_inv (t: formula): formula option =
+  match formula_repr_inv t with
+  | Some (addr, {desc = Trm_var(xf)}) when var_eq xf var_uninit_cell ->
+    Some addr
+  | _ -> None
+
+let formula_read_only ~(frac: formula) (res: formula) =
+  trm_apps ~annot:formula_annot trm_read_only [frac; res]
+
+let var_free = toplevel_var "Free"
 let formula_free (base_ptr: var) (cells: formula) : formula =
   trm_apps ~annot:formula_annot (trm_var var_free) [trm_var base_ptr; cells]
 
@@ -173,18 +213,46 @@ let formula_range (start: trm) (stop: trm) (step: trm) =
 
 let var_group = toplevel_var "Group"
 let trm_group = trm_var var_group
+let formula_group (range: trm) (fi: formula): formula =
+  trm_apps ~annot:formula_annot trm_group [range; fi]
 
-let formula_matrix (m: trm) (dims: trm list) : formula =
+(*let var_into_uninit = toplevel_var "_Uninit"
+let trm_into_uninit = trm_var var_into_uninit
+let formula_into_uninit (inner_formula: formula): formula =
+  trm_apps ~annot:formula_annot trm_into_uninit [inner_formula]*)
+
+let formula_custom_repr_matrix repr (m: trm) (dims: trm list) : formula =
   let indices = List.mapi (fun i _ -> new_var (sprintf "i%d" (i+1))) dims in
-  let inner_trm = formula_cell (Matrix_trm.access m dims (List.map trm_var indices)) in
+  let inner_trm = formula_repr (Matrix_trm.access m dims (List.map trm_var indices)) (repr indices) in
   List.fold_right2 (fun idx dim formula ->
     trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula])
     indices dims inner_trm
 
-let formula_cells_var (typ: typ) (x: var): formula =
+let formula_matrix (m: trm) ?(model: formula option) (dims: trm list) : formula =
+  if !Flags.use_resources_with_models then
+    let model = Option.unsome_or_else model (fun () -> failwith "Providing a model to formula_matrix is mandatory when models are enabled") in
+    formula_custom_repr_matrix (fun indices -> trm_apps trm_cell [trm_apps model (List.map trm_var indices)]) m dims
+  else
+    formula_custom_repr_matrix (fun _ -> trm_cell) m dims
+
+let formula_uninit_matrix (m: trm) (dims: trm list) : formula =
+  formula_custom_repr_matrix (fun _ -> trm_uninit_cell) m dims
+
+let formula_cell_var ?(typ : typ option) (x: var): formula =
+  formula_cell (trm_var ?typ:(Option.map typ_ptr typ) x)
+
+let formula_uninit_cell_var ?(typ : typ option) (x: var): formula =
+  formula_uninit_cell (trm_var ?typ:(Option.map typ_ptr typ) x)
+
+let formula_cells_var (typ: typ) (x: var) (model: formula): formula =
   match Matrix_trm.typ_matrix_inv typ with
-  | Some (base_ty, dims) -> formula_matrix (trm_var ~typ:(typ_ptr base_ty) x) dims
-  | None -> formula_cell_var ~typ x
+  | Some (base_ty, dims) -> formula_matrix (trm_var ~typ:(typ_ptr base_ty) x) dims ~model
+  | None -> formula_points_to (trm_var ~typ x) model
+
+let formula_uninit_cells_var (typ: typ) (x: var): formula =
+  match Matrix_trm.typ_matrix_inv typ with
+  | Some (base_ty, dims) -> formula_uninit_matrix (trm_var ~typ:(typ_ptr base_ty) x) dims
+  | None -> formula_uninit_cell_var ~typ x
 
 let var_in_range = toplevel_var "in_range"
 let trm_in_range = trm_var var_in_range
@@ -203,28 +271,43 @@ let formula_range_count (range: trm) =
 
 let var_wand = toplevel_var "Wand"
 
-let formula_wand (f_available : formula) (f_recoverable : formula) : formula =
-  trm_apps (trm_var var_wand) [f_available; f_recoverable]
+let formula_wand (f_missing : formula) (f_recoverable : formula) : formula =
+  trm_apps (trm_var var_wand) [f_missing; f_recoverable]
 
 module Pattern = struct
   include Pattern
 
-  let formula_model f_var f_model k t =
-    match formula_model_inv t with
+  let formula_repr f_trm f_repr k t =
+    match formula_repr_inv t with
+    | Some (var, repr) ->
+      let k = f_trm k var in
+      let k = f_repr k repr in
+      k
+    | None -> raise Next
+
+  let formula_points_to f_var f_model k t =
+    match formula_points_to_inv t with
     | Some (var, model) ->
       let k = f_var k var in
       let k = f_model k model in
       k
     | None -> raise Next
 
-  let formula_cell f_var =
-    formula_model f_var (trm_specific_var var_cell)
+  let formula_cell f_var k t =
+    match formula_cell_inv t with
+    | Some var -> f_var k var
+    | None -> raise Next
+
+  let formula_uninit_cell f_var k t =
+    match formula_uninit_cell_inv t with
+    | Some var -> f_var k var
+    | None -> raise Next
+
+  let formula_any_cell f_var =
+    formula_cell f_var ^| formula_uninit_cell f_var
 
   let formula_read_only f_frac f_formula =
     trm_apps2 (trm_specific_var var_read_only) f_frac f_formula
-
-  let formula_uninit f_formula =
-    trm_apps1 (trm_specific_var var_uninit) f_formula
 
   let formula_group f_range f_group_body =
     trm_apps2 (trm_specific_var var_group) f_range f_group_body
@@ -262,42 +345,44 @@ let formula_read_only_inv_all (formula: formula): read_only_formula =
     Pattern.__ (fun () -> {frac = full_frac; formula})
   ]
 
-let formula_uninit_inv (formula: formula): formula option =
-  Pattern.pattern_match_opt formula [
-    Pattern.(formula_uninit !__) (fun f () -> f);
-  ]
+exception CannotTransformIntoUninit of trm
 
-let formula_remove_uninit (formula: formula): formula =
+let () = Printexc.register_printer (function
+  | CannotTransformIntoUninit formula -> Some (sprintf "Cannot make an uninitialized version of formula %s" (Ast_to_text.ast_to_string formula))
+  | _ -> None)
+
+(** Make an uninitialized version of the formula, trying to convert cells into uninitialized cells *)
+let rec formula_uninit (formula: formula): formula =
   Pattern.pattern_match formula [
-    Pattern.(formula_uninit !__) (fun f () -> f);
-    Pattern.__ (fun () -> formula);
+    Pattern.(formula_any_cell !__) (fun addr () -> formula_uninit_cell addr);
+    Pattern.(formula_group !__ (trm_fun !__ __ !__ __)) (fun range args sub () -> formula_group range (formula_fun args (formula_uninit sub)));
+    Pattern.__ (fun () -> raise (CannotTransformIntoUninit formula))
   ]
 
-(** Applies a function below an uninit wrapper if there is one,
-    otherwise simply applies the function. *)
-let formula_map_under_uninit (f_map: formula -> formula) (formula: formula) =
-  match formula_uninit_inv formula with
-  | Some formula -> formula_uninit (f_map formula)
-  | None -> f_map formula
+let rec is_formula_uninit (formula: formula): bool =
+  Pattern.pattern_match formula [
+    Pattern.(formula_uninit_cell __) (fun () -> true);
+    Pattern.(formula_group __ (trm_fun __ __ !__ __)) (fun sub () -> is_formula_uninit sub);
+    Pattern.__ (fun () -> false)
+  ]
 
-type formula_mode = RO | Uninit | Full
-
-let formula_mode_inv (formula : formula) : (formula_mode * formula) =
-  match formula_uninit_inv formula with
-  | Some formula -> Uninit, formula
-  | None ->
-    begin match formula_read_only_inv formula with
-    | Some { (* frac; *) formula } -> RO, formula
-    | None -> Full, formula
-    end
-
-(** Applies a function below a resource mode wrapper if there is one,
-    otherwise simply applies the function.
-
-  Current resource mode wrappers include read only and uninit, they float to the top of formulas.
- *)
-let formula_map_under_mode (f_map: formula -> formula): formula -> formula =
-  formula_map_under_read_only (formula_map_under_uninit f_map)
+(** Same as [formula_uninit] but works with raw formulas with syntatic sugar and without var ids *)
+let rec raw_formula_uninit (formula: formula): formula =
+  Pattern.pattern_match formula [
+    Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_var_with_name var_uninit_cell.name ^| trm_var_with_name var_cell.name ^| trm_apps1 (trm_var_with_name var_cell.name) __)) (fun addr () ->
+      formula_uninit_cell addr
+    );
+    Pattern.(trm_apps2 (trm_var_with_name var_group.name) !__ (trm_fun !__ __ !__ __)) (fun range args sub () -> formula_group range (formula_fun args (raw_formula_uninit sub)));
+    Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_apps (trm_var !(check (fun v -> String.starts_with ~prefix:"Matrix" v.name))) !__ __ __)) (fun addr matrix_repr matrix_args () ->
+      let size =
+        if !Flags.use_resources_with_models then
+          fst (List.unlast matrix_args)
+        else matrix_args
+      in
+      formula_repr addr (trm_apps (trm_var (toplevel_var ("Uninit" ^ matrix_repr.name))) size));
+    Pattern.(trm_apps2 (trm_var_with_name var_repr.name) __ (trm_apps (trm_var (check (fun v -> String.starts_with ~prefix:"UninitMatrix" v.name))) __ __ __)) (fun () -> formula);
+    Pattern.__ (fun () -> raise (CannotTransformIntoUninit  formula))
+  ]
 
 let formula_loop_range (range: loop_range): formula =
   if range.direction <> DirUp then failwith "formula_loop_range only supports DirUp";
@@ -315,13 +400,14 @@ let formula_group (index: var) (range: trm) (fi: formula) =
   trm_apps ~annot:formula_annot trm_group [range; formula_fun [index, typ_int] fi]
 
 let formula_group_range (range: loop_range) : formula -> formula =
-  formula_map_under_mode (fun fi ->
+  (* FIXME: Need to generalize models ! *)
+  formula_map_under_read_only (fun fi ->
     let range_var = new_var ~namespaces:range.index.namespaces range.index.name in
     let fi = trm_subst_var range.index (trm_var range_var) fi in
     formula_group range_var (formula_loop_range range) fi
   )
 
-let formula_matrix_inv (f: formula): (trm * trm list) option =
+let formula_matrix_inv (f: formula): (trm * trm list * trm option) option =
   let open Option.Monad in
   let rec nested_group_inv (f: formula): (formula * var list * trm list) =
     Pattern.pattern_match f [
@@ -335,19 +421,34 @@ let formula_matrix_inv (f: formula): (trm * trm list) option =
   in
   let inner_formula, indices, dims = nested_group_inv f in
 
-  let* location, cell = formula_model_inv inner_formula in
-  let* cell_candidate = trm_var_inv cell in
-  let* () = if var_eq cell_candidate var_cell then Some () else None in
+  let has_matching_indices arg_indices exp_indices = match List.for_all2 (fun arg_idx exp_idx ->
+      match trm_var_inv arg_idx with
+      | Some arg_idx when var_eq exp_idx arg_idx -> true
+      | _ -> false
+    ) arg_indices exp_indices with
+    | v -> v
+    | exception Invalid_argument _ -> false
+  in
+
+  let* location, repr = formula_repr_inv inner_formula in
+  let* model = Pattern.pattern_match_opt repr [
+    Pattern.(trm_specific_var var_uninit_cell) (fun () -> None);
+    Pattern.(trm_specific_var var_cell) (fun () ->
+      Pattern.when_ (not !Flags.use_resources_with_models);
+      Some trm_cell
+    );
+    Pattern.(trm_apps1 (trm_specific_var var_cell) (trm_apps !__ !__ __ __)) (fun model args () ->
+      Pattern.when_ (!Flags.use_resources_with_models);
+      Pattern.when_ (has_matching_indices args indices);
+      Some model
+    )
+  ] in
   let* matrix, mindex_dims, mindex_indices = Matrix_trm.access_inv location in
   let* () = if List.length mindex_dims = List.length dims then Some () else None in
   let* () = if List.for_all2 are_same_trm mindex_dims dims then Some () else None in
-  if List.for_all2 (fun mindex_idx idx ->
-      match trm_var_inv mindex_idx with
-      | Some idx_arg when var_eq idx idx_arg -> true
-      | _ -> false
-    ) mindex_indices indices
-  then Some (matrix, dims)
-  else None
+  if has_matching_indices mindex_indices indices
+    then Some (matrix, dims, model)
+    else None
 
 let var_arith_checked = toplevel_var "__arith_checked"
 let formula_arith_checked = trm_var var_arith_checked
@@ -363,13 +464,19 @@ let formula_arith_checked = trm_var var_arith_checked
   - if [filter_map_left r] returns [Some r'], use [r'] in the comparison with resources in [res2], in case of a match put [r'] in [comm], else leave [r] in [res1].
   - if it returns [None], keep the resource separated from the one in [res2].
 *)
-let filter_common_resources ?(filter_map_left = fun x -> Some x) (res1: resource_item list) (res2: resource_item list): resource_item list * resource_item list * resource_item list =
+let filter_common_resources ?(filter_map_left = fun x -> Some x) ?(compare = fun fl fr -> if are_same_trm fl fr then Some fl else None) (res1: resource_item list) (res2: resource_item list): resource_item list * resource_item list * resource_item list =
   let res2 = ref res2 in
   let rec try_remove_same_formula formula l =
     match l with
     | [] -> None
-    | (_,f)::l when are_same_trm f formula -> Some l
-    | res::l -> Option.map (fun l -> res::l) (try_remove_same_formula formula l)
+    | (_, tr as res) :: l ->
+      begin match compare formula tr with
+      | Some common_formula -> Some (common_formula, l)
+      | None ->
+        let open Option.Monad in
+        let* common_formula, l = try_remove_same_formula formula l in
+        Some (common_formula, res::l)
+      end
   in
   let common, res1 = List.partition_map
     (fun (x, formula) ->
@@ -377,7 +484,7 @@ let filter_common_resources ?(filter_map_left = fun x -> Some x) (res1: resource
       | Some formula' ->
         begin match try_remove_same_formula formula' !res2 with
         | None -> Either.Right (x, formula)
-        | Some new_res2 -> res2 := new_res2; Either.Left (x, formula')
+        | Some (common_formula, new_res2) -> res2 := new_res2; Either.Left (x, common_formula)
         end
       | None -> Either.Right (x, formula))
     res1

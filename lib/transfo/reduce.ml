@@ -230,11 +230,10 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
   let new_range = { range with start = trm_add_mark mark_simpl (trm_add_int range.start step) } in
   if !Flags.check_validity then begin
     let open Resource_formula in
-    let dispatch_ghosts ghost ro_ghost uninit_ghost formula =
-      match formula_mode_inv formula with
-      | RO, formula -> ro_ghost, formula
-      | Uninit, formula -> uninit_ghost, formula
-      | Full, formula -> ghost, formula
+    let dispatch_ghosts ghost ro_ghost formula =
+      match formula_read_only_inv formula with
+      | Some { formula } -> ro_ghost, formula
+      | None -> ghost, formula
     in
     let add_split_ghost ghost_fn =
       (* TODO: factorize pattern with tiling ghosts *)
@@ -261,8 +260,8 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
         (formula_range (trm_int 0) n step)
       );
     ]) in
-    let split_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_split ghost_group_split_ro ghost_group_split_uninit)) contract.iter_contract.pre.linear in
-    let join_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_join ghost_group_join_ro ghost_group_join_uninit)) contract.iter_contract.post.linear in
+    let split_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_split ghost_group_split_ro)) contract.iter_contract.pre.linear in
+    let join_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_join ghost_group_join_ro)) contract.iter_contract.post.linear in
     let pure_split_ghosts = Loop_core.(add_split_ghost (fun f -> ghost_group_split_pure, f)) contract.iter_contract.pre.pure in
     let pure_join_ghosts = Loop_core.(add_split_ghost (fun f -> ghost_group_join_pure, f)) contract.iter_contract.post.pure in
     let one_range = { range with stop = new_range.start } in

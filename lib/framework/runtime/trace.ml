@@ -169,6 +169,15 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
 
   if not persistant then Unix.unlink ser_filename;
 
+  (* LATER: It is weird to do this here, but we must set this flag before decoding *)
+  let rec check_models_enabled (t: trm) =
+    match t.desc with
+    | Trm_seq (seq, _) -> List.exists check_models_enabled (Mlist.to_list seq)
+    | Trm_predecl (var, _) when var.name = "__OPTITRUST_ENABLE_MODELS" -> true
+    | _ -> false
+  in
+  Flags.use_resources_with_models := check_models_enabled ast;
+
   (* Possibly perform the decoding *)
   let ast = if !Flags.bypass_cfeatures then Scope_computation.infer_var_ids ast else C_encoding.decode_from_c ast in
   (* Return the header and the ast *)

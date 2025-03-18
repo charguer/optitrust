@@ -36,9 +36,9 @@ void from_zero_contract(int* t, int* u, int n, int m) {
   __reads("u ~> Matrix2(n, m)");
   __ghost(assume, "P := __is_true(n >= 0)");
   __ghost(assume, "P := __is_true(m >= 0)");
-  __ghost(group_collapse_uninit,
+  __ghost(group_collapse,
           "n := n, m := m, items := fun (i: int) (j: int) -> &t[MINDEX2(n, m, "
-          "i, j)] ~> Cell");
+          "i, j)] ~> UninitCell");
   for (int ij = 0; ij < n * m; ij++) {
     __strict();
     __sreads("u ~> Matrix2(n, m)");

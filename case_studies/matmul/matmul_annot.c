@@ -6,7 +6,7 @@ __requires("")
 __ensures("")
 
 for(int i = a; i < b; ++i) {
-    __invariant("")
+    __srequires("")
     __iter_local_invariant("")
 }
 

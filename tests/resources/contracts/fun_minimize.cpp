@@ -28,7 +28,7 @@ void unused_reads(float* M1, float* M2, int n) {
 
 void produced_uninit_used_ro(int* t2) {
   __consumes("t2 ~> Matrix1(10)");
-  __produces("_Uninit(t2 ~> Matrix1(10))");
+  __produces("t2 ~> UninitMatrix1(10)");
 
   for (int i = 0; i < 10; i++) {
     __strict();

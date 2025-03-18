@@ -27,9 +27,9 @@ void g() {
     __admitted();
   }, "");
   __ghost([&] {
-    __consumes("_Uninit(&s ~> Cell)");
-    __produces("_Uninit(&s.x ~> Cell)");
-    __produces("_Uninit(&s.y ~> Cell)");
+    __consumes("&s ~> UninitCell");
+    __produces("&s.x ~> UninitCell");
+    __produces("&s.y ~> UninitCell");
     __admitted();
   }, "");
   s.x = p.x;
@@ -50,10 +50,10 @@ void g() {
 
   obj a;
   __ghost([&] {
-    __consumes("_Uninit(&a ~> Cell)");
-    __produces("_Uninit(&a.weight ~> Cell)");
-    __produces("_Uninit(&a.pos ~> Cell)");
-    __produces("_Uninit(&a.speed ~> Cell)");
+    __consumes("&a ~> UninitCell");
+    __produces("&a.weight ~> UninitCell");
+    __produces("&a.pos ~> UninitCell");
+    __produces("&a.speed ~> UninitCell");
     __admitted();
   }, "");
   a.weight = 0;

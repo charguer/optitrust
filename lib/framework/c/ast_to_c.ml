@@ -1333,12 +1333,15 @@ and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
 and formula_to_doc style (f: formula): document =
   let open Resource_formula in
   Pattern.pattern_match f [
-    Pattern.(formula_model !__ !__) (fun t formula () ->
-      Pattern.when_ (trm_has_cstyle ResourceModel f);
-      decorate_trm style t ^^ blank 1 ^^ string "~>" ^^ blank 1 ^^ trm_to_doc style formula
+    Pattern.(formula_points_to !__ !__) (fun addr formula () ->
+      Pattern.when_ (!Flags.use_resources_with_models);
+      decorate_trm style addr ^^ blank 1 ^^ string "~~>" ^^ blank 1 ^^ trm_to_doc style formula
+    );
+    Pattern.(formula_repr !__ !__) (fun addr formula () ->
+      decorate_trm style addr ^^ blank 1 ^^ string "~>" ^^ blank 1 ^^ trm_to_doc style formula
     );
     Pattern.(formula_range !__ !__ (trm_int (eq 1))) (fun start stop () ->
-      trm_to_doc ~prec:16 style start ^^ string ".." ^^ trm_to_doc ~prec:16 style stop
+      decorate_trm ~prec:16 style start ^^ string ".." ^^ decorate_trm ~prec:16 style stop
     );
     Pattern.(trm_fun !__ !__ !__ __) (fun tvl ty_opt body () -> formula_fun_to_doc style ty_opt tvl body
     );

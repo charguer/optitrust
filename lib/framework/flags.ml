@@ -128,6 +128,9 @@ let reparse_between_steps = ref false
 (** [recompute_resources_between_steps]: always recompute resources between two steps *)
 let recompute_resources_between_steps = ref false
 
+(** [use_resources_with_models]: use resources of the form "p ~~> v" instead of "p ~> Cell". In the long term, this flag should disappear as we should be able to unify those two modes into one, using clever syntactic sugar and unification features. *)
+let use_resources_with_models = ref false
+
 (** [ignore_serialized] disables the read of serialized AST saved after parsing *)
 let ignore_serialized = ref false
 

@@ -401,20 +401,23 @@ let __ensures (r: string) = Ensures, r
 let __reads (r: string) = Reads, r
 let __writes (r: string) = Writes, r
 let __modifies (r: string) = Modifies, r
+let __preserves (r: string) = Preserves, r
 let __consumes (r: string) = Consumes, r
 let __produces (r: string) = Produces, r
 
-let __loop_requires (r: string) = LoopVars, r
+let __loop_requires (r: string) = LoopGhosts, r
 let __xrequires (r: string) = Exclusive Requires, r
 let __xensures (r: string) = Exclusive Ensures, r
 let __xreads (r: string) = Exclusive Reads, r
 let __xwrites (r: string) = Exclusive Writes, r
 let __xmodifies (r: string) = Exclusive Modifies, r
+let __xpreserves (r: string) = Exclusive Preserves, r
 let __xconsumes (r: string) = Exclusive Consumes, r
 let __xproduces (r: string) = Exclusive Produces, r
-let __invariant (r: string) = Invariant, r
+let __srequires (r: string) = InvariantGhosts, r
 let __sreads (r: string) = SharedReads, r
 let __smodifies (r: string) = SharedModifies, r
+let __spreserves (r: string) = SharedPreserves, r
 
 let%transfo delete_annots (tg : Target.target) : unit =
   Trace.justif "changes only annotations";
@@ -622,7 +625,7 @@ let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) ?(ke
           let write_res = List.map (fun (_, formula) -> formula) write_res in
           let write_res = List.filter pred write_res in
           let uninit_ghosts = List.filter_map (fun res ->
-            if Option.is_none (formula_uninit_inv res) then Some (Resource_trm.ghost_forget_init res) else None) write_res in
+            if is_formula_uninit res then None else Some (Resource_trm.ghost_forget_init res)) write_res in
           if keep_instrs
             then [ TrmMlist instrs; TrmList uninit_ghosts ]
             else [ TrmList uninit_ghosts ]

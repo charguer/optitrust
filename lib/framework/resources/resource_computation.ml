@@ -128,7 +128,7 @@ let used_set_to_usage_map (res_used: used_resource_set) : resource_usage_map =
     match Formula_inst.inst_split_read_only_inv inst_by with
     | Some (_, _, orig_hyp) -> Var_map.add orig_hyp SplittedFrac usage_map
     | None ->
-      let hyp_usage = if formula_uninit_inv used_formula = None then ConsumedFull else ConsumedUninit in
+      let hyp_usage = if is_formula_uninit used_formula then ConsumedUninit else ConsumedFull in
       match Formula_inst.inst_hyp_inv inst_by with
       | Some hyp -> Var_map.add hyp hyp_usage usage_map
       | None ->
@@ -289,8 +289,8 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
     | Trm_prim (_, Prim_binop Binop_array_access), [arr; index] ->
       let arr_typ = compute_pure_typ env arr in
       let index_typ = compute_pure_typ env index in
-      assert (is_typ_ptr arr_typ);
-      assert (is_typ_integer index_typ);
+      if not (is_typ_ptr arr_typ) then failwith "In '%s': '%s' has type '%s' which is not a pointer" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string arr) (Ast_to_c.typ_to_string arr_typ);
+      if not (is_typ_integer index_typ) then failwith "In '%s': '%s' has type '%s' which is not an integer" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string index) (Ast_to_c.typ_to_string index_typ);
       arr_typ
     | Trm_prim (prim_typ, Prim_unop Unop_struct_access field), [base] ->
       let base_typ = compute_pure_typ env base in
@@ -313,9 +313,18 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
         end
       | None -> failwith "Pure expression '%s' has type '%s' which is not declared as a struct but is used in a struct access" (Ast_to_c.ast_to_string base) (var_to_string struct_typ)
       end
-    | Trm_var xf, [ptr] when var_eq xf var_cell ->
+    | Trm_var xf, [ptr; repr] when var_eq xf var_repr ->
       let ptr_typ = compute_pure_typ env ptr in
-      assert (is_typ_ptr ptr_typ);
+      let val_typ = Option.unsome_or_else (typ_ptr_inv ptr_typ) (fun () -> failwith "The lefthand side of '%s' should be a pointer" (Ast_to_c.ast_to_string t)) in
+      Pattern.pattern_match repr [
+        Pattern.(trm_specific_var var_uninit_cell) (fun () -> ());
+        Pattern.(trm_specific_var var_cell) (fun () -> Pattern.when_ (not !Flags.use_resources_with_models));
+        Pattern.(trm_apps1 (trm_specific_var var_cell) !__) (fun model () ->
+          let model_typ = compute_pure_typ env model in
+          if not (are_same_trm val_typ model_typ) then failwith "In '%s': pointer '%s' of type '%s' cannot point to a value '%s' of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string ptr) (Ast_to_c.typ_to_string ptr_typ) (Ast_to_c.ast_to_string model) (Ast_to_c.typ_to_string model_typ)
+        );
+        Pattern.__ (fun () -> failwith "Unknown representation predicate '%s'" (Ast_to_c.ast_to_string repr))
+      ];
       typ_hprop
     | Trm_var xf, [ptr; alloc_cells] when var_eq xf var_free ->
       let ptr_typ = compute_pure_typ env ptr in
@@ -446,7 +455,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
 
   let unify_and_remove_linear
     ((x, formula): resource_item)
-    ~(uninit : bool) (* was [formula] surrounded by Uninit? *)
+    ~(uninit : bool) (* is [formula] uninitialized? *)
     (res: linear_resource_set)
     (evar_ctx: unification_ctx)
     ~(pure_ctx: pure_env): used_resource_item * linear_resource_set * unification_ctx =
@@ -454,21 +463,19 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
     (* LATER: Improve the structure of the linear_resource_set to make this
       function faster on most frequent cases *)
     extract (fun (candidate_name, formula_candidate) ->
-      let used_formula, formula_to_unify =
-        if uninit then
-          match formula_uninit_inv formula_candidate with
-          (* standard case: Uninit consumes Uninit *)
-          | Some formula_candidate -> Formula_inst.inst_hyp candidate_name, formula_candidate
-          (* coercion case: Uninit consumes Full *)
-          | None -> Formula_inst.inst_forget_init candidate_name, formula_candidate
-        else Formula_inst.inst_hyp candidate_name, formula_candidate
-      in
-      let* evar_ctx = unify_trm formula formula_to_unify evar_ctx (compute_and_unify_typ pure_ctx) in
-      let used_formula = if uninit then formula_uninit formula_to_unify else formula_to_unify in
-      Some (
-        { hyp = x; inst_by = Formula_inst.inst_hyp candidate_name; used_formula },
-        None,
-        evar_ctx)
+      try
+        let inst_by, formula_to_unify =
+          (* Check for possible Uninit coercion if formula_candidate is not already uninit *)
+          if uninit && not (is_formula_uninit formula_candidate) then
+            Formula_inst.inst_forget_init candidate_name, formula_uninit formula_candidate
+          else Formula_inst.inst_hyp candidate_name, formula_candidate
+        in
+        let* evar_ctx = unify_trm formula formula_to_unify evar_ctx (compute_and_unify_typ pure_ctx) in
+        Some (
+          { hyp = x; inst_by; used_formula = formula_to_unify },
+          None,
+          evar_ctx)
+      with CannotTransformIntoUninit _ -> None
     ) res evar_ctx
   in
 
@@ -510,10 +517,8 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
         (* Other cases: match the exact fraction *)
         unify_and_remove_linear (x, formula) ~uninit:false res evar_ctx ~pure_ctx
     );
-    Pattern.(formula_uninit !__) (fun formula () ->
-      unify_and_remove_linear (x, formula) ~uninit:true res evar_ctx ~pure_ctx);
     Pattern.__ (fun () ->
-      unify_and_remove_linear (x, formula) ~uninit:false res evar_ctx ~pure_ctx)
+      unify_and_remove_linear (x, formula) ~uninit:(is_formula_uninit formula) res evar_ctx ~pure_ctx)
   ]
 
 (** [subtract_linear_resource_set ?split_frac ?evar_ctx ?pure_ctx res_from res_removed] subtracts [res_removed] from [res_from].
@@ -989,7 +994,7 @@ type minimized_linear_triple = {
 
 type minimize_linear_triple_post_modif =
   | RemoveUnused
-  | WeakenSplitFrac of { new_hyp: var; frac_before: formula; new_frac: var }
+  | WeakenSplitFrac of { new_hyp: var; frac_before: formula; new_frac: var; base_formula: trm; }
   | RemoveJoinedFrac of formula
 
 (** [minimize_linear_triple linear_pre linear_post usage] removes and weakens resources from linear_pre and linear_post
@@ -1011,17 +1016,13 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
     | Some (Required | Ensured | ArbitrarilyChosen | Cleared) -> failwith "minimize_linear_triple: the linear resource %s is used like a pure resource" (var_to_string hyp)
     | Some Produced -> failwith "minimize_linear_triple: Produced resource %s has the same id as a contract resource" (var_to_string hyp)
     | Some ConsumedFull -> Some (hyp, formula)
-    | Some ConsumedUninit ->
-      begin match formula_uninit_inv formula with
-      | Some _ -> Some (hyp, formula)
-      | None -> Some (hyp, formula_uninit formula)
-      end
+    | Some ConsumedUninit -> Some (hyp, formula_uninit formula)
     | Some SplittedFrac ->
       let { frac = frac_before; formula = base_formula } = formula_read_only_inv_all formula in
       let new_hyp = new_anon_hyp () in
       let frac_var, frac_ghost = new_frac () in
       new_fracs := frac_ghost :: !new_fracs;
-      post_modifs := Var_map.add hyp (WeakenSplitFrac { new_hyp; frac_before; new_frac = frac_var }) !post_modifs;
+      post_modifs := Var_map.add hyp (WeakenSplitFrac { new_hyp; frac_before; new_frac = frac_var; base_formula }) !post_modifs;
       frame := (hyp, formula_read_only ~frac:(formula_frac_sub frac_before (trm_var frac_var)) base_formula) :: !frame;
       Some (new_hyp, formula_read_only ~frac:(trm_var frac_var) base_formula)
     | Some JoinedFrac ->
@@ -1057,8 +1058,9 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
     match var_map_try_pop hyp post_modifs with
     | None -> [(hyp, formula)]
     | Some RemoveUnused -> []
-    | Some WeakenSplitFrac { new_hyp; frac_before; new_frac } ->
-      let { frac = frac_after; formula = base_formula } = formula_read_only_inv_all (formula_remove_uninit formula) in
+    | Some WeakenSplitFrac { new_hyp; frac_before; new_frac; base_formula } ->
+      (* The base_formula in the precondition might be more precise (i.e. less uninitialized) than the one in the post. We have a smaller footprint if we avoid the precision loss. *)
+      let { frac = frac_after } = formula_read_only_inv_all formula in
       let frac_holes_only_before, frac_holes_only_after = frac_wand_diff frac_before frac_after in
       let carved_frac = frac_wand_to_formula (trm_var new_frac, frac_holes_only_after) in
       let remaining_fracs = List.map (filled_frac_hole_to_read_only base_formula) frac_holes_only_before in
@@ -1066,7 +1068,7 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
       updated_usage_map := add_usage carved_frac_hyp Produced !updated_usage_map;
       (carved_frac_hyp, formula_read_only ~frac:carved_frac base_formula) :: remaining_fracs
     | Some RemoveJoinedFrac frac_before ->
-      let { frac = frac_after; formula = base_formula } = formula_read_only_inv_all (formula_remove_uninit formula) in
+      let { frac = frac_after; formula = base_formula } = formula_read_only_inv_all formula in
       let frac_holes_only_before, frac_holes_only_after = frac_wand_diff frac_before frac_after in
       assert (frac_holes_only_after = []);
       List.map (filled_frac_hole_to_read_only base_formula) frac_holes_only_before
@@ -1136,14 +1138,14 @@ let delete_stack_allocs instrs res =
     match trm_let_inv ti with
     | Some (x, _, t) ->
       begin match trm_ref_any_inv t with
-      | Some ty -> [formula_cells_var ty x]
+      | Some ty -> [formula_uninit_cells_var ty x]
       | None -> []
       end
     | None -> []
   in
   let to_free = List.concat_map extract_let_mut instrs in
   (*Tools.debug "Trying to free %s from %s\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
-  let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), formula_uninit f)) to_free) () in
+  let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), f)) to_free) () in
   let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
   (removed_res, linear)
 
@@ -1196,6 +1198,25 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
     | Unop_address ->
       failwith "Address operator should have been eliminated at encoding phase"
 
+    | Unop_pre_incr | Unop_pre_decr | Unop_post_incr | Unop_post_decr when (!Flags.use_resources_with_models) ->
+      if not (is_typ_numeric typ) then failwith "Cannot apply unary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
+      let dest_var = new_hyp "dest" in
+      let value_var = new_hyp "value" in
+      let value_after = match unop with
+        | Unop_pre_incr | Unop_post_incr -> trm_add ~typ (trm_var value_var) (trm_int ~typ 1)
+        | Unop_pre_decr | Unop_post_decr -> trm_sub ~typ (trm_var value_var) (trm_int ~typ 1)
+        | _ -> failwith "unreachable"
+      in
+      let result_value = match unop with
+        | Unop_pre_incr | Unop_post_incr -> trm_var value_var
+        | _ -> value_after
+      in
+      let contract = {
+        pre = Resource_set.make ~pure:[(dest_var, typ_ptr typ); (value_var, typ)] ~linear:[new_anon_hyp (), formula_points_to (trm_var dest_var) (trm_var value_var)] ();
+        post = Resource_set.make ~pure:[var_result, typ] ~aliases:(Var_map.singleton var_result result_value) ~linear:[new_anon_hyp (), formula_points_to (trm_var dest_var) value_after] ()
+      } in
+      typ_fun [typ_ptr typ] typ, { args = [dest_var]; contract; inverse = None }
+
     | Unop_pre_incr | Unop_pre_decr | Unop_post_incr | Unop_post_decr ->
       if not (is_typ_numeric typ) then failwith "Cannot apply unary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
       let dest_var = new_hyp "dest" in
@@ -1244,12 +1265,19 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
       let vartyp = new_hyp "T" in
       let typ = typ_var vartyp in
       let arg_var = new_hyp "p" in
+      let model_var = new_hyp "v" in
+      let pre_model, post_aliases =
+        if !Flags.use_resources_with_models then
+          [model_var, typ], (Var_map.singleton var_result (trm_var model_var))
+        else
+          [], Var_map.empty
+      in
       let frac_var = new_hyp "f" in
-      let ro_cell = formula_read_only ~frac:(trm_var frac_var) (formula_cell_var arg_var) in
+      let ro_cell = formula_read_only ~frac:(trm_var frac_var) (formula_points_to (trm_var arg_var) (trm_var model_var)) in
       (* With C++ syntax: template<typename T> T get(T* p) { __reads("p ~> Cell"); } *)
       let contract = {
-        pre = Resource_set.make ~pure:[(vartyp, typ_type); (arg_var, typ_ptr typ); (frac_var, typ_frac)] ~linear:[new_anon_hyp (), ro_cell] ();
-        post = Resource_set.make ~pure:[var_result, typ] ~linear:[new_anon_hyp (), ro_cell] ()
+        pre = Resource_set.make ~pure:((vartyp, typ_type) :: (arg_var, typ_ptr typ) :: (frac_var, typ_frac) :: pre_model) ~linear:[new_anon_hyp (), ro_cell] ();
+        post = Resource_set.make ~pure:[var_result, typ] ~linear:[new_anon_hyp (), ro_cell] ~aliases:post_aliases ()
       } in
       (* func_typ is hard to give because this is a polymorphic function and we do not have polymorphic function types *)
       typ_auto, { args = [arg_var]; contract; inverse = None }
@@ -1266,8 +1294,8 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
       let dest_var = new_hyp "dest" in
       let value_var = new_hyp "value" in
       let contract = {
-        pre = Resource_set.make ~pure:[(vartyp, typ_type); (dest_var, typ_ptr typ); (value_var, typ)] ~linear:[new_anon_hyp (), formula_uninit (formula_cell_var dest_var)] ();
-        post = Resource_set.make ~linear:[new_anon_hyp (), formula_cell_var dest_var] ()
+        pre = Resource_set.make ~pure:[(vartyp, typ_type); (dest_var, typ_ptr typ); (value_var, typ)] ~linear:[new_anon_hyp (), (formula_uninit_cell_var dest_var)] ();
+        post = Resource_set.make ~linear:[new_anon_hyp (), formula_points_to (trm_var dest_var) (trm_var value_var)] ()
       } in
       typ_auto, { args = [dest_var; value_var]; contract; inverse = None }
 
@@ -1290,29 +1318,30 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
   | Prim_unop op -> find_unop_spec op
   | Prim_binop op -> find_binop_spec op
   | Prim_compound_assign_op op ->
-    let pure_binop_typ = compute_pure_typ empty_pure_env (trm_prim typ (Prim_binop op)) in
+    let pure_binop_typ = compute_pure_typ empty_pure_env (trm_binop typ op) in
     if not (are_same_trm pure_binop_typ (typ_pure_simple_fun [typ; typ] typ)) then
       failwith "Invalid compound assign operator";
     let dest_var = new_hyp "dest" in
+    let model_var = new_hyp "dest_val" in
+    let pre_model = if !Flags.use_resources_with_models then [model_var, typ] else [] in
     let operand_var = new_hyp "operand" in
     let contract = {
-      pre = Resource_set.make ~pure:[(dest_var, typ_ptr typ); (operand_var, typ)] ~linear:[new_anon_hyp (), formula_cell_var dest_var] ();
-      post = Resource_set.make ~linear:[new_anon_hyp (), formula_cell_var dest_var] ()
+      pre = Resource_set.make ~pure:((dest_var, typ_ptr typ) :: (operand_var, typ) :: pre_model) ~linear:[new_anon_hyp (), formula_points_to (trm_var dest_var) (trm_var model_var)] ();
+      post = Resource_set.make ~linear:[new_anon_hyp (), formula_points_to (trm_var dest_var) (trm_apps (trm_binop typ op) [trm_var model_var; trm_var operand_var])] ()
     } in
     typ_fun [typ_ptr typ; typ] typ_unit, { args = [dest_var; operand_var]; contract; inverse = None }
 
   | Prim_ref | Prim_new | Prim_ref_uninit | Prim_new_uninit ->
     let res_typ = typ_of_alloc typ in
-    let alloc_cells = formula_cells_var typ var_result in
     let pure_pre, args_typ, args, alloc_res = match prim with
-      | Prim_ref_uninit | Prim_new_uninit -> [], [], [], formula_uninit alloc_cells
+      | Prim_ref_uninit | Prim_new_uninit -> [], [], [], formula_uninit_cells_var typ var_result
       | _ ->
         let init_var = new_hyp "init_val" in
-        [init_var, typ], [typ], [init_var], alloc_cells
+        [init_var, typ], [typ], [init_var], formula_cells_var typ var_result (trm_var init_var)
     in
     let post_linear = match prim with
       | Prim_ref | Prim_ref_uninit -> [new_anon_hyp (), alloc_res]
-      | _ -> [new_anon_hyp (), alloc_res; new_anon_hyp (), formula_free var_result alloc_cells]
+      | _ -> [new_anon_hyp (), alloc_res; new_anon_hyp (), formula_free var_result (formula_uninit alloc_res)]
     in
     let contract = {
       pre = Resource_set.make ~pure:pure_pre ();
@@ -1326,7 +1355,7 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
     let del_ptr = new_hyp "del_ptr" in
     let var_hprop = new_hyp "H" in
     let contract = {
-      pre = Resource_set.make ~pure:[var_typ, typ_type; del_ptr, typ_ptr (typ_var var_typ); var_hprop, typ_hprop] ~linear:[new_anon_hyp (), formula_free del_ptr (trm_var var_hprop); new_anon_hyp (), formula_uninit (trm_var var_hprop)] ();
+      pre = Resource_set.make ~pure:[var_typ, typ_type; del_ptr, typ_ptr (typ_var var_typ); var_hprop, typ_hprop] ~linear:[new_anon_hyp (), formula_free del_ptr (trm_var var_hprop); new_anon_hyp (), trm_var var_hprop] ();
       post = Resource_set.make ()
     } in
     typ_auto, { args = [del_ptr]; contract; inverse = None }
@@ -1663,6 +1692,7 @@ let rec compute_resources
         let usage_map, res, contract_invoc = Pattern.pattern_match effective_args [
           Pattern.(!(trm_apps !__ nil __ __) ^:: nil) (fun ghost_call ghost_fn () ->
             let usage_map, res = compute_resources (Some res) ghost_call in
+            t.ctx.ctx_resources_contract_invoc <- ghost_call.ctx.ctx_resources_contract_invoc;
             let resources_after_ghost_fn = Option.unsome ghost_fn.ctx.ctx_resources_after in
             let spec = Resource_set.find_result_fun_spec  resources_after_ghost_fn in
             begin match spec.inverse with
@@ -1745,6 +1775,19 @@ let rec compute_resources
         end;
         let res = Resource_set.add_alias var subst res in
         usage_map, Some res
+
+      | Spec_not_found fn when var_eq fn Resource_trm.var_ghost_forget_init ->
+        if effective_args <> [] then failwith "forget_init expects only ghost arguments";
+        let h = List.find_map (fun (arg, value) -> if arg.name = "H" then Some value else None) ghost_args in
+        let h = Option.unsome_or_else h (fun () -> failwith "Cannot call forget_init with unspecified resource") in
+        let uninit_h = formula_uninit h in
+        let contract = { pre = Resource_set.make ~linear:[new_anon_hyp (), h] (); post = Resource_set.make ~linear:[new_anon_hyp (), uninit_h] () } in
+        let call_usage_map, res_after = compute_contract_invoc contract res t in
+        let usage_map = List.fold_left (fun usage_map (_, ghost_inst) ->
+            let ghost_inst_fv = trm_free_vars ghost_inst in
+            Var_set.fold (fun x -> Var_map.add x Required) ghost_inst_fv usage_map
+          ) call_usage_map ghost_args in
+        Some usage_map, Some res_after
 
       | Spec_not_found fn when var_eq fn Resource_trm.var_admitted ->
         (* Stop the resource computation in the instructions following the call to __admitted()
@@ -1984,7 +2027,6 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_formula.var_group, typ_pure_simple_fun [typ_range; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_frac, typ_type;
   Resource_formula.var_read_only, typ_pure_simple_fun [Resource_formula.typ_frac; typ_hprop] typ_hprop;
-  Resource_formula.var_uninit, typ_pure_simple_fun [typ_hprop] typ_hprop;
   Resource_formula.var_is_true, typ_pure_simple_fun [typ_bool] typ_prop;
   Resource_formula.var_is_false, typ_pure_simple_fun [typ_bool] typ_prop;
   Resource_formula.var_not, typ_pure_simple_fun [typ_prop] typ_prop;

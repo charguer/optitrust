@@ -25,8 +25,8 @@ void g() {
     __admitted();
   });
   __ghost([&]() {
-    __modifies("_Uninit(&sX ~> Cell)");
-    __modifies("_Uninit(&sY ~> Cell)");
+    __modifies("&sX ~> UninitCell");
+    __modifies("&sY ~> UninitCell");
     __admitted();
   });
   sX = p.x;
@@ -47,9 +47,9 @@ void g() {
   vect aPos;
   vect aSpeed;
   __ghost([&]() {
-    __modifies("_Uninit(&aWeight ~> Cell)");
-    __modifies("_Uninit(&aPos ~> Cell)");
-    __modifies("_Uninit(&aSpeed ~> Cell)");
+    __modifies("&aWeight ~> UninitCell");
+    __modifies("&aPos ~> UninitCell");
+    __modifies("&aSpeed ~> UninitCell");
     __admitted();
   });
   aWeight = 0;

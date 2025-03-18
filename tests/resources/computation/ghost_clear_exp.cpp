@@ -28,7 +28,7 @@ void test_clear(int k) {
 
 void clear_in_for() {
   __pure();
-  __ghost(trivial_init, "k := 0", "triv_0 <- #188");
+  __ghost(trivial_init, "k := 0", "triv_0 <- #170");
   for (int i = 0; i < 20; i++) {
     __strict();
     req_triv(0);
@@ -39,7 +39,7 @@ void clear_in_for() {
 
 void clear_in_lambda() {
   __pure();
-  __ghost(trivial_init, "k := 0", "triv_0 <- #188");
+  __ghost(trivial_init, "k := 0", "triv_0 <- #170");
   auto f() {
     __pure();
     req_triv(0);

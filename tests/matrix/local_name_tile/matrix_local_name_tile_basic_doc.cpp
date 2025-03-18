@@ -5,7 +5,7 @@ void f() {
 
   // FIXME: CALLOC
   int* const a = MALLOC1(int, 10);
-  __GHOST_BEGIN(focus, group_focus_subrange_uninit, "sub_range := 3..7");
+  __GHOST_BEGIN(focus, group_focus_subrange, "sub_range := 3..7");
   for (int i = 3; i < 7; i++) {
     __strict();
     __xwrites("&a[MINDEX1(10, i)] ~> Cell");

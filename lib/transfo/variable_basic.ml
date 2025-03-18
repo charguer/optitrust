@@ -323,7 +323,7 @@ let%transfo elim_reuse (tg : target) : unit =
         Target.apply_at_path (fun t_seq ->
           let error = "expected sequence" in
           let instrs, result = trm_inv ~error trm_seq_inv t_seq in
-          let y_cell = Resource_formula.formula_cell_var y in
+          let y_cell = Resource_formula.formula_uninit_cell_var y in
           let (_, open_hide, close_hide) = Resource_trm.ghost_pair_hide y_cell in
           let instrs = Mlist.insert_at (i + 1) open_hide instrs in
           let instrs = Mlist.push_back close_hide instrs in

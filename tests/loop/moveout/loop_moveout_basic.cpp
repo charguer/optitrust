@@ -6,7 +6,7 @@ void var(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(&x ~> Cell)");
+    __smodifies("&x ~> UninitCell");
     __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
     x = 3;
     t[MINDEX1(3, i)] = x;
@@ -19,7 +19,7 @@ void var_wrong1(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(&x ~> Cell)");
+    __smodifies("&x ~> UninitCell");
     __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
     x = i; // can't move out, depends on 'i'
     t[MINDEX1(3, i)] = x;
@@ -32,7 +32,7 @@ void var_wrong2(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(&x ~> Cell)");
+    __smodifies("&x ~> UninitCell");
     __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
     t[MINDEX1(3, i)] = 0;
     x = 3; // can't move out, not first in sequence
@@ -59,7 +59,7 @@ void var_wrong4(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(&x ~> Cell)");
+    __smodifies("&x ~> UninitCell");
     __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
 
     x = 3; // can't move out, previous iterations modify 'x'
@@ -86,11 +86,11 @@ void var_needs_if(int* t, int n) {
 }
 
 void arr(int* t, int* x) {
-  __modifies("t ~> Matrix2(3, 5), _Uninit(x ~> Matrix1(5))");
+  __modifies("t ~> Matrix2(3, 5), x ~> UninitMatrix1(5)");
 
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(x ~> Matrix1(5))");
+    __smodifies("x ~> UninitMatrix1(5)");
     __xmodifies("for j in 0..5 -> &t[MINDEX2(3, 5, i, j)] ~> Cell");
 
     for (int j = 0; j < 5; j++) {
@@ -108,12 +108,12 @@ void arr(int* t, int* x) {
 }
 
 void arr_wrong1(int* t, int* x) {
-  __modifies("t ~> Matrix2(3, 5), _Uninit(x ~> Matrix1(5))");
+  __modifies("t ~> Matrix2(3, 5), x ~> UninitMatrix1(5)");
 
   int v = 3;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(x ~> Matrix1(5)), &v ~> Cell");
+    __smodifies("x ~> UninitMatrix1(5), &v ~> Cell");
     __xmodifies("for j in 0..5 -> &t[MINDEX2(3, 5, i, j)] ~> Cell");
 
     for (int j = 0; j < 5; j++) { // can't move out, 'v' is not loop invariant
@@ -132,20 +132,20 @@ void arr_wrong1(int* t, int* x) {
 }
 
 void test(int* t){
-  __modifies("_Uninit(t ~> Matrix1(10))");
+  __modifies("t ~> UninitMatrix1(10)");
 
   int a = 5;
   int b = 6;
   for (int i = 0; i < 10; i++) {
     __strict();
     __sreads("&a ~> Cell, &b ~> Cell");
-    __xmodifies("_Uninit(&t[MINDEX1(10, i)] ~> Cell)");
+    __xmodifies("&t[MINDEX1(10, i)] ~> UninitCell");
 
     int r = i;
     for (int j = 0; j < 10; j++) {
       __strict();
       __sreads("&a ~> Cell, &b ~> Cell");
-      __smodifies("_Uninit(&t[MINDEX1(10, i)] ~> Cell)");
+      __smodifies("&t[MINDEX1(10, i)] ~> UninitCell");
 
       int s = i;
       int x = a + b;

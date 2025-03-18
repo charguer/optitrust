@@ -18,6 +18,7 @@ inline void __ensures(__resource_list) {}
 inline void __reads(__resource_list) {}
 inline void __writes(__resource_list) {}
 inline void __modifies(__resource_list) {}
+inline void __preserves(__resource_list) {}
 inline void __consumes(__resource_list) {}
 inline void __produces(__resource_list) {}
 
@@ -27,10 +28,12 @@ inline void __xensures(__resource_list) {}
 inline void __xreads(__resource_list) {}
 inline void __xwrites(__resource_list) {}
 inline void __xmodifies(__resource_list) {}
+inline void __xpreserves(__resource_list) {}
 inline void __xconsumes(__resource_list) {}
 inline void __xproduces(__resource_list) {}
-inline void __invariant(__resource_list) {}
+inline void __srequires(__resource_list) {}
 inline void __smodifies(__resource_list) {}
+inline void __spreserves(__resource_list) {}
 inline void __sreads(__resource_list) {}
 
 inline void __admitted() {}

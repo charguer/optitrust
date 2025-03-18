@@ -140,6 +140,7 @@ let ghost_rewrite (before: formula) (after: formula) (justif: formula): trm =
   } in
   ghost_admitted contract ~justif
 
+let var_ghost_assert_hprop = toplevel_var "assert_hprop"
 let var_ghost_forget_init = toplevel_var "forget_init"
 
 let ghost_forget_init (f: formula): trm =

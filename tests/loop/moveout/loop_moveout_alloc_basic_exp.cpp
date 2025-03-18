@@ -6,7 +6,7 @@ void simple(int n) {
   int* const m = (int*)malloc(MSIZE1(n) * sizeof(int));
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(m ~> Matrix1(n))");
+    __smodifies("m ~> UninitMatrix1(n)");
     __smodifies("&x ~> Cell");
     x++;
   }
@@ -19,7 +19,7 @@ void less_simple(int n) {
   int* const m = (int*)malloc(MSIZE1(n) * sizeof(int));
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(m ~> Matrix1(n))");
+    __smodifies("m ~> UninitMatrix1(n)");
     __smodifies("&x ~> Cell");
     for (int i = 0; i < n; i++) {
       __strict();
@@ -37,7 +37,7 @@ void var_wrong(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(&x ~> Cell)");
+    __smodifies("&x ~> UninitCell");
     __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
     x = 3;
     t[MINDEX1(3, i)] = x;

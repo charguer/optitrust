@@ -25,15 +25,15 @@ void alloc_free_multiple_cells() {
 
 int* alloc_cell() {
   __produces("_Res ~> Cell");
-  __produces("_Free(_Res, _Res ~> Cell)");
+  __produces("Free(_Res, _Res ~> UninitCell)");
   int* const p = (int*)malloc(sizeof(int));
   *p = 5;
   return p;
 }
 
 int* alloc_multiple_cells_ret_one() {
-  __produces("_Uninit(_Res ~> Cell)");
-  __produces("_Free(_Res, _Res ~> Cell)");
+  __produces("_Res ~> UninitCell");
+  __produces("Free(_Res, _Res ~> UninitCell)");
   int* const p1 = (int*)malloc(sizeof(int));
   int* const p2 = (int*)malloc(sizeof(int));
   int* const p3 = (int*)malloc(sizeof(int));
@@ -49,8 +49,8 @@ void alloc_free_matrix() {
 }
 
 int* alloc_matrix() {
-  __produces("_Uninit(_Res ~> Matrix1(2))");
-  __produces("_Free(_Res, _Res ~> Matrix1(2))");
+  __produces("_Res ~> UninitMatrix1(2)");
+  __produces("Free(_Res, _Res ~> UninitMatrix1(2))");
   int* const p = (int*)malloc(MSIZE1(2) * sizeof(int));
   return p;
 }

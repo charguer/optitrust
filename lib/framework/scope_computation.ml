@@ -233,6 +233,7 @@ let find_prototype (scope_ctx: scope_ctx) (t: trm): fun_prototype =
     | Not_found when var_eq x Resource_trm.var_admitted -> { ghost_args = [Resource_trm.var_justif, false]; ghost_bind = [] }
     | Not_found when var_eq x Resource_trm.var_ghost_define -> Var_map.find Resource_trm.var_assert_inhabited scope_ctx.fun_prototypes
     | Not_found when var_eq x Resource_trm.var_assert_alias -> Var_map.find Resource_trm.var_assert_eq scope_ctx.fun_prototypes
+    | Not_found when var_eq x Resource_trm.var_ghost_forget_init -> Var_map.find Resource_trm.var_ghost_assert_hprop scope_ctx.fun_prototypes
     | Not_found -> failwith "Could not find a prototype for function %s" (var_to_string x)
     end
   | _ -> failwith "Could not find a prototype for trm at location %s" (loc_to_string t.loc)

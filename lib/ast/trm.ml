@@ -1642,7 +1642,7 @@ let trm_map_vars_ret_ctx
         in
         ctx, (new_bound_var, contract_var)) ctx ghost_bind in
       begin match func'.desc, enter_beta_redex with
-      | Trm_fun (params, _, body, FunSpecUnknown), Some enter_beta_redex ->
+      | Trm_fun (params, _, body, FunSpecUnknown), Some enter_beta_redex when ghost_args = [] && ghost_bind = [] ->
         (* LATER: deal with ghost_args, ghost_bind and spec *)
         let args_inst = List.map2 (fun (param, _) arg -> (param, arg)) params args' in
         let inner_ctx = enter_beta_redex ctx args_inst in

@@ -45,7 +45,7 @@ void f2(float* A, float* B, int m, int n, int p) {
   float* const sum = (float*)malloc(MSIZE2(m, n) * sizeof(float));
   for (int i = 0; i < m; i++) {
     __strict();
-    __xwrites("for _v1 in 0..n -> &sum[MINDEX2(m, n, i, _v1)] ~> Cell");
+    __xwrites("for j in 0..n -> &sum[MINDEX2(m, n, i, j)] ~> Cell");
     for (int j = 0; j < n; j++) {
       __strict();
       __xwrites("&sum[MINDEX2(m, n, i, j)] ~> Cell");
@@ -79,12 +79,11 @@ void f2(float* A, float* B, int m, int n, int p) {
   for (int i = 0; i < m; i++) {
     __strict();
     __xconsumes("for j in 0..n -> &sum[MINDEX2(m, n, i, j)] ~> Cell");
-    __xproduces(
-        "_Uninit(for _v1 in 0..n -> &sum[MINDEX2(m, n, i, _v1)] ~> Cell)");
+    __xproduces("for _v1 in 0..n -> &sum[MINDEX2(m, n, i, _v1)] ~> UninitCell");
     for (int j = 0; j < n; j++) {
       __strict();
       __xconsumes("&sum[MINDEX2(m, n, i, j)] ~> Cell");
-      __xproduces("_Uninit(&sum[MINDEX2(m, n, i, j)] ~> Cell)");
+      __xproduces("&sum[MINDEX2(m, n, i, j)] ~> UninitCell");
       sum[MINDEX2(m, n, i, j)]++;
     }
   }

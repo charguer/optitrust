@@ -17,6 +17,7 @@ rule lex_resources = parse
   | '&' { AMPERSAND }
   | "->" { ARROW }
   | "~>" { SQUIG_ARROW }
+  | "~~>" { LONG_SQUIG_ARROW }
   | "fun" { FUN }
   | "for" { FOR }
   | "forall" { FORALL }

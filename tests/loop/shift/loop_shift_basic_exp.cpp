@@ -16,7 +16,7 @@ void seq_array() {
     __strict();
     __smodifies("&x ~> Cell");
     const int j = j2 - -st;
-    __ghost(assume, "P := in_range(j, st..st + N)");
+    __ghost(assume, "P := in_range(j, st..(st + N))");
     x += j;
   }
   int shift = 5;
@@ -29,7 +29,7 @@ void seq_array() {
     __strict();
     __smodifies("&x ~> Cell");
     const int m = m3 - (4 - 2);
-    __ghost(assume, "P := in_range(m, 2..N - 2)");
+    __ghost(assume, "P := in_range(m, 2..(N - 2))");
     x += m;
   }
 }

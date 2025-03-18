@@ -64,9 +64,13 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
         trm_set (trm_add_mark mark_handled_addresses addr)
           (f_set (trm_map fix_inside_span value))
       );
-      Pattern.(formula_cell !__) (fun addr () ->
+      Pattern.(formula_points_to !__ !__) (fun addr value () ->
         Pattern.when_ (address_matches addr);
-        formula_cell (trm_add_mark mark_handled_addresses addr)
+        formula_points_to (trm_add_mark mark_handled_addresses addr) value
+      );
+      Pattern.(formula_uninit_cell !__) (fun addr () ->
+        Pattern.when_ (address_matches addr);
+        formula_uninit_cell (trm_add_mark mark_handled_addresses addr)
       );
       Pattern.__ (fun () ->
         trm_map fix_inside_span t
@@ -77,22 +81,22 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
    (matched_ret : formula list ref) (others_ret : formula list ref)
    (f : trm -> trm) ((_, formula) : resource_item) : trm option =
     let open Resource_formula in
-    let (mode, inner_formula) = formula_mode_inv formula in
+    let is_uninit = is_formula_uninit formula in
+    let is_read_only = Option.is_some (formula_read_only_inv formula) in
     let rec aux acc_rev_ranges current_formula =
       Pattern.pattern_match current_formula [
         Pattern.(formula_group (formula_range !__ !__ !__) (trm_fun (pair !__ __ ^:: nil) __ !__ __)) (fun start stop step index body () ->
           aux ({ index; start; stop; step; direction = DirUp } :: acc_rev_ranges) body
         );
-        Pattern.(formula_cell !__) (fun addr () ->
+        Pattern.(formula_any_cell !__) (fun addr () ->
           Pattern.when_ (address_matches addr);
           matched_ret := formula :: !matched_ret;
-          match mode with
-          | Uninit -> None
-          | RO -> trm_fail inner_formula "can't scale read-only resource in-place"
-          | Full ->
-            let modifies = [current_formula] in
+          if is_read_only then trm_fail formula "can't scale read-only resource in-place";
+          if is_uninit then None else begin
+            let preserves = [current_formula] in
             let fix_body = trm_set addr (f (trm_get addr)) in
-            Some (Matrix_core.pointwise_fors ~modifies (List.rev acc_rev_ranges) fix_body)
+            Some (Matrix_core.pointwise_fors ~preserves (List.rev acc_rev_ranges) fix_body)
+          end
         );
         Pattern.__ (fun () ->
           (* let rec occur_check formula =
@@ -106,7 +110,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
         )
       ]
     in
-    aux [] inner_formula
+    aux [] formula
   in
   let fix_outside_span
    (matched_ret : formula list ref) (others_ret : formula list ref)

@@ -38,7 +38,7 @@ let rec formula_mindex_group_inv (f : formula) : ((formula * var) list * trm * t
           ((range, idx) :: ranges, matrix_ptr, mindex_dims, mindex_indices)
         | None -> raise Pattern.Failed
       );
-    Pattern.(formula_cell !__) (fun location () ->
+    Pattern.(formula_any_cell !__) (fun location () ->
       match Matrix_trm.access_inv location with
       | Some (matrix, mindex_dims, mindex_indices) -> ([], matrix, mindex_dims, mindex_indices)
       | None -> raise Pattern.Failed
@@ -256,7 +256,7 @@ let%transfo local_name_tile
         let res = Resources.before_trm (get_trm_at_exn (target_of_path p)) in
         let ranges_dims_indices_typ = ref None in
         let process_linear r =
-          let (mode, r2) = Resource_formula.formula_mode_inv r in
+          let Resource_formula.{ formula = r2 } = Resource_formula.formula_read_only_inv_all r in
           match formula_mindex_group_inv r2 with
           | Some (ranges, matrix_ptr, dims, indices) ->
             (* DEBUG: Printf.printf "formula: %s\n" Resource_computation.(formula_to_string r2); *)
