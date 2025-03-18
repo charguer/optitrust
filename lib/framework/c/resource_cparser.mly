@@ -24,6 +24,7 @@
 
 %token <string> IDENT
 %token <int> INT_LIT
+%token <float> FLOAT_LIT
 %token LPAR RPAR LBRACKET RBRACKET
 %token COLON COMMA AMPERSAND ARROW SQUIG_ARROW COLON_EQUAL REV_ARROW DOT DOTDOT UNDERSCORE
 %token FUN FORALL FOR IN EOF
@@ -53,6 +54,8 @@ atomic_formula:
       | None -> trm_var ~annot:formula_annot (name_to_var x) }
   | x=INT_LIT
     { trm_int x }
+  | x=FLOAT_LIT
+    { trm_float x }
   | func=atomic_formula; LPAR; args=separated_list(COMMA, formula); RPAR
     { trm_apps ~annot:formula_annot func args }
   | AMPERSAND; x=address_formula;
@@ -79,6 +82,10 @@ arith_factor:
     { trm_trunc_div ~typ:typ_int a b }
   | a=arith_factor; PERCENT; b=atomic_formula;
     { trm_trunc_mod ~typ:typ_int a b }
+  | a=arith_factor; STAR; DOT; b=atomic_formula;
+    { trm_mul ~typ:typ_f64 a b }
+  | a=arith_factor; SLASH; DOT; b=atomic_formula;
+    { trm_exact_div ~typ:typ_f64 a b }
   | a=atomic_formula;
     { a }
 
@@ -89,6 +96,12 @@ arith_term:
     { trm_sub ~typ:typ_int a b }
   | MINUS; b=arith_factor;
     { trm_minus ~typ:typ_int b }
+  | a=arith_term; PLUS; DOT; b=arith_factor;
+    { trm_add ~typ:typ_f64 a b }
+  | a=arith_term; MINUS; DOT; b=arith_factor;
+    { trm_sub ~typ:typ_f64 a b }
+  | MINUS; DOT; b=arith_factor;
+    { trm_minus ~typ:typ_f64 b }
   | a=arith_factor;
     { a }
 
@@ -105,6 +118,18 @@ formula_cmp:
     { formula_geq ~typ:typ_int a b }
   | a=arith_term; NEQ; b=arith_term;
     { formula_neq ~typ:typ_int a b }
+  | a=arith_term; EQUAL; DOT; b=arith_term;
+    { formula_eq ~typ:typ_f64 a b }
+  | a=arith_term; LT; DOT; b=arith_term;
+    { formula_lt ~typ:typ_f64 a b }
+  | a=arith_term; GT; DOT; b=arith_term;
+    { formula_gt ~typ:typ_f64 a b }
+  | a=arith_term; LEQ; DOT; b=arith_term;
+    { formula_leq ~typ:typ_f64 a b }
+  | a=arith_term; GEQ; DOT; b=arith_term;
+    { formula_geq ~typ:typ_f64 a b }
+  | a=arith_term; NEQ; DOT; b=arith_term;
+    { formula_neq ~typ:typ_f64 a b }
   | start=arith_term; DOTDOT; stop=arith_term;
     { formula_range start stop (trm_int 1) }
   | a=arith_term;
