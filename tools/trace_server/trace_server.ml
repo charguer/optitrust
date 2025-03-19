@@ -71,6 +71,7 @@ let read_trace_tree ~(timestamp:string) (path: string): Trace.step_tree =
       trace_cache := Some { trace_path = path; trace_timestamp = timestamp; trace_tree };
       trace_tree
   in
+  Trace.update_use_resources_with_models_flag trace.step_ast_before;
   trace
 
 let handle_get_request request =

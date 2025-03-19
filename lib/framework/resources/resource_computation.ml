@@ -382,7 +382,7 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
   t.typ <- Some typ;
   typ
 
-and compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx: unification_ctx) =
+let rec try_compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx: unification_ctx) =
   let expected_typ = match trm_var_inv expected_typ with
     | Some v -> begin match Var_map.find_opt v evar_ctx with
       | Some (Resolved ty) -> ty
@@ -391,9 +391,14 @@ and compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx
     | None -> expected_typ
   in
   let actual_typ = compute_pure_typ env ~typ_hint:expected_typ t in
-  match unify_trm actual_typ expected_typ evar_ctx (compute_and_unify_typ env) with
+  trm_unify actual_typ expected_typ evar_ctx (try_compute_and_unify_typ env)
+
+let compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx: unification_ctx) =
+  match try_compute_and_unify_typ env t expected_typ evar_ctx with
   | Some evar_ctx -> evar_ctx
-  | None -> raise_mismatching_type t actual_typ expected_typ evar_ctx
+  | None ->
+    let actual_typ = compute_pure_typ env ~typ_hint:expected_typ t in
+    raise_mismatching_type t actual_typ expected_typ evar_ctx
 
 let pure_goal_solver: (resource_item -> unification_ctx -> unification_ctx option) ref = ref (fun formula evar_ctx -> None)
 
@@ -407,7 +412,7 @@ let find_pure ((x, formula): resource_item) (env: pure_env) ?(goal_solver = !pur
   (* TODO: Add flag to disallow pure instantiation ? *)
   let find_formula formula (hyp_candidate, formula_candidate) =
     Option.map (fun evar_ctx -> Var_map.add x (Resolved (trm_var hyp_candidate)) evar_ctx)
-      (unify_trm formula formula_candidate evar_ctx (compute_and_unify_typ env))
+      (trm_unify formula formula_candidate evar_ctx (try_compute_and_unify_typ env))
   in
   match List.find_map (find_formula formula) env.res with
   | Some evar_ctx -> evar_ctx
@@ -470,7 +475,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
             Formula_inst.inst_forget_init candidate_name, formula_uninit formula_candidate
           else Formula_inst.inst_hyp candidate_name, formula_candidate
         in
-        let* evar_ctx = unify_trm formula formula_to_unify evar_ctx (compute_and_unify_typ pure_ctx) in
+        let* evar_ctx = trm_unify formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
         Some (
           { hyp = x; inst_by; used_formula = formula_to_unify },
           None,
@@ -489,7 +494,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       function faster on most frequent cases *)
     extract (fun (h, formula_candidate) ->
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
-      let* evar_ctx = unify_trm formula formula_candidate evar_ctx (compute_and_unify_typ pure_ctx) in
+      let* evar_ctx = trm_unify formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
         Some (h, formula_read_only ~frac:(formula_frac_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
@@ -573,7 +578,7 @@ let partial_extract_linear_resource_set ?(evar_ctx: unification_ctx = Var_map.em
   Specialization checks types and can immediately resolve a dominated evar.
   Bindings from [inst_map] are typed inside [inst_ctx].
 
-  An evar is dominated if its value will be implied by the instantation of other resources
+  An evar is dominated if its value will be implied by the instantiation of other resources
   (i.e. it appears in the formula of another resource). *)
 let specialize_and_extract_evars (res: resource_set) (inst_map: tmap) ~(inst_ctx: pure_env): pure_resource_set * unification_ctx =
   let used_vars = Resource_set.used_vars res in

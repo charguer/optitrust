@@ -254,7 +254,13 @@ let rec typ_desc_to_doc style (t : typ) : document =
         let dargs = list_to_doc ~sep:empty (List.map arg_to_doc args) in
         string "forall" ^^ space ^^ dargs ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ dret
       else
-        let dargs = list_to_doc ~sep:(space ^^ star) (List.map (fun (_, ty) -> trm_to_doc style ty) args) in
+        let dargs = list_to_doc ~sep:(space ^^ star) (List.map (fun (_, ty) ->
+            let dty = trm_to_doc style ty in
+            match typ_pure_fun_inv ty with
+            | Some _ -> parens dty
+            | None -> dty
+          ) args)
+        in
         dargs ^^ space ^^ string "->" ^^ blank 1 ^^ dret
     );
     Pattern.(trm_apps1 (typ_var (var_eq typ_typeof_var)) !__) (fun t () ->

@@ -55,4 +55,4 @@ let pattern_compile (pattern : trm) : compiled_pattern =
   { trm; evars = !evars }
 
 let trm_matches_pattern (trm : trm) (pattern : compiled_pattern) : bool =
-  Option.is_some (unify_trm trm pattern.trm pattern.evars (fun _ () ctx -> ctx))
+  Option.is_some (trm_unify trm pattern.trm pattern.evars (fun _ () ctx -> Some ctx))

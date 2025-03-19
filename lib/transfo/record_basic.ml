@@ -47,7 +47,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
         in
         let base_pattern = erase_types (to_base_pattern base) in
         let matches_base t =
-          Option.is_some (unify_trm t base_pattern !evars (fun _ _ ctx -> ctx))
+          Option.is_some (trm_unify t base_pattern !evars (fun _ _ ctx -> Some ctx))
         in
         let exception TypeFound of typ in
         begin try (

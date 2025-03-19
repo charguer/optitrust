@@ -1963,7 +1963,7 @@ let rec unfold_if_resolved_evar (t: trm) (evar_ctx: 'a unification_ctx): trm * '
     | _ -> t, evar_ctx
     end
   (* Immediate beta redex replacement *)
-  | Trm_apps (apps_fn, args, ghost_args, ghost_bind) ->
+  | Trm_apps (apps_fn, args, [], []) ->
     (* LATER: Deal with ghost_args and ghost_bind ? *)
     let fn, evar_ctx = unfold_if_resolved_evar apps_fn evar_ctx in
     if fn == apps_fn then t, evar_ctx else
@@ -1971,107 +1971,138 @@ let rec unfold_if_resolved_evar (t: trm) (evar_ctx: 'a unification_ctx): trm * '
     | Some (params, ret, body, spec) ->
       let t = trm_subst (List.fold_left2 (fun subst_ctx arge (param, _) -> Var_map.add param arge subst_ctx) Var_map.empty args params) body in
       t, evar_ctx
-    | None -> t, evar_ctx
+    | None -> trm_apps fn args, evar_ctx
     end
   | _ -> t, evar_ctx
 
-(** [unify_trm t1 t2 evar_ctx validate_inst] tries to unify [t1] with [t2],
+(** [trm_unify t1 t2 evar_ctx validate_inst] tries to unify [t1] with [t2],
     possibly instantiating and substituting evars that occur in [evar_ctx].
     If the unification succeeds, returns an updated unification context, with the newly resolved evars.
     If it fails, returns None.
     For each potential unification, this function calls [validate_inst t info evar_ctx] that can itself
     perform chained unifications.
     *)
-let rec unify_trm ?(on_failure = fun a b -> ()) (t_left: trm) (t_right: trm) (evar_ctx: 'a unification_ctx) (validate_inst: trm -> 'a -> 'a unification_ctx -> 'a unification_ctx) : 'a unification_ctx option =
+let rec trm_unify ?(on_failure = fun a b -> ()) (t_left: trm) (t_right: trm) (evar_ctx: 'a unification_ctx) (validate_inst: trm -> 'a -> 'a unification_ctx -> 'a unification_ctx option) : 'a unification_ctx option =
   let open Option.Monad in
   (* Pattern match on one component to get a warning if there is a missing one *)
   let check cond = if cond then Some evar_ctx else None in
   (* Unfold first to avoid problems on f(?x, ?y) = f(?y, ?y) *)
   let t_left, evar_ctx = unfold_if_resolved_evar t_left evar_ctx in
   let t_right, evar_ctx = unfold_if_resolved_evar t_right evar_ctx in
-  let validate_and_subst evar t_subst =
+  let validate_and_subst evar t_subst evar_ctx =
     match Var_map.find evar evar_ctx with
     | Unknown info ->
-      let evar_ctx = validate_inst t_subst info evar_ctx in
+      let* evar_ctx = validate_inst t_subst info evar_ctx in
       Some (Var_map.add evar (Resolved t_subst) evar_ctx)
     | Resolved _ -> failwith "Resolved evars should have been substituted before"
   in
-  let res = match trm_var_inv t_left, trm_var_inv t_right with
-  | Some x_left, Some x_right when var_eq x_left x_right ->
-    Some evar_ctx
-  | Some x_left, _ when Var_map.mem x_left evar_ctx ->
-    validate_and_subst x_left t_right
-  | _, Some x_right when Var_map.mem x_right evar_ctx ->
-    validate_and_subst x_right t_left
-  | _ ->
-    match t_right.desc with
-    | Trm_var _ ->
-      (* t_right is a variable but it is not the same as t_left, and none is an unresolved evar *)
-      None
-
-    | Trm_lit le ->
-      let* l = trm_lit_inv t_left in
-      begin match le with
-      | Lit_unit | Lit_bool _ | Lit_string _ -> check (l = le)
-      | Lit_int (te, ve) ->
-        let* t, v = match l with | Lit_int (t, v) -> Some (t, v) | _ -> None in
-        let* _ = check (v = ve) in
-        unify_trm ~on_failure t te evar_ctx validate_inst
-      | Lit_float (te, ve) ->
-        let* t, v = match l with | Lit_float (t, v) -> Some (t, v) | _ -> None in
-        let* _ = check (v = ve) in
-        unify_trm ~on_failure t te evar_ctx validate_inst
-      | Lit_null te ->
-        let* t = match l with | Lit_null t -> Some t | _ -> None in
-        unify_trm ~on_failure t te evar_ctx validate_inst
-      end
-
-    | Trm_prim (tye, pe) ->
-      let* ty, p = trm_prim_inv t_left in
-      (* FIXME: This can fail because primitives may recursively contain types and terms *)
-      if pe = p then unify_trm ~on_failure ty tye evar_ctx validate_inst else None
-
-    | Trm_apps (fe, argse, ghost_args, ghost_bind) ->
-      let* f, args = trm_apps_inv t_left in
-      let* evar_ctx = unify_trm ~on_failure f fe evar_ctx validate_inst in
-      begin try
-        List.fold_left2 (fun evar_ctx arg arge -> let* evar_ctx in unify_trm ~on_failure arg arge evar_ctx validate_inst) (Some evar_ctx) args argse
-      with Invalid_argument _ -> None end
-
-    | Trm_fun (argse, _, bodye, _) ->
-      let* args, _, body, _ = trm_fun_inv t_left in
-      (* Remember the masked context in case of shadowing, this is needed in case of recursive
-         or higher order functions with evars. *)
-      let* evar_ctx, masked_ctx =
-        try
-          Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, argty) ->
-              if var_eq arge arg then
-                (* This case is required to handle comparison of a trm with itself *)
-                (evar_ctx, masked)
-              else
-                let masked_entry = Var_map.find_opt arge evar_ctx in
-                let evar_ctx = Var_map.add arge (Resolved (trm_var ~typ:argty arg)) evar_ctx in
-                (evar_ctx, (arge, masked_entry) :: masked)
-            ) (evar_ctx, []) argse args)
-        with Invalid_argument _ -> None
-      in
-      let* evar_ctx = unify_trm ~on_failure body bodye evar_ctx validate_inst in
-      Some (List.fold_left (fun evar_ctx (arge, masked_entry) ->
-          match masked_entry with
-          | Some entry -> Var_map.add arge entry evar_ctx
-          | None -> Var_map.remove arge evar_ctx
-        ) evar_ctx masked_ctx)
-
-    | Trm_arbitrary _ -> failwith "unify_trm: found Trm_arbitrary during unification (a reparse is missing)"
-    | _ -> failwith "unify_trm: unhandled constructor (%s)" (Ast_to_text.ast_to_string t_right) (* TODO: Implement the rest of constructors *)
+  let unify_with_apps f args t_other =
+    let* xf = trm_var_inv f in
+    let* () = if Var_map.mem xf evar_ctx then Some () else None in
+    let* subst_map, evar_ctx, rev_new_fun_args = List.fold_left (fun acc arg ->
+      let* subst_map, evar_ctx, vars = acc in
+      let arg, evar_ctx = unfold_if_resolved_evar arg evar_ctx in
+      let* arg_var = trm_var_inv arg in
+      let new_arg_var = new_var arg_var.name in
+      let subst_map = Var_map.add arg_var (trm_var ?typ:arg.typ new_arg_var) subst_map in
+      Some (subst_map, evar_ctx, (new_arg_var, typ_or_auto arg.typ) :: vars)) (Some (Var_map.empty, evar_ctx, [])) args
     in
-    if Option.is_none res then on_failure t_left t_right;
-    res
+    let new_fun_args = List.rev rev_new_fun_args in
+    let evar_ctx = ref evar_ctx in
+    let new_body = trm_map_vars (fun () (annot, loc, typ, _ctx) var ->
+      let var_t = trm_var ~annot ?loc ?typ var in
+      let resolution, new_evar_ctx = unfold_if_resolved_evar var_t !evar_ctx in
+      evar_ctx := new_evar_ctx;
+      trm_subst subst_map resolution
+    ) () t_other in
+    let inst = trm_fun new_fun_args (typ_or_auto t_other.typ) new_body in
+    validate_and_subst xf inst !evar_ctx
+  in
+  let res = match t_left.desc, t_right.desc with
+  | Trm_var x_left, Trm_var x_right when var_eq x_left x_right ->
+    Some evar_ctx
+
+  | Trm_var x_left, _ when Var_map.mem x_left evar_ctx ->
+    validate_and_subst x_left t_right evar_ctx
+  | _, Trm_var x_right when Var_map.mem x_right evar_ctx ->
+    validate_and_subst x_right t_left evar_ctx
+
+  | Trm_apps (f, args, [], []), Trm_apps (fe, argse, [], []) ->
+    let res_opt =
+      (* LATER: Manage functions with ghost_args and ghost_bind *)
+      let* evar_ctx = trm_unify ~on_failure f fe evar_ctx validate_inst in
+      begin try
+        List.fold_left2 (fun evar_ctx arg arge -> let* evar_ctx in trm_unify ~on_failure arg arge evar_ctx validate_inst) (Some evar_ctx) args argse
+      with Invalid_argument _ -> None end
+    in
+    let res_opt = Option.or_else res_opt (fun () -> unify_with_apps f args t_right) in
+    let res_opt = Option.or_else res_opt (fun () -> unify_with_apps fe argse t_left) in
+    res_opt
+  | Trm_apps (f_left, args_left, [], []), _ ->
+    unify_with_apps f_left args_left t_right
+  | _, Trm_apps (f_right, args_right, [], []) ->
+    unify_with_apps f_right args_right t_left
+
+  | _, Trm_var _ ->
+    (* t_right is a variable but it is not the same as t_left, and none is an unresolved evar *)
+    None
+
+  | _, Trm_lit le ->
+    let* l = trm_lit_inv t_left in
+    begin match le with
+    | Lit_unit | Lit_bool _ | Lit_string _ -> check (l = le)
+    | Lit_int (te, ve) ->
+      let* t, v = match l with | Lit_int (t, v) -> Some (t, v) | _ -> None in
+      let* _ = check (v = ve) in
+      trm_unify ~on_failure t te evar_ctx validate_inst
+    | Lit_float (te, ve) ->
+      let* t, v = match l with | Lit_float (t, v) -> Some (t, v) | _ -> None in
+      let* _ = check (v = ve) in
+      trm_unify ~on_failure t te evar_ctx validate_inst
+    | Lit_null te ->
+      let* t = match l with | Lit_null t -> Some t | _ -> None in
+      trm_unify ~on_failure t te evar_ctx validate_inst
+    end
+
+  | _, Trm_prim (tye, pe) ->
+    let* ty, p = trm_prim_inv t_left in
+    (* FIXME: This can fail because primitives may recursively contain types and terms *)
+    if pe = p then trm_unify ~on_failure ty tye evar_ctx validate_inst else None
+
+  | _, Trm_fun (argse, _, bodye, _) ->
+    let* args, _, body, _ = trm_fun_inv t_left in
+    (* Remember the masked context in case of shadowing, this is needed in case of recursive
+        or higher order functions with evars. *)
+    let* evar_ctx, masked_ctx =
+      try
+        Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, argty) ->
+            if var_eq arge arg then
+              (* This case is required to handle comparison of a trm with itself *)
+              (evar_ctx, masked)
+            else
+              let masked_entry = Var_map.find_opt arge evar_ctx in
+              let evar_ctx = Var_map.add arge (Resolved (trm_var ~typ:argty arg)) evar_ctx in
+              (evar_ctx, (arge, masked_entry) :: masked)
+          ) (evar_ctx, []) argse args)
+      with Invalid_argument _ -> None
+    in
+    let* evar_ctx = trm_unify ~on_failure body bodye evar_ctx validate_inst in
+    Some (List.fold_left (fun evar_ctx (arge, masked_entry) ->
+        match masked_entry with
+        | Some entry -> Var_map.add arge entry evar_ctx
+        | None -> Var_map.remove arge evar_ctx
+      ) evar_ctx masked_ctx)
+
+  | _, Trm_arbitrary _ -> failwith "trm_unify: found Trm_arbitrary during unification (a reparse is missing)"
+  | _, _ -> failwith "trm_unify: unhandled constructor (%s)" (Ast_to_text.ast_to_string t_right) (* TODO: Implement the rest of constructors *)
+  in
+  if Option.is_none res then on_failure t_left t_right;
+  res
 
 (** [are_same_trm t1 t2] checks that [t1] and [t2] are alpha-equivalent (same modulo name of the binders). *)
 let are_same_trm (t1: trm) (t2: trm): bool =
   (* they are the same if they can be unified without allowing substitutions. *)
-  Option.is_some (unify_trm t1 t2 Var_map.empty (fun _ _ ctx -> ctx))
+  Option.is_some (trm_unify t1 t2 Var_map.empty (fun _ _ ctx -> Some ctx))
 
 (* TODO: Use a real trm_fold later to avoid reconstructing trm *)
 let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =

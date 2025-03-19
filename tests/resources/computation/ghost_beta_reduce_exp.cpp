@@ -9,7 +9,7 @@ __ghost_ret test() {
 }
 
 __ghost_ret two_closures() {
-  __requires("f: int -> Prop -> Prop");
+  __requires("f: (int -> Prop) -> Prop");
   __requires("g: int -> Prop");
   __ensures("f(g)");
   __admitted();

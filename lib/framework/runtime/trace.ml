@@ -137,6 +137,15 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
 (*                             File input                                     *)
 (******************************************************************************)
 
+let update_use_resources_with_models_flag (ast: trm): unit =
+  let rec check_models_enabled (t: trm) =
+    match t.desc with
+    | Trm_seq (seq, _) -> List.exists check_models_enabled (Mlist.to_list seq)
+    | Trm_predecl (var, _) when var.name = "__OPTITRUST_ENABLE_MODELS" -> true
+    | _ -> false
+  in
+  Flags.use_resources_with_models := check_models_enabled ast
+
 (** A parser should read a filename and return:
    - A header to copy in the produced file (typically a list of '#include' for C)
    - The OptiTrust AST of the rest of the file *)
@@ -170,13 +179,7 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
   if not persistant then Unix.unlink ser_filename;
 
   (* LATER: It is weird to do this here, but we must set this flag before decoding *)
-  let rec check_models_enabled (t: trm) =
-    match t.desc with
-    | Trm_seq (seq, _) -> List.exists check_models_enabled (Mlist.to_list seq)
-    | Trm_predecl (var, _) when var.name = "__OPTITRUST_ENABLE_MODELS" -> true
-    | _ -> false
-  in
-  Flags.use_resources_with_models := check_models_enabled ast;
+  update_use_resources_with_models_flag ast;
 
   (* Possibly perform the decoding *)
   let ast = if !Flags.bypass_cfeatures then Scope_computation.infer_var_ids ast else C_encoding.decode_from_c ast in
