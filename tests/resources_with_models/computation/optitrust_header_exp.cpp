@@ -54,16 +54,17 @@ void MMEMCPY_double(double* dest, int d_offset, double* src, int s_offset,
 
 __ghost_ret matrix1_ro_focus() {
   __requires("T: Type");
-  __requires("p: ptr(T)");
+  __requires("matrix: ptr(T)");
   __requires("i: int");
   __requires("n: int");
   __requires("M: int -> T");
   __requires("f: _Fraction");
   __requires("bound_check: in_range(i, 0..n)");
-  __consumes("_RO(f, p ~> Matrix1(n, M))");
+  __consumes("_RO(f, matrix ~> Matrix1(n, M))");
   __produces(
-      "Wand(_RO(f, &p[MINDEX1(n, i)] ~~> M(i)), _RO(f, p ~> Matrix1(n, M)))");
-  __produces("_RO(f, &p[MINDEX1(n, i)] ~~> M(i))");
+      "Wand(_RO(f, &matrix[MINDEX1(n, i)] ~~> M(i)), _RO(f, matrix ~> "
+      "Matrix1(n, M)))");
+  __produces("_RO(f, &matrix[MINDEX1(n, i)] ~~> M(i))");
   __admitted();
   __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check");
 }
@@ -76,7 +77,7 @@ __ghost_ret matrix1_ro_unfocus() {
 
 __ghost_ret matrix2_ro_focus() {
   __requires("T: Type");
-  __requires("p: ptr(T)");
+  __requires("matrix: ptr(T)");
   __requires("i: int");
   __requires("j: int");
   __requires("m: int");
@@ -85,11 +86,11 @@ __ghost_ret matrix2_ro_focus() {
   __requires("f: _Fraction");
   __requires("bound_check_i: in_range(i, 0..m)");
   __requires("bound_check_j: in_range(j, 0..n)");
-  __consumes("_RO(f, p ~> Matrix2(m, n, M))");
+  __consumes("_RO(f, matrix ~> Matrix2(m, n, M))");
   __produces(
-      "Wand(_RO(f, &p[MINDEX2(m, n, i, j)] ~~> M(i, j)), _RO(f, p ~> "
+      "Wand(_RO(f, &matrix[MINDEX2(m, n, i, j)] ~~> M(i, j)), _RO(f, matrix ~> "
       "Matrix2(m, n, M)))");
-  __produces("_RO(f, &p[MINDEX2(m, n, i, j)] ~~> M(i, j))");
+  __produces("_RO(f, &matrix[MINDEX2(m, n, i, j)] ~~> M(i, j))");
   __admitted();
   __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check_i");
   __ghost(group_ro_focus, "f := f, i := j, bound_check := bound_check_j");
@@ -104,24 +105,24 @@ __ghost_ret matrix2_ro_unfocus() {
 
 __ghost_ret matrix2_contiguous() {
   __requires("T: Type");
-  __requires("p: ptr(T)");
+  __requires("matrix: ptr(T)");
   __requires("a: int");
   __requires("b: int");
   __requires("n2: int");
   __requires("n1: int");
   __requires("M: int * int -> T");
   __consumes(
-      "for i in a..b -> for j in 0..n1 -> &p[MINDEX2(n2, n1, i, j)] ~~> M(i, "
-      "j)");
+      "for i in a..b -> for j in 0..n1 -> &matrix[MINDEX2(n2, n1, i, j)] ~~> "
+      "M(i, j)");
   __produces(
-      "for k in (a * n1)..(b * n1) -> &p[MINDEX1(n2 * n1, k)] ~~> M(k / n1, k "
-      "% n1)");
+      "for k in (a * n1)..(b * n1) -> &matrix[MINDEX1(n2 * n1, k)] ~~> M(k / "
+      "n1, k % n1)");
   __admitted();
 }
 
 __ghost_ret matrix3_contiguous() {
   __requires("T: Type");
-  __requires("p: ptr(T)");
+  __requires("matrix: ptr(T)");
   __requires("a: int");
   __requires("b: int");
   __requires("n3: int");
@@ -129,27 +130,28 @@ __ghost_ret matrix3_contiguous() {
   __requires("n1: int");
   __requires("M: int * int * int -> T");
   __consumes(
-      "for i3 in a..b -> for i2 in 0..n2 -> for i1 in 0..n1 -> &p[MINDEX3(n3, "
-      "n2, n1, i1, i2, i3)] ~~> M(i3, i2, i1)");
+      "for i3 in a..b -> for i2 in 0..n2 -> for i1 in 0..n1 -> "
+      "&matrix[MINDEX3(n3, n2, n1, i1, i2, i3)] ~~> M(i3, i2, i1)");
   __produces(
-      "for k in (a * n2 * n1)..(b * n2 * n1) -> &p[MINDEX1(n3 * n2 * n1, k)] "
-      "~~> M(k / n1 / n2, k / n1 % n2, k % n1)");
+      "for k in (a * n2 * n1)..(b * n2 * n1) -> &matrix[MINDEX1(n3 * n2 * n1, "
+      "k)] ~~> M(k / n1 / n2, k / n1 % n2, k % n1)");
   __admitted();
 }
 
 __ghost_ret mindex2_contiguous() {
   __requires("T: Type");
-  __requires("p: ptr(T)");
+  __requires("matrix: ptr(T)");
   __requires("n2: int");
   __requires("i2: int");
   __requires("n1: int");
   __requires("a: int");
   __requires("b: int");
   __requires("M: int * int -> T");
-  __consumes("for i1 in a..b -> &p[MINDEX2(n2, n1, i2, i1)] ~~> M(i2, i1)");
+  __consumes(
+      "for i1 in a..b -> &matrix[MINDEX2(n2, n1, i2, i1)] ~~> M(i2, i1)");
   __produces(
-      "for k in (i2 * n1 + a)..(i2 * n1 + b) -> &p[MINDEX1(n2 * n1, k)] ~~> "
-      "M(i2, k % n1)");
+      "for k in (i2 * n1 + a)..(i2 * n1 + b) -> &matrix[MINDEX1(n2 * n1, k)] "
+      "~~> M(i2, k % n1)");
   __admitted();
 }
 
@@ -160,7 +162,7 @@ __ghost_ret mindex2_contiguous_rev() {
 
 __ghost_ret mindex3_contiguous() {
   __requires("T: Type");
-  __requires("p: ptr(T)");
+  __requires("matrix: ptr(T)");
   __requires("n3: int");
   __requires("i3: int");
   __requires("n2: int");
@@ -170,11 +172,11 @@ __ghost_ret mindex3_contiguous() {
   __requires("b: int");
   __requires("M: int * int * int -> T");
   __consumes(
-      "for i1 in a..b -> &p[MINDEX3(n3, n2, n1, i3, i2, i1)] ~~> M(i3, i2, "
-      "i1)");
+      "for i1 in a..b -> &matrix[MINDEX3(n3, n2, n1, i3, i2, i1)] ~~> M(i3, "
+      "i2, i1)");
   __produces(
       "for k in (i3 * n2 * n1 + i2 * n1 + a)..(i3 * n2 * n1 + i2 * n1 + b) -> "
-      "&p[MINDEX1(n3 * n2 * n1, k)] ~~> M(i3, i2, k % n1)");
+      "&matrix[MINDEX1(n3 * n2 * n1, k)] ~~> M(i3, i2, k % n1)");
   __admitted();
 }
 
@@ -185,16 +187,17 @@ __ghost_ret mindex3_contiguous_rev() {
 
 __ghost_ret mindex2_contiguous_uninit() {
   __requires("T: Type");
-  __requires("p: ptr(T)");
+  __requires("matrix: ptr(T)");
   __requires("n2: int");
   __requires("i2: int");
   __requires("n1: int");
   __requires("a: int");
   __requires("b: int");
-  __consumes("for i1 in a..b -> &p[MINDEX2(n2, n1, i2, i1)] ~> UninitCell");
+  __consumes(
+      "for i1 in a..b -> &matrix[MINDEX2(n2, n1, i2, i1)] ~> UninitCell");
   __produces(
-      "for k in (i2 * n1 + a)..(i2 * n1 + b) -> &p[MINDEX1(n2 * n1, k)] ~> "
-      "UninitCell");
+      "for k in (i2 * n1 + a)..(i2 * n1 + b) -> &matrix[MINDEX1(n2 * n1, k)] "
+      "~> UninitCell");
   __admitted();
 }
 
@@ -205,7 +208,7 @@ __ghost_ret mindex2_contiguous_uninit_rev() {
 
 __ghost_ret mindex3_contiguous_uninit() {
   __requires("T: Type");
-  __requires("p: ptr(T)");
+  __requires("matrix: ptr(T)");
   __requires("n3: int");
   __requires("i3: int");
   __requires("n2: int");
@@ -214,10 +217,11 @@ __ghost_ret mindex3_contiguous_uninit() {
   __requires("a: int");
   __requires("b: int");
   __consumes(
-      "for i1 in a..b -> &p[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> UninitCell");
+      "for i1 in a..b -> &matrix[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> "
+      "UninitCell");
   __produces(
       "for k in (i3 * n2 * n1 + i2 * n1 + a)..(i3 * n2 * n1 + i2 * n1 + b) -> "
-      "&p[MINDEX1(n3 * n2 * n1, k)] ~> UninitCell");
+      "&matrix[MINDEX1(n3 * n2 * n1, k)] ~> UninitCell");
   __admitted();
 }
 
@@ -228,7 +232,7 @@ __ghost_ret mindex3_contiguous_uninit_rev() {
 
 __ghost_ret mindex2_contiguous_ro() {
   __requires("T: Type");
-  __requires("p: ptr(T)");
+  __requires("matrix: ptr(T)");
   __requires("n2: int");
   __requires("i2: int");
   __requires("n1: int");
@@ -237,10 +241,11 @@ __ghost_ret mindex2_contiguous_ro() {
   __requires("M: int * int -> T");
   __requires("f: _Fraction");
   __consumes(
-      "_RO(f, for i1 in a..b -> &p[MINDEX2(n2, n1, i2, i1)] ~~> M(i2, i1))");
+      "_RO(f, for i1 in a..b -> &matrix[MINDEX2(n2, n1, i2, i1)] ~~> M(i2, "
+      "i1))");
   __produces(
-      "_RO(f, for k in (i2 * n1 + a)..(i2 * n1 + b) -> &p[MINDEX1(n2 * n1, k)] "
-      "~~> M(i2, k % n1))");
+      "_RO(f, for k in (i2 * n1 + a)..(i2 * n1 + b) -> &matrix[MINDEX1(n2 * "
+      "n1, k)] ~~> M(i2, k % n1))");
   __admitted();
 }
 
@@ -251,7 +256,7 @@ __ghost_ret mindex2_contiguous_ro_rev() {
 
 __ghost_ret mindex3_contiguous_ro() {
   __requires("T: Type");
-  __requires("p: ptr(T)");
+  __requires("matrix: ptr(T)");
   __requires("n3: int");
   __requires("i3: int");
   __requires("n2: int");
@@ -262,11 +267,11 @@ __ghost_ret mindex3_contiguous_ro() {
   __requires("M: int * int * int -> T");
   __requires("f: _Fraction");
   __consumes(
-      "_RO(f, for i1 in a..b -> &p[MINDEX3(n3, n2, n1, i3, i2, i1)] ~~> M(i3, "
-      "i2, i1))");
+      "_RO(f, for i1 in a..b -> &matrix[MINDEX3(n3, n2, n1, i3, i2, i1)] ~~> "
+      "M(i3, i2, i1))");
   __produces(
       "_RO(f, for k in (i3 * n2 * n1 + i2 * n1 + a)..(i3 * n2 * n1 + i2 * n1 + "
-      "b) -> &p[MINDEX1(n3 * n2 * n1, k)] ~~> M(i3, i2, k % n1))");
+      "b) -> &matrix[MINDEX1(n3 * n2 * n1, k)] ~~> M(i3, i2, k % n1))");
   __admitted();
 }
 

@@ -9,11 +9,11 @@ void array_copy(float* A, float* B, int n) {
     __strict();
     __smodifies("B ~> Matrix1(n)");
     __sreads("A ~> Matrix1(n)");
-    __ghost(matrix1_ro_focus, "M := A, i := i");
-    __ghost(matrix1_focus, "M := B, i := i");
+    __ghost(matrix1_ro_focus, "matrix := A, i := i");
+    __ghost(matrix1_focus, "matrix := B, i := i");
     B[MINDEX1(n, i)] = A[MINDEX1(n, i)];
-    __ghost(matrix1_unfocus, "M := B");
-    __ghost(matrix1_ro_unfocus, "M := A");
+    __ghost(matrix1_unfocus, "matrix := B");
+    __ghost(matrix1_ro_unfocus, "matrix := A");
   }
 }
 
@@ -24,11 +24,11 @@ void array_copy_explicit(float* A, float* B, int n) {
     __strict();
     __smodifies("B ~> Matrix1(n)");
     __sreads("A ~> Matrix1(n)");
-    __ghost(matrix1_ro_focus, "M := A, i := i");
-    __ghost(matrix1_focus, "M := B, i := i");
+    __ghost(matrix1_ro_focus, "matrix := A, i := i");
+    __ghost(matrix1_focus, "matrix := B, i := i");
     B[MINDEX1(n, i)] = A[MINDEX1(n, i)];
-    __ghost(matrix1_unfocus, "M := B");
-    __ghost(matrix1_ro_unfocus, "M := A");
+    __ghost(matrix1_unfocus, "matrix := B");
+    __ghost(matrix1_ro_unfocus, "matrix := A");
   }
 }
 
@@ -53,9 +53,9 @@ void array_copy_with_tmp(float* A, float* B, int n) {
     __sreads("A ~> Matrix1(n)");
     __xmodifies("&B[MINDEX1(n, i)] ~> Cell");
     __xmodifies("&T[MINDEX1(n, i)] ~> Cell");
-    __ghost(matrix1_ro_focus, "M := A, i := i");
+    __ghost(matrix1_ro_focus, "matrix := A, i := i");
     T[MINDEX1(n, i)] = A[MINDEX1(n, i)];
-    __ghost(matrix1_ro_unfocus, "M := A");
+    __ghost(matrix1_ro_unfocus, "matrix := A");
     B[MINDEX1(n, i)] = T[MINDEX1(n, i)];
   }
   free(T);

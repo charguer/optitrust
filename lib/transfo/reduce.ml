@@ -39,7 +39,7 @@ let focus_reduce_item (input : trm) (i : trm) (j : trm) (n : trm) (m : trm)
   let open Resource_formula in
   if !Flags.check_validity then
     let (_, beg_focus, end_focus) = Resource_trm.(ghost_pair (ghost_call
-      var_ghost_matrix2_ro_focus ["M", input; "i", i; "j", j; "m", n; "n", m])) in
+      var_ghost_matrix2_ro_focus ["matrix", input; "i", i; "j", j; "m", n; "n", m])) in
     trm_seq_nobrace_nomarks [beg_focus; wrapped_t; end_focus]
   else
     wrapped_t

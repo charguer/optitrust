@@ -5,7 +5,8 @@ void f() {
   int x = 0;
   int* const A = (int*)calloc(MSIZE1(10), sizeof(int));
   x += 1;
-  const __ghost_fn focusA = __ghost_begin(matrix1_ro_focus, "M := A, i := 0");
+  const __ghost_fn focusA =
+      __ghost_begin(matrix1_ro_focus, "matrix := A, i := 0");
   x += A[MINDEX1(10, 0)];
   __ghost_end(focusA);
   x += 1;

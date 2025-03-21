@@ -4,21 +4,23 @@ void f() {
   __pure();
   int x = 0;
   int* const A = (int*)calloc(MSIZE1(10), sizeof(int));
-  const __ghost_fn focusA = __ghost_begin(matrix1_ro_focus, "M := A, i := 0");
+  const __ghost_fn focusA =
+      __ghost_begin(matrix1_ro_focus, "matrix := A, i := 0");
   __ghost_end(focusA);
   const __ghost_fn __ghost_pair_1 =
-      __ghost_begin(matrix1_ro_focus, "M := A, i := 0");
+      __ghost_begin(matrix1_ro_focus, "matrix := A, i := 0");
   x += 1;
   x += A[MINDEX1(10, 0)];
   __ghost_end(__ghost_pair_1);
   const __ghost_fn __ghost_pair_2 =
-      __ghost_begin(matrix1_ro_focus, "M := A, i := 0");
+      __ghost_begin(matrix1_ro_focus, "matrix := A, i := 0");
   x += 1;
   __ghost_end(__ghost_pair_2);
-  const __ghost_fn focusA2 = __ghost_begin(matrix1_ro_focus, "M := A, i := 0");
+  const __ghost_fn focusA2 =
+      __ghost_begin(matrix1_ro_focus, "matrix := A, i := 0");
   __ghost_end(focusA2);
   const __ghost_fn __ghost_pair_3 =
-      __ghost_begin(matrix1_ro_focus, "M := A, i := 0");
+      __ghost_begin(matrix1_ro_focus, "matrix := A, i := 0");
   x += 1;
   __ghost_end(__ghost_pair_3);
   free(A);

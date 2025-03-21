@@ -45,8 +45,8 @@ void from_zero_contract(int* t, int* u, int n, int m) {
     __xwrites("&t[MINDEX2(n, m, ij / m, ij % m)] ~> Cell");
     __ghost(assume, "P := in_range(ij / m, 0..n)");
     __ghost(assume, "P := in_range(ij % m, 0..m)");
-    const __ghost_fn f =
-        __ghost_begin(matrix2_ro_focus, "M := u, i := ij / m, j := ij % m");
+    const __ghost_fn f = __ghost_begin(matrix2_ro_focus,
+                                       "matrix := u, i := ij / m, j := ij % m");
     t[MINDEX2(n, m, ij / m, ij % m)] = u[MINDEX2(n, m, ij / m, ij % m)];
     __ghost_end(f);
   }

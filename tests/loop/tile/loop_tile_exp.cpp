@@ -61,7 +61,7 @@ void matrix_copy(int* D, int* S) {
       __ghost(tiled_index_in_range,
               "tile_index := bi, index := i, div_check := tile_div_check_i");
       const __ghost_fn focus =
-          __ghost_begin(matrix1_ro_focus, "M := S, i := bi * 4 + i");
+          __ghost_begin(matrix1_ro_focus, "matrix := S, i := bi * 4 + i");
       D[MINDEX1(1024, bi * 4 + i)] = S[MINDEX1(1024, bi * 4 + i)];
       __ghost_end(focus);
     }

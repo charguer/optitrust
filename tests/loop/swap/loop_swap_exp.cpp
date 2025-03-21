@@ -140,7 +140,7 @@ void ghost_pairs(int* x) {
     __strict();
     __sreads("x ~> Matrix1(1)");
     const __ghost_fn focus_x =
-        __ghost_begin(matrix1_ro_focus, "M := x, i := 0");
+        __ghost_begin(matrix1_ro_focus, "matrix := x, i := 0");
     for (int j = 0; j < 5; j++) {
       __strict();
       __sreads("&x[MINDEX1(1, 0)] ~> Cell");
@@ -165,7 +165,7 @@ void ghost_pure(int* M) {
                 "tile_index := bi, index := i, tile_count := 128, tile_size := "
                 "8, size := 1024");
         const __ghost_fn focus =
-            __ghost_begin(matrix1_ro_focus, "M := M, i := bi * 8 + i");
+            __ghost_begin(matrix1_ro_focus, "matrix := M, i := bi * 8 + i");
         M[MINDEX1(1024, bi * 8 + i)];
         __ghost_end(focus);
       }

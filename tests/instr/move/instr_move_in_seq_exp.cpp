@@ -3,16 +3,16 @@
 void pair(int* M) {
   __reads("M ~> Matrix1(10)");
   const __ghost_fn __ghost_pair_4 =
-      __ghost_begin(matrix1_ro_focus, "M := M, i := 2");
+      __ghost_begin(matrix1_ro_focus, "matrix := M, i := 2");
   int k2 = M[MINDEX1(10, 2)];
   int k3 = M[MINDEX1(10, 2)];
   __ghost_end(__ghost_pair_4);
   const __ghost_fn __ghost_pair_1 =
-      __ghost_begin(matrix1_ro_focus, "M := M, i := 2");
+      __ghost_begin(matrix1_ro_focus, "matrix := M, i := 2");
   int k4 = M[MINDEX1(10, 2)];
   __ghost_end(__ghost_pair_1);
   const __ghost_fn __ghost_pair_6 =
-      __ghost_begin(matrix1_ro_focus, "M := M, i := 2");
+      __ghost_begin(matrix1_ro_focus, "matrix := M, i := 2");
   int k1 = M[MINDEX1(10, 2)];
   __ghost_end(__ghost_pair_6);
 }

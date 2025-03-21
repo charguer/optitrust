@@ -4,9 +4,9 @@ void f() {
   __pure();
   int x = 0;
   int* const A = (int*)calloc(MSIZE1(10), sizeof(int));
-  __ghost(matrix1_ro_focus, "M := A, i := 0");
+  __ghost(matrix1_ro_focus, "matrix := A, i := 0");
   x += A[MINDEX1(10, 0)];
-  __ghost(matrix1_ro_unfocus, "M := A, i := 0");
+  __ghost(matrix1_ro_unfocus, "matrix := A, i := 0");
   free(A);
   int* const B = (int*)calloc(MSIZE2(8, 6), sizeof(int));
   __ghost(group_focus,
