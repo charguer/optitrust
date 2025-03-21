@@ -1408,6 +1408,7 @@ let autogen_alpha_rename style (t : trm) : trm =
     match Var_map.find_opt v renamings with
     | Some v' -> v'
     | None -> v
+    | exception UnsetVarId _ -> { v with name = v.name ^ "?" }
   in
 
   if style.typing.print_generated_res_ids

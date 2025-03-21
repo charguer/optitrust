@@ -130,19 +130,25 @@ let var_to_string (v : var) : string =
   else
     name ^ "#" ^ string_of_int v.id
 
-let assert_var_id_set ~error_loc v =
-  if has_unset_id v then failwith "%s: Variable %s has an id that is not set (maybe forgot to call Scope.infer_var_ids)" error_loc (var_to_string v)
+exception UnsetVarId of var
+let () = Printexc.register_printer (function
+  | UnsetVarId v -> Some (sprintf "Variable %s has an id that is not set (maybe forgot to call Scope.infer_var_ids)" (var_name v))
+  | _ -> None
+)
+
+let assert_var_id_set v =
+  if has_unset_id v then raise (UnsetVarId v)
 
 let var_eq (v1 : var) (v2 : var) : bool =
-  assert_var_id_set ~error_loc:"var_eq" v1;
-  assert_var_id_set ~error_loc:"var_eq" v2;
+  assert_var_id_set v1;
+  assert_var_id_set v2;
   v1.id = v2.id
 
 module Var = struct
   type t = var
   let compare v1 v2 =
-    assert_var_id_set ~error_loc:"Var.compare" v1;
-    assert_var_id_set ~error_loc:"Var.compare" v2;
+    assert_var_id_set v1;
+    assert_var_id_set v2;
     Int.compare v1.id v2.id
   let equal v1 v2 = var_eq v1 v2
   let hash v = Hashtbl.hash v.id
