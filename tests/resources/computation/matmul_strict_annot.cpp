@@ -14,8 +14,8 @@ void matmul_seq(float* C, float* A, float* B, int m, int n, int p) {
         __sreads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
         __smodifies("&sum ~> Cell");
 
-        __GHOST_BEGIN(focusA, matrix2_ro_focus, "A, i, k");
-        __GHOST_BEGIN(focusB, matrix2_ro_focus, "B, k, j");
+        __GHOST_BEGIN(focusA, ro_matrix2_focus, "A, i, k");
+        __GHOST_BEGIN(focusB, ro_matrix2_focus, "B, k, j");
         sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
         __GHOST_END(focusA);
         __GHOST_END(focusB);
@@ -45,8 +45,8 @@ void matmul_par(float* C, float* A, float* B, int m, int n, int p) {
         __strict();
         __sreads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
         __smodifies("&sum ~> Cell");
-        __GHOST_BEGIN(focusA, matrix2_ro_focus, "A, i, k");
-        __GHOST_BEGIN(focusB, matrix2_ro_focus, "B, k, j");
+        __GHOST_BEGIN(focusA, ro_matrix2_focus, "A, i, k");
+        __GHOST_BEGIN(focusB, ro_matrix2_focus, "B, k, j");
         sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
         __GHOST_END(focusB);
         __GHOST_END(focusA);

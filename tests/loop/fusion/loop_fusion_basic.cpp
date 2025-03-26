@@ -71,7 +71,7 @@ void uninit_ro(int* t, int* u, int n) {
     __smodifies("&x ~> Cell");
     __sreads("for i in 1..n -> &t[i] ~> Cell");
 
-    __GHOST_BEGIN(tf, group_ro_focus, "i := i");
+    __GHOST_BEGIN(tf, ro_group_focus, "i := i");
     x += t[i];
     __GHOST_END(tf);
   }

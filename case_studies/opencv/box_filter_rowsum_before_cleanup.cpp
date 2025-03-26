@@ -44,19 +44,19 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
       __ghost(in_range_extend,
               "x := ic / cn, r1 := ic / cn..ic / cn + 3, r2 := 0..n + 2");
       const __ghost_fn __ghost_pair_3 = __ghost_begin(
-          matrix2_ro_focus,
+          ro_matrix2_focus,
           "M := S, i := ic / cn, j := ic % cn, m := n + 2, n := cn");
       __ghost(assume, "F := in_range(ic / cn + 1, ic / cn..ic / cn + 3)");
       __ghost(in_range_extend,
               "x := ic / cn + 1, r1 := ic / cn..ic / cn + 3, r2 := 0..n + 2");
       const __ghost_fn __ghost_pair_2 = __ghost_begin(
-          matrix2_ro_focus,
+          ro_matrix2_focus,
           "M := S, i := ic / cn + 1, j := ic % cn, m := n + 2, n := cn");
       __ghost(assume, "F := in_range(ic / cn + 2, ic / cn..ic / cn + 3)");
       __ghost(in_range_extend,
               "x := ic / cn + 2, r1 := ic / cn..ic / cn + 3, r2 := 0..n + 2");
       const __ghost_fn __ghost_pair_1 = __ghost_begin(
-          matrix2_ro_focus,
+          ro_matrix2_focus,
           "M := S, i := ic / cn + 2, j := ic % cn, m := n + 2, n := cn");
       D[MINDEX2(n, cn, ic / cn, ic % cn)] =
           (uint16_t)S[MINDEX2(n + 2, cn, ic / cn, ic % cn)] +
@@ -113,31 +113,31 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
         __ghost(in_range_extend,
                 "x := ic / cn, r1 := ic / cn..ic / cn + 5, r2 := 0..n + 4");
         const __ghost_fn __ghost_pair_8 = __ghost_begin(
-            matrix2_ro_focus,
+            ro_matrix2_focus,
             "M := S, i := ic / cn, j := ic % cn, m := n + 4, n := cn");
         __ghost(assume, "F := in_range(ic / cn + 1, ic / cn..ic / cn + 5)");
         __ghost(in_range_extend,
                 "x := ic / cn + 1, r1 := ic / cn..ic / cn + 5, r2 := 0..n + 4");
         const __ghost_fn __ghost_pair_7 = __ghost_begin(
-            matrix2_ro_focus,
+            ro_matrix2_focus,
             "M := S, i := ic / cn + 1, j := ic % cn, m := n + 4, n := cn");
         __ghost(assume, "F := in_range(ic / cn + 2, ic / cn..ic / cn + 5)");
         __ghost(in_range_extend,
                 "x := ic / cn + 2, r1 := ic / cn..ic / cn + 5, r2 := 0..n + 4");
         const __ghost_fn __ghost_pair_6 = __ghost_begin(
-            matrix2_ro_focus,
+            ro_matrix2_focus,
             "M := S, i := ic / cn + 2, j := ic % cn, m := n + 4, n := cn");
         __ghost(assume, "F := in_range(ic / cn + 3, ic / cn..ic / cn + 5)");
         __ghost(in_range_extend,
                 "x := ic / cn + 3, r1 := ic / cn..ic / cn + 5, r2 := 0..n + 4");
         const __ghost_fn __ghost_pair_5 = __ghost_begin(
-            matrix2_ro_focus,
+            ro_matrix2_focus,
             "M := S, i := ic / cn + 3, j := ic % cn, m := n + 4, n := cn");
         __ghost(assume, "F := in_range(ic / cn + 4, ic / cn..ic / cn + 5)");
         __ghost(in_range_extend,
                 "x := ic / cn + 4, r1 := ic / cn..ic / cn + 5, r2 := 0..n + 4");
         const __ghost_fn __ghost_pair_4 = __ghost_begin(
-            matrix2_ro_focus,
+            ro_matrix2_focus,
             "M := S, i := ic / cn + 4, j := ic % cn, m := n + 4, n := cn");
         D[MINDEX2(n, cn, ic / cn, ic % cn)] =
             (uint16_t)S[MINDEX2(n + 4, cn, ic / cn, ic % cn)] +
@@ -224,7 +224,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
           __ghost(assume, "F := in_range(i, 0..kn)");
           __ghost(in_range_extend, "x := i, r1 := 0..kn, r2 := 0..n + kn - 1");
           const __ghost_fn __ghost_pair_9 =
-              __ghost_begin(matrix2_ro_focus,
+              __ghost_begin(ro_matrix2_focus,
                             "M := S, i := i, j := 0, m := n + kn - 1, n := 1");
           s = s + (uint16_t)S[MINDEX2(n + kn - 1, 1, i, 0)];
           __ghost_end(__ghost_pair_9);
@@ -279,13 +279,13 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
           __ghost(in_range_extend,
                   "x := i + kn, r1 := i + kn..i + 1 + kn, r2 := 0..n + kn - 1");
           const __ghost_fn __ghost_pair_11 = __ghost_begin(
-              matrix2_ro_focus,
+              ro_matrix2_focus,
               "M := S, i := i + kn, j := 0, m := n + kn - 1, n := 1");
           __ghost(assume, "F := in_range(i, i..i + 1)");
           __ghost(in_range_extend,
                   "x := i, r1 := i..i + 1, r2 := 0..n + kn - 1");
           const __ghost_fn __ghost_pair_12 =
-              __ghost_begin(matrix2_ro_focus,
+              __ghost_begin(ro_matrix2_focus,
                             "M := S, i := i, j := 0, m := n + kn - 1, n := 1");
           s = s + (uint16_t)S[MINDEX2(n + kn - 1, 1, i + kn, 0)] -
               (uint16_t)S[MINDEX2(n + kn - 1, 1, i, 0)];
@@ -407,7 +407,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
             __ghost(in_range_extend,
                     "x := exact_div(i, 3), r1 := 0..kn, r2 := 0..n + kn - 1");
             const __ghost_fn __ghost_pair_9 =
-                __ghost_begin(matrix2_ro_focus,
+                __ghost_begin(ro_matrix2_focus,
                               "M := S, i := exact_div(i, 3), j := 0, m := n + "
                               "kn - 1, n := 3");
             s = s + (uint16_t)S[MINDEX2(n + kn - 1, 3, exact_div(i, 3), 0)];
@@ -475,7 +475,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                     "x := exact_div(i, 3) + kn, r1 := exact_div(i, 3) + "
                     "kn..exact_div(i, 3) + 1 + kn, r2 := 0..n + kn - 1");
             const __ghost_fn __ghost_pair_11 =
-                __ghost_begin(matrix2_ro_focus,
+                __ghost_begin(ro_matrix2_focus,
                               "M := S, i := exact_div(i, 3) + kn, j := 0, m := "
                               "n + kn - 1, n := 3");
             __ghost(assume,
@@ -485,7 +485,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                     "x := exact_div(i, 3), r1 := exact_div(i, 3)..exact_div(i, "
                     "3) + 1, r2 := 0..n + kn - 1");
             const __ghost_fn __ghost_pair_12 =
-                __ghost_begin(matrix2_ro_focus,
+                __ghost_begin(ro_matrix2_focus,
                               "M := S, i := exact_div(i, 3), j := 0, m := n + "
                               "kn - 1, n := 3");
             s = s +
@@ -551,7 +551,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
             __ghost(in_range_extend,
                     "x := exact_div(i, 3), r1 := 0..kn, r2 := 0..n + kn - 1");
             const __ghost_fn __ghost_pair_9 =
-                __ghost_begin(matrix2_ro_focus,
+                __ghost_begin(ro_matrix2_focus,
                               "M := S, i := exact_div(i, 3), j := 1, m := n + "
                               "kn - 1, n := 3");
             s2 = s2 + (uint16_t)S[MINDEX2(n + kn - 1, 3, exact_div(i, 3), 1)];
@@ -619,7 +619,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                     "x := exact_div(i, 3) + kn, r1 := exact_div(i, 3) + "
                     "kn..exact_div(i, 3) + 1 + kn, r2 := 0..n + kn - 1");
             const __ghost_fn __ghost_pair_11 =
-                __ghost_begin(matrix2_ro_focus,
+                __ghost_begin(ro_matrix2_focus,
                               "M := S, i := exact_div(i, 3) + kn, j := 1, m := "
                               "n + kn - 1, n := 3");
             __ghost(assume,
@@ -629,7 +629,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                     "x := exact_div(i, 3), r1 := exact_div(i, 3)..exact_div(i, "
                     "3) + 1, r2 := 0..n + kn - 1");
             const __ghost_fn __ghost_pair_12 =
-                __ghost_begin(matrix2_ro_focus,
+                __ghost_begin(ro_matrix2_focus,
                               "M := S, i := exact_div(i, 3), j := 1, m := n + "
                               "kn - 1, n := 3");
             s2 = s2 +
@@ -695,7 +695,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
             __ghost(in_range_extend,
                     "x := exact_div(i, 3), r1 := 0..kn, r2 := 0..n + kn - 1");
             const __ghost_fn __ghost_pair_9 =
-                __ghost_begin(matrix2_ro_focus,
+                __ghost_begin(ro_matrix2_focus,
                               "M := S, i := exact_div(i, 3), j := 2, m := n + "
                               "kn - 1, n := 3");
             s3 = s3 + (uint16_t)S[MINDEX2(n + kn - 1, 3, exact_div(i, 3), 2)];
@@ -763,7 +763,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                     "x := exact_div(i, 3) + kn, r1 := exact_div(i, 3) + "
                     "kn..exact_div(i, 3) + 1 + kn, r2 := 0..n + kn - 1");
             const __ghost_fn __ghost_pair_11 =
-                __ghost_begin(matrix2_ro_focus,
+                __ghost_begin(ro_matrix2_focus,
                               "M := S, i := exact_div(i, 3) + kn, j := 2, m := "
                               "n + kn - 1, n := 3");
             __ghost(assume,
@@ -773,7 +773,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                     "x := exact_div(i, 3), r1 := exact_div(i, 3)..exact_div(i, "
                     "3) + 1, r2 := 0..n + kn - 1");
             const __ghost_fn __ghost_pair_12 =
-                __ghost_begin(matrix2_ro_focus,
+                __ghost_begin(ro_matrix2_focus,
                               "M := S, i := exact_div(i, 3), j := 2, m := n + "
                               "kn - 1, n := 3");
             s3 = s3 +
@@ -1060,7 +1060,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
               __ghost(in_range_extend,
                       "x := exact_div(i, 4), r1 := 0..kn, r2 := 0..n + kn - 1");
               const __ghost_fn __ghost_pair_9 =
-                  __ghost_begin(matrix2_ro_focus,
+                  __ghost_begin(ro_matrix2_focus,
                                 "M := S, i := exact_div(i, 4), j := 0, m := n "
                                 "+ kn - 1, n := 4");
               s = s + (uint16_t)S[MINDEX2(n + kn - 1, 4, exact_div(i, 4), 0)];
@@ -1070,7 +1070,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
               __ghost(in_range_extend,
                       "x := exact_div(i, 4), r1 := 0..kn, r2 := 0..n + kn - 1");
               const __ghost_fn __ghost_pair_939 =
-                  __ghost_begin(matrix2_ro_focus,
+                  __ghost_begin(ro_matrix2_focus,
                                 "M := S, i := exact_div(i, 4), j := 1, m := n "
                                 "+ kn - 1, n := 4");
               s4 = s4 + (uint16_t)S[MINDEX2(n + kn - 1, 4, exact_div(i, 4), 1)];
@@ -1080,7 +1080,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
               __ghost(in_range_extend,
                       "x := exact_div(i, 4), r1 := 0..kn, r2 := 0..n + kn - 1");
               const __ghost_fn __ghost_pair_935 =
-                  __ghost_begin(matrix2_ro_focus,
+                  __ghost_begin(ro_matrix2_focus,
                                 "M := S, i := exact_div(i, 4), j := 2, m := n "
                                 "+ kn - 1, n := 4");
               s5 = s5 + (uint16_t)S[MINDEX2(n + kn - 1, 4, exact_div(i, 4), 2)];
@@ -1090,7 +1090,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
               __ghost(in_range_extend,
                       "x := exact_div(i, 4), r1 := 0..kn, r2 := 0..n + kn - 1");
               const __ghost_fn __ghost_pair_931 =
-                  __ghost_begin(matrix2_ro_focus,
+                  __ghost_begin(ro_matrix2_focus,
                                 "M := S, i := exact_div(i, 4), j := 3, m := n "
                                 "+ kn - 1, n := 4");
               s6 = s6 + (uint16_t)S[MINDEX2(n + kn - 1, 4, exact_div(i, 4), 3)];
@@ -1199,7 +1199,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                       "x := exact_div(i, 4) + kn, r1 := exact_div(i, 4) + "
                       "kn..exact_div(i, 4) + 1 + kn, r2 := 0..n + kn - 1");
               const __ghost_fn __ghost_pair_11 =
-                  __ghost_begin(matrix2_ro_focus,
+                  __ghost_begin(ro_matrix2_focus,
                                 "M := S, i := exact_div(i, 4) + kn, j := 0, m "
                                 ":= n + kn - 1, n := 4");
               __ghost(assume,
@@ -1209,7 +1209,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                       "x := exact_div(i, 4), r1 := exact_div(i, "
                       "4)..exact_div(i, 4) + 1, r2 := 0..n + kn - 1");
               const __ghost_fn __ghost_pair_12 =
-                  __ghost_begin(matrix2_ro_focus,
+                  __ghost_begin(ro_matrix2_focus,
                                 "M := S, i := exact_div(i, 4), j := 0, m := n "
                                 "+ kn - 1, n := 4");
               s = s +
@@ -1235,7 +1235,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                       "x := exact_div(i, 4) + kn, r1 := exact_div(i, 4) + "
                       "kn..exact_div(i, 4) + 1 + kn, r2 := 0..n + kn - 1");
               const __ghost_fn __ghost_pair_1126 =
-                  __ghost_begin(matrix2_ro_focus,
+                  __ghost_begin(ro_matrix2_focus,
                                 "M := S, i := exact_div(i, 4) + kn, j := 1, m "
                                 ":= n + kn - 1, n := 4");
               __ghost(assume,
@@ -1245,7 +1245,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                       "x := exact_div(i, 4), r1 := exact_div(i, "
                       "4)..exact_div(i, 4) + 1, r2 := 0..n + kn - 1");
               const __ghost_fn __ghost_pair_1227 =
-                  __ghost_begin(matrix2_ro_focus,
+                  __ghost_begin(ro_matrix2_focus,
                                 "M := S, i := exact_div(i, 4), j := 1, m := n "
                                 "+ kn - 1, n := 4");
               s4 =
@@ -1272,7 +1272,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                       "x := exact_div(i, 4) + kn, r1 := exact_div(i, 4) + "
                       "kn..exact_div(i, 4) + 1 + kn, r2 := 0..n + kn - 1");
               const __ghost_fn __ghost_pair_1119 =
-                  __ghost_begin(matrix2_ro_focus,
+                  __ghost_begin(ro_matrix2_focus,
                                 "M := S, i := exact_div(i, 4) + kn, j := 2, m "
                                 ":= n + kn - 1, n := 4");
               __ghost(assume,
@@ -1282,7 +1282,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                       "x := exact_div(i, 4), r1 := exact_div(i, "
                       "4)..exact_div(i, 4) + 1, r2 := 0..n + kn - 1");
               const __ghost_fn __ghost_pair_1220 =
-                  __ghost_begin(matrix2_ro_focus,
+                  __ghost_begin(ro_matrix2_focus,
                                 "M := S, i := exact_div(i, 4), j := 2, m := n "
                                 "+ kn - 1, n := 4");
               s5 =
@@ -1309,7 +1309,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                       "x := exact_div(i, 4) + kn, r1 := exact_div(i, 4) + "
                       "kn..exact_div(i, 4) + 1 + kn, r2 := 0..n + kn - 1");
               const __ghost_fn __ghost_pair_1112 =
-                  __ghost_begin(matrix2_ro_focus,
+                  __ghost_begin(ro_matrix2_focus,
                                 "M := S, i := exact_div(i, 4) + kn, j := 3, m "
                                 ":= n + kn - 1, n := 4");
               __ghost(assume,
@@ -1319,7 +1319,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                       "x := exact_div(i, 4), r1 := exact_div(i, "
                       "4)..exact_div(i, 4) + 1, r2 := 0..n + kn - 1");
               const __ghost_fn __ghost_pair_1213 =
-                  __ghost_begin(matrix2_ro_focus,
+                  __ghost_begin(ro_matrix2_focus,
                                 "M := S, i := exact_div(i, 4), j := 3, m := n "
                                 "+ kn - 1, n := 4");
               s6 =
@@ -1535,7 +1535,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                     in_range_extend,
                     "x := exact_div(i, cn), r1 := 0..kn, r2 := 0..n + kn - 1");
                 const __ghost_fn __ghost_pair_9 =
-                    __ghost_begin(matrix2_ro_focus,
+                    __ghost_begin(ro_matrix2_focus,
                                   "M := S, i := exact_div(i, cn), j := c, m := "
                                   "n + kn - 1, n := cn");
                 s = s +
@@ -1633,7 +1633,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                         "- c), cn) + kn..exact_div((i - c), cn) + 1 + kn, r2 "
                         ":= 0..n + kn - 1");
                 const __ghost_fn __ghost_pair_11 =
-                    __ghost_begin(matrix2_ro_focus,
+                    __ghost_begin(ro_matrix2_focus,
                                   "M := S, i := exact_div((i - c), cn) + kn, j "
                                   ":= c, m := n + kn - 1, n := cn");
                 __ghost(assume,
@@ -1643,7 +1643,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                         "x := exact_div((i - c), cn), r1 := exact_div((i - c), "
                         "cn)..exact_div((i - c), cn) + 1, r2 := 0..n + kn - 1");
                 const __ghost_fn __ghost_pair_12 =
-                    __ghost_begin(matrix2_ro_focus,
+                    __ghost_begin(ro_matrix2_focus,
                                   "M := S, i := exact_div((i - c), cn), j := "
                                   "c, m := n + kn - 1, n := cn");
                 s = s +

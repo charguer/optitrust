@@ -24,7 +24,7 @@ let reduce_inv (t : trm) : (trm * trm * trm * trm * trm * trm) option =
 let (beg_focus, end_focus) = if !Flags.check_validity then
   let open Resource_trm in
   let open Resource_formula in
-  let (_, a, b) = ghost_pair (ghost_call var_ghost_group_focus_subrange_ro [
+  let (_, a, b) = ghost_pair (ghost_call var_ghost_ro_group_focus_subrange [
     "sub_range", formula_range start stop (trm_int 1);
     "big_range", formula_range (trm_int 0) n (trm_int 1);
   ]) in
@@ -39,7 +39,7 @@ let focus_reduce_item (input : trm) (i : trm) (j : trm) (n : trm) (m : trm)
   let open Resource_formula in
   if !Flags.check_validity then
     let (_, beg_focus, end_focus) = Resource_trm.(ghost_pair (ghost_call
-      var_ghost_matrix2_ro_focus ["matrix", input; "i", i; "j", j; "m", n; "n", m])) in
+      var_ghost_ro_matrix2_focus ["matrix", input; "i", i; "j", j; "m", n; "n", m])) in
     trm_seq_nobrace_nomarks [beg_focus; wrapped_t; end_focus]
   else
     wrapped_t
@@ -260,10 +260,10 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
         (formula_range (trm_int 0) n step)
       );
     ]) in
-    let split_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_split ghost_group_split_ro)) contract.iter_contract.pre.linear in
-    let join_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_join ghost_group_join_ro)) contract.iter_contract.post.linear in
-    let pure_split_ghosts = Loop_core.(add_split_ghost (fun f -> ghost_group_split_pure, f)) contract.iter_contract.pre.pure in
-    let pure_join_ghosts = Loop_core.(add_split_ghost (fun f -> ghost_group_join_pure, f)) contract.iter_contract.post.pure in
+    let split_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_split ghost_ro_group_split)) contract.iter_contract.pre.linear in
+    let join_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_join ghost_ro_group_join)) contract.iter_contract.post.linear in
+    let pure_split_ghosts = Loop_core.(add_split_ghost (fun f -> ghost_pure_group_split, f)) contract.iter_contract.pre.pure in
+    let pure_join_ghosts = Loop_core.(add_split_ghost (fun f -> ghost_pure_group_join, f)) contract.iter_contract.post.pure in
     let one_range = { range with stop = new_range.start } in
     let (unroll_ghosts, roll_ghosts) = Loop_core.unroll_ghost_pair one_range contract [range.start] in
     let new_contract = contract |>

@@ -19,7 +19,7 @@ void f(int* t, int* u) {
     int z = x;
   }
   free(t2);
-  __ghost(matrix1_ro_focus, "matrix := t, i := 0");
+  __ghost(ro_matrix1_focus, "matrix := t, i := 0");
   int* const t02 = (int*)malloc(MSIZE0() * sizeof(int));
   t02[MINDEX0()] = t[MINDEX1(10, 0)];
   for (int l = 0; l < 5; l++) {
@@ -32,7 +32,7 @@ void f(int* t, int* u) {
     }
   }
   free(t02);
-  __ghost(matrix1_ro_unfocus, "matrix := t");
+  __ghost(ro_matrix1_unfocus, "matrix := t");
   int* const a2 = (int*)malloc(MSIZE1(8) * sizeof(int));
   for (int a = 0; a < 8; a++) {
     __strict();

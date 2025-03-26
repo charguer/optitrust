@@ -41,7 +41,7 @@ void mm1024(float* C, float* A, float* B) {
                   "tile_index := bk, index := k, tile_count := 256, tile_size "
                   ":= 4, size := 1024");
           const __ghost_fn __ghost_pair_3 = __ghost_begin(
-              matrix2_ro_focus, "M := B, i := bk * 4 + k, j := bj * 32 + j");
+              ro_matrix2_focus, "M := B, i := bk * 4 + k, j := bj * 32 + j");
           pB[MINDEX4(32, 256, 4, 32, bj, bk, k, j)] =
               B[MINDEX2(1024, 1024, bk * 4 + k, bj * 32 + j)];
           __ghost_end(__ghost_pair_3);
@@ -134,7 +134,7 @@ void mm1024(float* C, float* A, float* B) {
                       "tile_index := bk, index := k, tile_count := 256, "
                       "tile_size := 4, size := 1024");
               const __ghost_fn __ghost_pair_2 =
-                  __ghost_begin(matrix2_ro_focus,
+                  __ghost_begin(ro_matrix2_focus,
                                 "M := A, i := bi * 32 + i, j := bk * 4 + k");
               sum[MINDEX2(32, 32, i, j)] +=
                   A[MINDEX2(1024, 1024, bi * 32 + i, bk * 4 + k)] *

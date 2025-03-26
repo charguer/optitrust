@@ -4,11 +4,11 @@ void array_copy(float* A, float* B, int n) {
   __reads("A ~> Matrix1(n)");
   __modifies("B ~> Matrix1(n)");
   for (int i = 0; i < n; ++i) {
-      __ghost(matrix1_ro_focus, "A, i"); // Will be automatically inferred later
+      __ghost(ro_matrix1_focus, "A, i"); // Will be automatically inferred later
       __ghost(matrix1_focus, "B, i"); // idem
       B[MINDEX1(n,i)] = A[MINDEX1(n,i)];
       __ghost(matrix1_unfocus, "B"); // idem
-      __ghost(matrix1_ro_unfocus, "A"); // idem
+      __ghost(ro_matrix1_unfocus, "A"); // idem
   }
 }
 
@@ -20,11 +20,11 @@ void array_copy_explicit(float* A, float* B, int n) {
       __sreads("A ~> Matrix1(n)");
       __smodifies("B ~> Matrix1(n)");
 
-      __ghost(matrix1_ro_focus, "A, i");
+      __ghost(ro_matrix1_focus, "A, i");
       __ghost(matrix1_focus, "B, i");
       B[MINDEX1(n,i)] = A[MINDEX1(n,i)];
       __ghost(matrix1_unfocus, "B");
-      __ghost(matrix1_ro_unfocus, "A");
+      __ghost(ro_matrix1_unfocus, "A");
   }
 }
 
@@ -57,9 +57,9 @@ void array_copy_with_tmp(float* A, float* B, int n) {
     __sreads("A ~> Matrix1(n)");
     __xmodifies("&B[MINDEX1(n,i)] ~> Cell, &T[MINDEX1(n,i)] ~> Cell");
 
-    __ghost(matrix1_ro_focus, "A, i"); // Will be removed
+    __ghost(ro_matrix1_focus, "A, i"); // Will be removed
     T[MINDEX1(n,i)] = A[MINDEX1(n,i)];
-    __ghost(matrix1_ro_unfocus, "A"); // Will be removed
+    __ghost(ro_matrix1_unfocus, "A"); // Will be removed
     B[MINDEX1(n,i)] = T[MINDEX1(n,i)];
   }
   free(T);

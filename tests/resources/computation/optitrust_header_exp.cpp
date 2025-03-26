@@ -81,7 +81,7 @@ __ghost_ret matrix1_unfocus() {
   __ghost(close_wand);
 }
 
-__ghost_ret matrix1_ro_focus() {
+__ghost_ret ro_matrix1_focus() {
   __requires("T: Type");
   __requires("matrix: ptr(T)");
   __requires("i: int");
@@ -94,16 +94,16 @@ __ghost_ret matrix1_ro_focus() {
       "Matrix1(n)))");
   __produces("_RO(f, &matrix[MINDEX1(n, i)] ~> Cell)");
   __admitted();
-  __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check");
+  __ghost(ro_group_focus, "f := f, i := i, bound_check := bound_check");
 }
 
-__ghost_ret matrix1_ro_unfocus() {
-  __reverts(matrix1_ro_focus);
+__ghost_ret ro_matrix1_unfocus() {
+  __reverts(ro_matrix1_focus);
   __admitted();
   __ghost(close_wand);
 }
 
-__ghost_ret matrix2_ro_focus() {
+__ghost_ret ro_matrix2_focus() {
   __requires("T: Type");
   __requires("matrix: ptr(T)");
   __requires("i: int");
@@ -118,13 +118,13 @@ __ghost_ret matrix2_ro_focus() {
       "Wand(_RO(f, &matrix[MINDEX2(m, n, i, j)] ~> Cell), _RO(f, matrix ~> "
       "Matrix2(m, n)))");
   __produces("_RO(f, &matrix[MINDEX2(m, n, i, j)] ~> Cell)");
-  __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check_i");
-  __ghost(group_ro_focus, "f := f, i := j, bound_check := bound_check_j");
+  __ghost(ro_group_focus, "f := f, i := i, bound_check := bound_check_i");
+  __ghost(ro_group_focus, "f := f, i := j, bound_check := bound_check_j");
   __ghost(wand_simplify);
 }
 
-__ghost_ret matrix2_ro_unfocus() {
-  __reverts(matrix2_ro_focus);
+__ghost_ret ro_matrix2_unfocus() {
+  __reverts(ro_matrix2_focus);
   __admitted();
   __ghost(close_wand);
 }
@@ -307,7 +307,7 @@ uint16_t reduce_spe1(int start, int stop, uint8_t* input, int n, int m, int j) {
     __sreads("input ~> Matrix2(n, m)");
     __ghost(in_range_extend, "x := i, r1 := start..stop, r2 := 0..n");
     const __ghost_fn focus =
-        __ghost_begin(matrix2_ro_focus, "matrix := input, i := i, j := j");
+        __ghost_begin(ro_matrix2_focus, "matrix := input, i := i, j := j");
     s += (uint16_t)input[MINDEX2(n, m, i, j)];
     __ghost_end(focus);
   }

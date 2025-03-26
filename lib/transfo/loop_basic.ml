@@ -55,8 +55,8 @@ let collapse_analyse (ri_rj_body : (loop_range * loop_contract * loop_range * lo
 
 let ghost_group_collapse = toplevel_var "group_collapse"
 let ghost_group_uncollapse = toplevel_var "group_uncollapse"
-let ghost_group_collapse_ro = toplevel_var "group_collapse_ro"
-let ghost_group_uncollapse_ro = toplevel_var "group_uncollapse_ro"
+let ghost_ro_group_collapse = toplevel_var "ro_group_collapse"
+let ghost_ro_group_uncollapse = toplevel_var "ro_group_uncollapse"
 
 (** <private> *)
 let collapse_on (simpl_mark : mark) (index : string)
@@ -92,8 +92,8 @@ let collapse_on (simpl_mark : mark) (index : string)
       ])
     )
   in
-  let ghosts_before = add_collapse_ghost ghost_group_collapse ghost_group_collapse_ro cj.iter_contract.pre.linear in
-  let ghosts_after = add_collapse_ghost ghost_group_uncollapse ghost_group_uncollapse_ro cj.iter_contract.post.linear in
+  let ghosts_before = add_collapse_ghost ghost_group_collapse ghost_ro_group_collapse cj.iter_contract.pre.linear in
+  let ghosts_after = add_collapse_ghost ghost_group_uncollapse ghost_ro_group_uncollapse cj.iter_contract.post.linear in
   let contract = Resource_contract.loop_contract_subst subst cj in
   let body2 = if !Flags.check_validity then
     let instrs, _ = trm_inv ~error:"expected seq" trm_seq_inv body in
@@ -825,9 +825,9 @@ let shift_kind_to_string = function
 | StopAt t -> "StopAt " ^ (Ast_to_c.ast_to_string t)
 
 let ghost_group_shift = toplevel_var "group_shift"
-let ghost_group_shift_ro = toplevel_var "group_shift_ro"
+let ghost_ro_group_shift = toplevel_var "ro_group_shift"
 let ghost_group_unshift = toplevel_var "group_unshift"
-let ghost_group_unshift_ro = toplevel_var "group_unshift_ro"
+let ghost_ro_group_unshift = toplevel_var "ro_group_unshift"
 
 (** transforms a loop index (e.g. shift, scale). *)
 let transform_range_on
@@ -896,8 +896,8 @@ let shift_range_on (kind : shift_kind) =
     )
   in
   let to_prove = [] in
-  let pre_res_trans = shift_ghosts ghost_group_shift ghost_group_shift_ro in
-  let post_res_trans = shift_ghosts ghost_group_unshift ghost_group_unshift_ro in
+  let pre_res_trans = shift_ghosts ghost_group_shift ghost_ro_group_shift in
+  let post_res_trans = shift_ghosts ghost_group_unshift ghost_ro_group_unshift in
   transform_range_on new_range to_prove pre_res_trans post_res_trans
 
 (** [shift_range index kind]: shifts a loop index range according to [kind], using a new [index] name.
@@ -923,9 +923,9 @@ let%transfo shift_range (index : string) (kind : shift_kind)
     Target.apply_at_target_paths (shift_range_on kind index mark_let mark_for mark_contract_occs) tg)
 
 let ghost_group_scale = toplevel_var "group_scale"
-let ghost_group_scale_ro = toplevel_var "group_scale_ro"
+let ghost_ro_group_scale = toplevel_var "ro_group_scale"
 let ghost_group_unscale = toplevel_var "group_unscale"
-let ghost_group_unscale_ro = toplevel_var "group_unscale_ro"
+let ghost_ro_group_unscale = toplevel_var "ro_group_unscale"
 
 let scale_range_on (factor : trm) =
   let new_range { index; start; direction; stop; step } index' =
@@ -963,8 +963,8 @@ let scale_range_on (factor : trm) =
         "factor", factor; "new_step", r'.step; "new_stop", r'.stop])
     )
   in
-  let pre_res_trans = scale_ghosts ghost_group_scale ghost_group_scale_ro in
-  let post_res_trans = scale_ghosts ghost_group_unscale ghost_group_scale_ro in
+  let pre_res_trans = scale_ghosts ghost_group_scale ghost_ro_group_scale in
+  let post_res_trans = scale_ghosts ghost_group_unscale ghost_ro_group_scale in
   transform_range_on new_range to_prove pre_res_trans post_res_trans
 
 (** [scale_range index factor tg]: expects target [tg] to point at a for loop
@@ -993,9 +993,9 @@ let simplify_ghost_group_scale_on_opt (t : trm) : trm option =
   let* ghost_call = Resource_trm.ghost_call_inv t in
   let* gv = trm_var_inv ghost_call.ghost_fn in
   let is_group_scale = var_eq gv ghost_group_scale ||
-    var_eq gv ghost_group_scale_ro ||
+    var_eq gv ghost_ro_group_scale ||
     var_eq gv ghost_group_unscale ||
-    var_eq gv ghost_group_unscale_ro
+    var_eq gv ghost_ro_group_unscale
   in
   if not is_group_scale then None else begin
     let arg_is name (arg, _) = arg.name = name in

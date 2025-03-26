@@ -448,7 +448,7 @@ let%transfo set_loop_contract ?(strict:bool=true) (contract: unparsed_loop_contr
   end
 
 
-let ghost_group_ro_focus = toplevel_var "group_ro_focus"
+let ghost_ro_group_focus = toplevel_var "ro_group_focus"
 
 let detach_loop_ro_focus_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"detach_loop_ro_focus_on: not a for loop" trm_for_inv t in
@@ -466,7 +466,7 @@ let detach_loop_ro_focus_on (t: trm): trm =
     let { formula } = Option.get (formula_read_only_inv formula) in
     let i = new_var range.index.name in
     let items = formula_fun [i, typ_int] (trm_subst_var range.index (trm_var i) formula) in
-    Resource_trm.ghost_scope (ghost_call ghost_group_ro_focus ["i", (trm_var range.index); "items", items])) iter_reads new_body
+    Resource_trm.ghost_scope (ghost_call ghost_ro_group_focus ["i", (trm_var range.index); "items", items])) iter_reads new_body
   in
   let new_body = trm_like ~old:body new_body in
   trm_like ~old:t (trm_for range ~contract new_body)

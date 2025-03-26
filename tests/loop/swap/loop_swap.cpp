@@ -111,7 +111,7 @@ void ghost_pairs(int* x) {
   for (int i = 0; i < 5; i++) {
     __strict();
     __sreads("x ~> Matrix1(1)");
-    __GHOST_BEGIN(focus_x, matrix1_ro_focus, "x, 0");
+    __GHOST_BEGIN(focus_x, ro_matrix1_focus, "x, 0");
     for (int j = 0; j < 5; j++) {
       __strict();
       __sreads("&x[MINDEX1(1,0)] ~> Cell");
@@ -128,7 +128,7 @@ void ghost_pure(int* M) {
     for (int i = 0; i < 8; ++i) {
       __ghost(tiled_index_in_range, "bi, i, 128, 8, 1024");
       for (int j = 0; j < 4; ++j) {
-        __GHOST_BEGIN(focus, matrix1_ro_focus, "M, bi * 8 + i");
+        __GHOST_BEGIN(focus, ro_matrix1_focus, "M, bi * 8 + i");
         M[MINDEX1(1024, bi * 8 + i)];
         __GHOST_END(focus);
       }

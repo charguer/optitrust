@@ -436,11 +436,11 @@ let fold_at (index : string) (start : int) (step : int) (t : trm) : trm =
 
 
 let ghost_group_split = toplevel_var "group_split"
-let ghost_group_split_ro = toplevel_var "group_split_ro"
-let ghost_group_split_pure = toplevel_var "group_split_pure"
+let ghost_ro_group_split = toplevel_var "ro_group_split"
+let ghost_pure_group_split = toplevel_var "pure_group_split"
 let ghost_group_join = toplevel_var "group_join"
-let ghost_group_join_ro = toplevel_var "group_join_ro"
-let ghost_group_join_pure = toplevel_var "group_join_pure"
+let ghost_ro_group_join = toplevel_var "ro_group_join"
+let ghost_pure_group_join = toplevel_var "pure_group_join"
 
 (** [split_range_at nb cut]: splits a loop into two loops based on the range,
      [nb] - by default this argument has value 0, if provided it means that it will split the loop at start + nb iteration,

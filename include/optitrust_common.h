@@ -393,7 +393,7 @@ __GHOST(group_uncollapse) {
   __admitted();
 }
 
-__GHOST(group_collapse_ro) {
+__GHOST(ro_group_collapse) {
   __requires("n: int, m: int, items: (int * int) -> HProp, "
              "f: _Fraction");
   __consumes("_RO(f, for i in 0..n -> for j in 0..m -> items(i, j))");
@@ -401,8 +401,8 @@ __GHOST(group_collapse_ro) {
   __admitted();
 }
 
-__GHOST(group_uncollapse_ro) {
-  __reverts(group_collapse_ro);
+__GHOST(ro_group_uncollapse) {
+  __reverts(ro_group_collapse);
   __admitted();
 }
 
@@ -420,7 +420,7 @@ __GHOST(group_unfocus) {
   __ghost(close_wand);
 }
 
-__GHOST(group_ro_focus) {
+__GHOST(ro_group_focus) {
   __requires("i: int, range: Range, items: int -> HProp, f: _Fraction");
   __requires("bound_check: in_range(i, range)");
   __consumes("_RO(f, Group(range, items))");
@@ -428,14 +428,14 @@ __GHOST(group_ro_focus) {
   __admitted();
 }
 
-__GHOST(group_ro_unfocus) {
-  __reverts(group_ro_focus);
+__GHOST(ro_group_unfocus) {
+  __reverts(ro_group_focus);
   __admitted(); // for performance
   __ghost(close_wand);
 
 }
 
-__GHOST(group2_ro_focus) {
+__GHOST(ro_group2_focus) {
   __requires("i: int, r: Range, r2: Range, items: int * int -> HProp, f: _Fraction");
   __requires("bound_check: in_range(i, r)");
   __consumes("_RO(f, for i2 in r2 -> for i in r -> items(i2, i))");
@@ -445,8 +445,8 @@ __GHOST(group2_ro_focus) {
   __admitted();
 }
 
-__GHOST(group2_ro_unfocus) {
-  __reverts(group2_ro_focus);
+__GHOST(ro_group2_unfocus) {
+  __reverts(ro_group2_focus);
 
   __ghost(close_wand);
 }
@@ -464,7 +464,7 @@ __GHOST(group_unfocus_subrange) {
   __ghost(close_wand);
 }
 
-__GHOST(group_focus_subrange_ro) {
+__GHOST(ro_group_focus_subrange) {
   __requires("sub_range: Range, big_range: Range, items: int -> HProp, f: _Fraction");
   __requires("bound_check: is_subrange(sub_range, big_range)");
   __consumes("_RO(f, Group(big_range, items))");
@@ -473,8 +473,8 @@ __GHOST(group_focus_subrange_ro) {
   __admitted();
 }
 
-__GHOST(group_unfocus_subrange_ro) {
-  __reverts(group_focus_subrange_ro);
+__GHOST(ro_group_unfocus_subrange) {
+  __reverts(ro_group_focus_subrange);
   __ghost(close_wand);
 }
 
@@ -541,7 +541,7 @@ __GHOST(group2_unfocus_subrange) {
   __reverts(group2_focus_subrange);
   __admitted();
   /* for (int i = ra1; i < rb1; i += rs1) {
-    __ghost(group_unfocus_subrange_uninit, ...);
+    __ghost(group_unfocus_subrange, ...);
   } */
 }
 
@@ -561,7 +561,7 @@ __GHOST(group_unshift) {
   __admitted();
 }
 
-__GHOST(group_shift_ro) {
+__GHOST(ro_group_shift) {
   __requires("start: int, stop: int, step: int, items: int -> HProp");
   __requires("shift: int, new_start: int, new_stop: int");
   __requires("check_start: new_start = start + shift, check_stop: new_stop = stop + shift");
@@ -571,8 +571,8 @@ __GHOST(group_shift_ro) {
   __admitted();
 }
 
-__GHOST(group_unshift_ro) {
-  __reverts(group_shift_ro);
+__GHOST(ro_group_unshift) {
+  __reverts(ro_group_shift);
   __admitted();
 }
 
@@ -593,7 +593,7 @@ __GHOST(group_unscale) {
   __admitted();
 }
 
-__GHOST(group_scale_ro) {
+__GHOST(ro_group_scale) {
   __requires("stop: int, step: int, items: int -> HProp");
   __requires("factor: int, new_step: int, new_stop: int");
   __requires("check_stop: new_stop = factor * stop, check_step: new_step = factor * step");
@@ -603,8 +603,8 @@ __GHOST(group_scale_ro) {
   __admitted();
 }
 
-__GHOST(group_unscale_ro) {
-  __reverts(group_scale_ro);
+__GHOST(ro_group_unscale) {
+  __reverts(ro_group_scale);
   __admitted();
 }
 
@@ -624,7 +624,7 @@ __GHOST(group_join) {
   __admitted();
 }
 
-__GHOST(group_split_ro) {
+__GHOST(ro_group_split) {
   __requires("start: int, stop: int, step: int, split: int, items: int -> HProp");
   __requires("bound_check: in_range(split, range(start, stop, step))");
   __requires("f: _Fraction");
@@ -634,12 +634,12 @@ __GHOST(group_split_ro) {
   __admitted();
 }
 
-__GHOST(group_join_ro) {
-  __reverts(group_split_ro);
+__GHOST(ro_group_join) {
+  __reverts(ro_group_split);
   __admitted();
 }
 
-__GHOST(group_split_pure) {
+__GHOST(pure_group_split) {
   __requires("start: int, stop: int, step: int, split: int, items: int -> Prop");
   __requires("bound_check: in_range(split, range(start, stop, step))");
   __requires("forall i in range(start, stop, step) -> items(i)");
@@ -648,8 +648,8 @@ __GHOST(group_split_pure) {
   __admitted();
 }
 
-__GHOST(group_join_pure) {
-  __reverts(group_split_pure);
+__GHOST(pure_group_join) {
+  __reverts(pure_group_split);
   __admitted();
 }
 

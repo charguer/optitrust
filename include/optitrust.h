@@ -53,35 +53,35 @@ __GHOST(matrix1_unfocus) {
   __ghost(close_wand);
 }
 
-__GHOST(matrix1_ro_focus) {
+__GHOST(ro_matrix1_focus) {
   __requires("T: Type, matrix: ptr(T), i: int, n: int, f: _Fraction");
   __requires("bound_check: in_range(i, 0..n)");
   __consumes("_RO(f, matrix ~> Matrix1(n))");
   __produces("Wand(_RO(f, &matrix[MINDEX1(n, i)] ~> Cell), _RO(f, matrix ~> Matrix1(n))), _RO(f, &matrix[MINDEX1(n, i)] ~> Cell)");
   __admitted(); // for efficiency
-  __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check");
+  __ghost(ro_group_focus, "f := f, i := i, bound_check := bound_check");
 }
 
-__GHOST(matrix1_ro_unfocus) {
-  __reverts(matrix1_ro_focus);
+__GHOST(ro_matrix1_unfocus) {
+  __reverts(ro_matrix1_focus);
   __admitted(); // for efficiency
   __ghost(close_wand);
 }
 
-__GHOST(matrix2_ro_focus) {
+__GHOST(ro_matrix2_focus) {
   __requires("T: Type, matrix: ptr(T), i: int, j: int, m: int, n: int, f: _Fraction");
   __requires("bound_check_i: in_range(i, 0..m)");
   __requires("bound_check_j: in_range(j, 0..n)");
   __consumes("_RO(f, matrix ~> Matrix2(m, n))");
   __produces("Wand(_RO(f, &matrix[MINDEX2(m, n, i, j)] ~> Cell), _RO(f, matrix ~> Matrix2(m,n))), _RO(f, &matrix[MINDEX2(m, n, i, j)] ~> Cell)");
 
-  __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check_i");
-  __ghost(group_ro_focus, "f := f, i := j, bound_check := bound_check_j");
+  __ghost(ro_group_focus, "f := f, i := i, bound_check := bound_check_i");
+  __ghost(ro_group_focus, "f := f, i := j, bound_check := bound_check_j");
   __ghost(wand_simplify);
 }
 
-__GHOST(matrix2_ro_unfocus) {
-  __reverts(matrix2_ro_focus);
+__GHOST(ro_matrix2_unfocus) {
+  __reverts(ro_matrix2_focus);
   __admitted(); // for efficiency
   __ghost(close_wand);
 }
@@ -200,7 +200,7 @@ inline uint16_t reduce_spe1(int start, int stop, uint8_t* input, int n, int m, i
     __sreads("input ~> Matrix2(n, m)");
 
     __ghost(in_range_extend, "i, start..stop, 0..n");
-    __GHOST_BEGIN(focus, matrix2_ro_focus, "input, i, j");
+    __GHOST_BEGIN(focus, ro_matrix2_focus, "input, i, j");
     s += (uint16_t)input[MINDEX2(n, m, i, j)];
     __GHOST_END(focus);
   }

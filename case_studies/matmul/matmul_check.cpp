@@ -16,8 +16,8 @@ void mm(float* C, float* A, float* B, int m, int n, int p) {
 
       float sum = 0.0f;
       for (int k = 0; k < p; k++) {
-        __GHOST_BEGIN(focusA, matrix2_ro_focus, "A, i, k");
-        __GHOST_BEGIN(focusB, matrix2_ro_focus, "B, k, j");
+        __GHOST_BEGIN(focusA, ro_matrix2_focus, "A, i, k");
+        __GHOST_BEGIN(focusB, ro_matrix2_focus, "B, k, j");
         sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
         __GHOST_END(focusA);
         __GHOST_END(focusB);

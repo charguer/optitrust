@@ -2,7 +2,7 @@
 
 void pair(int* M) {
   __reads("M ~> Matrix1(10)");
-  __GHOST_BEGIN(f, matrix1_ro_focus, "M, 2");
+  __GHOST_BEGIN(f, ro_matrix1_focus, "M, 2");
   int k1 = M[MINDEX1(10, 2)];
   int k2 = M[MINDEX1(10, 2)];
   int k3 = M[MINDEX1(10, 2)];

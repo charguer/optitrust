@@ -52,7 +52,7 @@ void MMEMCPY_double(double* dest, int d_offset, double* src, int s_offset,
   memcpy(&dest[d_offset], &src[s_offset], length * sizeof(double));
 }
 
-__ghost_ret matrix1_ro_focus() {
+__ghost_ret ro_matrix1_focus() {
   __requires("T: Type");
   __requires("matrix: ptr(T)");
   __requires("i: int");
@@ -66,16 +66,16 @@ __ghost_ret matrix1_ro_focus() {
       "Matrix1(n, M)))");
   __produces("_RO(f, &matrix[MINDEX1(n, i)] ~~> M(i))");
   __admitted();
-  __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check");
+  __ghost(ro_group_focus, "f := f, i := i, bound_check := bound_check");
 }
 
-__ghost_ret matrix1_ro_unfocus() {
-  __reverts(matrix1_ro_focus);
+__ghost_ret ro_matrix1_unfocus() {
+  __reverts(ro_matrix1_focus);
   __admitted();
   __ghost(close_wand);
 }
 
-__ghost_ret matrix2_ro_focus() {
+__ghost_ret ro_matrix2_focus() {
   __requires("T: Type");
   __requires("matrix: ptr(T)");
   __requires("i: int");
@@ -92,13 +92,13 @@ __ghost_ret matrix2_ro_focus() {
       "Matrix2(m, n, M)))");
   __produces("_RO(f, &matrix[MINDEX2(m, n, i, j)] ~~> M(i, j))");
   __admitted();
-  __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check_i");
-  __ghost(group_ro_focus, "f := f, i := j, bound_check := bound_check_j");
+  __ghost(ro_group_focus, "f := f, i := i, bound_check := bound_check_i");
+  __ghost(ro_group_focus, "f := f, i := j, bound_check := bound_check_j");
   __ghost(wand_simplify);
 }
 
-__ghost_ret matrix2_ro_unfocus() {
-  __reverts(matrix2_ro_focus);
+__ghost_ret ro_matrix2_unfocus() {
+  __reverts(ro_matrix2_focus);
   __admitted();
   __ghost(close_wand);
 }

@@ -14,7 +14,7 @@ void f(int* t, int* u) {
     int z = x;
   }
 
-  __ghost(matrix1_ro_focus, "t, 0");
+  __ghost(ro_matrix1_focus, "t, 0");
   for (int l = 0; l < 5; l++) {
     __strict();
     __sreads("&t[MINDEX1(10, 0)] ~> Cell");
@@ -26,7 +26,7 @@ void f(int* t, int* u) {
       int x = l + m + t[MINDEX1(10, 0)];
     }
   }
-  __ghost(matrix1_ro_unfocus, "t");
+  __ghost(ro_matrix1_unfocus, "t");
 
   for (int a = 0; a < 8; a++) {
     __strict();
