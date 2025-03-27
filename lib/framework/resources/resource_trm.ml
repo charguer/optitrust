@@ -91,6 +91,9 @@ let ghost_end_inv (t: trm): var option =
     Pattern.(trm_apps1 (trm_specific_var var_ghost_end) (trm_var !__)) (fun pair_var () -> pair_var);
   ]
 
+let ghost_call_opt_args ghost_fn ?(ghost_binds = []) ghost_args =
+  ghost_call ghost_fn ~ghost_bind:(List.filter_map (fun (b_opt, c) -> Option.map (fun b -> (b, c)) b_opt) ghost_binds) (List.filter_map (fun (a, t_opt) -> Option.map (fun t -> (a, t)) t_opt) ghost_args)
+
 let var_clear = toplevel_var "__clear"
 let ghost_clear (x: var) =
   void_when_resource_typing_disabled (fun () ->
@@ -174,13 +177,21 @@ let var_ghost_hide_rev = toplevel_var "hide_rev"
 let ghost_pair_hide (f: formula): var * trm * trm =
   ghost_pair (ghost_call var_ghost_hide ["H", f])
 
-let var_ghost_group_focus_subrange = toplevel_var "group_focus_subrange"
-let var_ghost_ro_group_focus_subrange = toplevel_var "ro_group_focus_subrange"
-let var_ghost_group_focus_subrange_uninit = toplevel_var "group_focus_subrange_uninit"
+let var_ghost_group_focus = toplevel_var "group_focus"
+let ghost_group_focus ?(bound_check: trm option) ?(range: trm option) ?(items: trm option) (i: trm) =
+  ghost_call_opt_args var_ghost_group_focus ["i", Some i; "range", range; "items", items; "bound_check", bound_check]
+
+let var_ghost_group_focus_ro = toplevel_var "group_focus_ro"
+let ghost_group_focus_ro ?(bound_check: trm option) ?(range: trm option) ?(items: trm option) ?(frac: trm option) (i: trm) =
+  ghost_call_opt_args var_ghost_group_focus_ro ["i", Some i; "range", range; "items", items; "bound_check", bound_check; "f", frac]
 
 let var_ghost_ro_matrix2_focus = toplevel_var "ro_matrix2_focus"
+let ghost_ro_matrix2_focus ?typ ?matrix ?m ?n ?frac ?bound_check_i ?bound_check_j i j =
+  ghost_call_opt_args var_ghost_ro_matrix2_focus ["T", typ; "matrix", matrix; "i", Some i; "j", Some j; "m", m; "n", n; "f", frac]
 
 let var_ghost_in_range_extend = toplevel_var "in_range_extend"
+let ghost_in_range_extend x r1 r2 =
+  ghost_call var_ghost_in_range_extend ["x", x; "r1", r1; "r2", r2]
 
 (* let var_ghost_subrange_to_group_in_range = toplevel_var "subrange_to_group_in_range" *)
 

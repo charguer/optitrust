@@ -685,33 +685,58 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
   let common_indices_opt : trms option ref = ref None in
   let stack_var = new_var copy_name in
   let new_t = Matrix_core.map_all_accesses var ~ret_dims_and_typ (fun dims indices ->
-    let (common_indices, new_indices) = List.split_at copy_dims indices in
+    let (common_indices, new_indices) = List.split_at ((List.length indices) - copy_dims) indices in
     begin match !common_indices_opt with
     | Some ci -> assert (List.for_all2 are_same_trm ci common_indices);
     | None -> common_indices_opt := Some common_indices
     end;
     let new_dims = List.take_last copy_dims dims in
-    List.fold_left (fun acc i -> Matrix_trm.access acc new_dims [i])
-      (* TODO: ~typ *)
-      (trm_var stack_var) new_indices
+    Matrix_trm.access (trm_var stack_var) new_dims new_indices
   ) t in
   let (dims, typ) = Option.get !ret_dims_and_typ in
   let ptr_typ = typ_ptr typ in
   let common_indices = Option.get !common_indices_opt in
   let new_dims = List.take_last copy_dims dims in
+
+  let res_pattern_before, res_pattern_after =
+    if !Flags.resource_typing_enabled then
+      let find_matrix_res_pattern res_list =
+        let open Resource_formula in
+        let var_access_fn = new_var "access" in
+        let rec try_get_matrix_res_pattern formula =
+          Pattern.pattern_match formula [
+            Pattern.(formula_repr !__ !__) (fun ptr repr () ->
+              match access_inv ptr with
+              | Some ({ desc = Trm_var v }, res_dims, idxs) when var_eq v var && List.for_all2 are_same_trm dims res_dims ->
+                Some (formula_repr (trm_apps (trm_var var_access_fn) idxs) repr)
+              | _ -> None
+            );
+            Pattern.(formula_group !__ !__ !__) (fun idx range body () ->
+              Option.map (fun b -> formula_group idx range b) (try_get_matrix_res_pattern body)
+            );
+            Pattern.(formula_read_only __ !__) (fun body () -> try_get_matrix_res_pattern body);
+            Pattern.__ (fun () -> None)
+          ]
+        in
+        let error = "could not find a resource corresponding to the copied matrix" in
+        var_access_fn, Option.unsome ~error (List.find_map (fun (_, formula) -> try_get_matrix_res_pattern formula) res_list.linear)
+      in
+      find_matrix_res_pattern (Resources.before_trm t), find_matrix_res_pattern (Resources.after_trm t)
+    else
+      (dummy_var, trm_unit ()), (dummy_var, trm_unit ())
+  in
+
   (* let array_typ = List.fold_left (fun acc i -> typ_array acc (Trm i)) typ new_dims in *)
   trm_seq_nobrace_nomarks [
     (* TODO: define Matrix_core.stack_alloc, FIXME: new with dims has to be uninit? use different prim? *)
     trm_let (stack_var, typ_ptr typ) (trm_ref_uninit (typ_matrix typ new_dims));
-    Matrix_core.memcpy ~typ
+    Matrix_core.matrix_copy_at ~typ ~matrix_res_pattern:res_pattern_before
       (trm_var ~typ:ptr_typ stack_var) [] new_dims
-      (trm_var ~typ:ptr_typ var) common_indices dims
-      new_dims;
+      (trm_var ~typ:ptr_typ var) common_indices dims;
     new_t;
-    Matrix_core.memcpy ~typ
+    Matrix_core.matrix_copy_at ~typ ~matrix_res_pattern:res_pattern_after
       (trm_var ~typ:ptr_typ var) common_indices dims
-      (trm_var ~typ:ptr_typ stack_var) [] new_dims
-      new_dims;
+      (trm_var ~typ:ptr_typ stack_var) [] new_dims;
   ]
 
 (** [stack_copy ~var ~copy_var ~copy_dims tg] expects [tg] to points at a term [t]

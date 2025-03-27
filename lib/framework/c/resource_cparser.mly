@@ -58,35 +58,37 @@ atomic_formula:
     { trm_float x }
   | func=atomic_formula; LPAR; args=separated_list(COMMA, formula); RPAR
     { trm_apps ~annot:formula_annot func args }
-  | AMPERSAND; x=address_formula;
-    { trm_address_of x }
   | LPAR; f=formula; RPAR
     { f }
+  | tab=atomic_formula; LBRACKET; index=formula; RBRACKET;
+    { trm_array_get tab index }
+  | base=atomic_formula; DOT; field=IDENT;
+    { trm_struct_get ~struct_typ:typ_auto base field }
 
 address_formula:
-  | tab=address_formula; LBRACKET; index=atomic_formula; RBRACKET;
-    { trm_array_get tab index }
-  | base=address_formula; DOT; field=IDENT;
-    { trm_struct_get ~struct_typ:typ_auto base field }
   | base=address_formula; ARROW; field=IDENT;
     { trm_struct_get ~struct_typ:typ_auto (trm_get base) field }
-  | LPAR; f=address_formula; RPAR
-    { f }
-  | x=IDENT
-    { trm_var (name_to_var x) }
+  | a=atomic_formula
+    { a }
+
+ampersand_formula:
+  | AMPERSAND; x=address_formula;
+    { trm_address_of x }
+  | a=atomic_formula
+    { a }
 
 arith_factor:
-  | a=arith_factor; STAR; b=atomic_formula;
+  | a=arith_factor; STAR; b=ampersand_formula;
     { trm_mul ~typ:typ_int a b }
-  | a=arith_factor; SLASH; b=atomic_formula;
+  | a=arith_factor; SLASH; b=ampersand_formula;
     { trm_trunc_div ~typ:typ_int a b }
-  | a=arith_factor; PERCENT; b=atomic_formula;
+  | a=arith_factor; PERCENT; b=ampersand_formula;
     { trm_trunc_mod ~typ:typ_int a b }
-  | a=arith_factor; STAR; DOT; b=atomic_formula;
+  | a=arith_factor; STAR; DOT; b=ampersand_formula;
     { trm_mul ~typ:typ_f64 a b }
-  | a=arith_factor; SLASH; DOT; b=atomic_formula;
+  | a=arith_factor; SLASH; DOT; b=ampersand_formula;
     { trm_exact_div ~typ:typ_f64 a b }
-  | a=atomic_formula;
+  | a=ampersand_formula;
     { a }
 
 arith_term:
@@ -166,9 +168,9 @@ fun_args:
 formula:
   | f=formula_arrow;
     { f }
-  | t=atomic_formula; SQUIG_ARROW; f=formula;
+  | t=ampersand_formula; SQUIG_ARROW; f=formula;
     { formula_repr t f }
-  | t=atomic_formula; LONG_SQUIG_ARROW; f=formula;
+  | t=ampersand_formula; LONG_SQUIG_ARROW; f=formula;
     { formula_points_to t f }
   | FUN; args=fun_args; ARROW; body=formula;
     { formula_fun args body }

@@ -3,21 +3,6 @@
 
 #include <optitrust_common.h>
 
-#define DEFINE_MMEMCPY(T) \
-  inline void MMEMCPY_##T(T* dest, int d_offset, T* src, int s_offset, int length) { \
-    __requires("d_end: int, s_end: int, d_all: int, s_all: int"); \
-    __requires("check_d_size: d_end = d_offset + length"); \
-    __requires("check_s_size: s_end = s_offset + length"); \
-    __writes("for k in d_offset..d_end -> &dest[MINDEX1(d_all, k)] ~> Cell"); \
-    __reads("for k in s_offset..s_end -> &src[MINDEX1(s_all, k)] ~> Cell"); \
-    __admitted(); \
-    memcpy(&dest[d_offset], &src[s_offset], length * sizeof(T)); \
-  }
-
-DEFINE_MMEMCPY(int)
-DEFINE_MMEMCPY(float)
-DEFINE_MMEMCPY(double)
-
 /* ---- Matrix Ghosts ---- */
 
 __GHOST(matrix2_focus)  {
@@ -86,100 +71,46 @@ __GHOST(ro_matrix2_unfocus) {
   __ghost(close_wand);
 }
 
-// matrix*_contiguous
+/* ---- Definition of matrix memcpy ---- */
 
-__GHOST(matrix2_contiguous) {
-  __requires("T: Type, matrix: ptr(T), a: int, b: int, n2: int, n1: int");
-  __consumes("for i in a..b -> for j in 0..n1 -> "
-               "&matrix[MINDEX2(n2, n1, i, j)] ~> Cell");
-  __produces("for k in a*n1..b*n1 -> &matrix[MINDEX1(n2*n1, k)] ~> Cell");
+#define DEFINE_MATRIX_COPY(T) \
+  inline void MATRIX1_COPY_##T(T* dest, T* src, int length) { \
+    __reads("src ~> Matrix1(length)"); \
+    __writes("dest ~> Matrix1(length)"); \
+    __admitted(); \
+    memcpy(dest, src, length * sizeof(T)); \
+  } \
+  inline void MATRIX2_COPY_##T(T* dest, T* src, int n1, int n2) { \
+    __reads("src ~> Matrix2(n1, n2)"); \
+    __writes("dest ~> Matrix2(n1, n2)"); \
+    __admitted(); \
+    memcpy(dest, src, n1 * n2 * sizeof(T)); \
+  } \
+  inline void MATRIX3_COPY_##T(T* dest, T* src, int n1, int n2, int n3) { \
+    __reads("src ~> Matrix3(n1, n2, n3)"); \
+    __writes("dest ~> Matrix3(n1, n2, n3)"); \
+    __admitted(); \
+    memcpy(dest, src, n1 * n2 * n3 * sizeof(T)); \
+  }
+
+DEFINE_MATRIX_COPY(int)
+DEFINE_MATRIX_COPY(float)
+DEFINE_MATRIX_COPY(double)
+
+// span_shift unused for now: this pattern allows copy of an arbitrary span of a matrix
+// TODO: uninit and ro variants
+
+__GHOST(matrix2_span_shift) {
+  __requires("T: Type, matrix: ptr(T), n1: int, n2: int, a: int, b: int");
+  __consumes("for i in a..b -> for j in 0..n2 -> &matrix[MINDEX2(n1, n2, i, j)] ~> Cell");
+  __produces("for i in 0..(b-a) -> for j in 0..n2 -> &(&matrix[a*n2])[MINDEX2(b-a, n2, i, j)] ~> Cell");
   __admitted();
 }
 
-__GHOST(matrix3_contiguous) {
-  __requires("T: Type, matrix: ptr(T), a: int, b: int, n3: int, n2: int, n1: int");
-  __consumes("for i3 in a..b -> for i2 in 0..n2 -> "
-             "for i1 in 0..n1 -> &matrix[MINDEX3(n3, n2, n1, i1, i2, i3)] ~> Cell");
-  __produces("for k in a*n2*n1..b*n2*n1 -> &matrix[MINDEX1(n3*n2*n1, k)] ~> Cell");
-  __admitted();
-}
-
-__GHOST(mindex2_contiguous) {
-  __requires("T: Type, matrix: ptr(T), n2: int, i2: int, n1: int, a: int, b: int");
-  __consumes("for i1 in a..b -> &matrix[MINDEX2(n2, n1, i2, i1)] ~> Cell");
-  __produces("for k in i2*n1 + a..i2*n1 + b -> &matrix[MINDEX1(n2*n1, k)] ~> Cell");
-  __admitted();
-}
-
-__GHOST(mindex2_contiguous_rev) {
-  __reverts(mindex2_contiguous);
-  __admitted();
-}
-
-__GHOST(mindex3_contiguous) {
-  __requires("T: Type, matrix: ptr(T), n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int");
-  __consumes("for i1 in a..b -> &matrix[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell");
-  __produces("for k in (i3*n2*n1 + i2*n1 + a)..(i3*n2*n1 + i2*n1 + b) -> "
-               "&matrix[MINDEX1(n3*n2*n1, k)] ~> Cell");
-  __admitted();
-}
-
-__GHOST(mindex3_contiguous_rev) {
-  __reverts(mindex3_contiguous);
-  __admitted();
-}
-
-__GHOST(mindex2_contiguous_uninit) {
-  __requires("T: Type, matrix: ptr(T), n2: int, i2: int, n1: int, a: int, b: int");
-  __consumes("for i1 in a..b -> &matrix[MINDEX2(n2, n1, i2, i1)] ~> UninitCell");
-  __produces("for k in (i2*n1 + a)..(i2*n1 + b) -> "
-               "&matrix[MINDEX1(n2*n1, k)] ~> UninitCell");
-  __admitted();
-}
-
-__GHOST(mindex2_contiguous_uninit_rev) {
-  __reverts(mindex2_contiguous_uninit);
-  __admitted();
-}
-
-__GHOST(mindex3_contiguous_uninit) {
-  __requires("T: Type, matrix: ptr(T), n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int");
-  __consumes("for i1 in a..b -> "
-                "&matrix[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> UninitCell");
-  __produces("for k in (i3*n2*n1 + i2*n1 + a)..(i3*n2*n1 + i2*n1 + b) -> "
-               "&matrix[MINDEX1(n3*n2*n1, k)] ~> UninitCell");
-  __admitted();
-}
-
-__GHOST(mindex3_contiguous_uninit_rev) {
-  __reverts(mindex3_contiguous_uninit);
-  __admitted();
-}
-
-__GHOST(mindex2_contiguous_ro) {
-  __requires("T: Type, matrix: ptr(T), n2: int, i2: int, n1: int, a: int, b: int, f: _Fraction");
-  __consumes("_RO(f, for i1 in a..b -> &matrix[MINDEX2(n2, n1, i2, i1)] ~> Cell)");
-  __produces("_RO(f, for k in (i2*n1 + a)..(i2*n1 + b) -> "
-               "&matrix[MINDEX1(n2*n1, k)] ~> Cell)");
-  __admitted();
-}
-
-__GHOST(mindex2_contiguous_ro_rev) {
-  __reverts(mindex2_contiguous_ro);
-  __admitted();
-}
-
-__GHOST(mindex3_contiguous_ro) {
-  __requires("T: Type, matrix: ptr(T), n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int, f: _Fraction");
-  __consumes("_RO(f, for i1 in a..b -> "
-                "&matrix[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell)");
-  __produces("_RO(f, for k in (i3*n2*n1 + i2*n1 + a)..(i3*n2*n1 + i2*n1 + b) -> "
-                "&matrix[MINDEX1(n3*n2*n1, k)] ~> Cell)");
-  __admitted();
-}
-
-__GHOST(mindex3_contiguous_ro_rev) {
-  __reverts(mindex3_contiguous_ro);
+__GHOST(matrix3_span_shift) {
+  __requires("T: Type, matrix: ptr(T), n1: int, n2: int, n3: int, a: int, b: int");
+  __consumes("for i1 in a..b -> for i2 in 0..n2 -> for i3 in 0..n3 -> &matrix[MINDEX3(n1, n2, n3, i1, i2, i3)] ~> Cell");
+  __produces("for i1 in 0..(b-a) -> for i2 in 0..n2 -> for i3 in 0..n3 -> &(&matrix[a*n2*n3])[MINDEX3(b-a, n2, n3, i1, i2, i3)] ~> Cell");
   __admitted();
 }
 

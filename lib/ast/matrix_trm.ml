@@ -169,16 +169,14 @@ let alloc_inv (t : trm) : (typ * trms * bool) option =
 let free (t : trm) : trm = trm_delete t
 let free_inv (t : trm) : trm option = trm_delete_inv t
 
-let mindex_contiguous_vars = Tools.String_map.of_seq ([""; "_uninit"; "_ro"] |> List.to_seq |> Seq.map (fun suffix ->
-  suffix, Array.init 5 (fun n -> toplevel_var (sprintf "mindex%d_contiguous%s" n suffix))
-))
+let ghost_mindex_unfold matrix dims res_pattern =
+  ghost_call (toplevel_var (sprintf "mindex%d_unfold" (List.length dims))) (("H", res_pattern) :: ("matrix", matrix) :: List.mapi (fun i dim -> sprintf "n%d" (i+1), dim) dims)
 
-let mindex_contiguous_rev_vars = Tools.String_map.of_seq ([""; "_uninit"; "_ro"] |> List.to_seq |> Seq.map (fun suffix ->
-  suffix, Array.init 5 (fun n -> toplevel_var (sprintf "mindex%d_contiguous%s_rev" n suffix))
-))
+let ghost_mindex_fold matrix dims res_pattern =
+  ghost_call (toplevel_var (sprintf "mindex%d_fold" (List.length dims))) (("H", res_pattern) :: ("matrix", matrix) :: List.mapi (fun i dim -> sprintf "n%d" (i+1), dim) dims)
 
-let mindex_contiguous_ghost_call n suffix args =
-  ghost_call (Array.get (Tools.String_map.find suffix mindex_contiguous_vars) n) args
+let ghost_ro_mindex_unfold matrix dims res_pattern =
+  ghost_call (toplevel_var (sprintf "ro_mindex%d_unfold" (List.length dims))) (("H", res_pattern) :: ("matrix", matrix) :: List.mapi (fun i dim -> sprintf "n%d" (i+1), dim) dims)
 
-let mindex_contiguous_rev_ghost_call n suffix args =
-  ghost_call (Array.get (Tools.String_map.find suffix mindex_contiguous_rev_vars) n) args
+let ghost_ro_mindex_fold matrix dims res_pattern =
+  ghost_call (toplevel_var (sprintf "ro_mindex%d_fold" (List.length dims))) (("H", res_pattern) :: ("matrix", matrix) :: List.mapi (fun i dim -> sprintf "n%d" (i+1), dim) dims)

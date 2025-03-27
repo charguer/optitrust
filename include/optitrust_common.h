@@ -653,4 +653,54 @@ __GHOST(pure_group_join) {
   __admitted();
 }
 
+/* MINDEX (un)folding */
+
+__GHOST(mindex2_unfold) {
+  __requires("T: Type, H: (int * int -> ptr(T)) -> HProp, matrix: ptr(T), n1: int, n2: int");
+  __consumes("H(fun i1 i2 -> &matrix[MINDEX2(n1, n2, i1, i2)])");
+  __produces("H(fun i1 i2 -> &(&matrix[i1*n2])[MINDEX1(n2, i2)])");
+  __admitted();
+}
+
+__GHOST(mindex2_fold) {
+  __reverts(mindex2_unfold);
+  __admitted();
+}
+
+__GHOST(mindex3_unfold) {
+  __requires("T: Type, H: (int * int * int -> ptr(T)) -> HProp, matrix: ptr(T), n1: int, n2: int, n3: int");
+  __consumes("H(fun i1 i2 i3 -> &matrix[MINDEX3(n1, n2, n3, i1, i2, i3)])");
+  __produces("H(fun i1 i2 i3 -> &(&matrix[i1*n2*n3])[MINDEX2(n2, n3, i2, i3)])");
+  __admitted();
+}
+
+__GHOST(mindex3_fold) {
+  __reverts(mindex3_unfold);
+  __admitted();
+}
+
+__GHOST(ro_mindex2_unfold) {
+  __requires("T: Type, H: (int * int -> ptr(T)) -> HProp, matrix: ptr(T), n1: int, n2: int, f: _Fraction");
+  __consumes("_RO(f, H(fun i1 i2 -> &matrix[MINDEX2(n1, n2, i1, i2)]))");
+  __produces("_RO(f, H(fun i1 i2 -> &(&matrix[i1*n2])[MINDEX1(n2, i2)]))");
+  __admitted();
+}
+
+__GHOST(ro_mindex2_fold) {
+  __reverts(ro_mindex2_unfold);
+  __admitted();
+}
+
+__GHOST(ro_mindex3_unfold) {
+  __requires("T: Type, H: (int * int * int -> ptr(T)) -> HProp, matrix: ptr(T), n1: int, n2: int, n3: int, f: _Fraction");
+  __consumes("_RO(f, H(fun i1 i2 i3 -> &matrix[MINDEX3(n1, n2, n3, i1, i2, i3)]))");
+  __produces("_RO(f, H(fun i1 i2 i3 -> &(&matrix[i1*n2*n3])[MINDEX2(n2, n3, i2, i3)]))");
+  __admitted();
+}
+
+__GHOST(ro_mindex3_fold) {
+  __reverts(ro_mindex3_unfold);
+  __admitted();
+}
+
 #endif

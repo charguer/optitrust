@@ -38,8 +38,8 @@ let focus_reduce_item (input : trm) (i : trm) (j : trm) (n : trm) (m : trm)
   (wrapped_t : trm) : trm =
   let open Resource_formula in
   if !Flags.check_validity then
-    let (_, beg_focus, end_focus) = Resource_trm.(ghost_pair (ghost_call
-      var_ghost_ro_matrix2_focus ["matrix", input; "i", i; "j", j; "m", n; "n", m])) in
+    let (_, beg_focus, end_focus) = Resource_trm.(ghost_pair (
+      ghost_ro_matrix2_focus ~matrix:input ~m:n ~n:m i j)) in
     trm_seq_nobrace_nomarks [beg_focus; wrapped_t; end_focus]
   else
     wrapped_t
@@ -59,11 +59,10 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
     let value = (trm_cast acc_typ (Matrix_trm.get input [n; m] [trm_var index; j])) in
     let loop_range = { index; start; direction = DirUp; stop; step = trm_step_one () } in
     if !Flags.check_validity then begin
-      let derive_in_range = Resource_trm.(Resource_formula.(ghost (ghost_call var_ghost_in_range_extend [
-        "x", trm_var index;
-        "r1", formula_range start stop (trm_int 1);
-        "r2", formula_range (trm_int 0) n (trm_int 1);
-      ]))) in
+      let derive_in_range = Resource_trm.(Resource_formula.(ghost (ghost_in_range_extend (trm_var index)
+        (formula_range start stop (trm_int 1))
+        (formula_range (trm_int 0) n (trm_int 1))
+      ))) in
       let contract = Resource_contract.(Resource_formula.(empty_strict_loop_contract |>
         push_loop_contract_clause SharedModifies
           (new_anon_hyp (), formula_cell_var ~typ:acc_typ acc) |>
@@ -122,12 +121,10 @@ let elim_inline_on (mark_simpl : mark) (red_p : path) (t : trm) : trm =
             Resource_formula.(Resource_trm.(assume (
               formula_in_range i (formula_range start stop (trm_int 1))
             )));
-            Resource_formula.(Resource_trm.(ghost (ghost_call
-              var_ghost_in_range_extend [
-              "x", i;
-              "r1", formula_range start stop (trm_int 1);
-              "r2", formula_range (trm_int 0) n (trm_int 1)
-            ])));
+            Resource_formula.(Resource_trm.(ghost (ghost_in_range_extend i
+              (formula_range start stop (trm_int 1))
+              (formula_range (trm_int 0) n (trm_int 1))
+            )));
             focus_reduce_item input i j n m x
           ]));
           trm_cast acc_typ (Matrix_trm.get input [n; m] [i; j])

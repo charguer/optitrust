@@ -34,12 +34,19 @@ let let_alloc_uninit_inv (t : trm) : (var * typ * trms) option =
     Some (v, elem_t, dims)
   ))
 
-let mmemcpy_var typ =
-  toplevel_var (sprintf "MMEMCPY_%s" (Ast_to_c.typ_to_string typ))
+let matrix_copy_var nb_dims typ =
+  toplevel_var (sprintf "MATRIX%d_COPY_%s" nb_dims (Ast_to_c.typ_to_string typ))
 
-(** [memcpy dest d_offset d_dims src s_offset s_dims copy_dims elem_size] uses a series
-    of [matrixN_contiguous] and [mindexN_contiguous] ghosts to issue a [MMEMCPY] from
-    matrix [dest] at [d_offset] to matrix [src] at [s_offset].
+let matrix_copy ~(typ: typ) (dest: trm) (src: trm) (dims: trm list) =
+  let nb_dims = List.length dims in
+  let copy_var = matrix_copy_var nb_dims typ in
+  trm_apps (trm_var copy_var) (dest :: src :: dims)
+
+(** [matrix_copy_at dest d_offset d_dims src s_offset s_dims copy_dims] uses a series
+    of ghosts to issue a [MATRIX*_COPY_*] from matrix [dest] at [d_offset] to matrix [src] at [s_offset].
+
+    Assumes both dest and src resources are already focussed on the region to be copied.
+    This is often the case because of surrounding loops, else you can independantly add ghosts to focus the relevant rows.
 
     Preconditions:
     - [dest] has dims [d_dims] and [(len d_offset) <= (len d_dims)]
@@ -47,62 +54,44 @@ let mmemcpy_var typ =
     - [(len d_dims) - (len d_offset) = (len s_dims) - (len s_offset) = (len copy_dims)]
     - [take_last (len copy_dims) d_dims = take_last (len copy_dims) s_dims]
   *)
-let memcpy ~(typ: typ)
-  (dest : trm) (d_offset : trm list) (d_dims : trm list)
-   (src : trm) (s_offset : trm list) (s_dims : trm list)
-  (copy_dims : trm list) : trm =
-  let dol = List.length d_offset in
-  let ddl = List.length d_dims in
-  let sol = List.length s_offset in
-  let sdl = List.length s_dims in
-  let cdl = List.length copy_dims in
-  assert (dol <= ddl && sol <= sdl);
-  assert (ddl - dol == cdl && sdl - sol == cdl);
-  if copy_dims = [] then Nobrace.trm_seq_nomarks [] else
-
-  let compute_flat_offset offset offset_length dims =
-    (* N1 ... NO ... NM
-       o1 ... oO
-       o1*N2*...*NM + ... + oO*N{O-1}*...*NM
-      *)
-    (* if offset = [] then trm_int 0 else *)
-    let (sum_terms, _) = List.fold_left (fun (sum_terms, multipliers) dim_offset ->
-      let multipliers = List.drop_one_or_else (fun () -> []) multipliers in
-      let sum_term = List.fold_left trm_mul_int dim_offset multipliers in
-      let sum_terms = sum_terms @ [sum_term] in
-      (sum_terms, multipliers)
-    ) ([], dims) offset in
-    List.fold_right trm_add_int sum_terms (trm_int 0)
+let matrix_copy_at ~(typ: typ) ~(matrix_res_pattern: var * formula)
+  (dest : trm) (d_indices : trm list) (d_dims : trm list)
+   (src : trm) (s_indices : trm list) (s_dims : trm list) : trm =
+  let remove_res_pattern_dim (access_var: var) (res_pattern: formula) =
+    let lower_access_var = new_var "access" in
+    let rec remove_access_dim t =
+      Pattern.pattern_match t [
+        Pattern.(trm_apps (trm_specific_var access_var) (__ ^:: !__) __ __) (fun next_idxs () -> trm_apps (trm_var lower_access_var) next_idxs);
+        Pattern.__ (fun () -> trm_map remove_access_dim t)
+      ]
+    in
+    lower_access_var, remove_access_dim res_pattern
   in
-  let d_flat_offset = compute_flat_offset d_offset dol d_dims in
-  let s_flat_offset = compute_flat_offset s_offset sol s_dims in
-  let flat_elems = List.reduce_left trm_mul_int copy_dims in
-  let t = trm_apps (trm_var (mmemcpy_var typ))
-    [dest; d_flat_offset; src; s_flat_offset; flat_elems] in
-
-  let scoped_mindex_contiguous_write mat_trm dims offset t =
-    if dims < 2 then t else
-    let a = Matrix_trm.mindex_contiguous_ghost_call dims "_uninit" ["matrix", mat_trm] in
-    let b = Matrix_trm.mindex_contiguous_rev_ghost_call dims "" ["matrix", mat_trm] in
-    Nobrace.trm_seq_nomarks Resource_trm.[ghost a; t; ghost b]
+  let res_pattern_as_fun (dims: trm list) (access_var: var) (res_pattern: formula) =
+    Resource_formula.(formula_fun [access_var, typ_pure_simple_fun (List.map (fun _ -> typ_int) dims) (typ_ptr typ)] res_pattern)
   in
-  let scoped_mindex_contiguous_read mat_trm dims offset t =
-    if dims < 2 then t else
-    Resource_trm.ghost_scope (Matrix_trm.mindex_contiguous_ghost_call
-     dims "_ro" ["matrix", mat_trm]
-    ) t
-  in
-  let t = scoped_mindex_contiguous_write dest ddl d_offset t in
-  let t = scoped_mindex_contiguous_read src sdl s_offset t in
-  (* TODO: call matrixN_contiguous on copy_dims *)
-  t
 
-(*let memcpy_inv (t : trm) : (trm * trm * trm * trm * trm) option =
-  Pattern.pattern_match_opt t [
-    Pattern.(trm_apps (trm_specific_var mmemcpy_var) (!__ ^:: !__ ^:: !__ ^:: !__ ^:: !__ ^:: nil) __) (fun dest d_flat_offset src s_flat_offset flat_elems () ->
-      (dest, d_flat_offset, src, s_flat_offset, flat_elems)
-    )
-  ]*)
+  let dest, d_dims, ghosts_before, ghosts_after, _ = List.fold_left (fun (dest, d_dims, ghosts_before, ghosts_after, (access_var, res_pattern)) index ->
+      match d_dims with
+      | [] -> failwith "matrix_copy: more offset coordinates than dimensions for dest"
+      | top_dim :: next_dims ->
+        let new_dest = trm_array_access dest (List.fold_left trm_mul_int index next_dims) in
+        let new_ghost_before = Resource_trm.ghost (ghost_mindex_unfold dest d_dims (res_pattern_as_fun d_dims access_var (Resource_formula.formula_uninit res_pattern))) in
+        let new_ghost_after = Resource_trm.ghost (ghost_mindex_fold dest d_dims (res_pattern_as_fun d_dims access_var res_pattern)) in
+        (new_dest, next_dims, new_ghost_before :: ghosts_before, new_ghost_after :: ghosts_after, remove_res_pattern_dim access_var res_pattern)
+    ) (dest, d_dims, [], [], matrix_res_pattern) d_indices in
+
+  let src, s_dims, ghosts_before, ghosts_after, _ = List.fold_left (fun (src, s_dims, ghosts_before, ghosts_after, (access_var, res_pattern)) index ->
+      match s_dims with
+      | [] -> failwith "matrix_copy: more offset coordinates than dimensions for src"
+      | top_dim :: next_dims ->
+        let new_src = trm_array_access src (List.fold_left trm_mul_int index next_dims) in
+        let _, new_ghost_before, new_ghost_after = Resource_trm.ghost_pair (ghost_ro_mindex_unfold src s_dims (res_pattern_as_fun s_dims access_var res_pattern)) in
+        (new_src, next_dims, new_ghost_before :: ghosts_before, new_ghost_after :: ghosts_after, remove_res_pattern_dim access_var res_pattern)
+    ) (src, s_dims, ghosts_before, ghosts_after, matrix_res_pattern) s_indices in
+
+    if not (List.equal are_same_trm d_dims s_dims) then failwith "matrix_copy: different sizes for dest and src after accesses: %s != %s" (Tools.list_to_string (List.map Ast_to_c.ast_to_string d_dims)) (Tools.list_to_string (List.map Ast_to_c.ast_to_string s_dims));
+    Nobrace.trm_seq_nomarks ((List.rev ghosts_before) @ matrix_copy ~typ dest src d_dims :: ghosts_after)
 
 (** [map_all_accesses v dims map_indices mark t] maps all accesses to [v] in [t],
     using the [map_access] function.

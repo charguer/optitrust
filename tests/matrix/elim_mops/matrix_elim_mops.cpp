@@ -31,10 +31,12 @@ void inner_alloc(int n, int m) {
 }
 
 void copy(int* src, int* dest) {
-  __reads("src ~> Matrix1(10)");
-  __modifies("dest ~> Matrix1(25)");
+  __reads("src ~> Matrix2(10, 25)");
+  __writes("dest ~> Matrix1(25)");
 
-  __GHOST_BEGIN(f1, group_focus_subrange, "15..25, 0..25");
-  MMEMCPY_int(dest, 15, src, 0, 10);
+  __GHOST_BEGIN(f1, ro_group_focus, "2, 0..10");
+  __GHOST_BEGIN(f2, ro_mindex2_unfold, "H := fun access -> for i in 0..25 -> access(2, i) ~> Cell");
+  MATRIX1_COPY_int(dest, &src[2*25], 25);
+  __GHOST_END(f2);
   __GHOST_END(f1);
 }
