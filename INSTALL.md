@@ -18,23 +18,29 @@ Installation of system packages:
    sudo apt-get install meld
 ```
 
-Install Clang 17. IMPORTANT: later versions are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang clang-format libclang-dev llvm-dev`). You can try this procedure:
-
-```
-  wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
-  sudo add-apt-repository "deb http://apt.llvm.org/oracular/ llvm-toolchain-oracular-17 main"
-  sudo apt install clang-17 clang-tools-17 clang-17-doc libclang-common-17-dev libclang-17-dev libclang1-17 clang-format-17 clangd-17 libc++-17-dev libfuzzer-17-dev lldb-17 lld-17 libc++abi-17-dev
-```
-
- Alternatively, you can try the automatic installation script, described on `https://ubuntuhandbook.org/index.php/2023/09/how-to-install-clang-17-or-16-in-ubuntu-22-04-20-04/`.
+Install Clang 15. IMPORTANT: versions younger than 17.0.x are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang clang-format libclang-dev llvm-dev`). You can try this procedure:
 
 ```
   wget https://apt.llvm.org/llvm.sh
   chmod u+x llvm.sh
-  sudo ./llvm.sh 17
-  # check:   clang-17 --version
-  # removal: sudo apt remove --autoremove clang-17 lldb-17 lld-17 clangd-17
+  sudo ./llvm.sh 15
+  # check:   clang-15 --version
+  # removal: sudo apt remove --autoremove clang-15 lldb-15 lld-15 clangd-15
 ```
+
+Depending on your prior installation, you might need to add the newly installed version of clang/llvm-config to the path, then select it among all of your versions :
+
+```
+  sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 100
+  sudo update-alternatives --config clang
+```
+
+```
+  sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-15 100
+  sudo update-alternatives --config llvm-config
+```
+
+To download a specific version on a debian-based distribution, you might want to refer to `https://apt.llvm.org/`.
 
 Installation of Opam, the OCaml package manager (don't use `sudo apt-get install opam` as it might give you an out of date version).
 The following one-liner is advertised on `https://opam.ocaml.org/doc/Install.html`.
@@ -78,24 +84,17 @@ For faster compilation, we precompile header files.
   make precompile
 ```
 
-If you ever see an error about "PCH files", run `make clean` to remove commpiled headers.
-
-
-### Install libraries for parsing
-
-Then, you need to either export the environment variable OPTITRUST by
-executing "export OPTITRUST=`pwd`", from the optitrust folder,
-or more conveniently execute the command:
-
-```sh
-  sudo make install_compcert_stdlib"
-```
-
-which essentially performs a `sudo install src/c/compcert_parser/include/*.h usr/local/lib/compcert`
+If you ever see an error about "PCH files", run `make clean` to remove compiled headers.
 
 ### Test your installation from the command line
 
 Checking your installation of OptiTrust is working:
+
+```sh
+  ./teser run tile
+```
+If this works, try :
+
 ```sh
    make tests
 ```
@@ -210,7 +209,7 @@ If you have a nonempty file, copy the bindings into your file.
     "command": "workbench.action.tasks.runTask",
     "args": "View diff only code",
     "when": "config.optitrust.enableKeybindings"
-  },  
+  },
   {
     "key": "ctrl+shift+f6",
     "command": "workbench.action.tasks.runTask",
@@ -288,7 +287,7 @@ If you have a nonempty file, copy the bindings into your file.
   },
   // Unused "alt+f6", "alt+f7", "ctrl+shift+f6",..
   // End of OptiTrust keybindings
-]  
+]
 ```
 
 Note: the shortcuts refer to tasks that are defined in `.vscode/tasks.json`,
