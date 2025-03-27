@@ -77,7 +77,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       (* Printf.printf "R: %s\n" (Resource_computation.formula_to_string formula); *)
       let rec aux wrap_cell formula =
         Pattern.pattern_match formula [
-          Pattern.(formula_group !__ (trm_fun (pair !__ __ ^:: nil) !__ !__ __)) (fun range idx _frettyp body_formula () ->
+          Pattern.(formula_group !__ !__ !__) (fun idx range body_formula () ->
             aux (fun c -> wrap_cell (trm_apps ~annot:formula.annot trm_group [range; formula_fun [idx, typ_int] c])) body_formula
           );
           Pattern.(formula_cell !__) (fun loc () ->

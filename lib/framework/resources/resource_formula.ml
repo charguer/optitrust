@@ -213,8 +213,17 @@ let formula_range (start: trm) (stop: trm) (step: trm) =
 
 let var_group = toplevel_var "Group"
 let trm_group = trm_var var_group
-let formula_group (range: trm) (fi: formula): formula =
-  trm_apps ~annot:formula_annot trm_group [range; fi]
+let formula_group (index: var) (range: trm) (fi: formula) =
+  trm_apps ~annot:formula_annot trm_group [range; formula_fun [index, typ_int] fi]
+
+let formula_group_inv (t: trm): (var * trm * formula) option =
+  match trm_apps_inv t with
+  | Some ({ desc = Trm_var v }, [range; items]) when var_eq v var_group ->
+    begin match trm_fun_inv items with
+    | Some ([index, _], _, body, _) -> Some (index, range, body)
+    | _ -> None
+    end
+  | _ -> None
 
 (*let var_into_uninit = toplevel_var "_Uninit"
 let trm_into_uninit = trm_var var_into_uninit
@@ -309,8 +318,14 @@ module Pattern = struct
   let formula_read_only f_frac f_formula =
     trm_apps2 (trm_specific_var var_read_only) f_frac f_formula
 
-  let formula_group f_range f_group_body =
-    trm_apps2 (trm_specific_var var_group) f_range f_group_body
+  let formula_group f_index f_range f_group_body k t =
+    match formula_group_inv t with
+    | Some (index, range, body) ->
+      let k = f_index k index in
+      let k = f_range k range in
+      let k = f_group_body k body in
+      k
+    | None -> raise Next
 
   let formula_range (f_begin: 'a -> trm -> 'b) (f_end: 'b -> trm -> 'c) (f_step: 'c -> trm -> 'd) =
     trm_apps3 (trm_specific_var var_range) f_begin f_end f_step
@@ -355,14 +370,14 @@ let () = Printexc.register_printer (function
 let rec formula_uninit (formula: formula): formula =
   Pattern.pattern_match formula [
     Pattern.(formula_any_cell !__) (fun addr () -> formula_uninit_cell addr);
-    Pattern.(formula_group !__ (trm_fun !__ __ !__ __)) (fun range args sub () -> formula_group range (formula_fun args (formula_uninit sub)));
+    Pattern.(formula_group !__ !__ !__) (fun idx range sub () -> formula_group idx range (formula_uninit sub));
     Pattern.__ (fun () -> raise (CannotTransformIntoUninit formula))
   ]
 
 let rec is_formula_uninit (formula: formula): bool =
   Pattern.pattern_match formula [
     Pattern.(formula_uninit_cell __) (fun () -> true);
-    Pattern.(formula_group __ (trm_fun __ __ !__ __)) (fun sub () -> is_formula_uninit sub);
+    Pattern.(formula_group __ __ !__) (fun sub () -> is_formula_uninit sub);
     Pattern.__ (fun () -> false)
   ]
 
@@ -372,7 +387,7 @@ let rec raw_formula_uninit (formula: formula): formula =
     Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_var_with_name var_uninit_cell.name ^| trm_var_with_name var_cell.name ^| trm_apps1 (trm_var_with_name var_cell.name) __)) (fun addr () ->
       formula_uninit_cell addr
     );
-    Pattern.(trm_apps2 (trm_var_with_name var_group.name) !__ (trm_fun !__ __ !__ __)) (fun range args sub () -> formula_group range (formula_fun args (raw_formula_uninit sub)));
+    Pattern.(trm_apps2 (trm_var_with_name var_group.name) !__ (trm_fun (pair !__ __ ^:: nil) __ !__ __)) (fun range idx sub () -> formula_group idx range (raw_formula_uninit sub));
     Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_apps (trm_var !(check (fun v -> String.starts_with ~prefix:"Matrix" v.name))) !__ __ __)) (fun addr matrix_repr matrix_args () ->
       let size =
         if !Flags.use_resources_with_models then
@@ -396,9 +411,6 @@ let formula_forall_range (range: loop_range) (fi: formula): formula =
   let fi = trm_subst_var range.index (trm_var range_var) fi in
   formula_forall_in range_var (formula_loop_range range) fi
 
-let formula_group (index: var) (range: trm) (fi: formula) =
-  trm_apps ~annot:formula_annot trm_group [range; formula_fun [index, typ_int] fi]
-
 let formula_group_range (range: loop_range) : formula -> formula =
   (* FIXME: Need to generalize models ! *)
   formula_map_under_read_only (fun fi ->
@@ -411,8 +423,8 @@ let formula_matrix_inv (f: formula): (trm * trm list * trm option) option =
   let open Option.Monad in
   let rec nested_group_inv (f: formula): (formula * var list * trm list) =
     Pattern.pattern_match f [
-      Pattern.(formula_group (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) (trm_fun (pair !__ __ ^:: nil) __ !__ __))
-        (fun dim idx inner_formula () ->
+      Pattern.(formula_group !__ (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) !__)
+        (fun idx dim inner_formula () ->
           let inner_formula, indices, dims = nested_group_inv inner_formula in
           (inner_formula, idx::indices, dim::dims)
         );

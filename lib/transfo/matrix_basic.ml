@@ -31,8 +31,8 @@ let%transfo biject (fun_name : var) (tg : target) : unit =
 let rec formula_mindex_group_inv (f : formula) : ((formula * var) list * trm * trm list * trm list) option =
   let open Resource_formula in
   Pattern.pattern_match_opt f [
-    Pattern.(formula_group !__ (trm_fun (pair !__ __ ^:: nil) __ !__ __))
-      (fun range idx inner_formula () ->
+    Pattern.(formula_group !__ !__ !__)
+      (fun idx range inner_formula () ->
         match formula_mindex_group_inv inner_formula with
         | Some (ranges, matrix_ptr, mindex_dims, mindex_indices) ->
           ((range, idx) :: ranges, matrix_ptr, mindex_dims, mindex_indices)

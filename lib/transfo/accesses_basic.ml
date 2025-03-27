@@ -85,7 +85,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
     let is_read_only = Option.is_some (formula_read_only_inv formula) in
     let rec aux acc_rev_ranges current_formula =
       Pattern.pattern_match current_formula [
-        Pattern.(formula_group (formula_range !__ !__ !__) (trm_fun (pair !__ __ ^:: nil) __ !__ __)) (fun start stop step index body () ->
+        Pattern.(formula_group !__ (formula_range !__ !__ !__) !__) (fun index start stop step body () ->
           aux ({ index; start; stop; step; direction = DirUp } :: acc_rev_ranges) body
         );
         Pattern.(formula_any_cell !__) (fun addr () ->
