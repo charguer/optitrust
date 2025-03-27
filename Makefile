@@ -81,6 +81,7 @@ style:
 
 clean: clean_cache
 	dune clean
+	rm include/*.pch
 
 clean_cache:
 	find . -type f -name '*.ser' -exec rm {} +
