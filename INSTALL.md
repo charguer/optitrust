@@ -91,7 +91,7 @@ If you ever see an error about "PCH files", run `make clean` to remove compiled 
 Checking your installation of OptiTrust is working:
 
 ```sh
-  ./teser run tile
+  ./tester run tile
 ```
 If this works, try :
 
