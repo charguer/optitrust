@@ -641,7 +641,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
   let rest = Mlist.pop_front instrs in
 
   if !Flags.check_validity then begin
-    if Var_set.mem range.index (trm_free_vars instr) then
+    if is_free_var_in_trm range.index instr then
       (* NOTE: would be checked by var ids anyway *)
       trm_fail instr "Loop_basic.move_out: instruction uses loop index";
     Resources.assert_dup_instr_redundant 0 (Mlist.length instrs - 1) body;
@@ -734,9 +734,9 @@ let move_out_alloc_on (trm_index : int) (t : trm) : trm =
 
   if !Flags.check_validity then begin
     (* NOTE: would be checked by var ids anyway *)
-    if Var_set.mem range.index (trm_free_vars alloc_instr) then
+    if is_free_var_in_trm range.index alloc_instr then
       trm_fail alloc_instr "allocation instruction uses loop index";
-    if Var_set.mem range.index (trm_free_vars free_instr) then
+    if is_free_var_in_trm range.index free_instr then
       trm_fail free_instr "free instruction uses loop index";
     (* Resources.assert_dup_instr_redundant 0 (Mlist.length instrs - 1) body;
       --> We know that `free x; alloc x = ()`

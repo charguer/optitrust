@@ -121,7 +121,7 @@ let ghost_shift
     let after = List.fold_right (fun r f -> formula_group_range r f) shifted_range shifted_formula in
     let before = if uninit_pre then formula_uninit before else before in
     let after = if uninit_post then formula_uninit after else after in
-    Resource_trm.ghost_rewrite before after (trm_var shift_groups)
+    Resource_trm.ghost_admitted_rewrite before after (trm_var shift_groups)
   else
     trm_seq_nobrace_nomarks []
 
@@ -306,7 +306,7 @@ let%transfo local_name_tile
         let p = resolve_target_exactly_one [cMark m] in
         if uninit_post then begin
           let pred formula =
-            Var_set.mem !ret_var (trm_free_vars formula)
+            is_free_var_in_trm !ret_var formula
           in
           Resources.assert_instr_effects_shadowed ~pred p;
           Trace.justif "local effects on replaced variable are shadowed"

@@ -2104,8 +2104,8 @@ let are_same_trm (t1: trm) (t2: trm): bool =
   (* they are the same if they can be unified without allowing substitutions. *)
   Option.is_some (trm_unify t1 t2 Var_map.empty (fun _ _ ctx -> Some ctx))
 
-(* TODO: Use a real trm_fold later to avoid reconstructing trm *)
 let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =
+  (* TODO: Use a real trm_fold later to avoid reconstructing trm *)
   let fv = ref Var_set.empty in
   let _ = trm_map_vars ~map_binder:(fun bound_set binder _ -> (Var_set.add binder bound_set, binder))
     (fun bound_set _ var ->
@@ -2113,6 +2113,16 @@ let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =
     bound_vars t
   in
   !fv
+
+let is_free_var_in_trm (x: var) (t: trm): bool =
+  (* TODO: Use a real trm_fold later to avoid reconstructing trm *)
+  let found_x = ref false in
+  let _ = trm_map_vars ~map_binder:(fun x_is_bound binder _ -> (if var_eq binder x then true else x_is_bound), binder)
+    (fun x_is_bound _ var ->
+      (if var_eq var x && not x_is_bound then found_x := true); trm_var var)
+    false t
+  in
+  !found_x
 
 (*****************************************************************************)
 

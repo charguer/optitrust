@@ -247,7 +247,7 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
           let res_before = Resources.before_trm instr_t in
           let res_after = Resources.after_trm instr_t in
           let g = Resource_trm.may_ghost_intro_alias subst put res_before in
-          let filter (_, f) = Var_set.mem subst (trm_free_vars f) in
+          let filter (_, f) = is_free_var_in_trm subst f in
           let res_filter = Resource_set.filter
             ~pure_filter:filter ~linear_filter:filter
             (*~aliases_filter:(fun _ _ -> false) ~spec_filter:(fun _ _ -> false)*) in

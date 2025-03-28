@@ -456,7 +456,7 @@ let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field 
       post = aux_resource_set contract.post }
   in
   let rec aux (t : trm) : trm =
-    (* if var.name = "fieldAtPos" && Var_set.mem var (trm_free_vars t) then
+    (* if var.name = "fieldAtPos" && is_free_var_in_trm var t then
       Show.trm ~style:Style.(internal_ast_only_desc ()) ~msg:"fieldAtPos update" t; *)
     Pattern.pattern_match t [
       Pattern.(

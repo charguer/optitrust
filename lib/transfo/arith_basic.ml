@@ -25,7 +25,7 @@ let%transfo remove_show (tg : target) : unit =
 let arith_simpl = toplevel_var "arith_simpl"
 
 let ghost_arith_rewrite r1 r2 =
-  Resource_trm.ghost_rewrite r1 r2 (trm_var arith_simpl)
+  Resource_trm.ghost_admitted_rewrite r1 r2 (trm_var arith_simpl)
 
 (** [apply op arg] expects the target [tg] to be pointing at any node of the ast
       then it applies the binary operation [op] at that node with the second argument

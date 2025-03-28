@@ -318,3 +318,8 @@ let pure_usage_filter usage filter (h, _) =
 
 let filter_touched (usage: resource_usage_map) (res: resource_set) =
   filter ~pure_filter:(pure_usage_filter usage keep_touched_pure) ~linear_filter:(linear_usage_filter usage keep_touched_linear) res
+
+(** [filter_with_var x res]: keep only the resources of [res] that have an occurence of [x] as a free variable *)
+let filter_with_var x res =
+  let f (_, formula) = is_free_var_in_trm x formula in
+  filter ~pure_filter:f ~linear_filter:f res

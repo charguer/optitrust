@@ -38,15 +38,6 @@ let ghost_ro_untile_divides = toplevel_var "ro_untile_divides"
 
 let ghost_tiled_index_in_range = toplevel_var "tiled_index_in_range"
 
-let ghost_rewrite_prop = toplevel_var "rewrite_prop"
-let ghost_rewrite_linear = toplevel_var "rewrite_linear"
-
-let logic_eq_sym = trm_toplevel_var "eq_sym"
-let logic_zero_mul_intro = trm_toplevel_var "zero_mul_intro"
-let logic_plus_zero_intro = trm_toplevel_var "plus_zero_intro"
-let logic_add_assoc_right = trm_toplevel_var "add_assoc_right"
-let logic_mul_add_factor = trm_toplevel_var "mul_add_factor"
-
 (** [tile_on divides b tile_index t]: tiles loop [t],
       [tile_index] - string representing the index used for the new outer loop,
       [bound] - a tile_bound type variable representing the type of the bound used in
@@ -141,27 +132,17 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
       let ghosts_before = tiling_ghosts ghost_tile_divides ghost_ro_tile_divides contract.iter_contract.pre.linear in
       let ghosts_after = tiling_ghosts ghost_untile_divides ghost_ro_untile_divides contract.iter_contract.post.linear in
 
-      let indexed_invariant =
-        let filter (_, formula) = Var_set.mem index (trm_free_vars formula) in
-        Resource_set.filter ~pure_filter:filter ~linear_filter:filter contract.invariant
+      let open Resource_trm in
+      let indexed_invariant = Resource_set.filter_with_var index contract.invariant in
+      let rewrite_indexed_invariant_ghosts rew_eq =
+        rewrite_var_in_res_ghosts ~filter_changed:false index ~by:rew_eq indexed_invariant
       in
-      let rewrite_index_ghosts rew_eq res =
-        let into_rewrite_ghost ghost =
-          List.map (fun (_, formula) ->
-            let i = new_var index.name in
-            let formula_index_fun = formula_fun [i, typ_int] (trm_subst_var index (trm_var i) formula) in
-            Resource_trm.ghost (ghost_call ghost [("inside", formula_index_fun); ("by", rew_eq)])
-          )
-        in
-        (* LATER: Check that what we try to rewrite is indeed a Prop and not a Type... *)
-        into_rewrite_ghost ghost_rewrite_prop res.pure @ into_rewrite_ghost ghost_rewrite_linear res.linear
-      in
-      let rew_ghosts_before_outer = rewrite_index_ghosts (trm_apps logic_zero_mul_intro [tile_size])indexed_invariant in
-      let rew_ghosts_before_inner = rewrite_index_ghosts
-        (trm_apps logic_plus_zero_intro [outer_index]) indexed_invariant in
-      let rew_ghost_end_inner = rewrite_index_ghosts (trm_apps logic_add_assoc_right [trm_mul_int (trm_var tile_index) tile_size; trm_var index; (trm_int 1)]) indexed_invariant in
-      let rew_ghosts_after_inner = rewrite_index_ghosts (trm_apps logic_mul_add_factor [trm_var tile_index; tile_size]) indexed_invariant in
-      let rew_ghosts_after_outer = rewrite_index_ghosts (trm_apps logic_eq_sym [count; trm_mul_int tile_count tile_size; trm_var div_check_var]) indexed_invariant in
+      let rew_ghosts_before_outer = rewrite_indexed_invariant_ghosts (trm_apps logic_zero_mul_intro [tile_size]) in
+      let rew_ghosts_before_inner = rewrite_indexed_invariant_ghosts
+        (trm_apps logic_plus_zero_intro [outer_index]) in
+      let rew_ghost_end_inner = rewrite_indexed_invariant_ghosts (trm_apps logic_add_assoc_right [trm_mul_int (trm_var tile_index) tile_size; trm_var index; (trm_int 1)]) in
+      let rew_ghosts_after_inner = rewrite_indexed_invariant_ghosts (trm_apps logic_mul_add_factor [trm_var tile_index; tile_size]) in
+      let rew_ghosts_after_outer = rewrite_indexed_invariant_ghosts (trm_apps logic_eq_sym [count; trm_mul_int tile_count tile_size; trm_var div_check_var]) in
 
       let body_seq, _ = trm_inv trm_seq_inv (trm_subst_var index new_index body) in
       let ghost_tile_index = Resource_trm.ghost (ghost_call ghost_tiled_index_in_range [("tile_index", trm_var tile_index); ("index", trm_var index); ("div_check", div_check)]) in
@@ -342,16 +323,23 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
       Pattern.__ (fun () -> trm_fail t error)
     ]
   in
-  let new_indices = match trm_int_inv start with
-    | Some n -> List.init nb_iter (fun i -> trm_int (n + i * step))
-    | None -> List.init nb_iter (fun i -> trm_add_int start (trm_int (i * step)))
+  let index_trm = match trm_int_inv start with
+    | Some n -> (fun i -> trm_add_mark subst_mark (trm_int (n + i * step)))
+    | None -> (fun i -> trm_add_mark subst_mark (trm_add_int start (trm_int (i * step))))
   in
-  let new_indices = List.map (trm_add_mark subst_mark) new_indices in
-  let unrolled_body = List.map (fun new_index ->
+  let new_indices = List.init nb_iter index_trm in
+
+  let indexed_invariant = Resource_set.filter_with_var index contract.invariant in
+  let rewrite_indexed_invariant_ghosts from into =
+    Resource_trm.rewrite_var_in_res_ghosts ~filter_changed:false index ~from ~into indexed_invariant
+  in
+  let unrolled_body = List.mapi (fun i new_index ->
     let body_i = trm_subst_var index new_index (trm_copy body) in
     let body_i = Nobrace.set_mark (not inner_braces) body_i in
-    body_i) new_indices
+    let rewrite_ghosts = rewrite_indexed_invariant_ghosts (trm_add_int new_index (trm_int step)) (index_trm (i+1)) in
+    body_i :: rewrite_ghosts) new_indices
   in
+  let unrolled_body = List.concat unrolled_body in
   let outer_seq = if outer_seq_with_mark <> no_mark then
       trm_add_mark outer_seq_with_mark (trm_seq_nomarks unrolled_body)
     else

@@ -902,7 +902,7 @@ DETAILS for [unroll]
 
     LATER: This transformation should be factorized, that may change the docs. *)
 
-let%transfo unroll_nest_of_1 ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark = no_mark) ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
+let%transfo unroll_one ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark = no_mark) ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
   Target.iteri (fun i p ->
     let tg_loop_trm  = Target.resolve_path p in
     let (range, _, contract) = trm_inv ~error:"Loop.unroll: expected a loop to unroll" trm_for_inv tg_loop_trm in
@@ -937,7 +937,7 @@ let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark =
   let rec aux p nest_of =
     if nest_of > 1 then
       aux (Path.to_inner_loop p) (nest_of - 1);
-    unroll_nest_of_1 ~inner_braces ~outer_seq_with_mark ~simpl (target_of_path p);
+    unroll_one ~inner_braces ~outer_seq_with_mark ~simpl (target_of_path p);
   in
   Target.iter (fun p -> aux p nest_of) tg
 

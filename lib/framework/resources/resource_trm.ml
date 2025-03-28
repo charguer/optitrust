@@ -136,7 +136,7 @@ let ghost_admitted ?(justif: trm option) (contract: fun_contract): trm =
   then Nobrace.trm_seq_nomarks []
   else ghost (ghost_closure_call contract (trm_seq_nomarks [admitted ?justif ()]))
 
-let ghost_rewrite (before: formula) (after: formula) (justif: formula): trm =
+let ghost_admitted_rewrite (before: formula) (after: formula) (justif: formula): trm =
   let contract = {
     pre = Resource_set.make ~linear:[new_anon_hyp (), before] ();
     post = Resource_set.make ~linear:[new_anon_hyp (), after] ()
@@ -237,6 +237,36 @@ let assume (f: formula): trm =
 let var_ghost_to_prove = toplevel_var "to_prove"
 let to_prove (f: formula): trm =
   ghost (ghost_call var_ghost_to_prove ["P", f])
+
+(*****************************************************************************)
+(* Integer rewriting *)
+
+let var_ghost_rewrite_prop = toplevel_var "rewrite_prop"
+let ghost_rewrite_prop ?from ?into ?by inside =
+  ghost_call_opt_args var_ghost_rewrite_prop ["from", from; "to", into; "inside", Some inside; "by", by]
+
+let var_ghost_rewrite_linear = toplevel_var "rewrite_linear"
+let ghost_rewrite_linear ?from ?into ?by inside =
+  ghost_call_opt_args var_ghost_rewrite_linear ["from", from; "to", into; "inside", Some inside; "by", by]
+
+let logic_eq_sym = trm_toplevel_var "eq_sym"
+let logic_zero_mul_intro = trm_toplevel_var "zero_mul_intro"
+let logic_plus_zero_intro = trm_toplevel_var "plus_zero_intro"
+let logic_add_assoc_right = trm_toplevel_var "add_assoc_right"
+let logic_mul_add_factor = trm_toplevel_var "mul_add_factor"
+
+let rewrite_var_in_res_ghosts ?(filter_changed = true) var ?from ?into ?by res =
+  (* LATER: Turn this into one custom ghost ? *)
+  let into_rewrite_ghost ghost_call =
+    List.map (fun (_, formula) ->
+      let i = new_var var.name in
+      let formula_index_fun = formula_fun [i, typ_int] (trm_subst_var var (trm_var i) formula) in
+      ghost (ghost_call ?from ?into ?by formula_index_fun)
+    )
+  in
+  (* LATER: Check that what we try to rewrite is indeed a Prop and not a Type... *)
+  let res = if filter_changed then Resource_set.filter_with_var var res else res in
+  into_rewrite_ghost ghost_rewrite_prop res.pure @ into_rewrite_ghost ghost_rewrite_linear res.linear
 
 (*****************************************************************************)
 (* Contracts and annotations *)
