@@ -78,6 +78,10 @@ Includes matrix multiplication, convolution, packaed convolution, depthwise conv
 
 - [GEOS?](https://libgeos.org/)
 
+# Compression
+
+optimized jpeg, ffmpeg, bzip2, png, ...
+
 # Fundamental Software Case Studies
 
 - Optimized data structure implementations (HashMap, ..).

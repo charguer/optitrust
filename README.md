@@ -20,7 +20,7 @@ If you are interested in a demo, please get in touch with @charguer.
 - See `INSTALL.md` for installation procedure, to set up the right version of OCaml/Clang/ClangML and configure VSCode/Codium, in particular.
 - See `INSTALL_EXTRA.md` for a list of additional useful tools for program optimization.
 - See `VSCODE_CUSTOMIZE.md` for useful tips for using VScode or VScodium.
-- Read the text below for high level comments on the organization of the repository. 
+- Read the text below for high level comments on the organization of the repository.
 - Check out `case_studies/matmul/matmul_check.ml` and `matmul_check.cpp` to begin with---to produce a full trace you may need a lot of RAM.
 
 # Overview of the implementation
@@ -28,7 +28,7 @@ If you are interested in a demo, please get in touch with @charguer.
 Folders:
 
 - `lib`: implementation of the library
-- `tests`: for unit tests, one file per transformation 
+- `tests`: for unit tests, one file per transformation
 - `tools`: utilities for parsing, loading traces, execution (runner), testing (generalized runner)
 - `include`: header files that need to be included in the C files that are processed using OptiTrust
 - `case_studies`: the case studies for OptiTrust
@@ -38,13 +38,13 @@ Folders:
 In the `lib` folder:
 - `utils`: extensions to the standard library of OCaml
 - `ast`: definition of data types for representing the AST (in particular the parser should only depend on the AST module)
-- `transfo`:  implementation of transformations, organized by categories; by convention takes a target as last argument; most often, transformations are of `unit` type, and modify the AST by side-effect. 
-- `framework`: 
+- `transfo`:  implementation of transformations, organized by categories; by convention takes a target as last argument; most often, transformations are of `unit` type, and modify the AST by side-effect.
+- `framework`:
   + `c`: files specific to C, including the translation from C to lambda-calculus; and the C printer
   + `target`: for locating program points
   + `runtime`: infrastructure for executing a script and producing output file and traces, or producing the diff for a specific line
-  + `ppx_transfo`: implement support for the `let%transfo` declaration 
-  + `resources`: description of resource objects, and implementation in the typechecker 
+  + `ppx_transfo`: implement support for the `let%transfo` declaration
+  + `resources`: description of resource objects, and implementation in the typechecker
   + `no_brace`: special tooling for flattening sequences that appear inside sequences.
 
 In the `include` folder, the main file is `optitrust.h`. This file:

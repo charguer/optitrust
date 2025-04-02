@@ -18,14 +18,11 @@ Installation of system packages:
    sudo apt-get install meld
 ```
 
-Install Clang 15. IMPORTANT: versions younger than 17.0.x are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang clang-format libclang-dev llvm-dev`). You can try this procedure:
 
-```
-  wget https://apt.llvm.org/llvm.sh
-  chmod u+x llvm.sh
-  sudo ./llvm.sh 15
-  # check:   clang-15 --version
-  # removal: sudo apt remove --autoremove clang-15 lldb-15 lld-15 clangd-15
+Install Clang 15. IMPORTANT: versions released after 17.0.x are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang clang-format libclang-dev llvm-dev`). You can try this procedure:
+
+```sh
+sudo apt install clang-15 llvm-15
 ```
 
 Depending on your prior installation, you might need to add the newly installed version of clang/llvm-config to the path, then select it among all of your versions :
@@ -40,7 +37,7 @@ Depending on your prior installation, you might need to add the newly installed 
   sudo update-alternatives --config llvm-config
 ```
 
-To download a specific version on a debian-based distribution, you might want to refer to `https://apt.llvm.org/`.
+TODO: don't make this global switch, bad for benchmarking
 
 Installation of Opam, the OCaml package manager (don't use `sudo apt-get install opam` as it might give you an out of date version).
 The following one-liner is advertised on `https://opam.ocaml.org/doc/Install.html`.
