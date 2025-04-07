@@ -19,10 +19,10 @@ Installation of system packages:
 ```
 
 
-Install Clang 15. IMPORTANT: versions released after 17.0.x are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang clang-format libclang-dev llvm-dev`). You can try this procedure:
+Install Clang 15. IMPORTANT: versions released after 15.0.x are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang libclang-dev llvm-dev`). You can try this procedure:
 
 ```sh
-sudo apt install clang-15 llvm-15
+sudo apt install clang-15 llvm-15 clang-format
 ```
 
 Depending on your prior installation, you might need to add the newly installed version of clang/llvm-config to the path, then select it among all of your versions :
