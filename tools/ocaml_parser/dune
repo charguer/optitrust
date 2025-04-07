@@ -1,0 +1,7 @@
+(executable
+ (name ocaml_parser)
+ (public_name optitrust_ocaml_parser)
+ (libraries ocaml-compiler-libs.common optitrust.utils optitrust.ast)
+ (modes byte native)
+ (flags ((:standard \ -short-paths) -warn-error -69 -w -9-27-32-33))
+)
