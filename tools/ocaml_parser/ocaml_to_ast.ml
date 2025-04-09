@@ -13,7 +13,7 @@ open Flags
 
 type ocaml_ast = Parsetree.structure
 
-let tr_ast (t : ocaml_ast) : trm = trm_int 1
+let tr_ast (t : ocaml_ast) : trm = trm_seq Mlist.empty
   (*ctx_reset ();*)
   (* Initialize id_counter *)
   (*let {decoration = _; desc = {filename = filename; items = dl}} = t in
