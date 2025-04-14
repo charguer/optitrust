@@ -7,13 +7,30 @@ open Contextualized_error
 open Mark
 open Tools
 open Flags
-
+open Parsetree
 
 (** [tr_ast t]: transalate [t] into OptiTrust AST *)
 
-type ocaml_ast = Parsetree.structure
+type ocaml_ast = structure
 
-let tr_ast (t : ocaml_ast) : trm = trm_seq (Mlist.of_list [(trm_let (new_var "x", code (Typ "test_string_left")) (code (Lit "test_string_right")))] )
+let tr_constant (c : constant) : trm = match c with
+  | Pconst_string (s, _, _) -> Printf.printf "constant_string : %s\n" s; trm_string s
+  | _ -> failwith "constant not yet translatable"
+
+let tr_expression (e : expression) : trm = let {pexp_desc} = e in
+  match pexp_desc with
+  | Pexp_constant c -> tr_constant c
+  | _ -> failwith "expression not yet translatable"
+
+
+let tr_structure_desc (s : structure_item) : trm = let {pstr_desc; _} = s in
+  match pstr_desc with
+  | Pstr_eval (e, _) -> tr_expression e
+  | _ -> failwith "structure not yet translatable"
+
+let tr_structure_list l = List.map (tr_structure_desc) l
+
+let tr_ast (t : ocaml_ast) : trm = trm_seq (Mlist.of_list (tr_structure_list t))
 
   (* List.map (some function) t*)
 
