@@ -13,9 +13,13 @@ open Parsetree
 
 type ocaml_ast = structure
 
-let tr_constant (c : constant) : trm = match c with
-  | Pconst_string (s, _, _) -> Printf.printf "constant_string : %s\n" s; trm_string s
-  | _ -> failwith "constant not yet translatable"
+let tr_constant (c : constant) : trm = match c with (*done, maybe include the options if needed later? See with arthur*)
+  | Pconst_integer (s, _) -> Printf.printf "constant int : %s\n" s; trm_int (int_of_string s)
+  | Pconst_char c -> Printf.printf "constant char : %c\n" c; trm_string (Char.escaped c)
+  | Pconst_string (s, _, _) -> Printf.printf "constant string : %s\n" s; trm_string s
+  | Pconst_float (s, _) -> Printf.printf "constant float : %s\n" s; trm_float (float_of_string s)
+
+
 
 let tr_expression (e : expression) : trm = let {pexp_desc} = e in
   match pexp_desc with
