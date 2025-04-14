@@ -13,7 +13,24 @@ open Flags
 
 type ocaml_ast = Parsetree.structure
 
-let tr_ast (t : ocaml_ast) : trm = trm_seq Mlist.empty
+let tr_ast (t : ocaml_ast) : trm = trm_seq (Mlist.of_list [(trm_let (new_var "x", code (Typ "test_string_left")) (code (Lit "test_string_right")))] )
+
+  (* List.map (some function) t*)
+
+(*depuis foo.ml Run.script_cpp
+parser foo.cpp // plus tard renommé en foo_in.cpp
+
+depuis foo.ml Run.script_ml
+parser foo_in.ml
+
+*)
+
+(*Show.let trm_internal t
+
+*)
+
+  (*apprendre comment lire l'ast t*)
+
   (*ctx_reset ();*)
   (* Initialize id_counter *)
   (*let {decoration = _; desc = {filename = filename; items = dl}} = t in

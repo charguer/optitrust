@@ -290,3 +290,31 @@ let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline
     in
 
     script ?filename ~capture_show_in_batch ~extension:".cpp" ~check_exit_at_end ?prefix f)
+
+
+let script_ml ?(filename : string option) ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(capture_show_in_batch = false) ?(prefix : string option) (f : unit -> unit) : unit =
+  may_report_time "script-ocaml" (fun () ->
+    (* Handles preprocessor -- FUTURE USE MENHIR PARSER
+    Compcert_parser.Clflags.prepro_options := prepro;
+    *)
+
+    (* Handles on-the-fly inlining *)
+    let filename =
+      match inline with
+      | [] -> filename
+      | _ ->
+        let program_basename = get_program_basename () in
+        let basepath = Filename.dirname program_basename in
+        let filename =
+          match filename with
+          | Some filename -> filename
+          | None -> (Filename.basename program_basename) ^ "_in.ml"
+        in
+        let basename = Filename.chop_extension filename in
+        let inlinefilename = basename ^ "_inlined.ml" in
+        generate_source_with_inlined_header_cpp basepath filename inline inlinefilename;
+        if debug_inline_cpp then Tools.debug "Generated %s" inlinefilename;
+        Some inlinefilename
+    in
+
+    script ?filename ~capture_show_in_batch ~extension:".ml" ~check_exit_at_end ?prefix f)

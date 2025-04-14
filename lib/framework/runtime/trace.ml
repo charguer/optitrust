@@ -147,16 +147,28 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
   (* "ser" means serialized *)
   let ser_filename = filename ^ ".ser" in
 
+  let extension = Filename.extension filename in
+
+  Printf.printf "used parser : %s\n" !Flags.c_parser_name;
+
   let exitcode =
+    if extension = ".cpp" then
     Sys.command (Printf.sprintf "cd \"%s\" && dune exec --no-build tools/c_parser/c_parser.exe -- %s %s %s"
       !Flags.optitrust_root
       (if !Flags.ignore_serialized || persistant then "" else "-f")
       (if !Flags.debug_parsing_serialization then "-v" else "")
       (Unix.realpath filename))
+    else if extension = ".ml" then
+      Sys.command (Printf.sprintf "cd \"%s\" && dune exec --no-build tools/ocaml_parser/ocaml_parser.exe -- %s %s %s"
+      !Flags.optitrust_root
+      (if !Flags.ignore_serialized || persistant then "" else "-f")
+      (if !Flags.debug_parsing_serialization then "-v" else "")
+      (Unix.realpath filename))
+    else failwith "Called parser with wrong extension '%s'" extension
   in
-  if exitcode <> 0 then failwith "C parser returned with error code %d" exitcode;
+  if exitcode <> 0 then failwith "Parser returned with error code %d" exitcode;
 
-  if not (Sys.file_exists ser_filename) then failwith "C parser did not produce the expected file: %s" ser_filename;
+  if not (Sys.file_exists ser_filename) then failwith "Parser did not produce the expected file: %s" ser_filename;
 
   let header, ast =
     try

@@ -252,7 +252,7 @@ let process_save_ast_in_steps (s: string) =
   save_ast_for_steps := Some (string_to_steps_selector s)
 
 (** [c_parser_name]: name of the C parser to use *)
-let c_parser_name : string ref = ref "default"
+let c_parser_name : string ref = ref "default" (*change this to "parser_name?"*)
 
 (* Name of the root installation folder. It can also be the name of the source folder for not installed builds. *)
 let optitrust_root : string ref = ref "."
@@ -293,7 +293,10 @@ let spec : cmdline_args =
      ("-use-clang-format", Arg.Set use_clang_format, " enable beautification using clang-format (currently ignored by ./tester)");
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
      ("-clang-format-nb-columns", Arg.Set_int clang_format_nb_columns, " specify the number of columns for clang-format");
-     ("-cparser", Arg.Set_string c_parser_name, "specify a C parser among 'default', 'clang', 'menhir', and 'all' ");
+     ("-parser", Arg.Set_string c_parser_name, "specify a C parser among 'default', 'clang', 'menhir', and 'all' ");
+
+     (*change the name to add ocaml ? Or just change it for my branch? Replace menhir by ocaml(c?)*)
+
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
 
