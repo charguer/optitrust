@@ -13,17 +13,25 @@ open Parsetree
 
 type ocaml_ast = structure
 
-let tr_constant (c : constant) : trm = match c with (*done, maybe include the options if needed later? See with arthur*)
+let rec tr_constant (c : constant) : trm = match c with (*done, maybe include the options if needed later? See with arthur*)
   | Pconst_integer (s, _) -> Printf.printf "constant int : %s\n" s; trm_int (int_of_string s)
   | Pconst_char c -> Printf.printf "constant char : %c\n" c; trm_string (Char.escaped c)
   | Pconst_string (s, _, _) -> Printf.printf "constant string : %s\n" s; trm_string s
   | Pconst_float (s, _) -> Printf.printf "constant float : %s\n" s; trm_float (float_of_string s)
 
+and tr_pattern pat = () (*goal : get a typed var from here*)
 
+and tr_value_binding (vb : value_binding) = let {pvb_pat; pvb_expr} = vb in trm_let (tr_pattern pvb_pat) (tr_expression pvb_expr)
 
-let tr_expression (e : expression) : trm = let {pexp_desc} = e in
+and tr_let (vb_l : value_binding list) (e : expression) : trm =
+  let binding_list = List.map tr_value_binding vb_l in
+
+  trm_int 1 (*make a list of bindings. Then add the actual expression in an evaluation. merge the two lists, and give it in a sequence*)
+
+and tr_expression (e : expression) : trm = let {pexp_desc} = e in
   match pexp_desc with
   | Pexp_constant c -> tr_constant c
+  | Pexp_let (_, vb_l, e) -> tr_let vb_l e
   | _ -> failwith "expression not yet translatable"
 
 
