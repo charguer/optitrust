@@ -13,36 +13,66 @@ open Parsetree
 
 type ocaml_ast = structure
 
+let rec add_end x l =
+  match l with
+  | [] -> [x]
+  | a::l' -> a::(add_end x l')
+
 let rec tr_constant (c : constant) : trm = match c with (*done, maybe include the options if needed later? See with arthur*)
   | Pconst_integer (s, _) -> Printf.printf "constant int : %s\n" s; trm_int (int_of_string s)
   | Pconst_char c -> Printf.printf "constant char : %c\n" c; trm_string (Char.escaped c)
   | Pconst_string (s, _, _) -> Printf.printf "constant string : %s\n" s; trm_string s
   | Pconst_float (s, _) -> Printf.printf "constant float : %s\n" s; trm_float (float_of_string s)
 
-and tr_pattern pat = () (*goal : get a typed var from here*)
+and tr_pattern pat = let {ppat_desc} = pat in match ppat_desc with
+  | Ppat_var sl -> (new_var sl.txt, trm_unit ())
+  | _ -> failwith "pattern not yet translatable"
 
 and tr_value_binding (vb : value_binding) = let {pvb_pat; pvb_expr} = vb in trm_let (tr_pattern pvb_pat) (tr_expression pvb_expr)
 
-and tr_let (vb_l : value_binding list) (e : expression) : trm =
+and tr_let_exp (vb_l : value_binding list) (e : expression) : trm =
   let binding_list = List.map tr_value_binding vb_l in
+  let full_list = add_end (tr_expression e) binding_list in
+  trm_seq (Mlist.of_list full_list)
 
-  trm_int 1 (*make a list of bindings. Then add the actual expression in an evaluation. merge the two lists, and give it in a sequence*)
+  (*make a list of bindings. Then add the actual expression in an evaluation. merge the two lists, and give it in a sequence*)
 
-and tr_expression (e : expression) : trm = let {pexp_desc} = e in
-  match pexp_desc with
+and tr_expression (e : expression) : trm =
+  match e.pexp_desc with
+  | Pexp_ident l -> (match l.txt with
+                     | Lident s -> trm_var (new_var s) (*this is bad, I need to find a way to reference variables*)
+                     | Ldot _ -> failwith "Ldot"
+                     | Lapply _ -> failwith "Lapply")
   | Pexp_constant c -> tr_constant c
-  | Pexp_let (_, vb_l, e) -> tr_let vb_l e
+  | Pexp_let (_, vb_l, e) -> tr_let_exp vb_l e
+  | Pexp_apply (e, l) -> trm_apps (tr_expression e)
+             (List.map (fun x -> let (_,e) = x in tr_expression e) l)
+  | Pexp_function _ -> failwith "function not yet translatable"
+  | Pexp_fun _ -> failwith "fun not yet translatable"
+  | Pexp_match _ -> failwith "match not yet translatable"
+  | Pexp_construct _ -> failwith "construct not yet translatable"
   | _ -> failwith "expression not yet translatable"
 
+and tr_let (vb_l : value_binding list) : trm =
+  let binding_list = List.map tr_value_binding vb_l in
+  trm_seq (Mlist.of_list binding_list)
 
 let tr_structure_desc (s : structure_item) : trm = let {pstr_desc; _} = s in
   match pstr_desc with
   | Pstr_eval (e, _) -> tr_expression e
+  | Pstr_value (_, vb_l) -> tr_let vb_l
   | _ -> failwith "structure not yet translatable"
 
 let tr_structure_list l = List.map (tr_structure_desc) l
 
-let tr_ast (t : ocaml_ast) : trm = trm_seq (Mlist.of_list (tr_structure_list t))
+let tr_ast (t : ocaml_ast) : trm =
+  print_string "Printing the ast : \n";
+
+  Pprintast.structure Format.std_formatter t;
+
+  print_string "End of printing. \n";
+
+  trm_seq (Mlist.of_list (tr_structure_list t))
 
   (* List.map (some function) t*)
 
