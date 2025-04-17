@@ -239,9 +239,29 @@ let rec typ_desc_to_doc style (t : typ) : document =
       at
     );
     Pattern.(typ_pure_fun !__ !__) (fun args ret () ->
-      let dargs = list_to_doc ~sep:(space ^^ star ^^ space) (List.map (typ_to_doc style) args) in
-      let dret = typ_to_doc style ret in
-      dargs ^^ space ^^ string "->" ^^ space ^^ dret
+      let used_vars = trm_used_vars t in
+      let is_polymorphic = List.fold_left (fun acc (arg, _) -> acc || Var_set.mem arg used_vars) false args in
+      let dret = trm_to_doc style ret in
+      if is_polymorphic then
+        let arg_to_doc (arg, typ) =
+          let darg =
+            if Var_set.mem arg used_vars then
+              var_to_doc style arg
+            else underscore
+          in
+          lparen ^^ darg ^^ colon ^^ space ^^ trm_to_doc style typ ^^ rparen
+        in
+        let dargs = list_to_doc ~sep:empty (List.map arg_to_doc args) in
+        string "forall" ^^ space ^^ dargs ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ dret
+      else
+        let dargs = list_to_doc ~sep:(space ^^ star) (List.map (fun (_, ty) ->
+            let dty = trm_to_doc style ty in
+            match typ_pure_fun_inv ty with
+            | Some _ -> parens dty
+            | None -> dty
+          ) args)
+        in
+        dargs ^^ space ^^ string "->" ^^ blank 1 ^^ dret
     );
     Pattern.(trm_apps1 (typ_var (var_eq typ_typeof_var)) !__) (fun t () ->
       string "decltype" ^^ parens (decorate_trm style t)
@@ -594,7 +614,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
               surround 2 1 lsep dinstrs rsep
           in
           dattr ^^ res
-    | Trm_apps (f, tl, _) ->
+    | Trm_apps (f, tl, _, _) ->
       dattr ^^ apps_to_doc style ~annot:t.annot ~print_struct_init_type ~prec f tl ^^ dsemi
     | Trm_while (b, t) ->
       let db = decorate_trm style b in
@@ -719,9 +739,9 @@ and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm
         blank 1 ^^ string "/* typing time: " ^^ string (string_of_float microsec) ^^ string " */"
       end in *)
     static ^^ blank 1 ^^ dexectime ^^ trm_let_fun_to_doc ~semicolon style fun_annot (fst tv) rettyp args body ^^ hidden
-  | Trm_apps (_, args, _) when trm_has_cstyle Constructed_init init ->
+  | Trm_apps (_, args, _, _) when trm_has_cstyle Constructed_init init ->
     dtx ^^ blank 1 ^^ list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (decorate_trm style) args) ^^ dsemi
-  | Trm_apps (_, tl, _) when trm_has_cstyle Brace_init init && Option.is_some (trm_array_inv init) ->
+  | Trm_apps (_, tl, _, _) when trm_has_cstyle Brace_init init && Option.is_some (trm_array_inv init) ->
     dtx ^^ list_to_doc ~bounds:[lbrace; rbrace] ~sep:empty (List.map (decorate_trm style) tl) ^^ dsemi
   | _ ->
     dtx ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style ~force_expr:true ~print_struct_init_type:false init ^^ dsemi
@@ -829,7 +849,10 @@ and aux_class_destructor_to_doc style ?(semicolon : bool = false)  (spec_annot  
 (** [aux_fun_to_doc style ~semicolon inline f r tvl b]: converts a function declaration to pprint document *)
 and aux_fun_to_doc style ?(semicolon : bool = false) ?(const : bool = false) ?(inline : bool = false) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dinline = if inline then string "inline" else empty in
-  let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc style (var_to_doc style) tv) tvl) in
+  let var_or_anon_to_doc var =
+    if is_anon_var var || String.starts_with ~prefix:"#" var.name then empty else var_to_doc style var
+  in
+  let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc style var_or_anon_to_doc tv) tvl) in
   let dr = typ_to_doc style r in
   let const = if const then string "const" else empty in
   separate (blank 1) [dinline; dr; var_to_doc style f; parens argd; const; decorate_trm style b]
@@ -847,7 +870,7 @@ and trm_let_fun_to_doc style ?(semicolon : bool = false) (fun_annot : cstyle_ann
 
 (** [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function from a resource formula to a pprint document. *)
 and formula_fun_to_doc style (ty : typ) (tvl : typed_vars) (b : trm) : document =
-  string "fun" ^^ blank 1 ^^ separate (comma ^^ blank 1) (List.map (fun (v, _) -> var_to_doc style v) tvl) ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style b
+  string "fun" ^^ blank 1 ^^ separate (blank 1) (List.map (fun (v, ty) -> if is_typ_auto ty then var_to_doc style v else lparen ^^ var_to_doc style v ^^ colon ^^ blank 1 ^^ trm_to_doc style ty ^^ rparen) tvl) ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style b
 
 (** [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function to a pprint document. *)
 and trm_fun_to_doc style ?(semicolon : bool = false) (ty : typ) (tvl : typed_vars) (b : trm) : document =
@@ -1316,17 +1339,17 @@ and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
 and formula_to_doc style (f: formula): document =
   let open Resource_formula in
   Pattern.pattern_match f [
-    Pattern.(formula_model !__ !__) (fun t formula () ->
-      Pattern.when_ (trm_has_cstyle ResourceModel f);
-      decorate_trm style t ^^ blank 1 ^^ string "~>" ^^ blank 1 ^^ trm_to_doc style formula
+    Pattern.(formula_points_to !__ !__) (fun addr formula () ->
+      Pattern.when_ (!Flags.use_resources_with_models);
+      decorate_trm style addr ^^ blank 1 ^^ string "~~>" ^^ blank 1 ^^ trm_to_doc style formula
+    );
+    Pattern.(formula_repr !__ !__) (fun addr formula () ->
+      decorate_trm style addr ^^ blank 1 ^^ string "~>" ^^ blank 1 ^^ trm_to_doc style formula
     );
     Pattern.(formula_range !__ !__ (trm_int (eq 1))) (fun start stop () ->
-      trm_to_doc ~prec:16 style start ^^ string ".." ^^ trm_to_doc ~prec:16 style stop
+      decorate_trm ~prec:16 style start ^^ string ".." ^^ decorate_trm ~prec:16 style stop
     );
     Pattern.(trm_fun !__ !__ !__ __) (fun tvl ty_opt body () -> formula_fun_to_doc style ty_opt tvl body
-    );
-    Pattern.(trm_apps2 (trm_specific_var var_forall_in) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
-      string "forall" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc style range ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
     );
     Pattern.(trm_apps2 (trm_specific_var var_group) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
       string "for" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc style range ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body

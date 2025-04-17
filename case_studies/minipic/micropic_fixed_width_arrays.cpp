@@ -241,12 +241,12 @@ int simulate_core(double stepDuration,
   __modifies("nextBagSize ~> Matrix1(nbCells)");
   __reads("fieldAtCorners ~> Matrix1(nbCorners)");
 
-  __GHOST_BEGIN(focus1, matrix1_ro_focus, "curBagSize, idCell");
+  __GHOST_BEGIN(focus1, ro_matrix1_focus, "curBagSize, idCell");
   const int nbParts = curBagSize[MINDEX1(nbCells, idCell)];
   // __ghost(assume, "in_range(nbParts, 0..maxPartsPerCell)");
   for (int idPart = 0; idPart < nbParts; idPart++) {
     __ghost(assume, "in_range(idPart, 0..maxPartsPerCell)"); // TODO: remove
-    __GHOST_BEGIN(focus2, matrix2_ro_focus, "curBag, idCell, idPart");
+    __GHOST_BEGIN(focus2, ro_matrix2_focus, "curBag, idCell, idPart");
     const particle p = curBag[MINDEX2(nbCells, maxPartsPerCell, idCell, idPart)];
     __GHOST_END(focus2);
 

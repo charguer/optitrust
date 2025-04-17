@@ -15,8 +15,8 @@ void add(int* out, int* xs, int* ys, int h, int w) {
       __xwrites("&out[MINDEX2(h, w, y, x)] ~> Cell");
       __sreads("xs ~> Matrix2(h, w)");
       __sreads("ys ~> Matrix2(h, w)");
-      __GHOST_BEGIN(xsf, matrix2_ro_focus, "xs, y, x");
-      __GHOST_BEGIN(ysf, matrix2_ro_focus, "ys, y, x");
+      __GHOST_BEGIN(xsf, ro_matrix2_focus, "xs, y, x");
+      __GHOST_BEGIN(ysf, ro_matrix2_focus, "ys, y, x");
       out[MINDEX2(h, w, y, x)] = xs[MINDEX2(h, w, y, x)] + ys[MINDEX2(h, w, y, x)];
       __GHOST_END(xsf);
       __GHOST_END(ysf);
@@ -40,9 +40,9 @@ void vbox(int* out, int* in_, int h, int w) {
       __ghost(in_range_extend, "x, 0..(w-2), 0..w");
       __ghost(in_range_shift_extend, "x, 1, 0..w, 0, w-2");
       __ghost(in_range_shift_extend, "x, 2, 0..w, 0, w-2");
-      __GHOST_BEGIN(in0, matrix2_ro_focus, "in_, y, x");
-      __GHOST_BEGIN(in1, matrix2_ro_focus, "in_, y, x+1");
-      __GHOST_BEGIN(in2, matrix2_ro_focus, "in_, y, x+2");
+      __GHOST_BEGIN(in0, ro_matrix2_focus, "in_, y, x");
+      __GHOST_BEGIN(in1, ro_matrix2_focus, "in_, y, x+1");
+      __GHOST_BEGIN(in2, ro_matrix2_focus, "in_, y, x+2");
       out[MINDEX2(h, w-2, y, x)] = in_[MINDEX2(h, w, y, x)] + in_[MINDEX2(h, w, y, x+1)] + in_[MINDEX2(h, w, y, x+2)];
       __GHOST_END(in0);
       __GHOST_END(in1);
@@ -67,9 +67,9 @@ void hbox(int* out, int* in_, int h, int w) {
       __ghost(in_range_extend, "y, 0..(h-2), 0..h");
       __ghost(in_range_shift_extend, "y, 1, 0..h, 0, h-2");
       __ghost(in_range_shift_extend, "y, 2, 0..h, 0, h-2");
-      __GHOST_BEGIN(in0, matrix2_ro_focus, "in_, y, x");
-      __GHOST_BEGIN(in1, matrix2_ro_focus, "in_, y+1, x");
-      __GHOST_BEGIN(in2, matrix2_ro_focus, "in_, y+2, x");
+      __GHOST_BEGIN(in0, ro_matrix2_focus, "in_, y, x");
+      __GHOST_BEGIN(in1, ro_matrix2_focus, "in_, y+1, x");
+      __GHOST_BEGIN(in2, ro_matrix2_focus, "in_, y+2, x");
       out[MINDEX2(h-2, w, y, x)] = in_[MINDEX2(h, w, y, x)] + in_[MINDEX2(h, w, y+1, x)] + in_[MINDEX2(h, w, y+2, x)];
       __GHOST_END(in0);
       __GHOST_END(in1);

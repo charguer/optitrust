@@ -130,19 +130,25 @@ let var_to_string (v : var) : string =
   else
     name ^ "#" ^ string_of_int v.id
 
-let assert_var_id_set ~error_loc v =
-  if has_unset_id v then failwith "%s: Variable %s has an id that is not set (maybe forgot to call Scope.infer_var_ids)" error_loc (var_to_string v)
+exception UnsetVarId of var
+let () = Printexc.register_printer (function
+  | UnsetVarId v -> Some (sprintf "Variable %s has an id that is not set (maybe forgot to call Scope.infer_var_ids)" (var_name v))
+  | _ -> None
+)
+
+let assert_var_id_set v =
+  if has_unset_id v then raise (UnsetVarId v)
 
 let var_eq (v1 : var) (v2 : var) : bool =
-  assert_var_id_set ~error_loc:"var_eq" v1;
-  assert_var_id_set ~error_loc:"var_eq" v2;
+  assert_var_id_set v1;
+  assert_var_id_set v2;
   v1.id = v2.id
 
 module Var = struct
   type t = var
   let compare v1 v2 =
-    assert_var_id_set ~error_loc:"Var.compare" v1;
-    assert_var_id_set ~error_loc:"Var.compare" v2;
+    assert_var_id_set v1;
+    assert_var_id_set v2;
     Int.compare v1.id v2.id
   let equal v1 v2 = var_eq v1 v2
   let hash v = Hashtbl.hash v.id
@@ -261,7 +267,7 @@ and trm_desc =
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm  (* if (x > 0) {x += 1} else{x -= 1} *)
   | Trm_seq of trm mlist * var option (* { st1; st2; st3; x } the optional variable (x) acts as the result value of the sequence *)
-  | Trm_apps of trm * trm list * resource_item list (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2")*)
+  | Trm_apps of trm * trm list * resource_item list * ((var option * var) list) (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2", "out <- a")*)
   | Trm_for of loop_range * trm * loop_contract
   | Trm_for_c of trm * trm * trm * trm * resource_set option (* TODO: Remove from here and desugar into while *)
   | Trm_while of trm * trm     (* while (t1) { t2 } *) (* TODO: Add resource_set invariant *)
@@ -435,7 +441,6 @@ and cstyle_annot =
   (* tag for printing using resource or type syntax
      LATER: Use different printers for different languages *)
   | ResourceFormula
-  | ResourceModel
   | Type
 
   | InjectedClassName
@@ -467,7 +472,7 @@ and cpragma = directive
 (** [attribute]: trm attributes *)
 and attribute =
   | Alignas of trm (* Placed on types like in: alignas(64) double* deposit; *)
-  | GhostCall (* Used for ghost annotations (__ghost syntax in C) *)
+  | GhostInstr (* Used for ghost annotations (__ghost syntax in C) *)
 
 (** [trm_annot]: a record containing all kinds of annotations used on the AST of OptiTrust. *)
 and trm_annot = {
@@ -647,6 +652,7 @@ and resource_usage =
   | Required
   | Ensured
   | ArbitrarilyChosen
+  | Cleared
   | ConsumedFull
   | ConsumedUninit
   | SplittedFrac
@@ -900,6 +906,7 @@ let new_var ?(namespaces: string list = []) (name : string) : var =
 (** Refers to a variable by name, letting its identifier be inferred.
     This variable cannot be stored in a [varmap] before its identifier is inferred. *)
 let name_to_var ?(namespaces: string list = []) (name : string) : var =
+  if name = "" then failwith "Cannot create an anonymous variable with unset id";
   { namespaces; name; id = unset_var_id }
 
 module Toplevel_id = struct
@@ -968,6 +975,7 @@ let resource_usage_opt_to_string = function
 | Some Required -> "Required"
 | Some Ensured -> "Ensured"
 | Some ArbitrarilyChosen -> "ArbitrarilyChosen"
+| Some Cleared -> "ArbitrarilyChosen"
 | Some SplittedFrac -> "SplittedFrac"
 | Some ConsumedUninit -> "ConsumedUninit"
 | Some ConsumedFull -> "ConsumedFull"

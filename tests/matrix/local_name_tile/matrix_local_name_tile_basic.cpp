@@ -6,8 +6,8 @@ void malloc_uninit_pre() {
 
   int* const a = MALLOC3(int, 10, 10, 4);
 
-  __GHOST_BEGIN(focus, group2_focus_subrange_uninit,
-    "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell, "
+  __GHOST_BEGIN(focus, group2_focus_subrange,
+    "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> UninitCell, "
     "sub_range := 2..10");
 
   for (int i = 0; i < 10; i++) {
@@ -36,8 +36,8 @@ void malloc_uninit_post() {
   __pure();
 
   int* const a = MALLOC1(int, 10);
-  __GHOST_BEGIN(focus, group_focus_subrange_uninit,
-    "items := fun i -> &a[MINDEX1(10,i)] ~> Cell, "
+  __GHOST_BEGIN(focus, group_focus_subrange,
+    "items := fun i -> &a[MINDEX1(10,i)] ~> UninitCell, "
     "sub_range := 2..10");
 
   for (int i1 = 2; i1 < 10; i1++) {
@@ -64,8 +64,8 @@ void malloc_uninit_prepost() {
 
   int* const a = MALLOC3(int, 10, 10, 4);
 
-  __GHOST_BEGIN(focus, group2_focus_subrange_uninit,
-    "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell, "
+  __GHOST_BEGIN(focus, group2_focus_subrange,
+    "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> UninitCell, "
     "sub_range := 2..10");
   for (int i = 0; i < 10; i++) {
     __xwrites("for j in 2..10 -> for k in 0..4 ->"

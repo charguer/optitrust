@@ -6,10 +6,10 @@ void stencil(int* a, int* b) {
 
   for (int i = 0; i < 6; i++) {
     if (i == 0) {
-      __xmodifies("_Uninit(for k in 0..8 -> a[MINDEX1(8, k)] ~> Cell)");
+      __xmodifies("for k in 0..8 -> a[MINDEX1(8, k)] ~> UninitCell");
     } else {
       __xmodifies("for k in 0..i+2 -> a[MINDEX1(8, k)] ~> Cell");
-      __xmodifies("_Uninit(for k in i+2..8 -> a[MINDEX1(8, k)] ~> Cell)");
+      __xmodifies("for k in i+2..8 -> a[MINDEX1(8, k)] ~> UninitCell");
     }
 
     if (i == 0) {
@@ -41,7 +41,7 @@ void stencil(int* a, int* b) {
   for (int i = 0; i < 6; i++) {
     __xwrites("b[MINDEX1(6, i)] ~> Cell");
     __sreads("a ~> Matrix1(8)");
-    // TODO: in_range_extend, in_range_shift_extend, matrix2_ro_focus scopes
+    // TODO: in_range_extend, in_range_shift_extend, ro_matrix2_focus scopes
     b[MINDEX1(6, i)] = a[MINDEX1(8, i)] + a[MINDEX1(8, i+1)] + a[MINDEX1(8, i+2)];
   }
 }

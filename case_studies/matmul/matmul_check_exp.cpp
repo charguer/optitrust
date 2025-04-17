@@ -1,8 +1,5 @@
+#include <optitrust.h>
 
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <string.h>
 #include "omp.h"
 // NOTE: using pretty matrix notation
 
@@ -31,7 +28,7 @@ void mm1024(float* C, float* A, float* B) {
       for (int bk = 0; bk < 256; bk++) {
         for (int i = 0; i < 32; i++) {
           float s[32];
-          memcpy(&s[0], &sum[32 * i], 32 * sizeof(float));
+          MMEMCPY_float(s, 0, sum, 32 * i, 32);
 #pragma omp simd
           for (int j = 0; j < 32; j++) {
             s[j] += A[32768 * bi + 4 * bk + 1024 * i] *
@@ -52,7 +49,7 @@ void mm1024(float* C, float* A, float* B) {
             s[j] += A[32768 * bi + 4 * bk + 1024 * i + 3] *
                     pB[32768 * bj + 128 * bk + j + 96];
           }
-          memcpy(&sum[32 * i], &s[0], 32 * sizeof(float));
+          MMEMCPY_float(sum, 32 * i, s, 0, 32);
         }
       }
       for (int i = 0; i < 32; i++) {

@@ -206,7 +206,7 @@ let find_result_fun_spec (res: resource_set): fun_spec_resource =
 let subst_loop_range_start range = subst_var range.index range.start
 
 (** Substitutes a loop index with its value after one iteration *)
-let subst_loop_range_step range = subst_var range.index (trm_add (trm_var range.index) range.step)
+let subst_loop_range_step range = subst_var range.index (trm_add_int (trm_var range.index) range.step)
 
 (** Substitutes a loop index with its end value. *)
 let subst_loop_range_end range = subst_var range.index range.stop
@@ -234,6 +234,12 @@ let used_vars (res: resource_set): Var_set.t =
   in
   let pure_used_vars = List.fold_left combine_used_vars Var_set.empty res.pure in
   List.fold_left combine_used_vars pure_used_vars res.linear
+
+(** [remove_pure x res]: remove pure hypothesis x from res checking that it was not used *)
+let remove_pure (x: var) (res: resource_set): resource_set =
+  let used = used_vars res in
+  if Var_set.mem x used then failwith "Cannot remove variable '%s' from context: it is used in another resource" (var_to_string x);
+  { res with pure = List.filter (fun (y, _) -> not (var_eq x y)) res.pure; fun_specs = Var_map.remove x res.fun_specs; aliases = Var_map.remove x res.aliases }
 
 (** [remove_useless_fracs usage res]: removes all fractions that have 0 occurences inside [res] from both [usage] and [res]. *)
 (* LATER: Maybe we should have a more general remove_useless_inhabited_pure.*)
@@ -287,13 +293,13 @@ let linear_usage_filter usage filter (h, _) =
   | Some ConsumedUninit -> filter.uninit
   | Some ConsumedFull -> filter.full
   | Some Produced -> filter.produced
-  | Some (Required | Ensured | ArbitrarilyChosen) -> failwith "linear_usage_filter used on pure resource"
+  | Some (Required | Ensured | ArbitrarilyChosen | Cleared) -> failwith "linear_usage_filter used on pure resource"
 
 type pure_usage_filter =
- { unused: bool; required: bool; ensured: bool; arbitrarily_chosen: bool }
+ { unused: bool; required: bool; ensured: bool; arbitrarily_chosen: bool; cleared: bool }
 
-let keep_all_pure = { unused = true; required = true; ensured = true; arbitrarily_chosen = true; }
-let keep_none_pure = { unused = false; required = false; ensured = false; arbitrarily_chosen = false }
+let keep_all_pure = { unused = true; required = true; ensured = true; arbitrarily_chosen = true; cleared = true }
+let keep_none_pure = { unused = false; required = false; ensured = false; arbitrarily_chosen = false; cleared = false }
 let keep_touched_pure = { keep_all_pure with unused = false; }
 let keep_unused_pure = { keep_none_pure with unused = true; }
 let keep_required = { keep_none_pure with required = true; }
@@ -306,8 +312,14 @@ let pure_usage_filter usage filter (h, _) =
   | Some Required -> filter.required
   | Some Ensured -> filter.ensured
   | Some ArbitrarilyChosen -> filter.arbitrarily_chosen
+  | Some Cleared -> filter.cleared
   | Some (SplittedFrac | JoinedFrac | ConsumedUninit | ConsumedFull | Produced) ->
     failwith "pure_usage_filter used on linear resource"
 
 let filter_touched (usage: resource_usage_map) (res: resource_set) =
   filter ~pure_filter:(pure_usage_filter usage keep_touched_pure) ~linear_filter:(linear_usage_filter usage keep_touched_linear) res
+
+(** [filter_with_var x res]: keep only the resources of [res] that have an occurence of [x] as a free variable *)
+let filter_with_var x res =
+  let f (_, formula) = is_free_var_in_trm x formula in
+  filter ~pure_filter:f ~linear_filter:f res

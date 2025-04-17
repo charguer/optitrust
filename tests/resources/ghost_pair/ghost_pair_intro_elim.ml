@@ -5,7 +5,7 @@ let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun () ->
   !! Ghost_pair.elim [cVarDef "focusA"];
-  !! Ghost_pair.intro ~name:"focusA" [cSeq (); cStrict; cCall "matrix1_ro_focus"];
+  !! Ghost_pair.intro ~name:"focusA" [cSeq (); cStrict; cCall "ro_matrix1_focus"];
   !! Trace.check_recover_original();
 
   !! Ghost_pair.elim ~mark_begin:"b" ~mark_end:"e" [cVarDef "focusA"];

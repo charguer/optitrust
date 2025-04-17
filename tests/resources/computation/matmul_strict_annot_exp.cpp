@@ -21,15 +21,15 @@ void matmul_seq(float* C, float* A, float* B, int m, int n, int p) {
         __sreads("A ~> Matrix2(m, p)");
         __sreads("B ~> Matrix2(p, n)");
         const __ghost_fn focusA =
-            __ghost_begin(matrix2_ro_focus, "M := A, i := i, j := k");
+            __ghost_begin(ro_matrix2_focus, "matrix := A, i := i, j := k");
         const __ghost_fn focusB =
-            __ghost_begin(matrix2_ro_focus, "M := B, i := k, j := j");
+            __ghost_begin(ro_matrix2_focus, "matrix := B, i := k, j := j");
         sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
         __ghost_end(focusA);
         __ghost_end(focusB);
       }
       const __ghost_fn focusC =
-          __ghost_begin(matrix2_focus, "M := C, i := i, j := j");
+          __ghost_begin(matrix2_focus, "matrix := C, i := i, j := j");
       C[MINDEX2(m, n, i, j)] = sum;
       __ghost_end(focusC);
     }
@@ -57,9 +57,9 @@ void matmul_par(float* C, float* A, float* B, int m, int n, int p) {
         __sreads("A ~> Matrix2(m, p)");
         __sreads("B ~> Matrix2(p, n)");
         const __ghost_fn focusA =
-            __ghost_begin(matrix2_ro_focus, "M := A, i := i, j := k");
+            __ghost_begin(ro_matrix2_focus, "matrix := A, i := i, j := k");
         const __ghost_fn focusB =
-            __ghost_begin(matrix2_ro_focus, "M := B, i := k, j := j");
+            __ghost_begin(ro_matrix2_focus, "matrix := B, i := k, j := j");
         sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
         __ghost_end(focusB);
         __ghost_end(focusA);

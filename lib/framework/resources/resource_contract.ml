@@ -26,7 +26,10 @@ type fun_contract_clause_type =
   (** Syntactic sugar for consuming [_Uninit(R)] and producing [R]. *)
 
   | Modifies
-  (** Syntactic sugar for consuming [R] and producing [R]. *)
+  (** Syntactic sugar for consuming [R] and producing [R] but with a different model. *)
+
+  | Preserves
+  (** Syntactic sugar for consuming [R] and producing [R] (same model). *)
 
   | Consumes
   (** Linear resource items consumed in precondition. *)
@@ -36,18 +39,21 @@ type fun_contract_clause_type =
 
 (** User-facing loop contract clause types. *)
 type loop_contract_clause_type =
-  | LoopVars
+  | LoopGhosts
   (** Pure resources that are the same across all iterations. *)
 
   | Exclusive of fun_contract_clause_type
   (** Resources that are exclusive to one iteration. *)
 
-  | Invariant
+  | InvariantGhosts
   (** Pure resource items that are invariant in all iterations of a for loop.
       If iterating on [i] index, requires [R(i)] and ensures [R(i + step)]. *)
 
   | SharedModifies
-  (** Linear resource items that are invariantly modified in all loop iterations. *)
+  (** Linear resource items that are invariantly modified in all loop iterations (same shape, different model). *)
+
+  | SharedPreserves
+  (** Linear resource items that are preserved across loop iterations but can be freely modified during the iteration. *)
 
   | SharedReads
   (** Linear resource items that are read in parallel by all loop iterations. *)
@@ -56,9 +62,6 @@ type loop_contract_clause_type =
   (** On loop contracts, do not allow other resources than the one mentionned inside the loop iterations.
       By default, all the resources that remain after instantiating the contract are considered as additional invariants.
       This permits the omission of most __smodifies and __sreads clauses. *)
-
-(*(** User-facing contract clause, combining clause type and resouce item. *)
-type contract_clause = contract_clause_type * contract_resource_item*)
 
 (** {!trm_copy} for fun contracts. *)
 let fun_contract_copy (contract : fun_contract) : fun_contract =
@@ -78,12 +81,18 @@ let rec desugar_formula (formula: formula): formula =
   (* Warning: this function can be called on formulas with unresolved variable ids, therefore, we need to invert it by name *)
   (* With incremental var-id resolution we could heavily simplify this *)
   Pattern.pattern_match formula [
-    Pattern.(formula_model !__ (trm_apps (trm_var !__) !__ __)) (fun var f args () ->
-        if f.name <> sprintf "Matrix%d" (List.length args) then raise_notrace Pattern.Next;
-        formula_matrix var args
+    Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_apps (trm_var !__) !__ __ __)) (fun var f args () ->
+        if !Flags.use_resources_with_models && f.name = sprintf "Matrix%d" (List.length args - 1) then
+          let size, model = List.unlast args in
+          formula_matrix var size ~model
+        else if not (!Flags.use_resources_with_models) && f.name = sprintf "Matrix%d" (List.length args) then
+          formula_matrix var args
+        else if f.name = sprintf "UninitMatrix%d" (List.length args) then
+          formula_uninit_matrix var args
+        else raise Pattern.Next
       );
     (* Allow using operators / and - in first argument of RO(_,_) while normally they are reserved for integers *)
-    Pattern.(trm_apps2 (trm_var (check (fun v -> v.name = var_read_only.name))) !__ !__) (fun frac hprop () ->
+    Pattern.(trm_apps2 (trm_var_with_name var_read_only.name) !__ !__) (fun frac hprop () ->
         let rec desugar_frac f =
           Pattern.pattern_match f [
             Pattern.(trm_sub !__ !__) (fun frac1 frac2 () ->
@@ -101,7 +110,12 @@ let rec desugar_formula (formula: formula): formula =
 
 let rec encode_formula (formula: formula): formula =
   match formula_matrix_inv formula with
-  | Some (m, dims) -> formula_model m (trm_apps (trm_var (toplevel_var (sprintf "Matrix%d" (List.length dims)))) dims)
+  | Some (m, dims, None) -> formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "UninitMatrix%d" (List.length dims)))) dims)
+  | Some (m, dims, Some model) ->
+    if !Flags.use_resources_with_models then
+      formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "Matrix%d" (List.length dims)))) (dims @ [model]))
+    else
+      formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "Matrix%d" (List.length dims)))) dims)
   | None -> trm_map encode_formula formula
 
 let push_read_only_fun_contract_res ((name, formula): resource_item) (contract: fun_contract): fun_contract =
@@ -112,7 +126,7 @@ let push_read_only_fun_contract_res ((name, formula): resource_item) (contract: 
   { pre; post }
 
 let resource_item_uninit ((name, formula): resource_item): resource_item =
-  (name, formula_uninit formula)
+  (name, raw_formula_uninit formula)
 
 (* LATER: Preserve user syntax using annotations *)
 let push_fun_contract_clause (clause: fun_contract_clause_type)
@@ -124,20 +138,20 @@ let push_fun_contract_clause (clause: fun_contract_clause_type)
   | Produces -> { contract with post = Resource_set.add_linear res contract.post }
   | Reads -> push_read_only_fun_contract_res res contract
   | Writes -> { pre = Resource_set.add_linear (resource_item_uninit res) contract.pre ; post = Resource_set.add_linear res contract.post }
-  | Modifies -> { pre = Resource_set.add_linear res contract.pre ; post = Resource_set.add_linear res contract.post }
+  | Modifies | Preserves -> { pre = Resource_set.add_linear res contract.pre ; post = Resource_set.add_linear res contract.post }
 
 let push_loop_contract_clause (clause: loop_contract_clause_type)
     (res: resource_item) (contract: loop_contract) =
   match clause with
-  | LoopVars -> { contract with loop_ghosts = res :: contract.loop_ghosts }
+  | LoopGhosts -> { contract with loop_ghosts = res :: contract.loop_ghosts }
   | Exclusive Reads ->
     let name, formula = res in
     let frac_var, frac_ghost = new_frac () in
     let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
-    { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; iter_contract = push_fun_contract_clause Modifies (name, ro_formula) contract.iter_contract }
+    { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; iter_contract = push_fun_contract_clause Preserves (name, ro_formula) contract.iter_contract }
   | Exclusive clause -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
-  | Invariant -> { contract with invariant = Resource_set.push_front_pure res contract.invariant }
-  | SharedModifies ->
+  | InvariantGhosts -> { contract with invariant = Resource_set.push_front_pure res contract.invariant }
+  | SharedModifies | SharedPreserves ->
     { contract with invariant = Resource_set.add_linear res contract.invariant }
   | SharedReads ->
     let name, formula = res in
@@ -158,8 +172,9 @@ let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: 'clause_t
       try
         let res_list = Resource_cparser.resource_list (Resource_clexer.lex_resources) (Lexing.from_string desc) in
         List.fold_right (fun res contract -> push_contract_clause clause (parse_contract_res_item res) contract) res_list contract
-      with Resource_cparser.Error ->
-        failwith "Failed to parse resource: %s" desc
+      with
+      | Resource_cparser.Error -> failwith "Failed to parse resource: %s" desc
+      | Resource_clexer.SyntaxError err -> failwith "Failed to lex resources '%s' : %s" desc err
     ) clauses empty_contract
 
 (** [contract_outside_loop range contract] takes the [contract] of a for-loop over [range] and returns
@@ -234,14 +249,14 @@ let specialize_contract contract args =
 (* TODO: rename and move elsewhere. *)
 let trm_specialized_ghost_closure ?(remove_contract = false) (ghost_call: trm) =
   Pattern.pattern_match ghost_call [
-    Pattern.(trm_apps (trm_fun_with_contract nil !__ !__) nil !__) (fun ghost_body contract ghost_args () ->
+    Pattern.(trm_apps (trm_fun_with_contract nil !__ !__) nil !__ __) (fun ghost_body contract ghost_args () ->
       let subst = List.fold_left (fun subst (g, t) -> Var_map.add g t subst) Var_map.empty ghost_args in
       let body = trm_subst subst ghost_body in
       let contract = if remove_contract then FunSpecUnknown else FunSpecContract (specialize_contract contract subst) in
       trm_fun [] typ_auto body ~contract
     );
-    Pattern.(trm_apps !__ nil nil) (fun ghost_fn () -> ghost_fn);
-    Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args () ->
+    Pattern.(trm_apps !__ nil nil nil) (fun ghost_fn () -> ghost_fn);
+    Pattern.(trm_apps !__ nil !__ !__) (fun ghost_fn ghost_args ghost_bind () ->
       (* TODO: Handle this case by recovering the contract of the called function *)
       failwith "trm_specialized_ghost_closure: Unhandled complex ghost call that is not a closure"
     );

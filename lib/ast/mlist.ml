@@ -65,7 +65,7 @@ let nth (ml : 'a t) (index : int) : 'a =
 
 (** [nth_opt ml index]: get the nth item from [ml]. *)
 let nth_opt (ml : 'a t) (index : int) : 'a option =
-  List.nth_opt ml.items index
+  if index >= 0 then List.nth_opt ml.items index else None
 
 (** [fold_lefti acc_f acc ml]: applies List.fold_lefti to ml.items. *)
 let fold_lefti (acc_f : int -> 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
@@ -123,6 +123,13 @@ let split ?(left_bias : bool = true) (index : int) (ml : 'a t) : 'a t * 'a t =
   let marks1 = if left_bias then marks1a else marks1a @ [[]] in
   let marks2 = if left_bias then [] :: marks2a else marks2a in
   ({items = items1; marks = marks1}, {items = items2; marks = marks2})
+
+(** [split_on_marks index ml]: splits mlist [ml] at [index], returning the marks in the middle *)
+let split_on_marks (index : int) (ml : 'a t) : 'a t * mark list * 'a t =
+  let left, { items; marks } = split ~left_bias:false index ml in
+  match marks with
+  | middle_marks :: right_marks -> left, middle_marks, { items; marks = [] :: right_marks }
+  | _ -> failwith "split_on_marks: mark list length is wrong"
 
 (** [merge ml1 ml2]: merges mlists [ml1] and [ml2]. *)
 let merge (ml1 : 'a t) (ml2 : 'a t) : 'a t =

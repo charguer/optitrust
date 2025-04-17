@@ -14,6 +14,7 @@ let handle_exn_response sub_handler request =
   | Trace_out_of_date path -> Dream.respond ~status:(`Status 419) ("Wrong timestamp for " ^ path)
   | Step_not_found (path, step_id) -> Dream.respond ~status:`Not_Found ("Could not find step " ^ string_of_int step_id ^ " in trace " ^ path)
   | Trace.MissingAst -> Dream.respond ~status:`Not_Found ("This AST is missing, maybe retry generating the trace with Flags.save_ast_for_steps := Some Steps_all")
+  | exn -> Dream.respond ~status:`Internal_Server_Error (Printexc.to_string exn ^ "\n" ^ Printexc.get_backtrace ())
 
 let get_query request query_name =
   match Dream.query request query_name with
@@ -70,6 +71,7 @@ let read_trace_tree ~(timestamp:string) (path: string): Trace.step_tree =
       trace_cache := Some { trace_path = path; trace_timestamp = timestamp; trace_tree };
       trace_tree
   in
+  Trace.update_use_resources_with_models_flag trace.step_ast_before;
   trace
 
 let handle_get_request request =

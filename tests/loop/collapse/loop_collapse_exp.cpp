@@ -36,23 +36,23 @@ void from_zero_contract(int* t, int* u, int n, int m) {
   __reads("u ~> Matrix2(n, m)");
   __ghost(assume, "P := __is_true(n >= 0)");
   __ghost(assume, "P := __is_true(m >= 0)");
-  __ghost(
-      group_collapse_uninit,
-      "n := n, m := m, items := fun i, j -> &t[MINDEX2(n, m, i, j)] ~> Cell");
+  __ghost(group_collapse,
+          "n := n, m := m, items := fun (i: int) (j: int) -> &t[MINDEX2(n, m, "
+          "i, j)] ~> UninitCell");
   for (int ij = 0; ij < n * m; ij++) {
     __strict();
     __sreads("u ~> Matrix2(n, m)");
     __xwrites("&t[MINDEX2(n, m, ij / m, ij % m)] ~> Cell");
     __ghost(assume, "P := in_range(ij / m, 0..n)");
     __ghost(assume, "P := in_range(ij % m, 0..m)");
-    const __ghost_fn f =
-        __ghost_begin(matrix2_ro_focus, "M := u, i := ij / m, j := ij % m");
+    const __ghost_fn f = __ghost_begin(ro_matrix2_focus,
+                                       "matrix := u, i := ij / m, j := ij % m");
     t[MINDEX2(n, m, ij / m, ij % m)] = u[MINDEX2(n, m, ij / m, ij % m)];
     __ghost_end(f);
   }
-  __ghost(
-      group_uncollapse,
-      "n := n, m := m, items := fun i, j -> &t[MINDEX2(n, m, i, j)] ~> Cell");
+  __ghost(group_uncollapse,
+          "n := n, m := m, items := fun (i: int) (j: int) -> &t[MINDEX2(n, m, "
+          "i, j)] ~> Cell");
 }
 
 void from_zero_wrong(int n, int m) {

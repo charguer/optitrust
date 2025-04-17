@@ -82,10 +82,9 @@ let assert_no_interference ~(after_what : string) ~(on_interference : string) tl
   | [x] -> failwith "local variable '%s' is used after %s, but will now be %s" (var_to_string x) after_what on_interference
   | xs -> failwith "local variables %s are used after %s, but will now be %s" (Tools.list_to_string ~sep:"', '" ~bounds:("'","'") (List.map var_to_string xs)) after_what on_interference
 
-(** If [x] is used in [instrs], traces a justification, otherwise fails. *)
+(** If [x] is not used in [instrs], traces a justification, otherwise fails. *)
 let justif_unused_in (x : var) (instrs : trm mlist) : unit =
-  let fv = trm_free_vars (trm_seq instrs) in
-  if Var_set.mem x fv then
+  if is_free_var_in_trm x (trm_seq instrs) then
     failwith "'%s' is used" (var_to_string x);
   Trace.justif (sprintf "'%s' is unused" (var_to_string x))
 

@@ -9,6 +9,7 @@ exception InvalidVarId of string
 type fun_prototype = {
   (* args: var list; *)
   ghost_args: (var * bool) list; (* ghost_name, is_implicit *)
+  ghost_bind: (var * bool) list; (* contract_name, is_implicit *)
 }
 
 (* LATER: support overloading. here or encoding? *)
@@ -72,7 +73,6 @@ let toplevel_scope_ctx (): scope_ctx = {
 
 (* LATER: #var-id, flag to disable check for performance *)
 (* cost: traverse the AST in O(n) and O(m log m) where m is the number of binders. *)
-(* TODO: raise error or ignore the dummy ids (-1) *)
 let check_unique_var_ids (t : trm) : unit =
   (* FIXME: This does not catch all the duplicated variable ids. Especially in contracts. *)
   (* LATER: refactor with function mapping over bindings? *)
@@ -113,7 +113,8 @@ let scope_ctx_record_rename ~failure_allowed var scope_ctx =
 let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
   let qualified = (var.namespaces, var.name) in
   let infer_var_id () =
-    (* Case 1: infer var id according to name. *)
+    if is_anon_var var then raise (InvalidVarId "Cannot infer an id for an anonymous variable");
+    (* infer var id according to name. *)
     match Qualified_map.find_opt qualified scope_ctx.var_ids with
     | Some id -> { namespaces = var.namespaces; name = var.name; id }
     (* If the variable is not found in the current context, it should be a toplevel variable.
@@ -123,7 +124,7 @@ let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
   in
   let check_var_id () =
     if failure_allowed then begin
-      (* Case 3: check var id consisent with name. *)
+      (* check var id consisent with name. *)
       if is_toplevel_var var then
         begin if not (var_eq (toplevel_var ~namespaces:var.namespaces var.name) var) then
           raise (InvalidVarId (sprintf "toplevel variable %s has a wrong id" (var_to_string var)))
@@ -229,20 +230,27 @@ let find_prototype (scope_ctx: scope_ctx) (t: trm): fun_prototype =
     begin try
       Var_map.find x scope_ctx.fun_prototypes
     with
-    | Not_found when var_eq x Resource_trm.var_admitted -> { ghost_args = [Resource_trm.var_justif, false] }
+    | Not_found when var_eq x Resource_trm.var_admitted -> { ghost_args = [Resource_trm.var_justif, false]; ghost_bind = [] }
+    | Not_found when var_eq x Resource_trm.var_ghost_define -> Var_map.find Resource_trm.var_assert_inhabited scope_ctx.fun_prototypes
     | Not_found when var_eq x Resource_trm.var_assert_alias -> Var_map.find Resource_trm.var_assert_eq scope_ctx.fun_prototypes
+    | Not_found when var_eq x Resource_trm.var_ghost_forget_init -> Var_map.find Resource_trm.var_ghost_assert_hprop scope_ctx.fun_prototypes
     | Not_found -> failwith "Could not find a prototype for function %s" (var_to_string x)
     end
   | _ -> failwith "Could not find a prototype for trm at location %s" (loc_to_string t.loc)
 
-let on_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm)
-  (f : var Qualified_map.t -> var list ref -> 'a) : 'a =
+let on_contract_name (scope_ctx: scope_ctx) (fn: trm)
+  (f : var Qualified_map.t -> var list ref -> 'a) : bool -> 'a =
   let fn_prototype = find_prototype scope_ctx fn in
   let ghost_proto_arg_map = List.fold_left (fun map (ghost_var, _) ->
     Qualified_map.add (ghost_var.namespaces, ghost_var.name) ghost_var map
   ) Qualified_map.empty fn_prototype.ghost_args in
+  let ghost_proto_bind_map = List.fold_left (fun map (ghost_var, _) ->
+    Qualified_map.add (ghost_var.namespaces, ghost_var.name) ghost_var map
+  ) Qualified_map.empty fn_prototype.ghost_bind in
   let ghost_args_proto = ref (List.filter_map (fun (ghost_var, is_implicit) -> if is_implicit then None else Some ghost_var) fn_prototype.ghost_args) in
-  f ghost_proto_arg_map ghost_args_proto
+  let ghost_bind_proto = ref (List.filter_map (fun (ghost_var, is_implicit) -> if is_implicit then None else Some ghost_var) fn_prototype.ghost_bind) in
+  fun out -> if not out then f ghost_proto_arg_map ghost_args_proto else
+    f ghost_proto_bind_map ghost_bind_proto
 
 let check_ghost_arg_name_aux (ghost_proto_arg_map : var Qualified_map.t) (_ : var list ref)
   (g : var) =
@@ -252,8 +260,8 @@ let check_ghost_arg_name_aux (ghost_proto_arg_map : var Qualified_map.t) (_ : va
       failwith "Ghost argument %s is not the same as the ghost in the prototype %s." (var_to_string g) (var_to_string g')
   with Not_found -> failwith "Ghost argument %s is not part of the function prototype" (var_to_string g)
 
-let check_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : var -> unit =
-  on_ghost_arg_name scope_ctx fn check_ghost_arg_name_aux
+let check_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : bool -> var -> unit =
+  on_contract_name scope_ctx fn check_ghost_arg_name_aux
 
 (** internal *)
 let enter_scope check_binder scope_ctx t =
@@ -330,7 +338,7 @@ let scope_ctx_exit outer_ctx inner_ctx t =
 let post_process_ctx ~(failure_allowed : bool) ctx t =
   match trm_let_fun_inv t with
   | Some (f_var, _, _, _, FunSpecContract spec) ->
-    { ctx with fun_prototypes = Var_map.add f_var { ghost_args = List.map (fun (arg_var, arg_typ) -> (arg_var, Typ.is_typ_type arg_typ)) spec.pre.pure } ctx.fun_prototypes }
+    { ctx with fun_prototypes = Var_map.add f_var { ghost_args = List.map (fun (arg_var, arg_typ) -> (arg_var, Typ.is_typ_type arg_typ)) spec.pre.pure; ghost_bind = List.map (fun (contract_var, _) -> (contract_var, false)) spec.post.pure } ctx.fun_prototypes }
   | Some (f_var, _, _, _, FunSpecReverts f_reverted) ->
     let f_reverted = infer_map_var ~failure_allowed ctx f_reverted in
     begin match Var_map.find_opt f_reverted ctx.fun_prototypes with
@@ -356,11 +364,11 @@ let only_infer_ghost_arg_name_aux (ghost_proto_arg_map : var Qualified_map.t)
   end
 
 (* TODO: assymmetric with other functions, use flag? *)
-let only_infer_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : var -> var =
-  on_ghost_arg_name scope_ctx fn only_infer_ghost_arg_name_aux
+let only_infer_contract_name (scope_ctx: scope_ctx) (fn: trm) : bool -> var -> var =
+  on_contract_name scope_ctx fn only_infer_ghost_arg_name_aux
 
-let infer_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : var -> var =
-  on_ghost_arg_name scope_ctx fn (fun gpam gap v ->
+let infer_contract_name (scope_ctx: scope_ctx) (fn: trm) : bool -> var -> var =
+  on_contract_name scope_ctx fn (fun gpam gap v ->
     let v' = only_infer_ghost_arg_name_aux gpam gap v in
     check_ghost_arg_name_aux gpam gap v';
     v'
@@ -385,7 +393,7 @@ let infer_var_ids ?(failure_allowed = true) ?(check_uniqueness = not failure_all
     ~exit_scope:scope_ctx_exit
     ~post_process:(fun ctx t -> (post_process_ctx ~failure_allowed ctx t, t))
     ~map_binder:(infer_map_binder ~failure_allowed)
-    ~map_ghost_arg_name:(if failure_allowed then only_infer_ghost_arg_name else infer_ghost_arg_name)
+    ~map_contract_name:(if failure_allowed then only_infer_contract_name else infer_contract_name)
     (infer_map_var ~failure_allowed)
     (toplevel_scope_ctx ()) t in
   if check_uniqueness then check_unique_var_ids t2;

@@ -50,7 +50,7 @@ int main() {
   free(xa);
   float* const m = (float*)malloc(MSIZE1(2) * sizeof(float));
   for (int mi = 0; mi < 8; mi++) {
-    __smodifies("_Uninit(m ~> Matrix1(2))");
+    __smodifies("m ~> UninitMatrix1(2)");
   }
   free(m);
 }

@@ -145,7 +145,7 @@ and print_attribute style (a : attribute) : document =
   match a with
   | Alignas t ->
      string "Alignas" ^^ blank 1 ^^ print_trm style t
-  | GhostCall -> string "GhostCall"
+  | GhostInstr -> string "GhostInstr"
 
 (** [print_var]: converts [v] into a docuemnt. *)
 and print_var style (v : var) : document =
@@ -188,7 +188,7 @@ and print_trm_desc style (t : trm_desc) : document =
      let dtl = List.map (print_trm style) (Mlist.to_list tl) in
      let dres = Option.map_or (fun x -> print_var style x) empty res in
      print_node "Trm_seq" ^^ print_list dtl ^^ dres
-  | Trm_apps (f, tl, _) ->
+  | Trm_apps (f, tl, _, _) ->
      let df = print_trm style f in
      let dtl = List.map (print_trm style) tl in
      print_node "Trm_apps" ^^ parens (df ^^ comma ^/^ print_list dtl)
@@ -463,7 +463,6 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Brace_init -> string "Brace_init"
  | Display_null_uppercase -> string "Display_null_uppercase"
  | ResourceFormula -> string "ResourceFormula"
- | ResourceModel -> string "ResourceModel"
  | Type -> string "Type"
  | InjectedClassName -> string "InjectedClassName"
  | BodyHiddenForLightDiff -> string "BodyHiddenForLightDiff"

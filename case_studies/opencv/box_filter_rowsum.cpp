@@ -27,7 +27,7 @@ void rowSum(const int w, const uint8_t* S, uint16_t* D, const int n, const int c
       uint16_t s = (uint16_t)0;
       for (int k = i; k < i+w; k++) {
         __ghost(in_range_extend, "k, i..i+w, 0..n+w-1");
-        __GHOST_BEGIN(focus, matrix2_ro_focus, "S, k, c");
+        __GHOST_BEGIN(focus, ro_matrix2_focus, "S, k, c");
         s += (uint16_t)S[MINDEX2(n+w-1, cn, k, c)];
         __GHOST_END(focus);
       }
@@ -59,7 +59,7 @@ void rowSum(const int w, const T* S, ST* D, const int n, const int cn) {
       __smodifies("&s ~> Cell");
 
       __ghost(in_range_extend, "i, 0..w, 0..(n + w)");
-      __GHOST_BEGIN(sf, matrix2_ro_focus, "M := S, i := i, j := c");
+      __GHOST_BEGIN(sf, ro_matrix2_focus, "M := S, i := i, j := c");
       s += (ST) S[MINDEX2(n+w, cn, i, c)];
       __GHOST_END(sf);
     }
@@ -73,11 +73,11 @@ void rowSum(const int w, const T* S, ST* D, const int n, const int cn) {
       __smodifies("for i in 0..n -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
 
       __ghost(in_range_extend, "i, 0..(n-1), 0..(n+w)");
-      __GHOST_BEGIN(sf1, matrix2_ro_focus, "M := S, i := i, j := c");
+      __GHOST_BEGIN(sf1, ro_matrix2_focus, "M := S, i := i, j := c");
       s -= (ST) S[MINDEX2(n+w, cn, i, c)];
       __GHOST_END(sf1);
       __ghost(in_range_shift_extend, "i, w, 0..(n+w), 0, n-1, 1");
-      __GHOST_BEGIN(sf2, matrix2_ro_focus, "M := S, i := i + w, j := c");
+      __GHOST_BEGIN(sf2, ro_matrix2_focus, "M := S, i := i + w, j := c");
       s += (ST) S[MINDEX2(n+w, cn, i + w, c)];
       __GHOST_END(sf2);
       __ghost(in_range_shift_extend, "i, 1, 0..n, 0, n-1, 1");

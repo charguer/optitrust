@@ -38,7 +38,7 @@ void var_wrong(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("_Uninit(&x ~> Cell)");
+    __smodifies("&x ~> UninitCell");
     __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
     x = 3;
     t[MINDEX1(3, i)] = x;

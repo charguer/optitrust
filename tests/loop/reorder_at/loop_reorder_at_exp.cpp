@@ -16,8 +16,8 @@ void f1(int* y) {
       x++;
     }
     __ghost(swap_groups,
-            "outer_range := 0..4, inner_range := 0..4, items := fun b, c -> "
-            "&y[MINDEX2(4, 4, b, c)] ~> Cell");
+            "outer_range := 0..4, inner_range := 0..4, items := fun (b: int) "
+            "(c: int) -> &y[MINDEX2(4, 4, b, c)] ~> Cell");
     for (int c = 0; c < 4; c++) {
       __strict();
       __xmodifies("for b in 0..4 -> &y[MINDEX2(4, 4, b, c)] ~> Cell");
@@ -28,8 +28,8 @@ void f1(int* y) {
       }
     }
     __ghost(swap_groups,
-            "outer_range := 0..4, inner_range := 0..4, items := fun c, b -> "
-            "&y[MINDEX2(4, 4, b, c)] ~> Cell");
+            "outer_range := 0..4, inner_range := 0..4, items := fun (c: int) "
+            "(b: int) -> &y[MINDEX2(4, 4, b, c)] ~> Cell");
     for (int b = 0; b < 4; b++) {
       __strict();
       __smodifies("&z ~> Cell");
@@ -45,7 +45,7 @@ void f2(float* A, float* B, int m, int n, int p) {
   float* const sum = (float*)malloc(MSIZE2(m, n) * sizeof(float));
   for (int i = 0; i < m; i++) {
     __strict();
-    __xwrites("for _v1 in 0..n -> &sum[MINDEX2(m, n, i, _v1)] ~> Cell");
+    __xwrites("for j in 0..n -> &sum[MINDEX2(m, n, i, j)] ~> Cell");
     for (int j = 0; j < n; j++) {
       __strict();
       __xwrites("&sum[MINDEX2(m, n, i, j)] ~> Cell");
@@ -67,24 +67,23 @@ void f2(float* A, float* B, int m, int n, int p) {
         __sreads("A ~> Matrix2(m, p)");
         __sreads("B ~> Matrix2(p, n)");
         __xmodifies("&sum[MINDEX2(m, n, i, j)] ~> Cell");
-        __ghost(matrix2_ro_focus, "M := A, i := i, j := k");
-        __ghost(matrix2_ro_focus, "M := B, i := k, j := j");
+        __ghost(ro_matrix2_focus, "matrix := A, i := i, j := k");
+        __ghost(ro_matrix2_focus, "matrix := B, i := k, j := j");
         sum[MINDEX2(m, n, i, j)] +=
             A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
-        __ghost(matrix2_ro_unfocus, "M := A");
-        __ghost(matrix2_ro_unfocus, "M := B");
+        __ghost(ro_matrix2_unfocus, "matrix := A");
+        __ghost(ro_matrix2_unfocus, "matrix := B");
       }
     }
   }
   for (int i = 0; i < m; i++) {
     __strict();
     __xconsumes("for j in 0..n -> &sum[MINDEX2(m, n, i, j)] ~> Cell");
-    __xproduces(
-        "_Uninit(for _v1 in 0..n -> &sum[MINDEX2(m, n, i, _v1)] ~> Cell)");
+    __xproduces("for _v1 in 0..n -> &sum[MINDEX2(m, n, i, _v1)] ~> UninitCell");
     for (int j = 0; j < n; j++) {
       __strict();
       __xconsumes("&sum[MINDEX2(m, n, i, j)] ~> Cell");
-      __xproduces("_Uninit(&sum[MINDEX2(m, n, i, j)] ~> Cell)");
+      __xproduces("&sum[MINDEX2(m, n, i, j)] ~> UninitCell");
       sum[MINDEX2(m, n, i, j)]++;
     }
   }

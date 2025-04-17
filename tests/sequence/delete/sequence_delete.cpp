@@ -28,7 +28,7 @@ void dead_code() {
   for (int i = 0; i < 2; i++) {
     for (int j = 0; j < 3; j++) {
       __strict();
-      __smodifies("_Uninit(&z ~> Cell)");
+      __smodifies("&z ~> UninitCell");
       z = i + j;
     }
 

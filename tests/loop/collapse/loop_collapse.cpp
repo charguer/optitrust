@@ -32,7 +32,7 @@ void from_zero_contract(int* t, int* u, int n, int m) {
     __xwrites("for j in 0..m -> &t[MINDEX2(n, m, i, j)] ~> Cell");
     for (int j = 0; j < m; j++) {
       __xwrites("&t[MINDEX2(n, m, i, j)] ~> Cell");
-      __GHOST_BEGIN(f, matrix2_ro_focus, "u, i, j");
+      __GHOST_BEGIN(f, ro_matrix2_focus, "u, i, j");
       t[MINDEX2(n, m, i, j)] = u[MINDEX2(n, m, i, j)];
       __GHOST_END(f);
     }

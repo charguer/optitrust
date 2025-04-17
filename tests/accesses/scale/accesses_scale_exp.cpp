@@ -2,6 +2,7 @@
 
 void test_var() {
   __pure();
+  __ghost(to_prove, "P := __is_true(5. != 0)");
   double x = 0. * 5.;
   __ghost(to_prove, "P := __is_true(3. != 0)");
   const double z = 1. * 3.;

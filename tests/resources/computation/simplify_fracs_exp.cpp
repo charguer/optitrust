@@ -11,7 +11,7 @@ __ghost_ret simplify_fracs() {
   __consumes("H2: _RO(h - f, H)");
   __consumes("H3: _RO(g, H)");
   __produces("H: _RO(h, H)");
-  __ghost(noop, "");
+  __ghost(noop);
 }
 
 __ghost_ret two_base_res() {
@@ -25,5 +25,5 @@ __ghost_ret two_base_res() {
   __consumes("H2g: _RO(g - f, H2)");
   __produces("H1f: _RO(f, H1)");
   __produces("H2g: _RO(g, H2)");
-  __ghost(noop, "");
+  __ghost(noop);
 }

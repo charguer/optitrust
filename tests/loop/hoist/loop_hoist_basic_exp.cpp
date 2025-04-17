@@ -7,8 +7,8 @@ void f(int* t, int* u) {
   int* const z_step = (int*)malloc(MSIZE1(10) * sizeof(int));
   for (int i = 0; i < 10; i++) {
     __strict();
-    __xmodifies("_Uninit(&z_step[MINDEX1(10, i)] ~> Cell)");
-    __xmodifies("_Uninit(&x_step[MINDEX1(10, i)] ~> Cell)");
+    __xmodifies("&z_step[MINDEX1(10, i)] ~> UninitCell");
+    __xmodifies("&x_step[MINDEX1(10, i)] ~> UninitCell");
     __xmodifies("&u[i] ~> Cell");
     __xreads("&t[i] ~> Cell");
     int* const x = &x_step[MINDEX1(10, i)];
@@ -53,7 +53,7 @@ void f2(float* A, float* B, int m, int n, int p) {
       __strict();
       __sreads("A ~> Matrix2(m, p)");
       __sreads("B ~> Matrix2(p, n)");
-      __xmodifies("_Uninit(&sum_step[MINDEX1(n, j)] ~> Cell)");
+      __xmodifies("&sum_step[MINDEX1(n, j)] ~> UninitCell");
       float* const sum = &sum_step[MINDEX1(n, j)];
       sum[MINDEX0()] = 0.f;
       for (int k = 0; k < p; k++) {
@@ -61,11 +61,11 @@ void f2(float* A, float* B, int m, int n, int p) {
         __smodifies("sum ~> Matrix0()");
         __sreads("A ~> Matrix2(m, p)");
         __sreads("B ~> Matrix2(p, n)");
-        __ghost(matrix2_ro_focus, "M := A, i := i, j := k");
-        __ghost(matrix2_ro_focus, "M := B, i := k, j := j");
+        __ghost(ro_matrix2_focus, "matrix := A, i := i, j := k");
+        __ghost(ro_matrix2_focus, "matrix := B, i := k, j := j");
         sum[MINDEX0()] += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
-        __ghost(matrix2_ro_unfocus, "M := A");
-        __ghost(matrix2_ro_unfocus, "M := B");
+        __ghost(ro_matrix2_unfocus, "matrix := A");
+        __ghost(ro_matrix2_unfocus, "matrix := B");
       }
       sum[MINDEX0()]++;
     }

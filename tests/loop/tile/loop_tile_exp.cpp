@@ -45,8 +45,10 @@ void f() {
 void matrix_copy(int* D, int* S) {
   __modifies("D ~> Matrix1(1024)");
   __reads("S ~> Matrix1(1024)");
+  __ghost(assert_prop, "P := __is_true(1024 == 256 * 4)",
+          "tile_div_check_i <- proof");
   __ghost(tile_divides,
-          "tile_count := 256, tile_size := 4, size := 1024, items := fun i -> "
+          "div_check := tile_div_check_i, items := fun (i: int) -> "
           "&D[MINDEX1(1024, i)] ~> Cell");
   for (int bi = 0; bi < 256; bi++) {
     __strict();
@@ -57,15 +59,14 @@ void matrix_copy(int* D, int* S) {
       __sreads("S ~> Matrix1(1024)");
       __xmodifies("&D[MINDEX1(1024, bi * 4 + i)] ~> Cell");
       __ghost(tiled_index_in_range,
-              "tile_index := bi, index := i, tile_count := 256, tile_size := "
-              "4, size := 1024");
+              "tile_index := bi, index := i, div_check := tile_div_check_i");
       const __ghost_fn focus =
-          __ghost_begin(matrix1_ro_focus, "M := S, i := bi * 4 + i");
+          __ghost_begin(ro_matrix1_focus, "matrix := S, i := bi * 4 + i");
       D[MINDEX1(1024, bi * 4 + i)] = S[MINDEX1(1024, bi * 4 + i)];
       __ghost_end(focus);
     }
   }
   __ghost(untile_divides,
-          "tile_count := 256, tile_size := 4, size := 1024, items := fun i -> "
+          "div_check := tile_div_check_i, items := fun (i: int) -> "
           "&D[MINDEX1(1024, i)] ~> Cell");
 }

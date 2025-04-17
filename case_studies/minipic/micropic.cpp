@@ -101,15 +101,15 @@ void corner_interpolation_coeff(vect pos, double* r) {
   const double cZ = 1. + -1. * rZ;
   // these ghosts will not be necessary once we have autofocus on array accesses
   __ghost([&] {
-    __consumes("_Uninit(r ~> Matrix1(nbCorners))");
-    __produces("_Uninit(&r[MINDEX1(8, 0)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 1)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 2)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 3)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 4)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 5)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 6)] ~> Cell)");
-    __produces("_Uninit(&r[MINDEX1(8, 7)] ~> Cell)");
+    __consumes("r ~> UninitMatrix1(nbCorners)");
+    __produces("&r[MINDEX1(8, 0)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 1)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 2)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 3)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 4)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 5)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 6)] ~> UninitCell");
+    __produces("&r[MINDEX1(8, 7)] ~> UninitCell");
     __admitted();
   }, "");
   r[MINDEX1(8, 0)] = cX * cY * cZ;
@@ -254,12 +254,12 @@ int simulate_core(double deltaT,
   __modifies("nextBagSize ~> Matrix1(nbCells)");
   __reads("fieldAtCorners ~> Matrix1(nbCorners)");
 
-  __GHOST_BEGIN(focus1, matrix1_ro_focus, "curBagSize, idCell");
+  __GHOST_BEGIN(focus1, ro_matrix1_focus, "curBagSize, idCell");
   const int nbParts = curBagSize[MINDEX1(nbCells, idCell)];
   // __ghost(assume, "in_range(nbParts, 0..maxPartsPerCell)");
   for (int idPart = 0; idPart < nbParts; idPart++) {
     __ghost(assume, "in_range(idPart, 0..maxPartsPerCell)"); // TODO: remove
-    __GHOST_BEGIN(focus2, matrix2_ro_focus, "curBag, idCell, idPart");
+    __GHOST_BEGIN(focus2, ro_matrix2_focus, "curBag, idCell, idPart");
     const particle p = curBag[MINDEX2(nbCells, maxPartsPerCell, idCell, idPart)];
     __GHOST_END(focus2);
 

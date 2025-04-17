@@ -45,11 +45,11 @@ void f2(float* A, float* B, int m, int n, int p) {
         __sreads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
         __smodifies("&sum ~> Cell");
 
-        __ghost(matrix2_ro_focus, "A, i, k");
-        __ghost(matrix2_ro_focus, "B, k, j");
+        __ghost(ro_matrix2_focus, "A, i, k");
+        __ghost(ro_matrix2_focus, "B, k, j");
         sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
-        __ghost(matrix2_ro_unfocus, "A");
-        __ghost(matrix2_ro_unfocus, "B");
+        __ghost(ro_matrix2_unfocus, "A");
+        __ghost(ro_matrix2_unfocus, "B");
       }
       sum++;
     }

@@ -84,9 +84,9 @@ let trm ?(style = default_style ()) ?(msg : string = "") (t : trm) : unit =
         prt "WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term\n";
         t
       end else begin
-        C_encoding.(cfeatures_intro (style_of_output_style style)) t
+        C_encoding.(encode_to_c (style_of_output_style style)) t
       end
-    end else C_encoding.(meta_intro ~skip_var_ids:true (style_of_output_style style)) t
+    end else C_encoding.(encode_meta ~skip_var_ids:true (style_of_output_style style)) t
   in
   let st =
     match style.print with

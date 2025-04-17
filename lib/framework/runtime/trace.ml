@@ -137,6 +137,15 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
 (*                             File input                                     *)
 (******************************************************************************)
 
+let update_use_resources_with_models_flag (ast: trm): unit =
+  let rec check_models_enabled (t: trm) =
+    match t.desc with
+    | Trm_seq (seq, _) -> List.exists check_models_enabled (Mlist.to_list seq)
+    | Trm_predecl (var, _) when var.name = "__OPTITRUST_ENABLE_MODELS" -> true
+    | _ -> false
+  in
+  Flags.use_resources_with_models := check_models_enabled ast
+
 (** A parser should read a filename and return:
    - A header to copy in the produced file (typically a list of '#include' for C)
    - The OptiTrust AST of the rest of the file *)
@@ -169,8 +178,11 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
 
   if not persistant then Unix.unlink ser_filename;
 
+  (* LATER: It is weird to do this here, but we must set this flag before decoding *)
+  update_use_resources_with_models_flag ast;
+
   (* Possibly perform the decoding *)
-  let ast = if !Flags.bypass_cfeatures then Scope_computation.infer_var_ids ast else C_encoding.cfeatures_elim ast in
+  let ast = if !Flags.bypass_cfeatures then Scope_computation.infer_var_ids ast else C_encoding.decode_from_c ast in
   (* Return the header and the ast *)
   (header, ast)
 
@@ -532,14 +544,14 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
     let ast =
       if style.decode then begin
         try
-          C_encoding.cfeatures_intro fromto_style ast
+          C_encoding.encode_to_c fromto_style ast
         with
         | Scope_computation.InvalidVarId msg ->
           Tools.warn "output_prog could not decode due do invalid var ids: %s" msg;
           (* TODO: add comment in code or in trace by returning info to callers *)
-          C_encoding.meta_intro fromto_style ast
+          C_encoding.encode_meta fromto_style ast
       end else
-        C_encoding.meta_intro fromto_style ast
+        C_encoding.encode_meta fromto_style ast
       in
     (* Print the code into file, using the specified style *)
     let cstyle = match style.print with
@@ -1121,7 +1133,7 @@ and recompute_resources_on_ast ?(missing_types = false) () : unit =
   let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
   (* Compute a typed AST *)
 
-  (* Printf.printf "%s\n" (AstC_to_c.ast_to_string ~style (Ast_fromto_AstC.(meta_intro ~skip_var_ids:true (style_of_custom_style custom_style)) t)); *)
+  (* Printf.printf "%s\n" (AstC_to_c.ast_to_string ~style (Ast_fromto_AstC.(encode_meta ~skip_var_ids:true (style_of_custom_style custom_style)) t)); *)
   try
     the_trace.cur_ast <- Resource_computation.trm_recompute_resources ~missing_types t;
     the_trace.cur_ast_typed <- true;
@@ -1816,9 +1828,9 @@ let check_exit ~(line:int) : unit (* may not return *) =
    call to script_cpp, and obtaining the end position of this construction. *)
 let check_exit_at_end () : unit (* may not return *) =
   if  Flags.is_targetting_line() then begin
-    close_smallstep_if_needed();
     if !Flags.only_big_steps
-      then close_bigstep_if_needed();
+      then close_bigstep_if_needed()
+      else close_smallstep_if_needed();
     produce_output_and_exit()
   end
 

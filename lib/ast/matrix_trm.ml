@@ -38,7 +38,7 @@ let mindex (dims : trms) (indices : trms) : trm =
 (** [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t] *)
 let mindex_inv (t : trm) : (trms * trms) option =
   match t.desc with
-  | Trm_apps (f, dims_and_indices, _) ->
+  | Trm_apps (f, dims_and_indices, _, _) ->
     let n = List.length dims_and_indices in
     if (n mod 2 = 0 && n/2 <= max_nb_dims) then
       begin match f.desc with
@@ -104,7 +104,7 @@ let get ?(typ: typ option) (base : trm) (dims : trms) (indices : trms) : trm =
 (** [get_inv t]: gets the trm inside a get oepration on an access. *)
 let get_inv (t : trm) : (trm * trms * trms) option =
   match t.desc with
-  | Trm_apps (_f,[base], _) when is_get_operation t -> access_inv base
+  | Trm_apps (_f,[base], _, _) when is_get_operation t -> access_inv base
   | _ -> None
 
 (** [set base dims indices arg]: creates a set operation on which the address where the write is done
@@ -117,7 +117,7 @@ let set (base : trm) (dims : trms) (indices : trms) (arg : trm) : trm =
 (** [set_inv t]: returns the arguments used in the function [set]. *)
 let set_inv (t : trm) : (trm * trms * trms * trm) option =
   match t.desc with
-  | Trm_apps (_f, [addr;v], _) when is_set_operation t ->
+  | Trm_apps (_f, [addr;v], _, _) when is_set_operation t ->
     begin match access_inv addr with
     | Some (base, dims, indices) -> Some (base, dims, indices, v)
     | None -> None
@@ -169,16 +169,14 @@ let alloc_inv (t : trm) : (typ * trms * bool) option =
 let free (t : trm) : trm = trm_delete t
 let free_inv (t : trm) : trm option = trm_delete_inv t
 
-let mindex_contiguous_vars = Tools.String_map.of_seq ([""; "_uninit"; "_ro"] |> List.to_seq |> Seq.map (fun suffix ->
-  suffix, Array.init 5 (fun n -> toplevel_var (sprintf "mindex%d_contiguous%s" n suffix))
-))
+let ghost_mindex_unfold matrix dims res_pattern =
+  ghost_call (toplevel_var (sprintf "mindex%d_unfold" (List.length dims))) (("H", res_pattern) :: ("matrix", matrix) :: List.mapi (fun i dim -> sprintf "n%d" (i+1), dim) dims)
 
-let mindex_contiguous_rev_vars = Tools.String_map.of_seq ([""; "_uninit"; "_ro"] |> List.to_seq |> Seq.map (fun suffix ->
-  suffix, Array.init 5 (fun n -> toplevel_var (sprintf "mindex%d_contiguous%s_rev" n suffix))
-))
+let ghost_mindex_fold matrix dims res_pattern =
+  ghost_call (toplevel_var (sprintf "mindex%d_fold" (List.length dims))) (("H", res_pattern) :: ("matrix", matrix) :: List.mapi (fun i dim -> sprintf "n%d" (i+1), dim) dims)
 
-let mindex_contiguous_ghost_call n suffix args =
-  ghost_call (Array.get (Tools.String_map.find suffix mindex_contiguous_vars) n) args
+let ghost_ro_mindex_unfold matrix dims res_pattern =
+  ghost_call (toplevel_var (sprintf "ro_mindex%d_unfold" (List.length dims))) (("H", res_pattern) :: ("matrix", matrix) :: List.mapi (fun i dim -> sprintf "n%d" (i+1), dim) dims)
 
-let mindex_contiguous_rev_ghost_call n suffix args =
-  ghost_call (Array.get (Tools.String_map.find suffix mindex_contiguous_rev_vars) n) args
+let ghost_ro_mindex_fold matrix dims res_pattern =
+  ghost_call (toplevel_var (sprintf "ro_mindex%d_fold" (List.length dims))) (("H", res_pattern) :: ("matrix", matrix) :: List.mapi (fun i dim -> sprintf "n%d" (i+1), dim) dims)

@@ -2,7 +2,7 @@
 
 void pair(int* M) {
   __reads("M ~> Matrix1(10)");
-  __GHOST_BEGIN(f, matrix1_ro_focus, "M, 2");
+  __GHOST_BEGIN(f, ro_matrix1_focus, "M, 2");
   int k1 = M[MINDEX1(10, 2)];
   int k2 = M[MINDEX1(10, 2)];
   int k3 = M[MINDEX1(10, 2)];
@@ -10,20 +10,22 @@ void pair(int* M) {
   __GHOST_END(f);
 }
 
+__DECL(Triv, "int -> Prop");
+
 __GHOST(trivial_init) {
   __requires("k: int");
-  __ensures("k = k");
+  __ensures("triv: Triv(k)");
   __admitted();
 }
 
 __GHOST(trivial_change) {
-  __requires("k: int, old_k: int, old_k = old_k");
-  __ensures("k = k");
+  __requires("k: int, old_k: int, old_triv: Triv(old_k)");
+  __ensures("triv: Triv(k)");
   __admitted();
 }
 
 void req_triv(int k) {
-  __requires("k = k");
+  __requires("triv: Triv(k)");
 }
 
 void pure_facts() {

@@ -94,9 +94,9 @@ let code_print_width = ref 80
    (* TODO: could it be true by default? *)
 let use_light_diff : bool ref = ref false
 
-(** [bypass_cfeatures]: flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them.
-   It affects the behavior of the parsing function [c_parser] to bypass [cfeatures_elim].
-   It affects the behavior of the printipng function [output_prog] to bypass [cfeatures_intro].
+(** [bypass_cfeatures]: flag used for debugging the [decode_from_c/intro] functions, by bypassing them.
+   It affects the behavior of the parsing function [c_parser] to bypass [decode_from_c].
+   It affects the behavior of the printipng function [output_prog] to bypass [encode_to_c].
    Note: this option is orthogonal to [print_optitrust_syntax]; beware, however, that it makes
    no sense to print encoded terms without [print_optitrust_syntax] activated. *)
 let bypass_cfeatures : bool ref = ref false
@@ -127,6 +127,9 @@ let reparse_between_steps = ref false
 
 (** [recompute_resources_between_steps]: always recompute resources between two steps *)
 let recompute_resources_between_steps = ref false
+
+(** [use_resources_with_models]: use resources of the form "p ~~> v" instead of "p ~> Cell". In the long term, this flag should disappear as we should be able to unify those two modes into one, using clever syntactic sugar and unification features. *)
+let use_resources_with_models = ref false
 
 (** [ignore_serialized] disables the read of serialized AST saved after parsing *)
 let ignore_serialized = ref false
@@ -224,13 +227,15 @@ let string_to_steps_selector (s:string) : steps_selector =
   | "all" -> Steps_all
   | _ -> failwith "invalid step selector, should be one of 'none', 'script', 'important', 'effectful', 'all'"
 
-(* Options to control which steps are exported in the trace. *)
+(* Options to control which steps are exported in the trace.
+   Be careful that a step not exported cannot be viewed even in step diff mode. *)
 let save_steps : steps_selector option ref = ref None
 
 let get_save_steps (): steps_selector =
   match !save_steps with
   | Some save_steps -> save_steps
   | None when request_trace () -> Steps_all
+  | None when is_targetting_line () -> Steps_script
   | None -> Steps_none
 
 let process_save_steps (s: string) =

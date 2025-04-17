@@ -28,20 +28,19 @@ void unused_reads(float* M1, float* M2, int n) {
 
 void produced_uninit_used_ro(int* t2) {
   __consumes("t2 ~> Matrix1(10)");
-  __produces("_Uninit(t2 ~> Matrix1(10))");
+  __produces("t2 ~> UninitMatrix1(10)");
 
   for (int i = 0; i < 10; i++) {
     __strict();
     __xconsumes("&t2[MINDEX1(10, i)] ~> Cell");
-    __xproduces("_Uninit(&t2[MINDEX1(10, i)] ~> Cell)");
+    __xproduces("&t2[MINDEX1(10, i)] ~> UninitCell");
 
     int x = t2[MINDEX1(10, i)];
   }
 
   for (int i = 0; i < 10; i++) {
     __strict();
-    __xconsumes("_Uninit(&t2[MINDEX1(10, i)] ~> Cell)");
-    __xproduces("&t2[MINDEX1(10, i)] ~> Cell");
+    __xwrites("&t2[MINDEX1(10, i)] ~> Cell");
 
     t2[MINDEX1(10, i)] = 2;
   }
@@ -49,7 +48,7 @@ void produced_uninit_used_ro(int* t2) {
   for (int i = 0; i < 10; i++) {
     __strict();
     __xconsumes("&t2[MINDEX1(10, i)] ~> Cell");
-    __xproduces("_Uninit(&t2[MINDEX1(10, i)] ~> Cell)");
+    __xproduces("&t2[MINDEX1(10, i)] ~> UninitCell");
 
     t2[MINDEX1(10, i)] = 2;
   }
@@ -99,7 +98,7 @@ void useless_pure_facts(int n, int i) {
   for (int j = 0; j < 100; j++) {
     __strict();
     __requires("k: int");
-    __invariant("in_range(k, 0..n), 0 <= k, 1 = 1");
+    __srequires("in_range(k, 0..n), 0 <= k, 1 = 1");
     __ghost(assert_in_range, "k, n");
   }
 }

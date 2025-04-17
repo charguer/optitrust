@@ -16,11 +16,11 @@ void mm(float* C, float* A, float* B, int m, int n, int p) {
 
       float sum = 0.0f;
       for (int k = 0; k < p; k++) {
-        __scoped_ghost(matrix2_ro_focus, "A, i, k");
-        __scoped_ghost(matrix2_ro_focus, "B, k, j");
+        __scoped_ghost(ro_matrix2_focus, "A, i, k");
+        __scoped_ghost(ro_matrix2_focus, "B, k, j");
         sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
-        // __ghost(matrix2_ro_unfocus, "A");
-        // __ghost(matrix2_ro_unfocus, "B");
+        // __ghost(ro_matrix2_unfocus, "A");
+        // __ghost(ro_matrix2_unfocus, "B");
       }
 
       C[MINDEX2(m, n, i, j)] = sum;
@@ -54,8 +54,8 @@ void mm1024(float* C, float* A, float* B) {
 
       float sum = 0.0f;
       for (int k = 0; k < 1024; k++) {
-        __scoped_ghost(matrix2_ro_focus, "A, i, k");
-        __scoped_ghost(matrix2_ro_focus, "B, k, j");
+        __scoped_ghost(ro_matrix2_focus, "A, i, k");
+        __scoped_ghost(ro_matrix2_focus, "B, k, j");
         sum += A[MINDEX2(1024, 1024, i, k)] * B[MINDEX2(1024, 1024, k, j)];
       }
 
@@ -92,8 +92,8 @@ void mm1024(float* C, float* A, float* B) {
           float sum = 0.f;
           for (int bk = 0; bk < 256; bk++) {
             for (int k = 0; k < 4; k++) {
-              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-              __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+              __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(ro_matrix2_focus, "B, bk * 4 + k, bj * 32 + j");
               sum += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
             }
           }
@@ -124,8 +124,8 @@ void mm1024(float* C, float* A, float* B) {
           sum[j] = 0.f;
           for (int bk = 0; bk < 256; bk++) {
             for (int k = 0; k < 4; k++) {
-              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-              __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+              __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(ro_matrix2_focus, "B, bk * 4 + k, bj * 32 + j");
               sum[j] += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
             }
           }
@@ -162,8 +162,8 @@ TODO: minimize contracts?
 
             for (int bk = 0; bk < 256; bk++) {
               for (int k = 0; k < 4; k++) {
-                __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-                __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+                __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + k");
+                __scoped_ghost(ro_matrix2_focus, "B, bk * 4 + k, bj * 32 + j");
                 sum[j] += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
               }
             }
@@ -196,8 +196,8 @@ TODO: minimize contracts?
             __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
             for (int k = 0; k < 4; k++) {
-              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-              __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+              __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(ro_matrix2_focus, "B, bk * 4 + k, bj * 32 + j");
               sum[j] += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
             }
           }
@@ -225,8 +225,8 @@ TODO: minimize contracts?
               __xmodifies("&sum[j] ~> Cell");
               __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-              __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+              __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(ro_matrix2_focus, "B, bk * 4 + k, bj * 32 + j");
               sum[j] += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
             }
           }
@@ -288,8 +288,8 @@ TODO: minimize contracts?
                 __xmodifies("&sum[j] ~> Cell");
                 __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-                __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-                __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+                __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + k");
+                __scoped_ghost(ro_matrix2_focus, "B, bk * 4 + k, bj * 32 + j");
                 sum[j] += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
               }
             }
@@ -338,8 +338,8 @@ TODO: minimize contracts?
               __xmodifies("&sum[i][j] ~> Cell");
               __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-              __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+              __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(ro_matrix2_focus, "B, bk * 4 + k, bj * 32 + j");
               sum[i][j] += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
             }
           }
@@ -387,8 +387,8 @@ TODO: minimize contracts?
               __xmodifies("&sum[i][j] ~> Cell");
               __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-              __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+              __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(ro_matrix2_focus, "B, bk * 4 + k, bj * 32 + j");
               sum[i][j] += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
             }
           }
@@ -440,8 +440,8 @@ TODO: minimize contracts?
               __xmodifies("&sum[i][j] ~> Cell");
               __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-              __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+              __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(ro_matrix2_focus, "B, bk * 4 + k, bj * 32 + j");
               sum[i][j] += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
             }
           }
@@ -524,8 +524,8 @@ TODO: minimize contracts?
               __xmodifies("&sum[i][j] ~> Cell");
               __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-              __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+              __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(ro_matrix2_focus, "B, bk * 4 + k, bj * 32 + j");
               pB[bj][bk][k][j] = B[bk * 4 + k][bj * 32 + j];
               sum[i][j] += A[bi * 32 + i][bk * 4 + k] * pB[bj][bk][k][j];
             }
@@ -586,7 +586,7 @@ TODO: minimize contracts?
           __xmodifies("&pB[bj][bk][k][j] ~> Cell");
           __xreads("B ~> Matrix2(1024, 1024))");
 
-          __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+          __scoped_ghost(ro_matrix2_focus, "B, bk * 4 + k, bj * 32 + j");
           pB[bj][bk][k][j] = B[bk * 4 + k][bj * 32 + j];
         }
       }
@@ -655,7 +655,7 @@ TODO: minimize contracts?
               __xreads("A ~> Matrix2(1024, 1024)");
               __xreads("&pB[bj][bk][k][j] ~> Cell");
 
-              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + k");
               sum[i][j] += A[bi * 32 + i][bk * 4 + k] * pB[bj][bk][k][j];
             }
           }
@@ -713,7 +713,7 @@ TODO: minimize contracts?
               __xreads("A ~> Matrix2(1024, 1024)");
               __xreads("&pB[bj][bk][k][j] ~> Cell");
 
-              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + k");
               s[j] += A[bi * 32 + i][bk * 4 + k] * pB[bj][bk][k][j];
             }
           }
@@ -760,7 +760,7 @@ TODO: minimize contracts?
             __xreads("A ~> Matrix2(1024, 1024)");
             __xreads("&pB[bj][bk][0][j] ~> Cell");
 
-            __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + 0");
+            __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + 0");
             // TODO: need ghosts to see matrix as flat array
             s[j] += A[1024 * (bi * 32 + i) + bk * 4 + 0] *
                     pB[32768 * bj + 128 * bk + 32 * 0 + j];
@@ -770,7 +770,7 @@ TODO: minimize contracts?
             __xreads("A ~> Matrix2(1024, 1024)");
             __xreads("&pB[bj][bk][1][j] ~> Cell");
 
-            __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + 1");
+            __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + 1");
             // TODO: need ghosts to see matrix as flat array
             s[j] += A[1024 * (bi * 32 + i) + bk * 4 + 1] *
                     pB[32768 * bj + 128 * bk + 32 * 1 + j];
@@ -780,7 +780,7 @@ TODO: minimize contracts?
             __xreads("A ~> Matrix2(1024, 1024)");
             __xreads("&pB[bj][bk][2][j] ~> Cell");
 
-            __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + 2");
+            __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + 2");
             // TODO: need ghosts to see matrix as flat array
             s[j] += A[1024 * (bi * 32 + i) + bk * 4 + 2] *
                     pB[32768 * bj + 128 * bk + 32 * 2 + j];
@@ -790,7 +790,7 @@ TODO: minimize contracts?
             __xreads("A ~> Matrix2(1024, 1024)");
             __xreads("&pB[bj][bk][3][j] ~> Cell");
 
-            __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + 3");
+            __scoped_ghost(ro_matrix2_focus, "A, bi * 32 + i, bk * 4 + 3");
             // TODO: need ghosts to see matrix as flat array
             s[j] += A[1024 * (bi * 32 + i) + bk * 4 + 3] *
                     pB[32768 * bj + 128 * bk + 32 * 3 + j];

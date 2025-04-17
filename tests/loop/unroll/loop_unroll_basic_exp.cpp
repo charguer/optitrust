@@ -32,27 +32,23 @@ void step() {
 
 void iter_contract(int* M) {
   __modifies("M ~> Matrix1(3)");
-  __ghost(
-      [&]() {
-        __consumes("M ~> Matrix1(3)");
-        __produces("&M[MINDEX1(3, 0)] ~> Cell");
-        __produces("&M[MINDEX1(3, 1)] ~> Cell");
-        __produces("&M[MINDEX1(3, 2)] ~> Cell");
-        __admitted();
-        __with("justif := unroll");
-      },
-      "");
+  __ghost([&]() {
+    __consumes("M ~> Matrix1(3)");
+    __produces("&M[MINDEX1(3, 0)] ~> Cell");
+    __produces("&M[MINDEX1(3, 1)] ~> Cell");
+    __produces("&M[MINDEX1(3, 2)] ~> Cell");
+    __admitted();
+    __with("justif := unroll");
+  });
   M[MINDEX1(3, 0)] = 0;
   M[MINDEX1(3, 1)] = 0;
   M[MINDEX1(3, 2)] = 0;
-  __ghost(
-      [&]() {
-        __consumes("&M[MINDEX1(3, 0)] ~> Cell");
-        __consumes("&M[MINDEX1(3, 1)] ~> Cell");
-        __consumes("&M[MINDEX1(3, 2)] ~> Cell");
-        __produces("M ~> Matrix1(3)");
-        __admitted();
-        __with("justif := roll");
-      },
-      "");
+  __ghost([&]() {
+    __consumes("&M[MINDEX1(3, 0)] ~> Cell");
+    __consumes("&M[MINDEX1(3, 1)] ~> Cell");
+    __consumes("&M[MINDEX1(3, 2)] ~> Cell");
+    __produces("M ~> Matrix1(3)");
+    __admitted();
+    __with("justif := roll");
+  });
 }

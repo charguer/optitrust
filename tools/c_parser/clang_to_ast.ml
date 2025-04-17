@@ -709,12 +709,14 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
 
   | Call {callee = f; args = el} ->
     let tf = tr_expr f in
+    let el = List.filter (fun (e : expr) -> match e.desc with DefaultArg -> false | _ -> true) el in
     (* DEPREACTED let tf = trm_add_cstyle_clang_cursor (cursor_of_node f) tf in*)
     begin match tf.desc with
     | Trm_var x when var_has_name "exact_div" x ->
       begin match List.map tr_expr el with
       | [n; b] ->
-        trm_exact_div ?loc ?typ n b
+        let typ = Option.unsome_or_else typ (fun () -> failwith "%s: Missing type on exact_div" (loc_to_string loc)) in
+        trm_exact_div ?loc ~typ n b
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: 'exact_div' expects two arguments"
       end
     | Trm_var x when var_has_name "operator=" x ->
@@ -997,7 +999,7 @@ and tr_function_decl ?loc ({linkage = _; function_type = t; nested_name_specifie
         | Some { non_variadic; _ } -> non_variadic
       in
       let args = List.combine (List.map
-        (fun {decoration = _; desc = {qual_type = _; name = n; default = _}} -> (name_to_var n))
+        (fun {decoration = _; desc = {qual_type = _; name = n; default = _}} -> if n = "" then new_var "" else name_to_var n)
         params) args_t
       in
       List.iter (fun (y, ty) -> ctx_var_add y ty) args;
@@ -1128,39 +1130,39 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     let def_access = match k with
       | Struct -> Access_public
       | _ -> Access_unspecified
-      in
+    in
     let access_spec = ref def_access in
     let prod_list = List.fold_left (fun acc (d : decl) ->
-    let loc = loc_of_node d in
-    match d with
-    | {decoration = _; desc = Field {name = fn; qual_type = q; attributes = al;_}} ->
-      let ft = tr_qual_type ?loc q in
-      let al = List.map (tr_attribute loc) al in
-      let ty = { ft with annot = { ft.annot with trm_annot_attributes = al } } in
-      acc @ [(Record_field (fn, ty), !access_spec)]
-    | {decoration = _; desc = CXXMethod _; _} ->
-      let tdl = tr_decl ~in_class_decl d in
-      acc @ [(Record_method tdl, !access_spec)]
-    | {decoration = _; desc = Constructor _; _} ->
-      let tdl = tr_decl ~in_class_decl d in
-      acc @ [(Record_method tdl, !access_spec)]
-    | {decoration = _; desc = Destructor _; _} ->
-      let tdl = tr_decl ~in_class_decl d in
-      acc @ [(Record_method tdl, !access_spec)]
-    | {decoration = _; desc = AccessSpecifier (spec); _} ->
-      begin match spec with
-      | CXXPublic -> access_spec := Access_public; acc
-      | CXXPrivate -> access_spec := Access_private; acc
-      | CXXProtected -> access_spec := Access_protected; acc
-      | _ -> loc_fail loc "Clang_to_astRawC.tr_decl_list: unkwown access specifier"
-      end
-    | _ -> Tools.debug "Failing from here";
-      loc_fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in record declaration"
-  ) [] fl in
+      let loc = loc_of_node d in
+      match d with
+      | {decoration = _; desc = Field {name = fn; qual_type = q; attributes = al;_}} ->
+        let ft = tr_qual_type ?loc q in
+        let al = List.map (tr_attribute loc) al in
+        let ty = { ft with annot = { ft.annot with trm_annot_attributes = al } } in
+        acc @ [(Record_field (fn, ty), !access_spec)]
+      | {decoration = _; desc = CXXMethod _; _} ->
+        let tdl = tr_decl ~in_class_decl d in
+        acc @ [(Record_method tdl, !access_spec)]
+      | {decoration = _; desc = Constructor _; _} ->
+        let tdl = tr_decl ~in_class_decl d in
+        acc @ [(Record_method tdl, !access_spec)]
+      | {decoration = _; desc = Destructor _; _} ->
+        let tdl = tr_decl ~in_class_decl d in
+        acc @ [(Record_method tdl, !access_spec)]
+      | {decoration = _; desc = AccessSpecifier (spec); _} ->
+        begin match spec with
+        | CXXPublic -> access_spec := Access_public; acc
+        | CXXPrivate -> access_spec := Access_private; acc
+        | CXXProtected -> access_spec := Access_protected; acc
+        | _ -> loc_fail loc "Clang_to_astRawC.tr_decl_list: unkwown access specifier"
+        end
+      | _ -> Tools.debug "Failing from here";
+        loc_fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in record declaration"
+    ) [] fl in
     let td = {
-        typedef_name = name_to_typvar rn;
-        typedef_body = Typedef_record prod_list
-        } in
+      typedef_name = name_to_typvar rn;
+      typedef_body = Typedef_record prod_list
+    } in
 
     begin match k with
     | Struct -> trm_add_cstyle Struct (trm_typedef ?loc td)
@@ -1195,39 +1197,42 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
   | _ -> loc_fail loc "Clang_to_astRawC.tr_decl: not implemented" in
      res
 
-(** [Include_map]: module useed for storing inclued files and their AST-s *)
-module Include_map = Map.Make(String)
-type 'a imap = 'a Include_map.t
+(* LATER: We should find a way to capture the tree of includes instead and make this structure recursive *)
+(* We need to group toplevel decls because of a weird encoding of typedef struct. (see tr_decl_list) *)
+type file_decl =
+  | ToplevelDecls of decl list
+  | IncludedFile of string * decl list
 
-(** [filter_out_include filename dl]: filters out all the declarations that are in fact include directives *)
-let filter_out_include (filename : string) (dl : decl list) : ((decl list) imap) * (decl list) =
-  let rec aux (include_map : (decl list) imap) (dl : decl list) =
-    match dl with
-    | [] -> (include_map, [])
-    | d :: dl ->
-      let (include_map, file_decls) = aux include_map dl in
+let tr_file_decl (fd: file_decl): trm list =
+  match fd with
+  | ToplevelDecls d -> tr_decl_list d
+  | IncludedFile (file, dl) ->
+    [trm_set_include file (trm_seq_nomarks (tr_decl_list dl))]
+
+(** [group_and_filter_include filename dl]: group declarations from whitelisted include directives and filters out the rest *)
+(* TODO: Use a blacklist instead would be better but it requires to rebuild the include tree *)
+let group_and_filter_include (filename : string) (dl : decl list) : file_decl list =
+  List.fold_right (fun d acc ->
       let file = file_of_node d in
-      (* keep only project included files and optitrust.h,
-         TODO: use a whitelist instead. *)
-      let is_in_current_dir = Filename.dirname file = Filename.dirname filename in
-      let is_optitrust_h = Filename.basename file = "optitrust.h" in
-      if is_in_current_dir || is_optitrust_h then
-        if file <> filename
-        then
-          (Include_map.update file
-             (fun dlo ->
-                match dlo with
-                | None -> Some [d]
-                | Some dl -> Some (d :: dl)
-             )
-             include_map,
-           file_decls
-
-          )
-        else (include_map, d :: file_decls)
-      else (include_map, file_decls)
-  in
-  aux (Include_map.empty) dl
+      if file = filename then
+        match acc with
+        | ToplevelDecls dl :: tl ->
+          ToplevelDecls (d :: dl) :: tl
+        | _ ->
+          ToplevelDecls [d] :: acc
+      else
+        match acc with
+        | IncludedFile (last_incl_file, decls) :: tl when file = last_incl_file ->
+          IncludedFile (file, d :: decls) :: tl
+        | _ ->
+          let is_in_current_dir = Filename.dirname file = Filename.dirname filename in
+          let basename = Filename.basename file in
+          let is_whitelisted = List.exists ((=) basename) ["optitrust.h"; "optitrust_models.h"; "optitrust_common.h"] in
+          if is_in_current_dir || is_whitelisted then
+            IncludedFile (file, [d]) :: acc
+          else
+            acc
+  ) dl []
 
 (** [tr_ast t]: transalate [t] into OptiTrust AST *)
 let tr_ast (t : translation_unit) : trm =
@@ -1235,27 +1240,20 @@ let tr_ast (t : translation_unit) : trm =
   (* Initialize id_counter *)
   let {decoration = _; desc = {filename = filename; items = dl}} = t in
   verbose_info "tr_ast: translating %s's AST..." filename;
-  let (include_map, file_decls) = filter_out_include filename dl in
+  let file_decls = group_and_filter_include filename dl in
   begin match !dump_clang_ast with
   | None -> ()
   | Some dump_clang_file ->
       let out_ast = open_out dump_clang_file in
-      Include_map.iter
-        (fun h dl ->
-           Printf.fprintf out_ast "(* Include %s: *)\n" h;
-           List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
-             dl
+      List.iter (fun fd -> match fd with
+        | ToplevelDecls d -> List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d)) dl;
+        | IncludedFile (file, dl) ->
+          Printf.fprintf out_ast "(* Include %s: *)\n" file;
+          List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d)) dl;
+          Printf.fprintf out_ast "\n"
         )
-        include_map;
-      Printf.fprintf out_ast "(* Main file: *)\n";
-      List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
         file_decls;
       close_out out_ast;
   end;
   let loc = loc_of_node t in
-  let tinclude_map =
-    Include_map.mapi
-      (fun h dl ->
-         trm_set_include h (trm_seq_nomarks (tr_decl_list dl)))
-      include_map in
-  trm_set_mainfile (trm_seq_nomarks ?loc ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ tr_decl_list file_decls))
+  trm_set_mainfile (trm_seq_nomarks ?loc (List.concat_map tr_file_decl file_decls))

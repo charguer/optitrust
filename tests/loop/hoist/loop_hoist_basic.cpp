@@ -58,11 +58,11 @@ void f2(float* A, float* B, int m, int n, int p) {
       float sum;
       sum = 0.0f;
       for (int k = 0; k < p; k++) {
-        __ghost(matrix2_ro_focus, "A, i, k");
-        __ghost(matrix2_ro_focus, "B, k, j");
+        __ghost(ro_matrix2_focus, "A, i, k");
+        __ghost(ro_matrix2_focus, "B, k, j");
         sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
-        __ghost(matrix2_ro_unfocus, "A");
-        __ghost(matrix2_ro_unfocus, "B");
+        __ghost(ro_matrix2_unfocus, "A");
+        __ghost(ro_matrix2_unfocus, "B");
       }
       sum++;
     }

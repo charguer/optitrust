@@ -6,12 +6,12 @@ void f() {
   int x = 0;
 
   int* const A = CALLOC1(int, 10);
-  __GHOST_BEGIN(focusA, matrix1_ro_focus, "A, 0");
+  __GHOST_BEGIN(focusA, ro_matrix1_focus, "A, 0");
   x += 1;
   x += A[MINDEX1(10, 0)];
   x += 1;
   __GHOST_END(focusA);
-  __GHOST_BEGIN(focusA2, matrix1_ro_focus, "A, 0");
+  __GHOST_BEGIN(focusA2, ro_matrix1_focus, "A, 0");
   x += 1;
   __GHOST_END(focusA2);
   free(A);
@@ -27,8 +27,8 @@ void f() {
   x += 2;
   __GHOST_END(focusBi);
 
-  __GHOST_BEGIN(focusRoBi, group_ro_focus, "i := 1");
-  __GHOST_BEGIN(focusRoBj, group_ro_focus, "i := 2");
+  __GHOST_BEGIN(focusRoBi, ro_group_focus, "i := 1");
+  __GHOST_BEGIN(focusRoBj, ro_group_focus, "i := 2");
   x += 1;
   x += B[MINDEX2(8, 6, 1, 2)];
   x += 1;

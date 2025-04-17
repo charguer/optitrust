@@ -10,7 +10,7 @@ let _ = Flags.save_ast_for_steps := Some Steps_all
 (** Reproducing a subset of the PIC case study *)
 
 let _ = Run.script_cpp (fun () ->
-  Convention.default_naming_policy := Naming_underscore;
+  Naming_policy.default_naming_policy := Naming_underscore;
 
   let ctx = cFunBody "simulate_single_cell" in
   let find_var n = trm_find_var n [ctx] in

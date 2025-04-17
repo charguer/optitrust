@@ -44,7 +44,7 @@ void init_var_evry_iter() {
   int x;
   for (int i = 0; i < 5; i++) {
     __strict();
-    __smodifies("_Uninit(x ~> Cell)");
+    __smodifies("x ~> UninitCell");
     x = 5;
     x++;
   }
@@ -54,10 +54,10 @@ void init_arr_evry_iter() {
   int* const x = MALLOC1(int, 3);
   for (int i = 0; i < 6; i++) {
     __strict();
-    __smodifies("_Uninit(for j in 0..3 -> &x[j] ~> Cell)");
+    __smodifies("for j in 0..3 -> &x[j] ~> UninitCell");
     for (int j = 0; j < 3; j++) {
       __strict();
-      __xconsumes("_Uninit(&x[j] ~> Cell)");
+      __xconsumes("&x[j] ~> UninitCell");
       __xproduces("&x[j] ~> Cell");
       x[j] = 0;
     }

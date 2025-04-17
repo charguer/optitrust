@@ -78,8 +78,11 @@ let update_usage (hyp: var) (current_usage: resource_usage option) (extra_usage:
   | Some Required, Some Required -> Some Required
   | Some Ensured, Some Required -> Some Ensured
   | Some ArbitrarilyChosen, Some Required -> Some ArbitrarilyChosen
+  | Some Required, Some Cleared -> Some Cleared
+  | Some (Ensured | ArbitrarilyChosen), Some Cleared -> None
   | Some (Required | ArbitrarilyChosen | Ensured), Some (Ensured | ArbitrarilyChosen) -> failwith "Ensured resource %s share id with another one" (var_to_string hyp)
-  | Some (Required | Ensured | ArbitrarilyChosen), _ | _, Some (Required | Ensured | ArbitrarilyChosen) ->
+  | Some Cleared, Some (Required | Ensured | ArbitrarilyChosen | Cleared) -> failwith "Pure resource %s used after beeing cleared" (var_to_string hyp)
+  | Some (Required | Ensured | ArbitrarilyChosen | Cleared), _ | _, Some (Required | Ensured | ArbitrarilyChosen | Cleared) ->
     failwith "Resource %s is used both as a pure and as a linear resource" (var_to_string hyp)
   | Some Produced, Some (ConsumedFull | ConsumedUninit) -> None
   | Some Produced, Some (SplittedFrac | JoinedFrac) -> Some Produced
@@ -125,7 +128,7 @@ let used_set_to_usage_map (res_used: used_resource_set) : resource_usage_map =
     match Formula_inst.inst_split_read_only_inv inst_by with
     | Some (_, _, orig_hyp) -> Var_map.add orig_hyp SplittedFrac usage_map
     | None ->
-      let hyp_usage = if formula_uninit_inv used_formula = None then ConsumedFull else ConsumedUninit in
+      let hyp_usage = if is_formula_uninit used_formula then ConsumedUninit else ConsumedFull in
       match Formula_inst.inst_hyp_inv inst_by with
       | Some hyp -> Var_map.add hyp hyp_usage usage_map
       | None ->
@@ -199,9 +202,6 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
   | Trm_var v ->
     begin match Resource_set.find_pure v (Resource_set.make ~pure:env.res ()) with
     | Some typ -> typ
-    | None when var_eq v Resource_trm.var_admitted ->
-      (* LATER: Deal with __admitted in contracts in a cleaner way and disallow the case where neither t.typ not typ_hint are defined *)
-      typ_or_auto (Option.or_ t.typ typ_hint)
     | None -> failwith "Variable '%s' could not be found in environment" (var_to_string v)
     end
   | Trm_lit l -> typ_of_lit l
@@ -212,10 +212,12 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
     (* Use the typ_hint to fill auto arguments types *)
     let args, rettyp_hint = match Option.bind typ_hint typ_pure_fun_inv with
     | Some (arg_typs, rettyp) ->
-      begin match List.map2 (fun exp_arg_typ (x, decl_arg_typ) ->
+      begin match List.map2 (fun (exp_arg_name, exp_arg_typ) (x, decl_arg_typ) ->
         if is_typ_auto decl_arg_typ then (x, exp_arg_typ) else (x, decl_arg_typ)) arg_typs args
       with
-      | args -> args, Some rettyp
+      | args ->
+        (* LATER: We might need to substitute [exp_arg_name <- x] in [rettyp] here *)
+        args, Some rettyp
       | exception Invalid_argument _ ->
         failwith "A function of type '%s' is expected but the function '%s' has arity %d" (Ast_to_c.typ_to_string (typ_pure_fun arg_typs rettyp)) (Ast_to_c.ast_to_string t) (List.length args)
       end
@@ -226,7 +228,7 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
     let rettyp = compute_pure_typ { env with res = env.res @ args } ?typ_hint:rettyp_hint body in
     if not (is_typ_auto asked_rettyp || are_same_trm rettyp asked_rettyp) then
       failwith "The function has a wrong return type (%s instead of %s)" (Ast_to_c.typ_to_string rettyp) (Ast_to_c.typ_to_string asked_rettyp);
-    typ_pure_fun (List.map snd args) rettyp
+    typ_pure_fun args rettyp
 
   | Trm_prim (typ, prim) ->
     begin match prim with
@@ -234,20 +236,20 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
       begin match unop with
         | Unop_plus | Unop_minus ->
           if not (is_typ_numeric typ) then failwith "Cannot apply unary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
-          typ_pure_fun [typ] typ
+          typ_pure_simple_fun [typ] typ
 
         | Unop_bitwise_neg ->
           if not (is_typ_fixed_int typ) then failwith "Cannot apply unary ~ on a non fixed-size type";
-          typ_pure_fun [typ] typ
+          typ_pure_simple_fun [typ] typ
 
         | Unop_neg ->
           if not (is_typ_bool typ) then failwith "Cannot apply negation operator on a non boolean";
-          typ_pure_fun [typ] typ
+          typ_pure_simple_fun [typ] typ
 
         | Unop_cast dest_typ ->
           if not (is_typ_builtin typ) then failwith "Cannot apply cast from the non primitive type '%s'" (Ast_to_c.typ_to_string typ);
           if not (is_typ_builtin dest_typ) then failwith "Cannot apply cast to the non primitive type '%s'" (Ast_to_c.typ_to_string dest_typ);
-          typ_pure_fun [typ] dest_typ
+          typ_pure_simple_fun [typ] dest_typ
 
         | _ -> failwith "Unary operator %s is not a pure operator" (Ast_to_c.ast_to_string (trm_prim typ prim))
       end;
@@ -256,23 +258,23 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
       begin match binop with
         | Binop_add | Binop_sub | Binop_mul | Binop_exact_div ->
           if not (is_typ_numeric typ) then failwith "Cannot apply binary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
-          typ_pure_fun [typ; typ] typ
+          typ_pure_simple_fun [typ; typ] typ
 
         | Binop_trunc_div | Binop_trunc_mod ->
-          if not (is_typ_integer typ) then failwith "Cannot apply binary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
-          typ_pure_fun [typ; typ] typ
+          if not (is_typ_integer typ) then failwith "Cannot apply binary %s on a non integer type" (Ast_to_c.ast_to_string (trm_prim typ prim));
+          typ_pure_simple_fun [typ; typ] typ
 
         | Binop_eq | Binop_neq | Binop_le | Binop_lt | Binop_ge | Binop_gt ->
           if not (is_typ_numeric typ) then failwith "Cannot apply binary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
-          typ_pure_fun [typ; typ] typ_bool
+          typ_pure_simple_fun [typ; typ] typ_bool
 
         | Binop_bitwise_and | Binop_bitwise_or | Binop_shiftl | Binop_shiftr ->
           if not (is_typ_integer typ) then failwith "Cannot apply binary %s on a non integer type" (Ast_to_c.ast_to_string (trm_prim typ prim));
-          typ_pure_fun [typ; typ] typ
+          typ_pure_simple_fun [typ; typ] typ
 
         | Binop_xor ->
           if not (is_typ_integer typ || is_typ_bool typ) then failwith "Cannot apply binary operator ^ on a non integer or boolean type" (Ast_to_c.ast_to_string (trm_prim typ prim));
-          typ_pure_fun [typ; typ] typ
+          typ_pure_simple_fun [typ; typ] typ
 
         | _ -> failwith "Binary operator %s is not a pure operator" (Ast_to_c.ast_to_string (trm_prim typ prim))
       end
@@ -280,14 +282,15 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
       | _ -> failwith "Primitive operator %s is not a pure operator" (Ast_to_c.ast_to_string (trm_prim typ prim))
     end
 
-  | Trm_apps (f, args, gargs) ->
+  | Trm_apps (f, args, gargs, gbind) ->
     if gargs <> [] then failwith "Pure functions do not have ghost arguments";
+    if gbind <> [] then failwith "Pure functions do not have ghost output bindings";
     begin match f.desc, args with
     | Trm_prim (_, Prim_binop Binop_array_access), [arr; index] ->
       let arr_typ = compute_pure_typ env arr in
       let index_typ = compute_pure_typ env index in
-      assert (is_typ_ptr arr_typ);
-      assert (is_typ_integer index_typ);
+      if not (is_typ_ptr arr_typ) then failwith "In '%s': '%s' has type '%s' which is not a pointer" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string arr) (Ast_to_c.typ_to_string arr_typ);
+      if not (is_typ_integer index_typ) then failwith "In '%s': '%s' has type '%s' which is not an integer" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string index) (Ast_to_c.typ_to_string index_typ);
       arr_typ
     | Trm_prim (prim_typ, Prim_unop Unop_struct_access field), [base] ->
       let base_typ = compute_pure_typ env base in
@@ -310,9 +313,18 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
         end
       | None -> failwith "Pure expression '%s' has type '%s' which is not declared as a struct but is used in a struct access" (Ast_to_c.ast_to_string base) (var_to_string struct_typ)
       end
-    | Trm_var xf, [ptr] when var_eq xf var_cell ->
+    | Trm_var xf, [ptr; repr] when var_eq xf var_repr ->
       let ptr_typ = compute_pure_typ env ptr in
-      assert (is_typ_ptr ptr_typ);
+      let val_typ = Option.unsome_or_else (typ_ptr_inv ptr_typ) (fun () -> failwith "The lefthand side of '%s' should be a pointer" (Ast_to_c.ast_to_string t)) in
+      Pattern.pattern_match repr [
+        Pattern.(trm_specific_var var_uninit_cell) (fun () -> ());
+        Pattern.(trm_specific_var var_cell) (fun () -> Pattern.when_ (not !Flags.use_resources_with_models));
+        Pattern.(trm_apps1 (trm_specific_var var_cell) !__) (fun model () ->
+          let model_typ = compute_pure_typ env model in
+          if not (are_same_trm val_typ model_typ) then failwith "In '%s': pointer '%s' of type '%s' cannot point to a value '%s' of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string ptr) (Ast_to_c.typ_to_string ptr_typ) (Ast_to_c.ast_to_string model) (Ast_to_c.typ_to_string model_typ)
+        );
+        Pattern.__ (fun () -> failwith "Unknown representation predicate '%s'" (Ast_to_c.ast_to_string repr))
+      ];
       typ_hprop
     | Trm_var xf, [ptr; alloc_cells] when var_eq xf var_free ->
       let ptr_typ = compute_pure_typ env ptr in
@@ -328,26 +340,41 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
         if not (is_typ_integer arg_typ) then failwith "MINDEX should only be applied on integer arguments but here has argument '%s' of type '%s'" (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ)
         ) args;
       typ_int
-    | Trm_var xf, _ when var_eq xf typ_fun_var || var_eq xf typ_pure_fun_var ->
+    | Trm_var xf, _ when var_eq xf typ_fun_var ->
       List.iter (fun arg ->
-        let arg_typ = compute_pure_typ env arg in
-        assert (is_typ_sort arg_typ)
+        let arg_sort = compute_pure_typ env arg in
+        assert (is_typ_sort arg_sort)
         ) args;
       typ_type
+    | Trm_var xf, _ when var_eq xf typ_pure_fun_var ->
+      begin match args with
+      | [{ desc = Trm_fun (args, _, res_typ, _) }] ->
+        let env = List.fold_left (fun env (arg, arg_typ) ->
+            let arg_sort = compute_pure_typ env arg_typ in
+            assert (is_typ_sort arg_sort);
+            { env with res = env.res @ [(arg, arg_typ)] }
+          ) env args in
+        let res_sort = compute_pure_typ env res_typ in
+        assert (is_typ_sort res_sort);
+        res_sort (* LATER: Be careful with predicativity here ! *)
+      | _ -> failwith "typ_pure_fun must have only one function argument"
+      end
     | _ ->
       let f_typ = compute_pure_typ env f in
       match typ_pure_fun_inv f_typ with
-      | Some (argstyp, rettyp) ->
-        if List.length argstyp <> List.length args then
+      | Some (expected_args, rettyp) ->
+        if List.length expected_args <> List.length args then
           failwith "Incorrect number of arguments when applying '%s'" (Ast_to_c.ast_to_string f);
-        List.iter2 (fun arg expected_typ ->
+        let subst = List.fold_left2 (fun subst arg (expected_arg, expected_typ) ->
+            let expected_typ = trm_subst subst expected_typ in
             let arg_typ = compute_pure_typ env ~typ_hint:expected_typ arg in
             if not (are_same_trm arg_typ expected_typ) then begin
               (*Printf.printf "%s\n" (resource_list_to_string env);*)
               failwith "In pure expression '%s': argument '%s' has type '%s' where '%s' is expected" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ) (Ast_to_c.typ_to_string expected_typ)
             end;
-          ) args argstyp;
-        rettyp
+            Var_map.add expected_arg arg subst
+          ) Var_map.empty args expected_args in
+        trm_subst subst rettyp
       | None -> failwith "Cannot apply a term that is not a pure function in a pure context"
     end
   | _ -> failwith "Non pure expression found in a pure context"
@@ -355,40 +382,25 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
   t.typ <- Some typ;
   typ
 
-and compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx: unification_ctx) =
-  let actual_typ = compute_pure_typ env ~typ_hint:expected_typ t in
-  match unify_trm actual_typ expected_typ evar_ctx (compute_and_unify_typ env) with
-  | Some evar_ctx -> evar_ctx
-  | None -> raise_mismatching_type t actual_typ expected_typ evar_ctx
-
-let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx): unification_ctx option =
-  let subst_ctx = Var_map.fold (fun var subst ctx ->
-    match subst with
-    | Resolved t -> Var_map.add var t ctx
-    | Unknown _ -> ctx) evar_ctx Var_map.empty
+let rec try_compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx: unification_ctx) =
+  let expected_typ = match trm_var_inv expected_typ with
+    | Some v -> begin match Var_map.find_opt v evar_ctx with
+      | Some (Resolved ty) -> ty
+      | _ -> expected_typ
+      end
+    | None -> expected_typ
   in
-  let formula = trm_subst subst_ctx formula in
-  let arith_solved = Pattern.pattern_match formula [
-    Pattern.(trm_apps2 (trm_specific_var var_in_range) !__ (formula_range !__ !__ !__)) (fun index start stop step () ->
-      Arith_core.(check_geq index start && check_lt index stop && check_eq (trm_trunc_mod index step) (trm_int 0))
-    );
-    Pattern.(trm_apps2 (trm_specific_var var_is_subrange) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step () ->
-      Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_trunc_mod sub_step step) (trm_int 0))
-    );
-    Pattern.(formula_is_true (trm_eq !__ !__)) (fun t1 t2 () -> Arith_core.check_eq t1 t2);
-    Pattern.(formula_is_true (trm_neq !__ !__)) (fun t1 t2 () -> Arith_core.check_neq t1 t2);
-    Pattern.(formula_is_true (trm_gt !__ !__)) (fun t1 t2 () -> Arith_core.check_gt t1 t2);
-    Pattern.(formula_is_true (trm_ge !__ !__)) (fun t1 t2 () -> Arith_core.check_geq t1 t2);
-    Pattern.(formula_is_true (trm_lt !__ !__)) (fun t1 t2 () -> Arith_core.check_lt t1 t2);
-    Pattern.(formula_is_true (trm_le !__ !__)) (fun t1 t2 () -> Arith_core.check_leq t1 t2);
-    Pattern.__ (fun () -> false)
-  ] in
-  if arith_solved then
-    let evar_ctx = Var_map.add x (Resolved formula_arith_checked) evar_ctx in
-    Some evar_ctx
-  else
-    None
+  let actual_typ = compute_pure_typ env ~typ_hint:expected_typ t in
+  trm_unify actual_typ expected_typ evar_ctx (try_compute_and_unify_typ env)
 
+let compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx: unification_ctx) =
+  match try_compute_and_unify_typ env t expected_typ evar_ctx with
+  | Some evar_ctx -> evar_ctx
+  | None ->
+    let actual_typ = compute_pure_typ env ~typ_hint:expected_typ t in
+    raise_mismatching_type t actual_typ expected_typ evar_ctx
+
+let pure_goal_solver: (resource_item -> unification_ctx -> unification_ctx option) ref = ref (fun formula evar_ctx -> None)
 
 (** [unify_pure (x, formula) env evar_ctx] unifies the given [formula] with one of the resources in [env.res].
 
@@ -396,11 +408,11 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx):
 
    Also add a binding from [x] to the found resource in [evar_ctx].
    If it fails raise a {!Resource_not_found} exception. *)
-let find_pure ((x, formula): resource_item) (env: pure_env) ?(goal_solver = arith_goal_solver) (evar_ctx: unification_ctx): unification_ctx =
+let find_pure ((x, formula): resource_item) (env: pure_env) ?(goal_solver = !pure_goal_solver) (evar_ctx: unification_ctx): unification_ctx =
   (* TODO: Add flag to disallow pure instantiation ? *)
   let find_formula formula (hyp_candidate, formula_candidate) =
     Option.map (fun evar_ctx -> Var_map.add x (Resolved (trm_var hyp_candidate)) evar_ctx)
-      (unify_trm formula formula_candidate evar_ctx (compute_and_unify_typ env))
+      (trm_unify formula formula_candidate evar_ctx (try_compute_and_unify_typ env))
   in
   match List.find_map (find_formula formula) env.res with
   | Some evar_ctx -> evar_ctx
@@ -448,7 +460,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
 
   let unify_and_remove_linear
     ((x, formula): resource_item)
-    ~(uninit : bool) (* was [formula] surrounded by Uninit? *)
+    ~(uninit : bool) (* is [formula] uninitialized? *)
     (res: linear_resource_set)
     (evar_ctx: unification_ctx)
     ~(pure_ctx: pure_env): used_resource_item * linear_resource_set * unification_ctx =
@@ -456,21 +468,19 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
     (* LATER: Improve the structure of the linear_resource_set to make this
       function faster on most frequent cases *)
     extract (fun (candidate_name, formula_candidate) ->
-      let used_formula, formula_to_unify =
-        if uninit then
-          match formula_uninit_inv formula_candidate with
-          (* standard case: Uninit consumes Uninit *)
-          | Some formula_candidate -> Formula_inst.inst_hyp candidate_name, formula_candidate
-          (* coercion case: Uninit consumes Full *)
-          | None -> Formula_inst.inst_forget_init candidate_name, formula_candidate
-        else Formula_inst.inst_hyp candidate_name, formula_candidate
-      in
-      let* evar_ctx = unify_trm formula formula_to_unify evar_ctx (compute_and_unify_typ pure_ctx) in
-      let used_formula = if uninit then formula_uninit formula_to_unify else formula_to_unify in
-      Some (
-        { hyp = x; inst_by = Formula_inst.inst_hyp candidate_name; used_formula },
-        None,
-        evar_ctx)
+      try
+        let inst_by, formula_to_unify =
+          (* Check for possible Uninit coercion if formula_candidate is not already uninit *)
+          if uninit && not (is_formula_uninit formula_candidate) then
+            Formula_inst.inst_forget_init candidate_name, formula_uninit formula_candidate
+          else Formula_inst.inst_hyp candidate_name, formula_candidate
+        in
+        let* evar_ctx = trm_unify formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
+        Some (
+          { hyp = x; inst_by; used_formula = formula_to_unify },
+          None,
+          evar_ctx)
+      with CannotTransformIntoUninit _ -> None
     ) res evar_ctx
   in
 
@@ -484,7 +494,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       function faster on most frequent cases *)
     extract (fun (h, formula_candidate) ->
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
-      let* evar_ctx = unify_trm formula formula_candidate evar_ctx (compute_and_unify_typ pure_ctx) in
+      let* evar_ctx = trm_unify formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
         Some (h, formula_read_only ~frac:(formula_frac_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
@@ -512,10 +522,8 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
         (* Other cases: match the exact fraction *)
         unify_and_remove_linear (x, formula) ~uninit:false res evar_ctx ~pure_ctx
     );
-    Pattern.(formula_uninit !__) (fun formula () ->
-      unify_and_remove_linear (x, formula) ~uninit:true res evar_ctx ~pure_ctx);
     Pattern.__ (fun () ->
-      unify_and_remove_linear (x, formula) ~uninit:false res evar_ctx ~pure_ctx)
+      unify_and_remove_linear (x, formula) ~uninit:(is_formula_uninit formula) res evar_ctx ~pure_ctx)
   ]
 
 (** [subtract_linear_resource_set ?split_frac ?evar_ctx ?pure_ctx res_from res_removed] subtracts [res_removed] from [res_from].
@@ -570,7 +578,7 @@ let partial_extract_linear_resource_set ?(evar_ctx: unification_ctx = Var_map.em
   Specialization checks types and can immediately resolve a dominated evar.
   Bindings from [inst_map] are typed inside [inst_ctx].
 
-  An evar is dominated if its value will be implied by the instantation of other resources
+  An evar is dominated if its value will be implied by the instantiation of other resources
   (i.e. it appears in the formula of another resource). *)
 let specialize_and_extract_evars (res: resource_set) (inst_map: tmap) ~(inst_ctx: pure_env): pure_resource_set * unification_ctx =
   let used_vars = Resource_set.used_vars res in
@@ -709,31 +717,51 @@ let assert_resource_impl (res_from: resource_set) (res_to: resource_set) : used_
 
 (** [compute_produced_resources subst_ctx contract_post] returns the resources produced
     by [contract_post] given the [subst_ctx] instantation of the contract. *)
-let compute_produced_resources (subst_ctx: tmap) (contract_post: resource_set)
+let compute_produced_resources (subst_ctx: tmap) ?(ensured_renaming = Var_map.empty) (contract_post: resource_set)
   : produced_resource_set =
   (* LATER: Manage higher order returned function *)
-  let (contract_hyp_names, subst_ctx, aliases), pure =
-    List.fold_left_map (fun (contract_names, subst_ctx, aliases) (h, formula) ->
-        let produced_hyp = if var_eq h var_result then var_result else new_anon_hyp () in
-        let contract_names = Var_map.add produced_hyp h contract_names in
-        let produced_formula = trm_subst subst_ctx formula in
-        let aliases = match Var_map.find_opt h contract_post.aliases with
-          | Some alias -> Var_map.add produced_hyp (trm_subst subst_ctx alias) aliases
-          | None -> aliases
-        in
-        let subst_ctx = if var_eq h var_result then subst_ctx else Var_map.add h (trm_var produced_hyp) subst_ctx in
-        (contract_names, subst_ctx, aliases), (produced_hyp, produced_formula)
-      ) (Var_map.empty, subst_ctx, Var_map.empty) contract_post.pure
+  let ensured_renaming = Var_map.add var_result (Some var_result) ensured_renaming in
+  let exception ClearedVarOccurence of var in
+  let trm_subst = trm_subst ~on_subst:(fun old_v t ->
+    match trm_var_inv t with
+    | Some v when var_eq v dummy_var ->
+      let old_v = trm_inv trm_var_inv old_v in
+      raise (ClearedVarOccurence old_v)
+    | _ -> t
+  ) in
+  let pure_rev, contract_hyp_names, subst_ctx, aliases =
+    List.fold_left (fun (pure_rev, contract_names, subst_ctx, aliases) (h, formula) ->
+        let produced_hyp = Option.unsome_or_else (Var_map.find_opt h ensured_renaming) (fun () -> Some (new_anon_hyp ())) in
+        match produced_hyp with
+        | Some produced_hyp ->
+          begin try
+            let contract_names = Var_map.add produced_hyp h contract_names in
+            let produced_formula = trm_subst subst_ctx formula in
+            let aliases = match Var_map.find_opt h contract_post.aliases with
+              | Some alias -> Var_map.add produced_hyp (trm_subst subst_ctx alias) aliases
+              | _ -> aliases
+            in
+            let subst_ctx = if var_eq h var_result then subst_ctx else Var_map.add h (trm_var produced_hyp) subst_ctx in
+            (produced_hyp, produced_formula) :: pure_rev, contract_names, subst_ctx, aliases
+          with ClearedVarOccurence _ ->
+            pure_rev, contract_names, Var_map.add h (trm_var dummy_var) subst_ctx, aliases
+          end
+        | _ ->
+          pure_rev, contract_names, Var_map.add h (trm_var dummy_var) subst_ctx, aliases
+      ) ([], Var_map.empty, subst_ctx, Var_map.empty) contract_post.pure
   in
   let contract_hyp_names, linear =
     List.fold_left_map (fun contract_names (h, formula) ->
-      let produced_hyp = new_anon_hyp () in
-      let contract_names = Var_map.add produced_hyp h contract_names in
-      let produced_formula = trm_subst subst_ctx formula in
-      contract_names, (produced_hyp, produced_formula)
+      try
+        let produced_hyp = new_anon_hyp () in
+        let contract_names = Var_map.add produced_hyp h contract_names in
+        let produced_formula = trm_subst subst_ctx formula in
+        contract_names, (produced_hyp, produced_formula)
+      with ClearedVarOccurence x ->
+        failwith "Produced resources depend on variable '%s' which is set to be cleared" (var_to_string x)
     ) contract_hyp_names contract_post.linear
   in
-  let produced_res = { pure; linear; aliases; fun_specs = Var_map.empty; struct_fields = Var_map.empty; } in
+  let produced_res = { pure = List.rev pure_rev; linear; aliases; fun_specs = Var_map.empty; struct_fields = Var_map.empty; } in
   { produced_res; contract_hyp_names }
 
 (** Internal type to represent RO formula frac wands. *)
@@ -947,7 +975,7 @@ exception ResourceError of trm * resource_error_phase * exn
 
 let _ = Printexc.register_printer (function
   | MismatchingType (t, actual_typ, expected_typ) ->
-    Some (Printf.sprintf "Expression '%s' is of type '%s', but was expected of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.typ_to_string actual_typ) (Ast_to_c.typ_to_string expected_typ))
+    Some (Printf.sprintf "Expression '%s' is of type '%s', but was expected of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string actual_typ) (Ast_to_c.ast_to_string expected_typ))
   | Resource_not_found (kind, item, context) ->
     Some (Printf.sprintf "%s resource not found:\n%s\nIn context:\n%s" (resource_kind_to_string kind) (named_formula_to_string item) (resource_list_to_string context))
   | Spec_not_found fn ->
@@ -971,7 +999,7 @@ type minimized_linear_triple = {
 
 type minimize_linear_triple_post_modif =
   | RemoveUnused
-  | WeakenSplitFrac of { new_hyp: var; frac_before: formula; new_frac: var }
+  | WeakenSplitFrac of { new_hyp: var; frac_before: formula; new_frac: var; base_formula: trm; }
   | RemoveJoinedFrac of formula
 
 (** [minimize_linear_triple linear_pre linear_post usage] removes and weakens resources from linear_pre and linear_post
@@ -990,20 +1018,16 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
       post_modifs := Var_map.add hyp RemoveUnused !post_modifs;
       frame := (hyp, formula) :: !frame;
       None
-    | Some (Required | Ensured | ArbitrarilyChosen) -> failwith "minimize_linear_triple: the linear resource %s is used like a pure resource" (var_to_string hyp)
+    | Some (Required | Ensured | ArbitrarilyChosen | Cleared) -> failwith "minimize_linear_triple: the linear resource %s is used like a pure resource" (var_to_string hyp)
     | Some Produced -> failwith "minimize_linear_triple: Produced resource %s has the same id as a contract resource" (var_to_string hyp)
     | Some ConsumedFull -> Some (hyp, formula)
-    | Some ConsumedUninit ->
-      begin match formula_uninit_inv formula with
-      | Some _ -> Some (hyp, formula)
-      | None -> Some (hyp, formula_uninit formula)
-      end
+    | Some ConsumedUninit -> Some (hyp, formula_uninit formula)
     | Some SplittedFrac ->
       let { frac = frac_before; formula = base_formula } = formula_read_only_inv_all formula in
       let new_hyp = new_anon_hyp () in
       let frac_var, frac_ghost = new_frac () in
       new_fracs := frac_ghost :: !new_fracs;
-      post_modifs := Var_map.add hyp (WeakenSplitFrac { new_hyp; frac_before; new_frac = frac_var }) !post_modifs;
+      post_modifs := Var_map.add hyp (WeakenSplitFrac { new_hyp; frac_before; new_frac = frac_var; base_formula }) !post_modifs;
       frame := (hyp, formula_read_only ~frac:(formula_frac_sub frac_before (trm_var frac_var)) base_formula) :: !frame;
       Some (new_hyp, formula_read_only ~frac:(trm_var frac_var) base_formula)
     | Some JoinedFrac ->
@@ -1039,8 +1063,9 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
     match var_map_try_pop hyp post_modifs with
     | None -> [(hyp, formula)]
     | Some RemoveUnused -> []
-    | Some WeakenSplitFrac { new_hyp; frac_before; new_frac } ->
-      let { frac = frac_after; formula = base_formula } = formula_read_only_inv_all (formula_remove_uninit formula) in
+    | Some WeakenSplitFrac { new_hyp; frac_before; new_frac; base_formula } ->
+      (* The base_formula in the precondition might be more precise (i.e. less uninitialized) than the one in the post. We have a smaller footprint if we avoid the precision loss. *)
+      let { frac = frac_after } = formula_read_only_inv_all formula in
       let frac_holes_only_before, frac_holes_only_after = frac_wand_diff frac_before frac_after in
       let carved_frac = frac_wand_to_formula (trm_var new_frac, frac_holes_only_after) in
       let remaining_fracs = List.map (filled_frac_hole_to_read_only base_formula) frac_holes_only_before in
@@ -1048,7 +1073,7 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
       updated_usage_map := add_usage carved_frac_hyp Produced !updated_usage_map;
       (carved_frac_hyp, formula_read_only ~frac:carved_frac base_formula) :: remaining_fracs
     | Some RemoveJoinedFrac frac_before ->
-      let { frac = frac_after; formula = base_formula } = formula_read_only_inv_all (formula_remove_uninit formula) in
+      let { frac = frac_after; formula = base_formula } = formula_read_only_inv_all formula in
       let frac_holes_only_before, frac_holes_only_after = frac_wand_diff frac_before frac_after in
       assert (frac_holes_only_after = []);
       List.map (filled_frac_hole_to_read_only base_formula) frac_holes_only_before
@@ -1065,9 +1090,10 @@ let debug_print_computation_stack = false
   and the resources available after [t].
 
   If provided, [subst_ctx] is a specialization context applied to [contract].
+  If provided, [ensured_renaming] is a partial map from ensured names in [contract] to new hypotesis names available after [t].
   Sets [t.ctx.ctx_resources_contract_invoc].
     *)
-let compute_contract_invoc (contract: fun_contract) ?(inst_map: tmap = Var_map.empty) (res: resource_set) (t: trm): resource_usage_map * resource_set =
+let compute_contract_invoc (contract: fun_contract) ?(inst_map: tmap = Var_map.empty) ?(ensured_renaming = Var_map.empty) (res: resource_set) (t: trm): resource_usage_map * resource_set =
   if debug_print_computation_stack then
     Tools.debug "compute_contract_invoc:\n%s\n==>\n%s" (resource_set_to_string contract.pre) (resource_set_to_string contract.post);
   let subst_ctx, res_used, res_frame = extract_resources ~split_frac:true ~inst_map res contract.pre in
@@ -1075,7 +1101,7 @@ let compute_contract_invoc (contract: fun_contract) ?(inst_map: tmap = Var_map.e
   let usage = used_set_to_usage_map res_used in
   let new_fracs = new_fracs_from_used_set res_used in
   let usage = List.fold_left (fun usage (frac, _) -> Var_map.add frac ArbitrarilyChosen usage) usage new_fracs in
-  let res_produced = compute_produced_resources subst_ctx contract.post in
+  let res_produced = compute_produced_resources ~ensured_renaming subst_ctx contract.post in
 
   let new_res, usage_after, ro_simpl_steps = resource_merge_after_frame ~aliases:res.aliases res_produced res_frame in
   let new_res = { new_res with pure = new_fracs @ new_res.pure } in
@@ -1117,28 +1143,34 @@ let delete_stack_allocs instrs res =
     match trm_let_inv ti with
     | Some (x, _, t) ->
       begin match trm_ref_any_inv t with
-      | Some ty -> [formula_cells_var ty x]
+      | Some ty -> [formula_uninit_cells_var ty x]
       | None -> []
       end
     | None -> []
   in
   let to_free = List.concat_map extract_let_mut instrs in
   (*Tools.debug "Trying to free %s from %s\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
-  let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), formula_uninit f)) to_free) () in
+  let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), f)) to_free) () in
   let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
   (removed_res, linear)
 
-let check_resource_set_types ~(pure_ctx: pure_env) (res: resource_set): pure_env =
-  let pure_ctx = List.fold_left (fun pure_ctx (pure_var, typ) ->
+let check_pure_resource_types ~(pure_ctx: pure_env) (pure_res: pure_resource_set): pure_env =
+  List.fold_left (fun pure_ctx (pure_var, typ) ->
       let sort = compute_pure_typ pure_ctx typ in
       if not (is_typ_sort sort) then failwith "Pure resource '%s' has type '%s' that is not in Type or Prop" (var_to_string pure_var) (Ast_to_c.typ_to_string sort);
       { pure_ctx with res = pure_ctx.res @ [(pure_var, typ)] }
-    ) pure_ctx res.pure
-  in
+    ) pure_ctx pure_res
+
+let check_linear_resource_types ~(pure_ctx: pure_env) (linear_res: linear_resource_set): unit =
   List.iter (fun (lin_var, formula) ->
       let typ = compute_pure_typ pure_ctx formula in
       if not (is_typ_hprop typ) then failwith "Linear resource %s has a type that is not an HProp" (var_to_string lin_var);
-    ) res.linear;
+    ) linear_res
+
+let check_resource_set_types ~(pure_ctx: pure_env) (res: resource_set): pure_env =
+  let pure_ctx = check_pure_resource_types ~pure_ctx res.pure
+  in
+  check_linear_resource_types ~pure_ctx res.linear;
   (* LATER: Should check fun_contracts when higher order functions are supported *)
   assert (Var_map.is_empty res.fun_specs);
   assert (Var_map.is_empty res.aliases); (* Normally there is no aliases in contracts *)
@@ -1149,17 +1181,19 @@ let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): uni
   let _ = check_resource_set_types ~pure_ctx contract.post in
   ()
 
+let check_loop_contract_types ~(pure_ctx: pure_env) (contract: loop_contract): unit =
+  let pure_ctx = check_pure_resource_types ~pure_ctx contract.loop_ghosts in
+  check_fun_contract_types ~pure_ctx contract.iter_contract;
+  check_linear_resource_types ~pure_ctx contract.parallel_reads;
+  ignore (check_resource_set_types ~pure_ctx contract.invariant)
+
 let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
   let pure_prim prim =
     let pure_prim_typ = compute_pure_typ empty_pure_env (trm_prim typ prim) in
-    let argtyps, rettyp = trm_inv ~error:"Pure type of the pure operator should be a pure_fun" typ_pure_fun_inv pure_prim_typ in
-    let func_typ = typ_fun argtyps rettyp in
-    let args, pure_pre = List.fold_right (fun argtyp (args, pure_pre) ->
-      let arg_var = new_anon_hyp () in
-      (arg_var :: args, (arg_var, argtyp) :: pure_pre)
-      ) argtyps ([], []) in
-    let contract = { pre = Resource_set.make ~pure:pure_pre (); post = Resource_set.make ~pure:[var_result, rettyp] ~aliases:(Var_map.singleton var_result (trm_apps (trm_prim typ prim) (List.map trm_var args))) () } in
-    func_typ, { args; contract; inverse = None }
+    let args, rettyp = trm_inv ~error:"Pure type of the pure operator should be a pure_fun" typ_pure_fun_inv pure_prim_typ in
+    let func_typ = typ_fun (List.map snd args) rettyp in
+    let contract = { pre = Resource_set.make ~pure:args (); post = Resource_set.make ~pure:[var_result, rettyp] ~aliases:(Var_map.singleton var_result (trm_apps (trm_prim typ prim) (List.map (fun (a, _) -> trm_var a) args))) () } in
+    func_typ, { args = List.map fst args; contract; inverse = None }
   in
   let find_unop_spec (unop: unary_op) =
     match unop with
@@ -1168,6 +1202,25 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
 
     | Unop_address ->
       failwith "Address operator should have been eliminated at encoding phase"
+
+    | Unop_pre_incr | Unop_pre_decr | Unop_post_incr | Unop_post_decr when (!Flags.use_resources_with_models) ->
+      if not (is_typ_numeric typ) then failwith "Cannot apply unary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
+      let dest_var = new_hyp "dest" in
+      let value_var = new_hyp "value" in
+      let value_after = match unop with
+        | Unop_pre_incr | Unop_post_incr -> trm_add ~typ (trm_var value_var) (trm_int ~typ 1)
+        | Unop_pre_decr | Unop_post_decr -> trm_sub ~typ (trm_var value_var) (trm_int ~typ 1)
+        | _ -> failwith "unreachable"
+      in
+      let result_value = match unop with
+        | Unop_pre_incr | Unop_post_incr -> trm_var value_var
+        | _ -> value_after
+      in
+      let contract = {
+        pre = Resource_set.make ~pure:[(dest_var, typ_ptr typ); (value_var, typ)] ~linear:[new_anon_hyp (), formula_points_to (trm_var dest_var) (trm_var value_var)] ();
+        post = Resource_set.make ~pure:[var_result, typ] ~aliases:(Var_map.singleton var_result result_value) ~linear:[new_anon_hyp (), formula_points_to (trm_var dest_var) value_after] ()
+      } in
+      typ_fun [typ_ptr typ] typ, { args = [dest_var]; contract; inverse = None }
 
     | Unop_pre_incr | Unop_pre_decr | Unop_post_incr | Unop_post_decr ->
       if not (is_typ_numeric typ) then failwith "Cannot apply unary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
@@ -1217,12 +1270,19 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
       let vartyp = new_hyp "T" in
       let typ = typ_var vartyp in
       let arg_var = new_hyp "p" in
+      let model_var = new_hyp "v" in
+      let pre_model, post_aliases =
+        if !Flags.use_resources_with_models then
+          [model_var, typ], (Var_map.singleton var_result (trm_var model_var))
+        else
+          [], Var_map.empty
+      in
       let frac_var = new_hyp "f" in
-      let ro_cell = formula_read_only ~frac:(trm_var frac_var) (formula_cell_var arg_var) in
+      let ro_cell = formula_read_only ~frac:(trm_var frac_var) (formula_points_to (trm_var arg_var) (trm_var model_var)) in
       (* With C++ syntax: template<typename T> T get(T* p) { __reads("p ~> Cell"); } *)
       let contract = {
-        pre = Resource_set.make ~pure:[(vartyp, typ_type); (arg_var, typ_ptr typ); (frac_var, typ_frac)] ~linear:[new_anon_hyp (), ro_cell] ();
-        post = Resource_set.make ~pure:[var_result, typ] ~linear:[new_anon_hyp (), ro_cell] ()
+        pre = Resource_set.make ~pure:((vartyp, typ_type) :: (arg_var, typ_ptr typ) :: (frac_var, typ_frac) :: pre_model) ~linear:[new_anon_hyp (), ro_cell] ();
+        post = Resource_set.make ~pure:[var_result, typ] ~linear:[new_anon_hyp (), ro_cell] ~aliases:post_aliases ()
       } in
       (* func_typ is hard to give because this is a polymorphic function and we do not have polymorphic function types *)
       typ_auto, { args = [arg_var]; contract; inverse = None }
@@ -1239,8 +1299,8 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
       let dest_var = new_hyp "dest" in
       let value_var = new_hyp "value" in
       let contract = {
-        pre = Resource_set.make ~pure:[(vartyp, typ_type); (dest_var, typ_ptr typ); (value_var, typ)] ~linear:[new_anon_hyp (), formula_uninit (formula_cell_var dest_var)] ();
-        post = Resource_set.make ~linear:[new_anon_hyp (), formula_cell_var dest_var] ()
+        pre = Resource_set.make ~pure:[(vartyp, typ_type); (dest_var, typ_ptr typ); (value_var, typ)] ~linear:[new_anon_hyp (), (formula_uninit_cell_var dest_var)] ();
+        post = Resource_set.make ~linear:[new_anon_hyp (), formula_points_to (trm_var dest_var) (trm_var value_var)] ()
       } in
       typ_auto, { args = [dest_var; value_var]; contract; inverse = None }
 
@@ -1263,29 +1323,30 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
   | Prim_unop op -> find_unop_spec op
   | Prim_binop op -> find_binop_spec op
   | Prim_compound_assign_op op ->
-    let pure_binop_typ = compute_pure_typ empty_pure_env (trm_prim typ (Prim_binop op)) in
-    if not (are_same_trm pure_binop_typ (typ_pure_fun [typ; typ] typ)) then
+    let pure_binop_typ = compute_pure_typ empty_pure_env (trm_binop typ op) in
+    if not (are_same_trm pure_binop_typ (typ_pure_simple_fun [typ; typ] typ)) then
       failwith "Invalid compound assign operator";
     let dest_var = new_hyp "dest" in
+    let model_var = new_hyp "dest_val" in
+    let pre_model = if !Flags.use_resources_with_models then [model_var, typ] else [] in
     let operand_var = new_hyp "operand" in
     let contract = {
-      pre = Resource_set.make ~pure:[(dest_var, typ_ptr typ); (operand_var, typ)] ~linear:[new_anon_hyp (), formula_cell_var dest_var] ();
-      post = Resource_set.make ~linear:[new_anon_hyp (), formula_cell_var dest_var] ()
+      pre = Resource_set.make ~pure:((dest_var, typ_ptr typ) :: (operand_var, typ) :: pre_model) ~linear:[new_anon_hyp (), formula_points_to (trm_var dest_var) (trm_var model_var)] ();
+      post = Resource_set.make ~linear:[new_anon_hyp (), formula_points_to (trm_var dest_var) (trm_apps (trm_binop typ op) [trm_var model_var; trm_var operand_var])] ()
     } in
     typ_fun [typ_ptr typ; typ] typ_unit, { args = [dest_var; operand_var]; contract; inverse = None }
 
   | Prim_ref | Prim_new | Prim_ref_uninit | Prim_new_uninit ->
     let res_typ = typ_of_alloc typ in
-    let alloc_cells = formula_cells_var typ var_result in
     let pure_pre, args_typ, args, alloc_res = match prim with
-      | Prim_ref_uninit | Prim_new_uninit -> [], [], [], formula_uninit alloc_cells
+      | Prim_ref_uninit | Prim_new_uninit -> [], [], [], formula_uninit_cells_var typ var_result
       | _ ->
         let init_var = new_hyp "init_val" in
-        [init_var, typ], [typ], [init_var], alloc_cells
+        [init_var, typ], [typ], [init_var], formula_cells_var typ var_result (trm_var init_var)
     in
     let post_linear = match prim with
       | Prim_ref | Prim_ref_uninit -> [new_anon_hyp (), alloc_res]
-      | _ -> [new_anon_hyp (), alloc_res; new_anon_hyp (), formula_free var_result alloc_cells]
+      | _ -> [new_anon_hyp (), alloc_res; new_anon_hyp (), formula_free var_result (formula_uninit alloc_res)]
     in
     let contract = {
       pre = Resource_set.make ~pure:pure_pre ();
@@ -1299,7 +1360,7 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
     let del_ptr = new_hyp "del_ptr" in
     let var_hprop = new_hyp "H" in
     let contract = {
-      pre = Resource_set.make ~pure:[var_typ, typ_type; del_ptr, typ_ptr (typ_var var_typ); var_hprop, typ_hprop] ~linear:[new_anon_hyp (), formula_free del_ptr (trm_var var_hprop); new_anon_hyp (), formula_uninit (trm_var var_hprop)] ();
+      pre = Resource_set.make ~pure:[var_typ, typ_type; del_ptr, typ_ptr (typ_var var_typ); var_hprop, typ_hprop] ~linear:[new_anon_hyp (), formula_free del_ptr (trm_var var_hprop); new_anon_hyp (), trm_var var_hprop] ();
       post = Resource_set.make ()
     } in
     typ_auto, { args = [del_ptr]; contract; inverse = None }
@@ -1508,7 +1569,7 @@ let rec compute_resources
       let res_after = Resource_set.rename_var var_result var res_after in
       usage_map, Some res_after
 
-    | Trm_apps (fn, effective_args, ghost_args) ->
+    | Trm_apps (fn, effective_args, ghost_args, ghost_bind) ->
       (* Retrieve a function specification in a given context *)
       begin try
         let** fn_var, res_after_fn, fn_post, fn_usage_map = compute_subexpr_resources res fn in
@@ -1538,14 +1599,16 @@ let rec compute_resources
         let res_after_args = { res_after_args with linear = linear_res_after_args } in
         let usage_map = add_joined_frac_usage ro_simpl_steps args_usage_map in
 
-        let ghost_args_vars = ref Var_set.empty in
         let inst_map = List.fold_left (fun inst_map (ghost_var, ghost_inst) ->
-          if Var_set.mem ghost_var !ghost_args_vars then (failwith "Ghost argument %s given twice for function %s" (var_to_string ghost_var) (Ast_to_c.ast_to_string fn));
-          ghost_args_vars := Var_set.add ghost_var !ghost_args_vars;
+          if Var_map.mem ghost_var inst_map then (failwith "Ghost argument %s given twice for function %s" (var_to_string ghost_var) (Ast_to_c.ast_to_string fn));
           Var_map.add ghost_var ghost_inst inst_map) inst_map ghost_args
         in
+        let ensured_renaming = List.fold_left (fun ensured_renaming (bound_var, contract_var) ->
+          if Var_map.mem contract_var ensured_renaming then (failwith "Ghost binding %s given twice for function %s" (var_to_string contract_var) (Ast_to_c.ast_to_string fn));
+          Var_map.add contract_var bound_var ensured_renaming) Var_map.empty ghost_bind
+        in
 
-        let call_usage_map, res_after = compute_contract_invoc spec.contract ~inst_map res_after_args t in
+        let call_usage_map, res_after = compute_contract_invoc spec.contract ~inst_map ~ensured_renaming res_after_args t in
         let usage_map = List.fold_left (fun usage_map (_, ghost_inst) ->
             let ghost_inst_fv = trm_free_vars ghost_inst in
             Var_set.fold (fun x -> Var_map.add x Required) ghost_inst_fv usage_map
@@ -1632,8 +1695,9 @@ let rec compute_resources
            Store the reverse of the instantiated contract as the contract for _Res.
         *)
         let usage_map, res, contract_invoc = Pattern.pattern_match effective_args [
-          Pattern.(!(trm_apps !__ nil __) ^:: nil) (fun ghost_call ghost_fn () ->
+          Pattern.(!(trm_apps !__ nil __ __) ^:: nil) (fun ghost_call ghost_fn () ->
             let usage_map, res = compute_resources (Some res) ghost_call in
+            t.ctx.ctx_resources_contract_invoc <- ghost_call.ctx.ctx_resources_contract_invoc;
             let resources_after_ghost_fn = Option.unsome ghost_fn.ctx.ctx_resources_after in
             let spec = Resource_set.find_result_fun_spec  resources_after_ghost_fn in
             begin match spec.inverse with
@@ -1659,18 +1723,41 @@ let rec compute_resources
         end
 
       | Spec_not_found fn when var_eq fn Resource_trm.var_ghost_end ->
-        (* Calls the closure made by GHOST_BEGIN and removes it from the pure context to ensure good scoping. *)
+        (* Calls the closure made by GHOST_BEGIN and clears it from the pure context to ensure good scoping. *)
         Pattern.pattern_match effective_args [
           Pattern.(!(trm_var !__) ^:: nil) (fun fn fn_var () ->
             (* LATER: Maybe check that the variable is indeed introduced by __ghost_begin *)
             let usage_map, res = compute_resources (Some res) (trm_apps ~annot:referent fn []) in
-            usage_map, Option.map (fun res -> { res with fun_specs = Var_map.remove fn_var res.fun_specs }) res
+            Option.map (add_usage fn_var Cleared) usage_map, Option.map (Resource_set.remove_pure fn_var) res
           );
           Pattern.__ (fun () -> failwith "__ghost_end expects a single variable as argument")
         ]
 
+      | Spec_not_found fn when var_eq fn Resource_trm.var_clear ->
+        Pattern.pattern_match effective_args [
+          Pattern.((trm_var !__) ^:: nil) (fun hyp () ->
+            Some (Var_map.singleton hyp Cleared), Some (Resource_set.remove_pure hyp res)
+          );
+          Pattern.__ (fun () -> failwith "__clear expects a single variable as argument")
+        ]
+
+      | Spec_not_found fn when var_eq fn Resource_trm.var_ghost_define ->
+        if effective_args <> [] then failwith "ghost define expects only ghost arguments";
+        let ghost_call = trm_apps ~annot:referent (trm_var Resource_trm.var_assert_inhabited) [] ~ghost_args ~ghost_bind in
+        let usage_map, res = compute_resources (Some res) ghost_call in
+        let** res in
+        let def = ref None in
+        List.iter (fun (arg, value) -> if arg.name = "x" then def := Some value) ghost_args;
+        let def = Option.unsome ~error:"Missing definition in ghost define" !def in
+        let out_var = match ghost_bind with
+          | [Some var, contract_var] when contract_var.name = "x" -> var
+          | _ -> failwith "Invalid output variable in ghost define"
+        in
+        let res = Resource_set.add_alias out_var def res in
+        usage_map, Some res
+
       | Spec_not_found fn when var_eq fn Resource_trm.var_assert_alias ->
-        if effective_args <> [] then failwith "__assert_alias expects only ghost arguments";
+        if effective_args <> [] then failwith "assert_alias expects only ghost arguments";
         let ghost_call = trm_apps ~annot:referent (trm_var Resource_trm.var_assert_eq) [] ~ghost_args in
         let usage_map, res = compute_resources (Some res) ghost_call in
         let** res in
@@ -1680,7 +1767,7 @@ let rec compute_resources
         List.iter (fun (arg, value) -> match arg.name with
         | "x" when !var = None -> begin match trm_var_inv value with
           | Some x -> var := Some x
-          | None -> failwith "__assert_alias expects a simple variable as first argument (got %s)" (Ast_to_c.ast_to_string value)
+          | None -> failwith "assert_alias expects a simple variable as first argument (got %s)" (Ast_to_c.ast_to_string value)
           end
         | "y" when !subst = None -> subst := Some value
         | _ -> ()) (ghost_args @ Option.value ~default:[] (Option.map (fun inv -> List.map (fun { hyp; inst_by } -> (hyp, inst_by)) inv.contract_inst.used_pure) ghost_call.ctx.ctx_resources_contract_invoc));
@@ -1694,6 +1781,19 @@ let rec compute_resources
         let res = Resource_set.add_alias var subst res in
         usage_map, Some res
 
+      | Spec_not_found fn when var_eq fn Resource_trm.var_ghost_forget_init ->
+        if effective_args <> [] then failwith "forget_init expects only ghost arguments";
+        let h = List.find_map (fun (arg, value) -> if arg.name = "H" then Some value else None) ghost_args in
+        let h = Option.unsome_or_else h (fun () -> failwith "Cannot call forget_init with unspecified resource") in
+        let uninit_h = formula_uninit h in
+        let contract = { pre = Resource_set.make ~linear:[new_anon_hyp (), h] (); post = Resource_set.make ~linear:[new_anon_hyp (), uninit_h] () } in
+        let call_usage_map, res_after = compute_contract_invoc contract res t in
+        let usage_map = List.fold_left (fun usage_map (_, ghost_inst) ->
+            let ghost_inst_fv = trm_free_vars ghost_inst in
+            Var_set.fold (fun x -> Var_map.add x Required) ghost_inst_fv usage_map
+          ) call_usage_map ghost_args in
+        Some usage_map, Some res_after
+
       | Spec_not_found fn when var_eq fn Resource_trm.var_admitted ->
         (* Stop the resource computation in the instructions following the call to __admitted()
            by forgetting the context without raising any error. *)
@@ -1704,6 +1804,10 @@ let rec compute_resources
 
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
     | Trm_for (range, body, contract) ->
+      let contract_ctx = pure_env res in
+      let contract_ctx = { contract_ctx with res = (range.index, typ_int) :: contract_ctx.res } in
+      check_loop_contract_types ~pure_ctx:contract_ctx contract;
+
       let outer_contract = contract_outside_loop range contract in
       let usage_map, res_after = compute_contract_invoc outer_contract res t in
 
@@ -1771,8 +1875,8 @@ let rec compute_resources
               in
               match ut, ue with
               | (Some Required, (Some Required | None)) | (None, Some Required) -> Some Required
-              | (Some (Ensured | ArbitrarilyChosen) | None), (Some (Ensured | ArbitrarilyChosen) | None) -> None
-              | (Some (Required | Ensured | ArbitrarilyChosen), _) | (_, Some (Required | Ensured | ArbitrarilyChosen)) ->
+              | (Some (Ensured | ArbitrarilyChosen | Cleared) | None), (Some (Ensured | ArbitrarilyChosen | Cleared) | None) -> None
+              | (Some (Required | Ensured | ArbitrarilyChosen | Cleared), _) | (_, Some (Required | Ensured | ArbitrarilyChosen | Cleared)) ->
                 on_conflict "mixed in pure and linear"
               | (None, _) | (_, None) ->
                 on_conflict "consumed in a branch but not in the other"
@@ -1921,28 +2025,25 @@ let init_ctx = Resource_set.make ~pure:[
   typ_f64_var, typ_type;
   typ_bool_var, typ_type;
   typ_char_var, typ_type;
-  typ_ptr_var, typ_pure_fun [typ_type] typ_type;
-  typ_const_var, typ_pure_fun [typ_type] typ_type;
+  typ_ptr_var, typ_pure_simple_fun [typ_type] typ_type;
+  typ_const_var, typ_pure_simple_fun [typ_type] typ_type;
   typ_range_var, typ_type;
-  Resource_formula.var_range, typ_pure_fun [typ_int; typ_int; typ_int] typ_range;
-  Resource_formula.var_forall_in, typ_pure_fun [typ_range; typ_pure_fun [typ_int] typ_prop] typ_prop;
-  Resource_formula.var_group, typ_pure_fun [typ_range; typ_pure_fun [typ_int] typ_hprop] typ_hprop;
+  Resource_formula.var_range, typ_pure_simple_fun [typ_int; typ_int; typ_int] typ_range;
+  Resource_formula.var_group, typ_pure_simple_fun [typ_range; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_frac, typ_type;
-  Resource_formula.var_read_only, typ_pure_fun [Resource_formula.typ_frac; typ_hprop] typ_hprop;
-  Resource_formula.var_uninit, typ_pure_fun [typ_hprop] typ_hprop;
-  Resource_formula.var_is_true, typ_pure_fun [typ_bool] typ_prop;
-  Resource_formula.var_is_false, typ_pure_fun [typ_bool] typ_prop;
-  Resource_formula.var_not, typ_pure_fun [typ_prop] typ_prop;
-  Resource_formula.var_and, typ_pure_fun [typ_prop; typ_prop] typ_prop;
-  Resource_formula.var_or, typ_pure_fun [typ_prop; typ_prop] typ_prop;
-  Resource_formula.var_in_range, typ_pure_fun [typ_int; typ_range] typ_prop;
-  Resource_formula.var_is_subrange, typ_pure_fun [typ_range; typ_range] typ_prop;
-  Resource_formula.var_range_count, typ_pure_fun [typ_range] typ_int;
-  Resource_formula.var_wand, typ_pure_fun [typ_hprop; typ_hprop] typ_hprop;
-  Resource_formula.var_frac_div, typ_pure_fun [typ_frac; typ_int] typ_frac;
-  Resource_formula.var_frac_sub, typ_pure_fun [typ_frac; typ_frac] typ_frac;
+  Resource_formula.var_read_only, typ_pure_simple_fun [Resource_formula.typ_frac; typ_hprop] typ_hprop;
+  Resource_formula.var_is_true, typ_pure_simple_fun [typ_bool] typ_prop;
+  Resource_formula.var_is_false, typ_pure_simple_fun [typ_bool] typ_prop;
+  Resource_formula.var_not, typ_pure_simple_fun [typ_prop] typ_prop;
+  Resource_formula.var_and, typ_pure_simple_fun [typ_prop; typ_prop] typ_prop;
+  Resource_formula.var_or, typ_pure_simple_fun [typ_prop; typ_prop] typ_prop;
+  Resource_formula.var_frac_div, typ_pure_simple_fun [typ_frac; typ_int] typ_frac;
+  Resource_formula.var_frac_sub, typ_pure_simple_fun [typ_frac; typ_frac] typ_frac;
   Resource_trm.var_ghost_ret, typ_type;
   Resource_trm.var_ghost_fn, typ_type; (* Maybe add an alias to trm_fun [] trm_ghost_ret *)
+  Resource_trm.var_arbitrary, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_var typ));
+  Resource_trm.var_admit, (let prop = new_var "P" in typ_pure_fun [prop, typ_prop] (typ_var prop));
+  Resource_trm.var_admitted, typ_auto;
   var_ignore, typ_auto;
 ] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_specs) ()
 

@@ -11,11 +11,15 @@ open Resource_formula
 let var_admitted = toplevel_var "__admitted"
 let var_justif = toplevel_var "justif"
 
-let ghost_inv t =
+let var_ghost_define = toplevel_var "define"
+let var_assert_inhabited = toplevel_var "assert_inhabited"
+let var_assert_prop = toplevel_var "assert_prop"
+
+let ghost_call_inv t =
   Pattern.pattern_match t [
-    Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args () ->
-      if not (trm_has_attribute GhostCall t) then raise_notrace Pattern.Next;
-      Some { ghost_fn; ghost_args }
+    Pattern.(trm_apps !__ nil !__ !__) (fun ghost_fn ghost_args ghost_bind () ->
+      if not (trm_has_attribute GhostInstr t) then raise_notrace Pattern.Next;
+      Some { ghost_fn; ghost_args; ghost_bind }
     );
     Pattern.__ (fun () -> None)
   ]
@@ -51,12 +55,12 @@ let ghost (g : ghost_call): trm =
 
 let ghost_begin (ghost_pair_var: var) (ghost_call: ghost_call) : trm =
   void_when_resource_typing_disabled (fun () ->
-    trm_add_attribute GhostCall (trm_let (ghost_pair_var, typ_ghost_fn)
+    trm_add_attribute GhostInstr (trm_let (ghost_pair_var, typ_ghost_fn)
       (trm_apps (trm_var var_ghost_begin) [ghost ghost_call])))
 
 let ghost_end (ghost_pair_var: var): trm =
   void_when_resource_typing_disabled (fun () ->
-    trm_add_attribute GhostCall (trm_apps (trm_var var_ghost_end) [trm_var ghost_pair_var]))
+    trm_add_attribute GhostInstr (trm_apps (trm_var var_ghost_end) [trm_var ghost_pair_var]))
 
 let ghost_pair ?(name: string option) (ghost_call: ghost_call) : var * trm * trm =
   let ghost_pair_var = generate_ghost_pair_var ?name () in
@@ -68,7 +72,7 @@ let ghost_custom_pair ?(name: string option) (forward_fn: trm) (backward_fn: trm
   let ghost_pair_var = generate_ghost_pair_var ?name () in
   let ghost_with_reverse = trm_apps (trm_var var_with_reverse) [forward_fn; backward_fn] in
   (ghost_pair_var,
-   ghost_begin ghost_pair_var { ghost_fn = ghost_with_reverse; ghost_args = [] },
+   ghost_begin ghost_pair_var { ghost_fn = ghost_with_reverse; ghost_args = []; ghost_bind = [] },
    ghost_end ghost_pair_var)
 
 let ghost_scope ?(pair_name: string option) (ghost_call: ghost_call) (t: trm): trm =
@@ -76,19 +80,32 @@ let ghost_scope ?(pair_name: string option) (ghost_call: ghost_call) (t: trm): t
   Nobrace.trm_seq_nomarks [ghost_begin; t; ghost_end]
 
 let ghost_begin_inv (t: trm): (var * ghost_call) option =
-  Pattern.pattern_match t [
-    Pattern.(trm_let !__ __ (trm_apps1 (trm_specific_var var_ghost_begin) (trm_apps !__ nil !__))) (fun pair_var ghost_fn ghost_args () ->
-      Some (pair_var, { ghost_fn; ghost_args })
-    );
-    Pattern.__ (fun () -> None)
+  Pattern.pattern_match_opt t [
+    Pattern.(trm_let !__ __ (trm_apps1 (trm_specific_var var_ghost_begin) (trm_apps !__ nil !__ !__))) (fun pair_var ghost_fn ghost_args ghost_bind () ->
+      (pair_var, { ghost_fn; ghost_args; ghost_bind })
+    )
   ]
 
 let ghost_end_inv (t: trm): var option =
-  Pattern.pattern_match t [
-    Pattern.(trm_apps1 (trm_specific_var var_ghost_end) (trm_var !__)) (fun pair_var () -> Some pair_var);
-    Pattern.__ (fun () -> None)
+  Pattern.pattern_match_opt t [
+    Pattern.(trm_apps1 (trm_specific_var var_ghost_end) (trm_var !__)) (fun pair_var () -> pair_var);
   ]
 
+let ghost_call_opt_args ghost_fn ?(ghost_binds = []) ghost_args =
+  ghost_call ghost_fn ~ghost_bind:(List.filter_map (fun (b_opt, c) -> Option.map (fun b -> (b, c)) b_opt) ghost_binds) (List.filter_map (fun (a, t_opt) -> Option.map (fun t -> (a, t)) t_opt) ghost_args)
+
+let var_clear = toplevel_var "__clear"
+let ghost_clear (x: var) =
+  void_when_resource_typing_disabled (fun () ->
+    trm_add_attribute GhostInstr (trm_apps (trm_var var_clear) [trm_var x])
+  )
+
+let ghost_clear_inv (t: trm) =
+  Pattern.pattern_match_opt t [
+    Pattern.(trm_apps1 (trm_specific_var var_clear) (trm_var !__)) (fun v () -> v)
+  ]
+
+(* This API for admitted is borken with usage ! Admitted should be only accepted inside contracts, and not anywhere in a sequence. *)
 let admitted ?(justif: trm option) (): trm =
   let ghost_args = match justif with
     | None -> []
@@ -99,15 +116,19 @@ let admitted ?(justif: trm option) (): trm =
 module Pattern = struct
   include Pattern
 
-  let admitted fghost_args = trm_apps (trm_specific_var var_admitted) nil fghost_args
+  let admitted justif_opt =
+    let fghost_args k args =
+      match args with
+      | [] -> justif_opt k None
+      | [(_, j)] -> justif_opt k (Some j)
+      | _ -> raise Next
+    in
+    trm_apps (trm_specific_var var_admitted) nil fghost_args nil
 end
 
-let admitted_inv (t : trm) : (resource_item list) option =
-  Pattern.pattern_match t [
-    Pattern.(admitted !__) (fun ghost_args () ->
-      Some ghost_args
-    );
-    Pattern.(__) (fun () -> None)
+let admitted_inv (t : trm) : (formula option) option =
+  Pattern.pattern_match_opt t [
+    Pattern.(admitted !__) (fun justif_opt () -> justif_opt)
   ]
 
 let ghost_admitted ?(justif: trm option) (contract: fun_contract): trm =
@@ -115,13 +136,14 @@ let ghost_admitted ?(justif: trm option) (contract: fun_contract): trm =
   then Nobrace.trm_seq_nomarks []
   else ghost (ghost_closure_call contract (trm_seq_nomarks [admitted ?justif ()]))
 
-let ghost_rewrite (before: formula) (after: formula) (justif: formula): trm =
+let ghost_admitted_rewrite (before: formula) (after: formula) (justif: formula): trm =
   let contract = {
     pre = Resource_set.make ~linear:[new_anon_hyp (), before] ();
     post = Resource_set.make ~linear:[new_anon_hyp (), after] ()
   } in
   ghost_admitted contract ~justif
 
+let var_ghost_assert_hprop = toplevel_var "assert_hprop"
 let var_ghost_forget_init = toplevel_var "forget_init"
 
 let ghost_forget_init (f: formula): trm =
@@ -138,7 +160,7 @@ let may_ghost_intro_alias (x : var) (t : trm) (res : resource_set) : trm =
   else ghost_intro_alias x t
 
 let is_ghost_alias (t : trm) : bool =
-  begin match ghost_inv t with
+  begin match ghost_call_inv t with
   | Some { ghost_fn = g; _ } ->
     begin match trm_var_inv g with
     | Some v when var_eq var_assert_alias v -> true
@@ -155,25 +177,96 @@ let var_ghost_hide_rev = toplevel_var "hide_rev"
 let ghost_pair_hide (f: formula): var * trm * trm =
   ghost_pair (ghost_call var_ghost_hide ["H", f])
 
-let var_ghost_group_focus_subrange = toplevel_var "group_focus_subrange"
-let var_ghost_group_focus_subrange_ro = toplevel_var "group_focus_subrange_ro"
-let var_ghost_group_focus_subrange_uninit = toplevel_var "group_focus_subrange_uninit"
+let var_ghost_group_focus = toplevel_var "group_focus"
+let ghost_group_focus ?(bound_check: trm option) ?(range: trm option) ?(items: trm option) (i: trm) =
+  ghost_call_opt_args var_ghost_group_focus ["i", Some i; "range", range; "items", items; "bound_check", bound_check]
 
-let var_ghost_matrix2_ro_focus = toplevel_var "matrix2_ro_focus"
+let var_ghost_group_focus_ro = toplevel_var "group_focus_ro"
+let ghost_group_focus_ro ?(bound_check: trm option) ?(range: trm option) ?(items: trm option) ?(frac: trm option) (i: trm) =
+  ghost_call_opt_args var_ghost_group_focus_ro ["i", Some i; "range", range; "items", items; "bound_check", bound_check; "f", frac]
+
+let var_ghost_ro_matrix2_focus = toplevel_var "ro_matrix2_focus"
+let ghost_ro_matrix2_focus ?typ ?matrix ?m ?n ?frac ?bound_check_i ?bound_check_j i j =
+  ghost_call_opt_args var_ghost_ro_matrix2_focus ["T", typ; "matrix", matrix; "i", Some i; "j", Some j; "m", m; "n", n; "f", frac]
 
 let var_ghost_in_range_extend = toplevel_var "in_range_extend"
+let ghost_in_range_extend x r1 r2 =
+  ghost_call var_ghost_in_range_extend ["x", x; "r1", r1; "r2", r2]
 
 (* let var_ghost_subrange_to_group_in_range = toplevel_var "subrange_to_group_in_range" *)
 
-let var_ghost_assume = toplevel_var "assume"
+let var_arbitrary = toplevel_var "arbitrary"
+let var_admit = toplevel_var "admit"
 
+let var_ghost_assert_prop = toplevel_var "assert_prop"
+
+let ghost_assert (name: var) (prop: trm): trm =
+  ghost (ghost_call var_ghost_assert_prop ["P", prop] ~ghost_bind:[Some name, "proof"])
+
+let ghost_assert_inv (t: trm): (var * trm) option =
+  match ghost_call_inv t with
+  | Some { ghost_fn; ghost_args; ghost_bind } -> begin match trm_var_inv ghost_fn with
+    | Some ghost_fn when var_eq ghost_fn var_ghost_assert_prop ->
+      let open Option.Monad in
+      let* prop = List.find_map (fun (x, t) -> if x.name = "prop" then Some t else None) ghost_args in
+      let* name = List.find_map (fun (x, y) -> if y.name = "proof" then x else None) ghost_bind in
+      Some (name, prop)
+    | _ -> None
+    end
+  | _ -> None
+
+let ghost_proof (name: var) ?(prop: trm option) (proof: trm): trm =
+  ghost (ghost_call var_ghost_assert_prop (Option.to_list (Option.map (fun prop -> "P", prop) prop) @ ["proof", proof]) ~ghost_bind:[Some name, "proof"])
+
+let ghost_proof_inv (t: trm): (var * trm) option =
+  match ghost_call_inv t with
+  | Some { ghost_fn; ghost_args; ghost_bind } -> begin match trm_var_inv ghost_fn with
+    | Some ghost_fn when var_eq ghost_fn var_ghost_assert_prop ->
+      let open Option.Monad in
+      let* proof = List.find_map (fun (x, t) -> if x.name = "proof" then Some t else None) ghost_args in
+      let* name = List.find_map (fun (x, y) -> if y.name = "proof" then x else None) ghost_bind in
+      Some (name, proof)
+    | _ -> None
+    end
+  | _ -> None
+
+let var_ghost_assume = toplevel_var "assume"
 let assume (f: formula): trm =
   ghost (ghost_call var_ghost_assume ["P", f])
 
 let var_ghost_to_prove = toplevel_var "to_prove"
-
 let to_prove (f: formula): trm =
   ghost (ghost_call var_ghost_to_prove ["P", f])
+
+(*****************************************************************************)
+(* Integer rewriting *)
+
+let var_ghost_rewrite_prop = toplevel_var "rewrite_prop"
+let ghost_rewrite_prop ?from ?into ?by inside =
+  ghost_call_opt_args var_ghost_rewrite_prop ["from", from; "to", into; "inside", Some inside; "by", by]
+
+let var_ghost_rewrite_linear = toplevel_var "rewrite_linear"
+let ghost_rewrite_linear ?from ?into ?by inside =
+  ghost_call_opt_args var_ghost_rewrite_linear ["from", from; "to", into; "inside", Some inside; "by", by]
+
+let logic_eq_sym = trm_toplevel_var "eq_sym"
+let logic_zero_mul_intro = trm_toplevel_var "zero_mul_intro"
+let logic_plus_zero_intro = trm_toplevel_var "plus_zero_intro"
+let logic_add_assoc_right = trm_toplevel_var "add_assoc_right"
+let logic_mul_add_factor = trm_toplevel_var "mul_add_factor"
+
+let rewrite_var_in_res_ghosts ?(filter_changed = true) var ?from ?into ?by res =
+  (* LATER: Turn this into one custom ghost ? *)
+  let into_rewrite_ghost ghost_call =
+    List.map (fun (_, formula) ->
+      let i = new_var var.name in
+      let formula_index_fun = formula_fun [i, typ_int] (trm_subst_var var (trm_var i) formula) in
+      ghost (ghost_call ?from ?into ?by formula_index_fun)
+    )
+  in
+  (* LATER: Check that what we try to rewrite is indeed a Prop and not a Type... *)
+  let res = if filter_changed then Resource_set.filter_with_var var res else res in
+  into_rewrite_ghost ghost_rewrite_prop res.pure @ into_rewrite_ghost ghost_rewrite_linear res.linear
 
 (*****************************************************************************)
 (* Contracts and annotations *)
@@ -181,20 +274,23 @@ let to_prove (f: formula): trm =
 let delete_annots_on
   ?(delete_contracts = true)
   ?(delete_ghost = true)
-  ?(on_delete_to_prove = fun formula -> ())
+  ?(on_delete_to_prove: (formula -> unit) option)
   (t : trm) : trm =
   let rec aux t =
     let test_is_ghost t =
-      match ghost_inv t with
-      | Some gc ->
-        begin match trm_var_inv gc.ghost_fn with
-        | Some v when var_eq v var_ghost_to_prove ->
-          assert (List.length gc.ghost_args = 1);
-          on_delete_to_prove (snd (List.hd gc.ghost_args))
-        | _ -> ()
+      if (trm_has_attribute GhostInstr t) then begin
+        begin match on_delete_to_prove with
+        | Some on_delete_to_prove ->
+          Pattern.pattern_match t [
+            Pattern.(trm_apps (trm_specific_var var_ghost_to_prove) nil (pair __ !__ ^:: nil) __) (fun prop_to_prove () ->
+              on_delete_to_prove prop_to_prove
+            );
+            Pattern.__ (fun () -> ())
+          ]
+        | None -> ()
         end;
         true
-      | None -> false
+      end else false
     in
     let t =
       if delete_ghost &&

@@ -18,8 +18,8 @@ let _ = Run.script_cpp ~filename (fun () ->
 
   (* If this test fails, see c_access.ml or c_stackvar.ml for debugging *)
   bigstep "round-trip";
-  !! Trace.apply cfeatures_elim;
-  !! Trace.apply (cfeatures_intro (default_style ()));
+  !! Trace.apply decode_from_c;
+  !! Trace.apply (encode_to_c (default_style ()));
   bigstep "check";
   !! Trace.check_recover_original();
 )
@@ -32,6 +32,6 @@ let _ = Run.script_cpp ~filename (fun () ->
 let test_accesses =
   let clang_ast = Clang.Ast.parse_file "c_access.cpp" in
   let raw_ast = Clang_to_astRawC.tr_ast clang_ast in
-  let stackvar_ast = stackvar_elim raw_ast in
-  Ast_check.check_transfo_is_identity ~test:"access" (fun t -> caddress_intro (caddress_elim t)) stackvar_ast
+  let stackvar_ast = decode_stackvar raw_ast in
+  Ast_check.check_transfo_is_identity ~test:"access" (fun t -> encode_caddress (decode_caddress t)) stackvar_ast
 *)
