@@ -454,23 +454,37 @@ let heapify_on (t : trm) : trm =
   let declarations = List.of_seq (Queue.to_seq declarations) in
   (** Update occurrences of [variables] in the pragmas of each statement [t] in
       [ml], if any. *)
-  let ml = Mlist.mapi (fun i t ->
-               let ds = List.nth declarations i in
-               List.fold_left (fun acc (v, tv) ->
-                   (** However, do not update the occurrences of variables being
-                       declared in [t]. Indeed, the declaration of a variable
-                       [v] simply generates an inout-dependency on [v] whether
-                       it is a pointer or not. When we promote a variable from
-                       the stack to the heap, it becomes a pointer and the
-                       pragma update would result in splitting the dependency in
-                       two, i.e. an inout-dependency on [v\[0\]] and an
-                       in-dependency on [v]. We do not want this, so we do not
-                       perform the pragma update in the case of variables being
-                       declared in [t]. *)
-                   if not (Var_set.mem v ds) then
-                     apply_on_pragmas (fun pl -> (subst_pragmas v tv) pl) acc
-                   else acc
-                 ) t variables) ml in
+  let rec apply = fun vs ds t ->
+    let t =
+      List.fold_left (fun acc (v, tv) ->
+          (** However, do not update the occurrences of variables being declared
+              in [t]. Indeed, the declaration of a variable [v] simply generates
+              an inout-dependency on [v] whether it is a pointer or not. When we
+              promote a variable from the stack to the heap, it becomes a
+              pointer and the pragma update would result in splitting the
+              dependency in two, i.e. an inout-dependency on [v\[0\]] and an
+              in-dependency on [v]. We do not want this, so we do not perform
+              the pragma update in the case of variables being declared in
+              [t]. *)
+          if not (Var_set.mem v ds) then
+            apply_on_pragmas (fun pl -> (subst_pragmas v tv) pl) acc
+          else acc
+        ) t vs
+    in
+    match t.desc with
+    | Trm_seq _
+      | Trm_for _
+      | Trm_for_c _
+      | Trm_if _
+      | Trm_switch _
+      | Trm_while _ -> trm_map (apply vs ds) t
+    | _ -> t
+  in
+  let ml =
+    Mlist.mapi (fun i t ->
+        let ds = List.nth declarations i in apply variables ds t
+      ) ml
+  in
   (** Re-build the sequence term. *)
   let t' = trm_seq ~annot:t.annot ml in
   let t' = List.fold_left (fun acc (v, tv) ->

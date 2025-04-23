@@ -271,41 +271,41 @@ void grid_update(const int nb_particles, const int nb_cells_per_dim, const doubl
         for (int idx_z = 0; idx_z < nb_cells_per_dim; idx_z++) {
           const int* const cell_idx = new const int((idx_x * nb_cells_per_dim + idx_y) * nb_cells_per_dim + idx_z);
           for (int idxPart = 0; idxPart < src_sizes[*cell_idx]; idxPart++) {
-#pragma omp taskwait depend(in : cell_idx, idxPart, particles_forces, time_step) depend(inout : particles_symb)
+#pragma omp taskwait depend(in : cell_idx[0], idxPart, particles_forces, time_step, cell_idx) depend(inout : particles_symb)
             src_particles_symb[*cell_idx][idxPart].vx += src_particles_forces[*cell_idx][idxPart].fx / src_particles_symb[*cell_idx][idxPart].weight * time_step;
             src_particles_symb[*cell_idx][idxPart].vy += src_particles_forces[*cell_idx][idxPart].fy / src_particles_symb[*cell_idx][idxPart].weight * time_step;
             src_particles_symb[*cell_idx][idxPart].vz += src_particles_forces[*cell_idx][idxPart].fz / src_particles_symb[*cell_idx][idxPart].weight * time_step;
             src_particles_symb[*cell_idx][idxPart].x += src_particles_symb[*cell_idx][idxPart].vx * time_step;
             src_particles_symb[*cell_idx][idxPart].y += src_particles_symb[*cell_idx][idxPart].vy * time_step;
             src_particles_symb[*cell_idx][idxPart].z += src_particles_symb[*cell_idx][idxPart].vz * time_step;
-#pragma omp taskwait depend(in : cell_idx) depend(inout : particles_symb)
+#pragma omp taskwait depend(in : cell_idx[0], cell_idx) depend(inout : particles_symb)
             while (src_particles_symb[*cell_idx][idxPart].x < 0) {
-#pragma omp taskwait depend(in : box_width, cell_idx, idxPart) depend(inout : particles_symb)
+#pragma omp taskwait depend(in : box_width, cell_idx[0], idxPart, cell_idx) depend(inout : particles_symb)
               src_particles_symb[*cell_idx][idxPart].x += box_width;
             }
-#pragma omp taskwait depend(in : box_width, cell_idx) depend(inout : particles_symb)
+#pragma omp taskwait depend(in : box_width, cell_idx[0], cell_idx) depend(inout : particles_symb)
             while (src_particles_symb[*cell_idx][idxPart].x >= box_width) {
-#pragma omp taskwait depend(in : box_width, cell_idx, idxPart) depend(inout : particles_symb)
+#pragma omp taskwait depend(in : box_width, cell_idx[0], idxPart, cell_idx) depend(inout : particles_symb)
               src_particles_symb[*cell_idx][idxPart].x -= box_width;
             }
-#pragma omp taskwait depend(in : cell_idx) depend(inout : particles_symb)
+#pragma omp taskwait depend(in : cell_idx[0], cell_idx) depend(inout : particles_symb)
             while (src_particles_symb[*cell_idx][idxPart].y < 0) {
-#pragma omp taskwait depend(in : box_width, cell_idx, idxPart) depend(inout : particles_symb)
+#pragma omp taskwait depend(in : box_width, cell_idx[0], idxPart, cell_idx) depend(inout : particles_symb)
               src_particles_symb[*cell_idx][idxPart].y += box_width;
             }
-#pragma omp taskwait depend(in : box_width, cell_idx) depend(inout : particles_symb)
+#pragma omp taskwait depend(in : box_width, cell_idx[0], cell_idx) depend(inout : particles_symb)
             while (src_particles_symb[*cell_idx][idxPart].y >= box_width) {
-#pragma omp taskwait depend(in : box_width, cell_idx, idxPart) depend(inout : particles_symb)
+#pragma omp taskwait depend(in : box_width, cell_idx[0], idxPart, cell_idx) depend(inout : particles_symb)
               src_particles_symb[*cell_idx][idxPart].y -= box_width;
             }
-#pragma omp taskwait depend(in : cell_idx) depend(inout : particles_symb)
+#pragma omp taskwait depend(in : cell_idx[0], cell_idx) depend(inout : particles_symb)
             while (src_particles_symb[*cell_idx][idxPart].z < 0) {
-#pragma omp taskwait depend(in : box_width, cell_idx, idxPart) depend(inout : particles_symb)
+#pragma omp taskwait depend(in : box_width, cell_idx[0], idxPart, cell_idx) depend(inout : particles_symb)
               src_particles_symb[*cell_idx][idxPart].z += box_width;
             }
-#pragma omp taskwait depend(in : box_width, cell_idx) depend(inout : particles_symb)
+#pragma omp taskwait depend(in : box_width, cell_idx[0], cell_idx) depend(inout : particles_symb)
             while (src_particles_symb[*cell_idx][idxPart].z >= box_width) {
-#pragma omp taskwait depend(in : box_width, cell_idx, idxPart) depend(inout : particles_symb)
+#pragma omp taskwait depend(in : box_width, cell_idx[0], idxPart, cell_idx) depend(inout : particles_symb)
               src_particles_symb[*cell_idx][idxPart].z -= box_width;
             }
             int* up_cell_idx = new int();
