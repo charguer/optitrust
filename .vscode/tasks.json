@@ -537,7 +537,23 @@
           "clear": true,
           "reveal": "always"
         },
-      }
-
+      },
+      // Custom script
+      {
+        "label": "Execute go.sh",
+        "type": "shell",
+        "command": "./go.sh",
+        "args": [],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+        "presentation": {
+          "clear": true,
+          "reveal": "always"
+        },
+      },
     ]
 }

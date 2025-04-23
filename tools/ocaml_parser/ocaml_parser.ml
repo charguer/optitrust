@@ -5,7 +5,7 @@ open Ast
 open Trm
 open Flags
 
-type ocaml_ast = Parsetree.structure
+(* type ocaml_ast = Parsetree.structure *)
 
 (* [light_verbose_info] documents calls to [verbose_info] that could be
    turned on without turning all other [verbose_info] calls on.
@@ -61,7 +61,7 @@ let clangml_options : Clang.Ast.Options.t = {
 let raw_parser (filename: string): trm =
 
   (* Parse *)
-  let infile = open_in filename in
+  (*let infile = open_in filename in
   let lexbuf = Lexing.from_channel infile in
   Lexing.set_filename lexbuf filename ;
   let ocaml_ast : ocaml_ast =
@@ -70,17 +70,26 @@ let raw_parser (filename: string): trm =
       Printf.printf "Syntax error in %s. Debug using: ocamlc %s\n"
         ("[TODO] add an error message") filename;
       exit 1
-    in
+    in*)
 
-    let prefixname = Filename.chop_extension filename in
-    let modulename = String.capitalize_ascii (Filename.basename prefixname) in
+    let output_prefix = Filename.chop_extension filename in
+    (*let modulename = String.capitalize_ascii (Filename.basename output_prefix) in*)
 
+    Compile_common.(with_info  ~native:false ~tool_name:"ocamlc" ~source_file:filename ~output_prefix ~dump_ext:"cmo" (fun info ->
+      let parsed = parse_impl info in
+      let typed = typecheck_impl info parsed in
 
-    let env = Compmisc.initial_env () in
+      Clflags.locations := false;
+      Printtyped.implementation_with_coercion Format.std_formatter typed;
 
-    let typedtree = Typemod.type_implementation filename prefixname modulename env ocaml_ast in
+      Ocaml_to_ast.tr_ast typed
+    ))
 
-    Ocaml_to_ast.tr_ast typedtree
+  (*   let typedtree = Typemod.type_implementation filename prefixname modulename env ocaml_ast in
+
+    Printtyped.implementation_with_coercion Format.std_formatter typedtree;
+
+    Ocaml_to_ast.tr_ast typedtree *)
 
 
 let parse (filename: string) : unit =
