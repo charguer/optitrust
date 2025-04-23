@@ -269,19 +269,20 @@ let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline
     (* Handles preprocessor -- FUTURE USE MENHIR PARSER
     Compcert_parser.Clflags.prepro_options := prepro;
     *)
+    let program_basename = get_program_basename () in
+    let filename_cpp =  match filename with
+    | Some filename -> filename
+    | None -> (Filename.basename program_basename) ^ ".cpp"
+    in
 
     (* Handles on-the-fly inlining *)
     let filename =
       match inline with
-      | [] -> filename
+      | [] -> Some filename_cpp
       | _ ->
-        let program_basename = get_program_basename () in
+
         let basepath = Filename.dirname program_basename in
-        let filename =
-          match filename with
-          | Some filename -> filename
-          | None -> (Filename.basename program_basename) ^ ".cpp"
-        in
+        let filename = filename_cpp in
         let basename = Filename.chop_extension filename in
         let inlinefilename = basename ^ "_inlined.cpp" in
         generate_source_with_inlined_header_cpp basepath filename inline inlinefilename;
@@ -297,19 +298,21 @@ let script_ml ?(filename : string option) ?(prepro : string list = []) ?(inline 
     (* Handles preprocessor -- FUTURE USE MENHIR PARSER
     Compcert_parser.Clflags.prepro_options := prepro;
     *)
+    Flags.bypass_cfeatures := true;
+
+    let program_basename = get_program_basename () in
+    let filename_ml =  match filename with
+    | Some filename -> filename
+    | None -> (Filename.basename program_basename) ^ "_in.ml"
+    in
 
     (* Handles on-the-fly inlining *)
     let filename =
       match inline with
-      | [] -> filename
+      | [] -> Some filename_ml
       | _ ->
-        let program_basename = get_program_basename () in
         let basepath = Filename.dirname program_basename in
-        let filename =
-          match filename with
-          | Some filename -> filename
-          | None -> (Filename.basename program_basename) ^ "_in.ml"
-        in
+        let filename = filename_ml in
         let basename = Filename.chop_extension filename in
         let inlinefilename = basename ^ "_inlined.ml" in
         generate_source_with_inlined_header_cpp basepath filename inline inlinefilename;

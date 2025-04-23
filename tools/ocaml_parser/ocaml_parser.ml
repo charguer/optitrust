@@ -80,11 +80,14 @@ let raw_parser (filename: string): trm =
       let typed = typecheck_impl info parsed in
 
       Clflags.locations := false;
+
+      (* if Flags.dump_ocaml_ast then sortir dans un fichier : *)
       Printtyped.implementation_with_coercion Format.std_formatter typed;
 
-      Ocaml_to_ast.tr_ast typed
+      let ast : trm = Ocaml_to_ast.tr_ast typed in
+      (*  if !show then  (Ast_to_text.print_ast (Style.internal ()) stdout ast);*)
+      ast
     ))
-
   (*   let typedtree = Typemod.type_implementation filename prefixname modulename env ocaml_ast in
 
     Printtyped.implementation_with_coercion Format.std_formatter typedtree;

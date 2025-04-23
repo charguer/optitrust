@@ -144,6 +144,11 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
 type parser = string -> string * trm
 
 let c_parser ~(persistant:bool) (filename: string) : string * trm =
+
+  let command s =
+    if true (*later: flag verbose*) then print_string (Printf.sprintf "PARSER COMMAND: %s\n" s);
+    Sys.command s;
+    in
   (* "ser" means serialized *)
   let ser_filename = filename ^ ".ser" in
 
@@ -153,13 +158,13 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
 
   let exitcode =
     if extension = ".cpp" then
-    Sys.command (Printf.sprintf "cd \"%s\" && dune exec --no-build tools/c_parser/c_parser.exe -- %s %s %s"
+    command (Printf.sprintf "cd \"%s\" && dune exec --no-build tools/c_parser/c_parser.exe -- %s %s %s"
       !Flags.optitrust_root
       (if !Flags.ignore_serialized || persistant then "" else "-f")
       (if !Flags.debug_parsing_serialization then "-v" else "")
       (Unix.realpath filename))
     else if extension = ".ml" then
-      Sys.command (Printf.sprintf "cd \"%s\" && dune exec --no-build tools/ocaml_parser/ocaml_parser.exe -- %s %s %s"
+      command (Printf.sprintf "cd \"%s\" && dune exec --no-build tools/ocaml_parser/ocaml_parser.exe -- %s %s %s"
       !Flags.optitrust_root
       (if !Flags.ignore_serialized || persistant then "" else "-f")
       (if !Flags.debug_parsing_serialization then "-v" else "")

@@ -3,5 +3,5 @@
  (public_name optitrust_runner)
  (libraries clangml refl pprint str optitrust dynlink)
  (link_flags (-linkall))
- (link_deps (file ../c_parser/c_parser.exe))
+ (link_deps (file ../c_parser/c_parser.exe) (file ../ocaml_parser/ocaml_parser.exe))
  (modes native))
