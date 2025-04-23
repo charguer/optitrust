@@ -71,7 +71,16 @@ let raw_parser (filename: string): trm =
         ("[TODO] add an error message") filename;
       exit 1
     in
-    Ocaml_to_ast.tr_ast (ocaml_ast)
+
+    let prefixname = Filename.chop_extension filename in
+    let modulename = String.capitalize_ascii (Filename.basename prefixname) in
+
+
+    let env = Compmisc.initial_env () in
+
+    let typedtree = Typemod.type_implementation filename prefixname modulename env ocaml_ast in
+
+    Ocaml_to_ast.tr_ast typedtree
 
 
 let parse (filename: string) : unit =

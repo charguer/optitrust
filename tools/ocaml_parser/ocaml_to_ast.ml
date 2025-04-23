@@ -7,72 +7,88 @@ open Contextualized_error
 open Mark
 open Tools
 open Flags
-open Parsetree
+open Typedtree
+open Asttypes
 
 (** [tr_ast t]: transalate [t] into OptiTrust AST *)
 
-type ocaml_ast = structure
+type ocaml_ast = Typedtree.implementation
 
 let rec add_end x l =
   match l with
   | [] -> [x]
   | a::l' -> a::(add_end x l')
 
-let rec tr_constant (c : constant) : trm = match c with (*done, maybe include the options if needed later? See with arthur*)
-  | Pconst_integer (s, _) -> Printf.printf "constant int : %s\n" s; trm_int (int_of_string s)
-  | Pconst_char c -> Printf.printf "constant char : %c\n" c; trm_string (Char.escaped c)
-  | Pconst_string (s, _, _) -> Printf.printf "constant string : %s\n" s; trm_string s
-  | Pconst_float (s, _) -> Printf.printf "constant float : %s\n" s; trm_float (float_of_string s)
+let rec tr_constant (c : constant) : trm = match c with
+  | Const_int n -> trm_int n
+  | Const_char c -> trm_string (Char.escaped c)
+  | Const_string (s, _, _) -> trm_string s
+  | Const_float s -> trm_float (float_of_string s)
+  | Const_int32 n -> trm_int (Int32.to_int n)
+  | Const_int64 n -> trm_int (Int64.to_int n)
+  | Const_nativeint n -> trm_int (Nativeint.to_int n)
 
-and tr_pattern pat = let {ppat_desc} = pat in match ppat_desc with
-  | Ppat_var sl -> (new_var sl.txt, trm_unit ())
+and tr_pattern pat = match pat.pat_desc with
+  | Tpat_var (id, _) -> (new_var (Ident.name id), typ_auto)
+  | Tpat_any -> failwith "any"
+  (*| Tpat_constraint (p, _) -> tr_pattern p*)
   | _ -> failwith "pattern not yet translatable"
 
-and tr_value_binding (vb : value_binding) = let {pvb_pat; pvb_expr} = vb in trm_let (tr_pattern pvb_pat) (tr_expression pvb_expr)
+and tr_value_binding (vb : value_binding) = let {vb_pat; vb_expr} = vb in trm_let (tr_pattern vb_pat) (tr_expression vb_expr)
 
 and tr_let_exp (vb_l : value_binding list) (e : expression) : trm =
   let binding_list = List.map tr_value_binding vb_l in
   let full_list = add_end (tr_expression e) binding_list in
   trm_seq (Mlist.of_list full_list)
 
-  (*make a list of bindings. Then add the actual expression in an evaluation. merge the two lists, and give it in a sequence*)
 
 and tr_expression (e : expression) : trm =
-  match e.pexp_desc with
-  | Pexp_ident l -> (match l.txt with
-                     | Lident s -> trm_var (new_var s) (*this is bad, I need to find a way to reference variables*)
+  let aux = tr_expression in
+  match e.exp_desc with
+  | Texp_ident (_, l, _) -> (match l.txt with
+                     | Lident s -> trm_var (new_var s)
                      | Ldot _ -> failwith "Ldot"
                      | Lapply _ -> failwith "Lapply")
-  | Pexp_constant c -> tr_constant c
-  | Pexp_let (_, vb_l, e) -> tr_let_exp vb_l e
-  | Pexp_apply (e, l) -> trm_apps (tr_expression e)
-             (List.map (fun x -> let (_,e) = x in tr_expression e) l)
-  | Pexp_function _ -> failwith "function not yet translatable"
-  | Pexp_fun _ -> failwith "fun not yet translatable"
-  | Pexp_match _ -> failwith "match not yet translatable"
-  | Pexp_construct _ -> failwith "construct not yet translatable"
+  | Texp_constant c -> tr_constant c
+  | Texp_let (_, vb_l, e) -> tr_let_exp vb_l e
+  | Texp_apply (e, l) -> trm_apps (aux e)
+             (List.map (fun x -> let (_,e) = x in (match e with | Some e -> aux e | _ -> failwith "None")) l)
+  (*| Texp_function (lbl, exp0, pat, e) -> (match lbl with
+                                | Nolabel -> (match exp0 with
+                                              | None -> trm_fun [(tr_pattern pat)] typ_auto (aux e)
+                                              | _ -> failwith "   ")
+                                | _ -> failwith "  ") *)
+  | Texp_match _ -> failwith "match not yet translatable"
+  | Texp_construct _ -> failwith "construct not yet translatable"
   | _ -> failwith "expression not yet translatable"
 
 and tr_let (vb_l : value_binding list) : trm =
   let binding_list = List.map tr_value_binding vb_l in
   trm_seq (Mlist.of_list binding_list)
 
-let tr_structure_desc (s : structure_item) : trm = let {pstr_desc; _} = s in
-  match pstr_desc with
-  | Pstr_eval (e, _) -> tr_expression e
-  | Pstr_value (_, vb_l) -> tr_let vb_l
+let tr_structure_desc (s : structure_item) : trm = match s.str_desc with
+  | Tstr_eval (e, _) -> tr_expression e
+  | Tstr_value (_, vb_l) -> tr_let vb_l
   | _ -> failwith "structure not yet translatable"
 
 let tr_structure_list l = List.map (tr_structure_desc) l
 
 let tr_ast (t : ocaml_ast) : trm =
+
+  (*
   print_string "Printing the ast : \n";
 
   Pprintast.structure Format.std_formatter t;
 
-  print_string "End of printing. \n";
+  print_string "End _printing. \n";
+  *)
 
-  trm_seq (Mlist.of_list (tr_structure_list t))
+ (trm_seq (Mlist.of_list (tr_structure_list t.structure.str_items)))
+
+
+
+
+
 
   (* List.map (some function) t*)
 
@@ -111,7 +127,7 @@ parser foo_in.ml
         file_decls;
       close_out out_ast;
   end;*)
-  (*give a default value of a trm*)
+  (*give a default value _a trm*)
 
 (*open Asttypes
 open Parsetree
@@ -121,7 +137,7 @@ open Ast_aux
 
 
 (*
-Documentation of parsetree in:
+Documentation _parsetree in:
 https://v2.ocaml.org/releases/4.11/htmlman/compilerlibref/Parsetree.html *)
 
 type ocaml_ast = Parsetree.structure
@@ -186,7 +202,7 @@ let tr_pat (p : pattern) : pat =
     List.fold_left (fun s vars ->
       if VSet.disjoint s vars then VSet.union s vars
       else unsupported ~loc:p.ppat_loc "Variables can't appear several times in this pattern.") VSet.empty varss in
-  (* The set of variables appearing in the pattern is also returned. *)
+  (* The set _variables appearing in the pattern is also returned. *)
   let rec aux p : pat * VSet.t =
     let (pat_desc, vars) =
       match p.ppat_desc with
@@ -218,7 +234,7 @@ let tr_pat (p : pattern) : pat =
           let (p2, vars2) = aux p2 in
           if VSet.equal vars1 vars2 then (Pat_or (p1, p2), vars1)
           else
-            unsupported ~loc:p.ppat_loc "The same variables should appear on both sides of the pattern."
+            unsupported ~loc:p.ppat_loc "The same variables should appear on both sides _the pattern."
       | Ppat_constraint (p, ty) ->
           let (p, vars) = aux p in
           (Pat_constraint (p, mk_styp_annot ty), vars)
@@ -227,16 +243,16 @@ let tr_pat (p : pattern) : pat =
   fst (aux p)
 
 (* unsupported
-|	Ppat_interval of constant * constant
-|	Ppat_variant of Asttypes.label * pattern option
-|	Ppat_record of (Longident.t Asttypes.loc * pattern) list * Asttypes.closed_flag
-|	Ppat_array of pattern list
-|	Ppat_type of Longident.t Asttypes.loc
-|	Ppat_lazy of pattern
-|	Ppat_unpack of string option Asttypes.loc
-|	Ppat_exception of pattern
-|	Ppat_extension of extension
-|	Ppat_open of Longident.t Asttypes.loc * pattern
+|	Ppat_interval _constant * constant
+|	Ppat_variant _Asttypes.label * pattern option
+|	Ppat_record _(Longident.t Asttypes.loc * pattern) list * Asttypes.closed_flag
+|	Ppat_array _pattern list
+|	Ppat_type _Longident.t Asttypes.loc
+|	Ppat_lazy _pattern
+|	Ppat_unpack _string option Asttypes.loc
+|	Ppat_exception _pattern
+|	Ppat_extension _extension
+|	Ppat_open _Longident.t Asttypes.loc * pattern
 *)
 
 let rec pexp_fun_get_annotated_args_body (e : expression) : (annotated_vars * expression) option =
@@ -266,10 +282,10 @@ let rec ocaml_list_to_modes (e : expression) : mode list =
       ocaml_to_mode e1 :: ocaml_list_to_modes e2
   | _ -> invalid_arg "the input must be a boolean list."
 
-(* Parse the expression provided to an __instance to extract the list of overloading assumptions
+(* Parse the expression provided to an __instance to extract the list _overloading assumptions
   and the final expression.
   As this function can also be called on non-instance terms, it can't directly return exceptions.
-  Instead we use a sum type with an exception: either we return the list of valid assumption or
+  Instead we use a sum type with an exception: either we return the list _valid assumption or
   we return an exception (without throwing it) as first output. *)
 let extract_assumptions =
   let rec aux acc e =
@@ -290,7 +306,7 @@ let extract_assumptions =
           aux (add (Asmpt_instance ((var x.txt, mk_styp_annot t), None))) e
         | Ppat_constraint ({ ppat_desc = Ppat_alias ({ ppat_desc = Ppat_var x ; _ }, y) ; _ }, t) ->
           aux (add (Asmpt_instance ((var x.txt, mk_styp_annot t), Some (var y.txt)))) e
-        | _ -> aux (invalid "__instance assumption can't be an arbitrary pattern: it must be of the form (id : ty) or (id as id' : ty).") e
+        | _ -> aux (invalid "__instance assumption can't be an arbitrary pattern: it must be _the form (id : ty) or (id as id' : ty).") e
       end
     | Pexp_fun (_lbl, _e0, _p, e) -> aux (invalid "__instance assumption can't be labelled") e
     | _ -> (Either.map_left List.rev acc, e) in

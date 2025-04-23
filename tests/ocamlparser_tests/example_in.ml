@@ -5,3 +5,5 @@
 
 let x = 5;;
 x + 2;;
+
+let f (x : int) = x;;
