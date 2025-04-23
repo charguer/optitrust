@@ -542,13 +542,25 @@ let discover_dependencies
        (** Otherwise, we continue by identifying all the memory locations in
            [rval]. *)
        let rll = trm_find_memlocs rval in
-       (** We then compute the list [ra] of alias targets they represent, if
-           any. *)
-       let ra = alias rll in
-       List.iter (fun target ->
-           (** Then, for each alias target, we add a new entry to [alises]. *)
-           Var_Hashtbl.add aliases set.variable target
-         ) ra;
+       (** If [set] was not fully dereferenced ([nd]), we then compute the list
+           [ra] of alias targets they represent, if any. *)
+       let nd =
+         let nli, _ = Var_Hashtbl.find scope set.variable in
+         match set.kind with
+         | Var_mutable when set.dereferencements + 1 < nli -> true
+         | Var_immutable when set.dereferencements < 0 -> true
+         | Var_immutable when set.dereferencements < nli -> true 
+         | _ -> false
+       in
+       if nd then
+         begin
+           let ra = alias rll in
+           List.iter (fun target ->
+               (** Then, for each alias target, we add a new entry to
+                   [alises]. *)
+               Var_Hashtbl.add aliases set.variable target
+             ) ra
+         end;
        (** Finally, we continue the dependency discovery within [lval] and
            [rval].*)
        let ins, inouts, dam = main ins inouts dam 0 false `InOut false lval in
