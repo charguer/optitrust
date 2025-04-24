@@ -4,7 +4,7 @@ open Matrix_trm
 open Loop_core
 
 (** [color nb_colors i_color tg]: expects the target [tg] to point at a simple for  loop,
-   let's say [for (int i = start; i < stop; i += step) { body } ].
+   let's say [for (int i = 0; i < stop; i += step) { body } ].
    [nb_colors] - an expression denoting the number of colors (e.g., ["2"]),
    [index] - denotes a fresh name to use as index for iterating over colors.
 

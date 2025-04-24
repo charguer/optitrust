@@ -217,6 +217,11 @@ echo "View ${FILEPATH} with options ${OPTIONS}"
 make -C ${OPTITRUST_FOLDER} precompile
 
 # TODO: --no-build
+
+# Save command for debug
+echo "cd ${DIRNAME}; OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS}" > "${TOOLS_FOLDER}/_last_view_result_exec.sh"
+chmod +x "${TOOLS_FOLDER}/_last_view_result_exec.sh"
+
 OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS} || [[ "${MODE}" == *"trace"* ]]
 
 #==========================================================================

@@ -18,7 +18,7 @@ fi
 
 # Open the browser
 
-if [ -z "${WINDOWTITLE}" ]; then
+if true; then
 
     ## Launch fresh browser
     nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1 &

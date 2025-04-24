@@ -1794,7 +1794,7 @@ let produce_output_and_exit () : unit =
   (* Extract the step that should be used for the diff *)
   let container_step = get_cur_step() in
   if container_step.step_sub = []
-    then raise (TraceFailure "produce_output_and_exit: make sure you cursor is on a line starting with '!!' or 'bigstep'");
+    then raise (TraceFailure ("produce_output_and_exit: make sure you cursor is on a line starting with '!!' or 'bigstep'; targeted line: " ^ string_of_int(Flags.get_target_line()) ));
   let step = get_last_substep () in
   if !Flags.only_big_steps && step.step_kind <> Step_big
     then raise (TraceFailure "produce_output_and_exit: cannot show a diff for a big-step, no call to bigstep was made");

@@ -19,7 +19,8 @@ Installation of system packages:
 ```
 
 
-Install Clang 15. IMPORTANT: versions released after 15.0.x are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang libclang-dev llvm-dev`). You can try this procedure:
+
+Install Clang 15. IMPORTANT: versions released after 17.0.x are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang libclang-dev llvm-dev`). You can try this procedure:
 
 ```sh
 sudo apt install clang-15 llvm-15 clang-format
@@ -115,7 +116,7 @@ Alternative without use of snap:
 
 ```sh
    wget -qO - https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg \
-    | gpg --dearmor | sudo dd of=/usr/share/keyrings/vscodium-archive-keyring.gpg
+    | gpg --dearmor | sudto dd of=/usr/share/keyrings/vscodium-archive-keyring.gpg
    echo 'deb [ signed-by=/usr/share/keyrings/vscodium-archive-keyring.gpg ] https://download.vscodium.com/debs vscodium main' \
     | sudo tee /etc/apt/sources.list.d/vscodium.list
    sudo apt update
@@ -321,6 +322,24 @@ Alternatively, you can open the settings panel, the keyboard menu, the
 shortcut submenu, then in the search bar type `Alt+F` (or go to the
 'window' group), then select an action, and type `Backspace` to disable
 the shortcut, then click on the `save` button.
+
+
+--------------------------------------------------------------------------------
+## Configure Xdotool
+
+Xdotool is used to pop up the browser window faster.
+
+Disable Wayland to allow xdotool (probably requires a reboot afterwards).
+
+```
+sudo sh -c 'echo "WaylandEnable=false" >> /etc/gdm3/custom.conf'
+```
+
+Then install xdotool:
+
+```
+sudo apt-get install xdotool
+```
 
 
 --------------------------------------------------------------------------------

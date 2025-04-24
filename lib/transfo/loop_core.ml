@@ -4,7 +4,9 @@ open Target
 (** [color_on nb_colors i_color t]: transform a loop into two nested loops based on the coloring pattern,
       [nb_colors] - a variable used to represent the number of colors,
       [i_color] - a variable representing the index used of the new outer loop,
-      [t] - ast of the loop. *)
+      [t] - ast of the loop.
+
+      todo check start is zero *)
 let color_on (nb_colors : trm) (i_color : string option) (t : trm) : trm =
   let error = "Loop_core.color_aux: only simple loops are supported." in
   let ({index; start; direction; stop; step}, body, _contract) = trm_inv ~error trm_for_inv t in
@@ -17,7 +19,11 @@ let color_on (nb_colors : trm) (i_color : string option) (t : trm) : trm =
   let nb_colors = nb_colors in
     trm_pass_labels t (trm_for { index = i_color; start; direction; stop = nb_colors; step = trm_step_one () } (
       trm_seq_nomarks [
-        trm_for { index; start = (if is_step_one then trm_var i_color else trm_mul ~typ:typ_isize (trm_var i_color) step); direction; stop;
+        trm_for {
+          index;
+          start = (if is_step_one then trm_var i_color else trm_mul ~typ:typ_isize (trm_var i_color) step); (* utiliser un combinateur trm_mul_smart *)
+          direction;
+          stop;
           step = (if is_step_one then nb_colors else (trm_mul ~typ:typ_isize nb_colors step)) } body
       ]
   ))
