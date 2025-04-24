@@ -19,7 +19,7 @@ let%transfo color (nb_colors : trm) ?(index : string option) (tg : target) : uni
   apply_at_target_paths (Loop_core.color_on nb_colors index) tg
 
 (** [tile tile_size index tg]: expects the target [tg] to point at a simple loop,
-   say [for (int i = start; i < stop; i += step) { body } ].
+   say [for (int i = 0; i < stop; i += step) { body } ].
    divides - denotes a flag to know if tile_size divides the size of the array or not
    [tile_size] - denotes the width of the tile (e.g., ["2"])
    [index] - denotes a fresh name to use as index for iterating over tiles.

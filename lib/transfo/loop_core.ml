@@ -55,9 +55,24 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
   let tile_index = new_var (Tools.string_subst "${id}" index.name tile_index) in
   (* TODO: enable other styles for TileDivides *)
   if bound = TileDivides then begin
+    (* GENERATES
+    form:
+    [[
+      for i = 0; i < n; i++
+         body(i)
+    ]]
+    produces:
+    [[
+    for bi = 0; bi < tile_count; bi++
+       for j = 0; j < tile_size; j++
+          body where i is replaced by bi*tile_size+j
+    ]]
+    assuming n = tile_count * tile_size, for the given tile_size.
+    *)
+
     (* TODO: other cases *)
-    assert (are_same_trm start (trm_int 0));
-    assert (direction = DirUp);
+    assert (are_same_trm start (trm_int 0)); (* todo: raise unsupported *)
+    assert (direction = DirUp); (* todo: raise unsupported *)
     let (count, iteration_to_index) =
       if trm_is_one step
         then (stop, fun i -> i)
@@ -107,11 +122,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
         parallel_reads = contract.parallel_reads;
         iter_contract = {
           pre = Resource_set.subst_var index new_index contract.iter_contract.pre;
-          post = Resource_set.subst_var index new_index contract.iter_contract.post };
-        strict = true } in
-
-      let outer_index = iteration_to_index (trm_mul_int (trm_var tile_index) tile_size) in
-
+          post = Resource_set.subst_var index new_index contract.iter_contract.post };i
       let contract_outer = {
         loop_ghosts = contract.loop_ghosts;
         invariant = Resource_set.subst_var index outer_index contract.invariant;

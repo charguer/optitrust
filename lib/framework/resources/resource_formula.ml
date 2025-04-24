@@ -134,11 +134,14 @@ let formula_geq ~typ t1 t2 = formula_is_true (trm_ge ~typ t1 t2)
 let formula_fun ?(rettyp = typ_auto) args body =
   trm_fun ~annot:formula_annot args rettyp body
 
+(* [x ~> Cell] is a formula constructed as [formula_repr (newvar "x") trm_cell] *)
 let var_repr = toplevel_var "~>"
 let trm_repr = trm_var var_repr
 let formula_repr (var: trm) (repr: formula): formula =
   trm_apps ~annot:formula_annot trm_repr [var; repr]
 
+(* [formula_repr_inv t] when [t] represents the formula [x ~> Cell]
+   returns [Some(var "x", trm_cell)] *)
 let formula_repr_inv (t: formula): (trm * formula) option =
   match trm_apps_inv t with
   | Some ({ desc = Trm_var(xf) }, [var; repr]) when var_eq xf var_repr ->
@@ -188,6 +191,7 @@ let formula_points_to_inv (t: formula): (trm * formula) option =
     )
   ]
 
+(* [p ~> UninitCell] is a formula constructed as [formula_uninit_cell p] *)
 let var_uninit_cell = toplevel_var "UninitCell"
 let trm_uninit_cell = trm_var var_uninit_cell
 let formula_uninit_cell (addr: trm): formula =
@@ -199,6 +203,10 @@ let formula_uninit_cell_inv (t: formula): formula option =
     Some addr
   | _ -> None
 
+(* [RO(p ~> Cell] is the user syntax is represented as [trm_read_only(a, (p~>Cell)]]
+     for a fraction a.
+   [RO(a, H)]  (where H could be p ~> Cell) is a formula constructed as
+   [formula_read_only ~frac:a H] *)
 let formula_read_only ~(frac: formula) (res: formula) =
   trm_apps ~annot:formula_annot trm_read_only [frac; res]
 
@@ -411,6 +419,9 @@ let formula_forall_range (range: loop_range) (fi: formula): formula =
   let fi = trm_subst_var range.index (trm_var range_var) fi in
   formula_forall_in range_var (formula_loop_range range) fi
 
+(* A group permission is an iterated star in separation logic.
+   [for i in range ->  t[i]~>Cell] is the iterated star of the permissions [t[i]~>Cell],
+   below [index] is [i], and [fi] is the formula [t[i]~>Cell], which depends on [i]. *)
 let formula_group_range (range: loop_range) : formula -> formula =
   (* FIXME: Need to generalize models ! *)
   formula_map_under_read_only (fun fi ->

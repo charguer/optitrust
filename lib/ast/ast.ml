@@ -244,8 +244,8 @@ let code_to_str (code : code_kind) : string =
 
 (** [trm] is a record representing an ast node *)
 type trm =
- { annot : trm_annot; (* Annotations cannot be recomputed. Check if it should not be inlined here. *)
-   desc : trm_desc;
+ { desc : trm_desc;
+   annot : trm_annot; (* Annotations cannot be recomputed. Check if it should not be inlined here. *)
    loc : location; (* TODO: move into annot ? *)
    mutable typ : typ option; (* TODO: #typfield: computed types should be moved in ctx *)
    mutable ctx : ctx; (* Context contains information that can be recomputed over the AST. Transformations can safely discard it. *)
@@ -569,7 +569,12 @@ and loop_range = {
 
 (*****************************************************************************)
 
-(** [ctx]: stores context information that can be recomputed and must be updated
+(** [ctx]: stores all the typing and usage information available on a given subterm:
+    - resource just before the subterm
+    - resource just after the subterm
+    - usage information describing which resources the subterm actually uses
+
+   stores context information that can be recomputed and must be updated
    when changes occur (reset the field to unknown_ctx for invalidation). *)
 and ctx = {
   (* The set of accessible resources before this term. *)
@@ -586,10 +591,36 @@ and ctx = {
   mutable ctx_resources_exectime : float;
 }
 
+(* A formula can be a type e.g. [int] or a permission e.g. [p ~> Cell],
+   all are represented as terms. *)
 and formula = trm
+
+(* A [resource_item] is a named resource, e.g. [a: p ~> Cell] or [a: int] *)
 and resource_item = var * formula
 
-(* FIXME: Perf issue: Replace the resource_item lists with efficient datastructures:
+(* A [resource_set] corresponds to a "context" with a pure and a linear part.
+   The pure part binds variables to logical or programme types, with entries
+   e.g. [a:int], [a:int64].
+   The linear part contains linear resources, whose names are usually automatically
+   generated (such as #344), e.g.: [#344:  p ~> Cell].
+
+   Specification of functions, e.g. "function f admits such contract" are in the
+   theory stored in the pure part, but in the implementation stored in a map
+   named "fun_specs" for efficiency.
+
+   Aliases are in the theory presented as special entries in the pure part, but
+   in the implementation are stored in a separate map named "aliases". Example:
+[[
+   int* t;
+   int* p = &t[3]; // here p is registered as an alias for &t[3]
+   // meaning that permissions p~>Cell are treated like &t[3]~>Cell
+]]
+   Aliases are eagerly expanded when trying to match permissions or to unify terms.
+
+   "struct_fields" keeps track of the type definitions, for the moment struct fields.
+   such as [struct { int x; int y } point].
+
+   FIXME: Perf issue: Replace the resource_item lists with efficient datastructures:
    We need push_back, push_front, find_opt, fold_left (in order), and map to be cheap *)
 and resource_set = {
   pure: resource_item list;
@@ -617,19 +648,60 @@ and fun_spec =
   | FunSpecReverts of var
   (** [FunSpecReverts f] is the reverse of the spec of [f]. *)
 
-(* forall ghosts,
+(* Triple for typechecking the entire loop:
+[[
+  forall ghosts,
     { invariant(0) * RO(parallel_reads) * for i -> iter_contract.pre(i) }
       loop
-    { invariant(n) * RO(parallel_reads) * for i -> iter_contract.post(i) } *)
-(* forall ghosts,
+    { invariant(n) * RO(parallel_reads) * for i -> iter_contract.post(i) }
+]]
+
+Triple for typechecking the body of the loop:
+[[
+  forall ghosts,
     { invariant(i) * RO(parallel_reads) * iter_contract.pre(i) }
       loop body
-    { invariant(i) * RO(parallel_reads) * iter_contract.post(i) } *)
+    { invariant(i+1) * RO(parallel_reads) * iter_contract.post(i) }
+]]
+
+Examples of a loop with an invariant:
+[[
+  // ctx has p~>Cell
+  for i
+    __smodifies(p~>Cell)
+    p++
+  // ctx has p~>Cell
+]]
+or with more precise models
+[[
+  // ctx has p~>0
+  for i=0; i<n; i++
+    __smodifies(p~>i)
+    p++
+  // ctx has p~>n
+]]
+
+Example of a loop with ghosts used to represent fractions
+[[
+  // ctx has p~>Cell
+  for i=0; i<n; i++
+    __sreads(p~>Cell)
+       // encoded with parallel_reads =  RO(a,p~>Cell)
+       // for a fraction a quantified in the loop_ghosts
+    p++
+  // ctx has p~>Cell
+]]
+
+*)
 and loop_contract = {
-  loop_ghosts: resource_item list;
-  invariant: resource_set;
-  parallel_reads: resource_item list; (* all the resources should be of the form RO(_, _) *)
+  loop_ghosts: resource_item list; (* loop_ghosts => vars => __requires *)
+  invariant: resource_set; (* invariant => shrd.inv => __smodifies; must be empty for parallel loops *)
+  parallel_reads: resource_item list; (* parallel_reads => shrd.reads => __sreads *) (* all the resources should be of the form RO(_, _) *)
   iter_contract: fun_contract;
+    (* iter_contract.pre => excl.pre => __xconsumes;
+       iter_contract.post => excl.post => __xproduces;
+       __xmodifies is sugar for resources that are in both __xconsumes and __xproduces
+       __xwrites is sugar for __xconsumes uninit and __xproduces full *)
   strict: bool; (* Non strict loop contracts take all the resources in the frame after instantiation as additional invariants *)
 }
 
