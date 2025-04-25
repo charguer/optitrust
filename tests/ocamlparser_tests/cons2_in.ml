@@ -1,21 +1,24 @@
 
 
-type li =
+(*type li =
         | Nil
         | Cons of int * li
         | Cons2 of int * int * li
+*)
 
 
+let init len f = ()
 (*
-let init len f =
- let rec init_aux i f =
+  let rec init_aux i f =
     if i > (len - 1) then Nil
     else if i = (len - 1) then Cons (f i, Nil)
     else
       Cons2 (f i, f (i+1), init_aux (i+2) f)
-in
-init_aux 0 f
+  in
+  init_aux 0 f
+*)
 
+(*
 let rec map f l =
     match l with
     | Nil -> Nil

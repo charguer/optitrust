@@ -34,7 +34,9 @@ and tr_pattern pat = match pat.pat_desc with
   (*| Tpat_constraint (p, _) -> tr_pattern p*)
   | _ -> failwith "pattern not yet translatable"
 
-and tr_value_binding (vb : value_binding) = let {vb_pat; vb_expr} = vb in trm_let (tr_pattern vb_pat) (tr_expression vb_expr)
+and tr_value_binding (vb : value_binding) =
+  let {vb_pat; vb_expr} = vb in
+  trm_let (tr_pattern vb_pat) (tr_expression vb_expr)
 
 and tr_let_exp (vb_l : value_binding list) (e : expression) : trm =
   let binding_list = List.map tr_value_binding vb_l in
@@ -53,7 +55,14 @@ and tr_expression (e : expression) : trm =
   | Texp_let (_, vb_l, e) -> tr_let_exp vb_l e
   | Texp_apply (e, l) -> trm_apps (aux e)
              (List.map (fun x -> let (_,e) = x in (match e with | Some e -> aux e | _ -> failwith "None")) l)
-  (*| Texp_function (lbl, exp0, pat, e) -> (match lbl with
+  | Texp_function {cases} -> (match cases with
+                            | [{c_lhs; c_guard}] -> failwith "nyi"
+                            | _ -> failwith "nyi")
+
+
+
+
+    (* (match lbl with
                                 | Nolabel -> (match exp0 with
                                               | None -> trm_fun [(tr_pattern pat)] typ_auto (aux e)
                                               | _ -> failwith "   ")
