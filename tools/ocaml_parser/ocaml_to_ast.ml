@@ -62,13 +62,49 @@ and tr_expression (e : expression) : trm =
   | Texp_construct _ -> failwith "construct not yet translatable"
   | _ -> failwith "expression not yet translatable"
 
+and tr_core_type (ct : core_type) : typ =
+  match ct.ctyp_desc with
+  | Ttyp_constr (_, ident, _) ->
+    let _name = (match ident.txt with | Lident l -> l |__ -> failwith "nyi") in
+    typ_int
+  | _ -> failwith "nyi"
+
+
+(*faire fold ? Du produit de tout ca. *)
+
+and tr_constructor_decl (cd : constructor_declaration) : record_member =
+  let arguments = (match cd.cd_args with
+                  | Cstr_tuple ctl -> ctl
+                  | _ -> failwith "nyi") in
+  Record_field (cd.cd_name.txt, typ_tuple (List.map tr_core_type arguments))
+
 and tr_let (vb_l : value_binding list) : trm =
   let binding_list = List.map tr_value_binding vb_l in
   trm_seq (Mlist.of_list binding_list)
 
+and tr_type (tl : type_declaration list) : typ =
+  let td = (match tl with
+  | [singleton] -> singleton
+  | _ -> failwith "nyi") in
+  let typedef_name = new_var (td.typ_name.txt) in
+
+  let _type_params = td.typ_params in
+  let type_kind = td.typ_kind in
+
+
+  let constructors = (match type_kind with
+                  | Ttype_variant cdl -> List.map (fun cd -> (tr_constructor_decl cd, Access_public)) cdl
+                  | _ -> failwith "nyi") in
+
+  let typedef_body = Typedef_record constructors in
+
+  trm_typedef {typedef_name; typedef_body}
+
+
 let tr_structure_desc (s : structure_item) : trm = match s.str_desc with
   | Tstr_eval (e, _) -> tr_expression e
   | Tstr_value (_, vb_l) -> tr_let vb_l
+  | Tstr_type (_rec_flag, tl) -> tr_type tl
   | _ -> failwith "structure not yet translatable"
 
 let tr_structure_list l = List.map (tr_structure_desc) l

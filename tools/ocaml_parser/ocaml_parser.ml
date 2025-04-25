@@ -160,7 +160,7 @@ let _ =
     "Usage: ./optitrust_parser arg1.cpp .. argN.cpp\n";
 
   filenames := List.rev !filenames;
-  print_string "parsed files : ";
+  print_string "parsed2 files : ";
   List.iter (fun s -> print_string (s ^ ";")) !filenames;
   print_string "\n";
   List.iter parse !filenames
