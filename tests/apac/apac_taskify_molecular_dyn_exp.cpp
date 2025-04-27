@@ -159,11 +159,11 @@ int grid_create(double box_width, double cell_width, const Particle_symb* src_pa
     *particles_forces = (Particle_forces**)calloc(capacity, sizeof(Particle_forces*));
     for (int idxPart = 0; idxPart < src_size; idxPart++) {
       int* cell_idx = new int();
-#pragma omp task default(shared) depend(in : *sizes, cell_width, nb_cells_per_dim, sizes, src_particles_symb, src_particles_symb[idxPart], cell_idx) depend(inout : (*sizes)[*cell_idx], cell_idx[0]) firstprivate(idxPart)
-      {
-        *cell_idx = grid_cell_idx_from_position(cell_width, nb_cells_per_dim, src_particles_symb[idxPart]);
-        (*sizes)[*cell_idx]++;
-      }
+#pragma omp task default(shared) depend(in : cell_width, nb_cells_per_dim, src_particles_symb, src_particles_symb[idxPart], cell_idx) depend(inout : cell_idx[0]) firstprivate(idxPart)
+      *cell_idx = grid_cell_idx_from_position(cell_width, nb_cells_per_dim, src_particles_symb[idxPart]);
+#pragma omp taskwait depend(in : cell_idx[0], cell_idx)
+#pragma omp taskwait depend(in : *sizes, cell_idx[0], sizes, cell_idx) depend(inout : (*sizes)[*cell_idx])
+      (*sizes)[*cell_idx]++;
 #pragma omp task default(shared) depend(inout : cell_idx)
       delete cell_idx;
     }
@@ -309,11 +309,11 @@ void grid_update(const int nb_particles, const int nb_cells_per_dim, const doubl
               src_particles_symb[*cell_idx][idxPart].z -= box_width;
             }
             int* up_cell_idx = new int();
-#pragma omp task default(shared) depend(in : *sizes, cell_width, nb_cells_per_dim, particles_symb, sizes, up_cell_idx) depend(inout : (*sizes)[*up_cell_idx], up_cell_idx[0])
-            {
-              *up_cell_idx = grid_cell_idx_from_position(cell_width, nb_cells_per_dim, src_particles_symb[*cell_idx][idxPart]);
-              (*sizes)[*up_cell_idx]++;
-            }
+#pragma omp task default(shared) depend(in : cell_width, nb_cells_per_dim, particles_symb, up_cell_idx) depend(inout : up_cell_idx[0])
+            *up_cell_idx = grid_cell_idx_from_position(cell_width, nb_cells_per_dim, src_particles_symb[*cell_idx][idxPart]);
+#pragma omp taskwait depend(in : up_cell_idx[0], up_cell_idx)
+#pragma omp taskwait depend(in : *sizes, sizes, up_cell_idx[0], up_cell_idx) depend(inout : (*sizes)[*up_cell_idx])
+            (*sizes)[*up_cell_idx]++;
 #pragma omp task default(shared) depend(inout : up_cell_idx)
             delete up_cell_idx;
           }
@@ -326,9 +326,7 @@ void grid_update(const int nb_particles, const int nb_cells_per_dim, const doubl
       for (int idx_y = 0; idx_y < nb_cells_per_dim; idx_y++) {
         for (int idx_z = 0; idx_z < nb_cells_per_dim; idx_z++) {
           const int cell_idx = (idx_x * nb_cells_per_dim + idx_y) * nb_cells_per_dim + idx_z;
-#pragma omp taskwait depend(in : (*sizes)[cell_idx], *particles_symb, *sizes, cell_idx, particles_symb, sizes) depend(inout : (*particles_symb)[cell_idx])
           (*particles_symb)[cell_idx] = (Particle_symb*)calloc((*sizes)[cell_idx], sizeof(Particle_symb));
-#pragma omp taskwait depend(in : (*sizes)[cell_idx], *particles_forces, *sizes, cell_idx, particles_forces, sizes) depend(inout : (*particles_forces)[cell_idx])
           (*particles_forces)[cell_idx] = (Particle_forces*)calloc((*sizes)[cell_idx], sizeof(Particle_forces));
         }
       }

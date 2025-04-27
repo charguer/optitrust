@@ -1288,19 +1288,32 @@ let merge_on (p : path) (t : trm) : unit =
         simply return a single-vertex sequence with the [start] vertex. *)
     if (List.length next) <> 1 then [start]
     else
+      let start' = TaskGraph.V.label start in
       let next = List.hd next in
       (** Otherwise, we check whether the successor *)
       let next' = TaskGraph.V.label next in
-      (** can be merged, i.e. does not carry the [Singleton] attribute or both
-          [start] and its successor represent global synchronization barriers
-          (see the [WaitForAll] attribute), and *)
-      if (not (Task.attributed next' Singleton) ||
-            (Task.attributed (TaskGraph.V.label start) WaitForAll) &&
-              (Task.attributed next' WaitForAll)) &&
-           (** whether it has no other predecessors than [start]. Indeed,
-               merging such a node with another one would break the original
-               lexicographic order of the input program. *)
-           (TaskGraph.in_degree g next) < 2 then
+      (** can be merged, i.e. whether:
+          + it does not carry the [Singleton] attribute or both [start] and its
+            successor represent global synchronization barriers (see the
+            [WaitForAll] attribute), *)
+      let nots = not (Task.attributed next' Singleton) in
+      let waits =
+        Task.attributed start' WaitForAll && Task.attributed next' WaitForAll
+      in
+      (**  + it does not have an [Accessor]-attributed input dependency on a
+           memory location written to by [start], *)
+      let ains =
+        Dep_set.filter (fun d ->
+            Dep_map.has_with_attribute d Accessor next'.ioattrs
+          ) next'.ins
+      in
+      let share = Dep_set.inter start'.inouts ains in
+      let notd = (Dep_set.cardinal share) < 1 in
+      (**  + it has no other predecessors than [start]. Indeed, merging such a
+            node with another one would break the original lexicographic order
+            of the input program. *)
+      let spred = (TaskGraph.in_degree g next) < 2 in
+      if (nots || waits) && notd && spred then
         (** If the successor of [start] meets the above conditions, we can
             include it into the sequence. *)
         start :: (seq g next)
