@@ -47,6 +47,11 @@ Some AST nodes such as Trm_for must respect the invariant that their body is alw
 This might seem inefficient and insufficiently typed but it allows to target the body sequence like any other sequence,
 and still distinguish the body from the whole loop (or any other construction that respects the Trm_seq invariant) after
 target resolution.
+
+More precisely, in [Trm_fun(...,tbody)] and [Trm_for(..., tbody)] and
+[Trm_if(..,tthen,telse)], the subterms [tbody], [tthen] and [telse] must
+be [Trm_seq].
+
 *)
 
 (* raise exception with format string *)
@@ -296,6 +301,45 @@ and trm_desc =
   | Trm_template of template_parameter_list * trm (* templates *) (* TODO: Replace by annotated arguments on definitions and calls *)
   | Trm_using_directive of string                 (* using namespace std *)
 
+
+
+(* Note on recursive functions.
+   In C, functions are recursive by default.
+   In OptiTrust, definitions of a same sequences are recursive by default.
+
+   In OCaml, one could write:
+   [[
+      let f () = 3 in
+      let f () = f()
+   ]]
+   we want to disallow this.
+   This way, the fact that functions are declared as "rec" or not has
+   no impact; we can translate from OptiTrust to OCaml by inserting
+   "rec" all the time.
+   [[
+      let rec g () = 3 in
+      let rec f () = f()
+   ]]
+   For mutually recursive functions, we can translate all function
+   definitions from a same sequence into mutually recursive functions.
+   [[ (* In OptiTrust *)
+      let f() = ..;
+      let g() = ..;
+      (* In OCaml *)
+      let rec f() = ..;
+      and     g() = ..;
+   ]]
+   It works assuming that mutually recursive functions are defined
+   next to each other in the sequence.
+
+   LATER: to accept OCaml functions without "rec" and translate them
+   into OptiTrust, we need to check on [let f x = ..] that in the
+   current environment, [f] does not resolve to any value.
+   If so, we need a local renaming, or we can reject the program.
+*)
+
+
+
 (*****************************************************************************)
 
 (** [typ] is an alias for [trm] used wherever a type is expected *)
@@ -318,6 +362,7 @@ and typedef = {
   typedef_name : typvar; (* the defined type [t] *)
   typedef_body : typedef_body;(* the body of the definition,
                             i.e. the description of [...] *)
+  (* LATER: typedef_tvars : typvar list *)
 }
 
 (** [record_members]: fields and methods representation for classes, structs and unions. *)
@@ -341,8 +386,25 @@ and typedef_body =
   | Typedef_alias of typ   (* for abbreviations, e.g. [type 'a t = ('a * 'a)
                           list] or [typedef vect t] *)
   | Typedef_record of record_members
-    (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
-  | Typedef_enum of (var * (trm option)) list (* for C/C++ enums *)
+    (* for records / struct, e.g. [type 'a t = { f : 'a; g : int }] *)
+  | Typedef_union of union_constructor list
+    (* for unions, e.g. [type 'a t = | F : 'a | G : int] *)
+  | Typedef_enum of (var * (trm option)) list (* for C/C++ enums, will be later merged in union *)
+
+
+(* Consider OCaml's constructor [Cons]. In OptiTrust, we view [Cons]
+   as a "constructor function", in the sense that [Cons] is a function
+   of type ['a -> 'a list -> 'a list]. In patterns, we view [Cons] as an
+   "inversor function", in the sense that [Cons] in a pattern is a
+   function of type ['a list -> ('a * 'a list) option]. *)
+and union_constructor = {
+    union_constructor_constructor : var;
+    union_constructor_inversor : var;
+    union_constructor_args_type : typ list; }
+    (* LATER: spec. *)
+
+
+
 
 
 (*****************************************************************************)

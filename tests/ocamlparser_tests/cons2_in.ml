@@ -1,13 +1,12 @@
 
-
-(*type li =
+type li =
         | Nil
         | Cons of int * li
         | Cons2 of int * int * li
-*)
 
-
+(*
 let init len f = ()
+*)
 (*
   let rec init_aux i f =
     if i > (len - 1) then Nil

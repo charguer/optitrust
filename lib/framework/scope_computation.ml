@@ -264,6 +264,16 @@ let enter_scope check_binder scope_ctx t =
   | Trm_typedef td ->
     begin match td.typedef_body with
     | Typedef_alias _ -> scope_ctx
+    (* TODO: Typedef_union  for each constructor C,
+       we need to add a function in scope for C and for __Pattern_C
+       need to return scope_ctx with two additions in it
+       returns something like
+
+           ({ scope_ctx with conflicts =
+            var_ids = Qualified_map.add ... scope_ctx.var_ids }
+
+          and leaving a 'later' for handling workspaces
+       *)
     | Typedef_record rfl ->
       let scope_ctx = { scope_ctx with namespace_path_rev = td.typedef_name.name :: scope_ctx.namespace_path_rev; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; } in
       (* order of declaration does not matter for class members:

@@ -10,11 +10,64 @@ open Flags
 open Typedtree
 open Asttypes
 
+(**
+
+# Translation of variables
+
+During translation from OCaml to OptiTrust, variables are mapped to
+the type var using "name_to_var" which uses "unset_var_id" as var id.
+After the translation, we use Scope_computation.infer_var_ids for
+replacing all these variables with appropriate IDs: one fresh id is
+generated for every binder, and this id is assigned to all occurrences
+of the variable bound by this binder.
+
+# Translation of let-bindings and blocks
+
+To translate let-in from OCaml, we need to collapse sequences. Consider:
+[[
+   let x1 = u1 in
+   let x2 = u2 in
+   u3; (* same semantics as [let _ = u3] *)
+   let x4 = u4 in
+   u5 (* assumed not to be a let *)
+]]
+What we view at first is [let x1 = u1 in k'] (encoded in OCaml as a Texp_let)
+First we translate [u1] in [t1]. Then we translate [k'] as [t']. Then two cases.
+If [t'] is [Trm_seq instrs], then we return [Trm_seq (Trm_let(x,u1) :: instrs)].
+Otherwise, [Trm_seq (Trm_let(x,u1) :: t' :: nil)].
+
+Likewise, if we have a [u1; u2] (encoded in OCaml as Texp_seq),
+First we translate [u1] in [t1]. First we translate [u2] in [t2].
+If [u2] is a [Trm_seq args], we return [Trm_seq (t1::args)].
+Otherwise, we return [Trm_seq [t1;t2]].
+
+# Translation of function calls
+
+To translate functions, recall that OCaml uses curried syntax; but we want
+to view this as n-ary function applications. We impose that the OCaml programmer
+does not use partial or over-applications implicitly. Concretely, if we view
+syntactically [f x y z] in Ocaml (encoded as
+[Texp_app(Texp_app(Texp_app(Texp_var "f",Texp_var "x"),Texp_var "y"),Texp_var "z")])
+then we encode it as [f(x,y,z)] in OptiTrust syntax,
+that is, [Trm_apps(Trm_var "f", [Trm_var "x"; Trm_var "y"; Trm_var "z"])].
+Therefore, to encode OCaml's, [Texp_app (u1, u2)], we first translate [u1] as
+[t1] and [u2] as [t2]. If [t1] is a [Trm_app(t0,targs)], then we return
+[Trm_app(t0,targs@[t2])]. Otherwise, we return [Trm_app(t1,t2)].
+
+# Translation of function definitions
+
+Likewise for function definitions, we treat [let f x y = t] in OCaml
+(which is a Texp_function applied to Texp_function in OCaml typedtree) as
+a single Trm_fun in OptiTrust.
+
+*)
+
+
 (** [tr_ast t]: transalate [t] into OptiTrust AST *)
 
 type ocaml_ast = Typedtree.implementation
 
-let rec add_end x l =
+let rec add_end x l = (* not needed *)
   match l with
   | [] -> [x]
   | a::l' -> a::(add_end x l')
@@ -76,7 +129,13 @@ and tr_core_type (ct : core_type) : typ =
   | Ttyp_constr (_, ident, _) ->
     let _name = (match ident.txt with | Lident l -> l |__ -> failwith "nyi") in
     typ_int
+    (* TODO: arrow *)
   | _ -> failwith "nyi"
+
+(*
+ let rec init_aux (i:int) (f:int->int) : li = body
+ *)
+
 
 
 (*faire fold ? Du produit de tout ca. *)
@@ -110,16 +169,20 @@ and tr_type (tl : type_declaration list) : typ =
   trm_typedef {typedef_name; typedef_body}
 
 
-let tr_structure_desc (s : structure_item) : trm = match s.str_desc with
-  | Tstr_eval (e, _) -> tr_expression e
-  | Tstr_value (_, vb_l) -> tr_let vb_l
-  | Tstr_type (_rec_flag, tl) -> tr_type tl
+(*  let f = .. and g = ..    [.. ; ..]
+
+*)
+
+let tr_structure_desc (s : structure_item) : trm (* list of trm instead TODO *) = match s.str_desc with
+  | Tstr_eval (e, _) -> tr_expression e   (* let _ = .. *)
+  | Tstr_value (_, vb_l) -> tr_let vb_l   (* let f = .. *)
+  | Tstr_type (_rec_flag, tl) -> tr_type tl  (* type t = .. *)
   | _ -> failwith "structure not yet translatable"
 
 let tr_structure_list l = List.map (tr_structure_desc) l
 
 let tr_ast (t : ocaml_ast) : trm =
-
+  (* TODO List.flatten ... *)
   (*
   print_string "Printing the ast : \n";
 
