@@ -7,7 +7,7 @@ open Target
       [t] - ast of the loop.
 
       todo check start is zero *)
-let color_on (nb_colors : trm) (i_color : string option) (t : trm) : trm =
+let color_on_old (nb_colors : trm) (i_color : string option) (t : trm) : trm =
   let error = "Loop_core.color_aux: only simple loops are supported." in
   let ({index; start; direction; stop; step}, body, _contract) = trm_inv ~error trm_for_inv t in
   let i_color = new_var (match i_color with
@@ -27,6 +27,168 @@ let color_on (nb_colors : trm) (i_color : string option) (t : trm) : trm =
           step = (if is_step_one then nb_colors else (trm_mul ~typ:typ_isize nb_colors step)) } body
       ]
   ))
+
+  let color_on_1D (nb_colors : trm) (i_color : string option) (t : trm) : trm =
+    let error = "Loop_core.color_on_1D: only simple loops are supported." in
+    let ({index; start; direction; stop; step}, body, contract) = trm_inv ~error trm_for_inv t in
+    let color_index = new_var (match i_color with
+   | Some cl -> cl
+   | _ -> "c" ^ index.name
+  ) in
+    if bound = TileDivides then begin
+      (* GENERATES
+      form:
+      [[
+        for i = 0; i < n; i++
+           body(i)
+      ]]
+      produces:
+      [[
+      for ci = 0; ci < nb_colors; ci++
+         for j = 0; j < n; j+=nb_colors
+            body(j)
+      ]]
+      assuming n = tile_count * tile_size, for the given tile_size.
+      *)
+
+      (* TODO: other cases *)
+      assert (are_same_trm start (trm_int 0)); (* todo: raise unsupported *)
+      assert (direction = DirUp); (* todo: raise unsupported *)
+      let (count, iteration_to_index) =
+        if trm_is_one step
+          then (stop, fun i -> i)
+          else (trm_trunc_div_int stop step, fun i -> trm_mul_int i step)
+      in
+      let ratio : int option =
+        match trm_int_inv count, trm_int_inv tile_size with
+        | Some ncount, Some ntile_size
+            when ntile_size > 0 && ncount mod ntile_size = 0 -> Some (ncount / ntile_size)
+        | _ -> None
+        in
+      let tile_count =
+        match ratio with
+        | Some r -> trm_int r
+        | None -> trm_exact_div_int count tile_size
+        in
+
+      let div_check_var = new_var ("tile_div_check_" ^ index.name) in
+      let div_check_assert = Resource_trm.ghost_assert div_check_var Resource_formula.(formula_eq ~typ:typ_int count (trm_mul_int tile_count tile_size)) in
+      let div_check = trm_var div_check_var in
+
+      let iteration = trm_add_int (trm_mul_int (trm_var tile_index) tile_size) (trm_var index)
+      in
+      let new_index = iteration_to_index iteration in
+      let outer_range = { index = tile_index; start = (trm_int 0); direction = DirUp; stop = tile_count; step = trm_step_one () } in
+      let inner_range = { index; start = (trm_int 0); direction = DirUp; stop = tile_size; step = trm_step_one () } in
+
+      if not contract.strict then begin
+        if !Flags.check_validity then begin
+          Trace.justif "loop range is checked to be dividable by tile size";
+          trm_seq_nobrace_nomarks [
+            div_check_assert;
+            trm_for outer_range (trm_seq_nomarks [
+              trm_for inner_range (trm_subst_var index new_index body)
+            ])
+          ]
+        end else
+          trm_for outer_range (trm_seq_nomarks [
+            trm_for inner_range (trm_subst_var index new_index body)
+          ])
+      end else
+        let open Resource_formula in
+
+        let contract_inner = {
+          loop_ghosts = contract.loop_ghosts;
+          invariant = Resource_set.subst_var index new_index contract.invariant;
+          parallel_reads = contract.parallel_reads;
+          iter_contract = {
+            pre = Resource_set.subst_var index new_index contract.iter_contract.pre;
+            post = Resource_set.subst_var index new_index contract.iter_contract.post };
+           strict = true } in
+        let outer_index = iteration_to_index (trm_mul_int (trm_var tile_index) tile_size) in
+        let contract_outer = {
+          loop_ghosts = contract.loop_ghosts;
+          invariant = Resource_set.subst_var index outer_index contract.invariant;
+          parallel_reads = contract.parallel_reads;
+          iter_contract = {
+            pre = Resource_set.group_range inner_range contract_inner.iter_contract.pre;
+            post = Resource_set.group_range inner_range contract_inner.iter_contract.post };
+          strict = true } in
+
+        (* TODO: Also tile groups in pure resources *)
+        (* TODO: Give the used resource instead of specifying ghost parameters? *)
+        let tiling_ghosts ghost ro_ghost =
+          List.map (fun (_, formula) ->
+              let ghost, formula =
+                match formula_read_only_inv formula with
+                | Some { formula } -> ro_ghost, formula
+                | None -> ghost, formula
+              in
+              let i = new_var index.name in
+              let items = formula_fun [i, typ_int] (trm_subst_var index (trm_var i) formula) in
+              Resource_trm.ghost (ghost_call ghost [("div_check", div_check); ("items", items)])
+            )
+        in
+        let ghosts_before = tiling_ghosts ghost_tile_divides ghost_ro_tile_divides contract.iter_contract.pre.linear in
+        let ghosts_after = tiling_ghosts ghost_untile_divides ghost_ro_untile_divides contract.iter_contract.post.linear in
+
+        let open Resource_trm in
+        let indexed_invariant = Resource_set.filter_with_var index contract.invariant in
+        let rewrite_indexed_invariant_ghosts rew_eq =
+          rewrite_var_in_res_ghosts ~filter_changed:false index ~by:rew_eq indexed_invariant
+        in
+        let rew_ghosts_before_outer = rewrite_indexed_invariant_ghosts (trm_apps logic_zero_mul_intro [tile_size]) in
+        let rew_ghosts_before_inner = rewrite_indexed_invariant_ghosts
+          (trm_apps logic_plus_zero_intro [outer_index]) in
+        let rew_ghost_end_inner = rewrite_indexed_invariant_ghosts (trm_apps logic_add_assoc_right [trm_mul_int (trm_var tile_index) tile_size; trm_var index; (trm_int 1)]) in
+        let rew_ghosts_after_inner = rewrite_indexed_invariant_ghosts (trm_apps logic_mul_add_factor [trm_var tile_index; tile_size]) in
+        let rew_ghosts_after_outer = rewrite_indexed_invariant_ghosts (trm_apps logic_eq_sym [count; trm_mul_int tile_count tile_size; trm_var div_check_var]) in
+
+        let body_seq, _ = trm_inv trm_seq_inv (trm_subst_var index new_index body) in
+        let ghost_tile_index = Resource_trm.ghost (ghost_call ghost_tiled_index_in_range [("tile_index", trm_var tile_index); ("index", trm_var index); ("div_check", div_check)]) in
+
+        let body = trm_like ~old:body (trm_seq_helper [Trm ghost_tile_index; TrmMlist body_seq; TrmList rew_ghost_end_inner]) in
+
+        Trace.justif "loop range is checked to be dividable by tile size";
+        trm_seq_nobrace_nomarks (
+          div_check_assert ::
+          ghosts_before @
+          rew_ghosts_before_outer @ [
+          trm_for ~contract:contract_outer outer_range (trm_seq_nomarks (rew_ghosts_before_inner @ [
+            trm_copy (trm_for ~contract:contract_inner inner_range body)
+          ] @ rew_ghosts_after_inner))
+        ] @ rew_ghosts_after_outer @ ghosts_after)
+
+
+    end else begin
+      let inner_loop = match bound with
+        | TileBoundMin ->
+          let tile_bound =
+            if trm_is_one step then trm_add_int (trm_var tile_index) tile_size else trm_add_int (trm_var tile_index) (trm_mul_int tile_size step) in
+          let tile_bound =
+            trm_apps (trm_var (name_to_var "min")) [stop; tile_bound] in
+          trm_for { index; start = trm_var tile_index; direction; stop = tile_bound; step } body
+        | TileBoundAnd ->
+          let init = trm_let_mut (index, typ_int) (trm_var tile_index) in
+          let cond = trm_and (trm_ineq direction (trm_var_get index)
+            (if trm_is_one step
+              then (trm_add_int (trm_var tile_index) tile_size)
+              else (trm_add_int (trm_var tile_index) (trm_mul_int tile_size step)))) (trm_ineq direction (trm_var_get index) stop)
+            in
+          let step =  if trm_is_one step then trm_post_incr (trm_var index)
+            else trm_compound_assign ~typ:typ_int Binop_add (trm_var index) step in
+          let new_body = trm_subst_var index (trm_var_get index) body in
+          trm_for_c init cond step new_body
+        | TileDivides -> assert false
+      in
+      let outer_loop_step = if trm_is_one step then tile_size else (trm_mul_int tile_size step) in
+      let outer_loop =
+          trm_for { index = tile_index; start; direction; stop; step = outer_loop_step } (trm_seq_nomarks [inner_loop])
+      in
+      trm_pass_labels t outer_loop
+    end
+
+
 
 (** [tile_bound]: used for loop tiling transformation *)
 type tile_bound = TileBoundMin | TileBoundAnd | TileDivides
@@ -122,7 +284,9 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
         parallel_reads = contract.parallel_reads;
         iter_contract = {
           pre = Resource_set.subst_var index new_index contract.iter_contract.pre;
-          post = Resource_set.subst_var index new_index contract.iter_contract.post };i
+          post = Resource_set.subst_var index new_index contract.iter_contract.post };
+         strict = true } in
+      let outer_index = iteration_to_index (trm_mul_int (trm_var tile_index) tile_size) in
       let contract_outer = {
         loop_ghosts = contract.loop_ghosts;
         invariant = Resource_set.subst_var index outer_index contract.invariant;
