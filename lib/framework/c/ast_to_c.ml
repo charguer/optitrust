@@ -899,6 +899,8 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
         string "class" ^^ blank 1 ^^ dname ^^ sbody ^^ blank 1 ^^ semi
       else
         string "typedef " ^^ string "struct" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ dname ^^ blank 1 ^^ semi
+  | Typedef_union union_const_l -> failwith "Typedef_union printing in C is not yet implemented"
+  (*naive idea, but maybe I have to write by hand a function for each constructor? As well as the inversors? Because calling C unions is probably a stretch*)
   | Typedef_enum enum_const_l ->
       let const_doc_l =
         List.map

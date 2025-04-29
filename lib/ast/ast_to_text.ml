@@ -315,6 +315,18 @@ and print_typedef_body style (tdbody : typedef_body) : document =
       in
       let dtl = get_document_list rfl in
      print_node "Typedef_record" ^^ parens (print_list dtl)
+  | Typedef_union union_const_l ->
+     let dunion_const_l =
+       print_list ~sep:" | "
+         (List.map
+            (fun {union_constructor_constructor; union_constructor_args_type} ->
+            let args = print_fields (List.map (print_typ style) union_constructor_args_type) in
+            print_pair (print_var style union_constructor_constructor) (args)
+            )
+            union_const_l
+         )
+     in
+  print_node "Typedef_union" ^^ parens (dunion_const_l)
   | Typedef_enum enum_const_l ->
      let denum_const_l =
        print_list

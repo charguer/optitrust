@@ -188,11 +188,11 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
 
   Printf.printf "generated ast : \n";
 
-  let s = Ast_to_c.default_style () in
-  let ast_style = { s with
-      optitrust_syntax = true; } in
+  (*changed this from (Ast_to_c.default_style ()) to Ast_to_text.default_style*)
+  let s = Ast_to_text.default_style in
+  let ast_style = s in
 
-  print_string (Ast_to_c.ast_to_string ~style:ast_style ast);
+  print_string (Ast_to_text.ast_to_string ~style:ast_style ast);
 
   (* Possibly perform the decoding *)
   let ast = if !Flags.bypass_cfeatures then Scope_computation.infer_var_ids ast else C_encoding.cfeatures_elim ast in

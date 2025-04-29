@@ -62,9 +62,6 @@ a single Trm_fun in OptiTrust.
 
 *)
 
-
-(** [tr_ast t]: transalate [t] into OptiTrust AST *)
-
 type ocaml_ast = Typedtree.implementation
 
 let rec add_end x l = (* not needed *)
@@ -140,13 +137,16 @@ and tr_core_type (ct : core_type) : typ =
 
 (*faire fold ? Du produit de tout ca. *)
 
-and tr_constructor_decl (cd : constructor_declaration) : record_member =
+and tr_constructor_decl (cd : constructor_declaration) : union_constructor =
   let arguments = (match cd.cd_args with
                   | Cstr_tuple ctl -> ctl
                   | _ -> failwith "nyi") in
-  Record_field (cd.cd_name.txt, typ_tuple (List.map tr_core_type arguments))
+  let union_constructor_constructor = name_to_var cd.cd_name.txt in
+  let union_constructor_inversor = name_to_var cd.cd_name.txt in
+  let union_constructor_args_type = (List.map tr_core_type arguments) in
+  {union_constructor_constructor; union_constructor_inversor; union_constructor_args_type}
 
-and tr_let (vb_l : value_binding list) : trm =
+and tr_let (vb_l : value_binding list) : trm = (*also change this part to handle seq flattening*)
   let binding_list = List.map tr_value_binding vb_l in
   trm_seq (Mlist.of_list binding_list)
 
@@ -159,12 +159,12 @@ and tr_type (tl : type_declaration list) : typ =
   let _type_params = td.typ_params in
   let type_kind = td.typ_kind in
 
-
-  let constructors = (match type_kind with
-                  | Ttype_variant cdl -> List.map (fun cd -> (tr_constructor_decl cd, Access_public)) cdl
+  (*we want that constructors have type "union_constructor list"*)
+  let constructors : union_constructor list = (match type_kind with
+                  | Ttype_variant cdl -> List.map (tr_constructor_decl) cdl
                   | _ -> failwith "nyi") in
 
-  let typedef_body = Typedef_record constructors in
+  let typedef_body = Typedef_union constructors in
 
   trm_typedef {typedef_name; typedef_body}
 
@@ -181,6 +181,8 @@ let tr_structure_desc (s : structure_item) : trm (* list of trm instead TODO *) 
 
 let tr_structure_list l = List.map (tr_structure_desc) l
 
+
+(** [tr_ast t]: transalate [t] into OptiTrust AST *)
 let tr_ast (t : ocaml_ast) : trm =
   (* TODO List.flatten ... *)
   (*
@@ -190,8 +192,7 @@ let tr_ast (t : ocaml_ast) : trm =
 
   print_string "End _printing. \n";
   *)
-
- (trm_seq (Mlist.of_list (tr_structure_list t.structure.str_items)))
+  (trm_seq (Mlist.of_list (tr_structure_list t.structure.str_items)))
 
 
 

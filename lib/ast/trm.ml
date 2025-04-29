@@ -1652,6 +1652,7 @@ let trm_map_vars_ret_ctx
       | Typedef_alias ty ->
         let _, ty' = f_map ctx ty in
         if ty' == ty then td.typedef_body else Typedef_alias ty'
+      | Typedef_union ucl -> td.typedef_body (*this is still NYI, wrote this line to avoid runtime errors*)
       | Typedef_record rfl ->
         let rfl' = List.map (fun (rf, rf_ann) ->
           let rf' = begin match rf with
