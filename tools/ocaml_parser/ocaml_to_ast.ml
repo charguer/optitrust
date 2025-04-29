@@ -79,7 +79,7 @@ let rec tr_constant (c : constant) : trm = match c with
   | Const_nativeint n -> trm_int (Nativeint.to_int n)
 
 and tr_pattern pat = match pat.pat_desc with
-  | Tpat_var (id, _) -> (new_var (Ident.name id), typ_auto)
+  | Tpat_var (id, _) -> (name_to_var (Ident.name id), typ_auto)
   | Tpat_any -> failwith "any"
   (*| Tpat_constraint (p, _) -> tr_pattern p*)
   | _ -> failwith "pattern not yet translatable"
@@ -106,8 +106,11 @@ and tr_expression (e : expression) : trm =
   | Texp_apply (e, l) -> trm_apps (aux e)
              (List.map (fun x -> let (_,e) = x in (match e with | Some e -> aux e | _ -> failwith "None")) l)
   | Texp_function {cases} -> (match cases with
-                            | [{c_lhs; c_guard}] -> failwith "nyi"
-                            | _ -> failwith "nyi")
+                            | [{c_lhs; c_rhs}] ->
+                              let var = tr_pattern c_lhs in
+                              let expr = tr_expression c_rhs in
+                              trm_fun [var] typ_auto expr
+                            | _ -> failwith "More than one case")
 
 
 
@@ -118,16 +121,19 @@ and tr_expression (e : expression) : trm =
                                               | _ -> failwith "   ")
                                 | _ -> failwith "  ") *)
   | Texp_match _ -> failwith "match not yet translatable"
-  | Texp_construct _ -> failwith "construct not yet translatable"
-  | _ -> failwith "expression not yet translatable"
+  | Texp_construct (_, cd, args) ->
+    let constr = trm_var (name_to_var cd.cstr_name) in
+    let args = List.map tr_expression args in
+    trm_apps constr args
+    | _ -> failwith "expression not yet translatable"
 
 and tr_core_type (ct : core_type) : typ =
   match ct.ctyp_desc with
   | Ttyp_constr (_, ident, _) ->
-    let _name = (match ident.txt with | Lident l -> l |__ -> failwith "nyi") in
+    let _name = (match ident.txt with | Lident l -> l |__ -> failwith "Identifier not handled") in
     typ_int
     (* TODO: arrow *)
-  | _ -> failwith "nyi"
+  | _ -> failwith "Core type not handled"
 
 (*
  let rec init_aux (i:int) (f:int->int) : li = body
@@ -140,7 +146,7 @@ and tr_core_type (ct : core_type) : typ =
 and tr_constructor_decl (cd : constructor_declaration) : union_constructor =
   let arguments = (match cd.cd_args with
                   | Cstr_tuple ctl -> ctl
-                  | _ -> failwith "nyi") in
+                  | _ -> failwith "Argument type not handled") in
   let union_constructor_constructor = name_to_var cd.cd_name.txt in
   let union_constructor_inversor = name_to_var cd.cd_name.txt in
   let union_constructor_args_type = (List.map tr_core_type arguments) in
@@ -153,7 +159,7 @@ and tr_let (vb_l : value_binding list) : trm = (*also change this part to handle
 and tr_type (tl : type_declaration list) : typ =
   let td = (match tl with
   | [singleton] -> singleton
-  | _ -> failwith "nyi") in
+  | _ -> failwith "Type declaration not handled") in
   let typedef_name = new_var (td.typ_name.txt) in
 
   let _type_params = td.typ_params in
@@ -162,7 +168,7 @@ and tr_type (tl : type_declaration list) : typ =
   (*we want that constructors have type "union_constructor list"*)
   let constructors : union_constructor list = (match type_kind with
                   | Ttype_variant cdl -> List.map (tr_constructor_decl) cdl
-                  | _ -> failwith "nyi") in
+                  | _ -> failwith "Union constructor not handled") in
 
   let typedef_body = Typedef_union constructors in
 
