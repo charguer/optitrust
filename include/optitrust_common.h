@@ -346,13 +346,49 @@ __AXIOM(plus_zero_intro, "forall (n: int) -> n = n + 0");
 __AXIOM(add_assoc_right, "forall (m n p: int) -> (m + n) + p = m + (n + p)");
 __AXIOM(mul_add_factor, "forall (m n: int) -> m * n + n = (m + 1) * n");
 
+__GHOST(color) {
+  __requires(
+    "nb_colors: int,"
+    "size: int, items: int -> HProp,"
+  );
+  __consumes("Group(0..size, items)"); // for i in 0..size -> items[i]
+  __produces("for ci in 0..nb_colors ->"
+               "for i in range(ci,size,nb_colors) -> items(i)");
+  __admitted();
+}
+
+__GHOST(uncolor) {
+  __reverts(color);
+  __admitted();
+}
+
+__GHOST(ro_color) {
+  __requires(
+    "nb_colors: int,"
+    "size: int, items: int -> HProp,"
+    "f: _Fraction"
+  );
+  __consumes("_RO(f, Group(0..size, items))");
+  __produces("_RO(f, for ci in 0..nb_colors ->"
+               "for i in range(ci,size,nb_colors) -> items(i))");
+  __admitted();
+}
+
+__GHOST(ro_uncolor) {
+  __reverts(ro_uncolor);
+  __admitted();
+}
+
+
+
+
 __GHOST(tile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
     "size: int, items: int -> HProp,"
     "div_check: size = tile_count * tile_size"
   );
-  __consumes("Group(0..size, items)");
+  __consumes("Group(0..size, items)"); // for i in 0..size -> items[i]
   __produces("for bi in 0..tile_count ->"
                "for i in 0..tile_size -> items(bi * tile_size + i)");
   __admitted();
