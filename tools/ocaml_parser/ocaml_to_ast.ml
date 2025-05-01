@@ -94,26 +94,35 @@ and tr_let_exp (vb_l : value_binding list) (e : expression) : trm =
   trm_seq (Mlist.of_list full_list)
 
 
-and tr_expression (e : expression) : trm =
+and tr_expression (u : expression) : trm =
   let aux = tr_expression in
-  match e.exp_desc with
+  match u.exp_desc with
   | Texp_ident (_, l, _) -> (match l.txt with
-                     | Lident s -> trm_var (new_var s)
+                     | Lident s -> trm_var (name_to_var s)
                      | Ldot _ -> failwith "Ldot"
                      | Lapply _ -> failwith "Lapply")
   | Texp_constant c -> tr_constant c
   | Texp_let (_, vb_l, e) -> tr_let_exp vb_l e
-  | Texp_apply (e, l) -> trm_apps (aux e)
-             (List.map (fun x -> let (_,e) = x in (match e with | Some e -> aux e | _ -> failwith "None")) l)
+  | Texp_apply (e, l) ->
+      let t = aux e in
+      let args = (List.map (fun x -> let (_,e) = x in (match e with | Some e -> aux e | _ -> failwith "None")) l) in
+
+      let body = (match t.desc with
+        | Trm_apps (t1, t2, _) -> trm_apps t1 (t2@args)
+        | _ -> trm_apps t args ) in
+
+      body
+
   | Texp_function {cases} -> (match cases with
                             | [{c_lhs; c_rhs}] ->
                               let var = tr_pattern c_lhs in
                               let expr = tr_expression c_rhs in
-                              trm_fun [var] typ_auto expr
-                            | _ -> failwith "More than one case")
-
-
-
+                              (*TODO : Handle types and specs, types are more important*)
+                              let body = (match expr.desc with
+                                | Trm_fun (v_list, _typ, body2, _specs) -> trm_fun (var::v_list) typ_auto body2
+                                | _ -> trm_fun [var] typ_auto expr) in
+                                body
+                            | _ -> failwith "More than one case") (*This is not a problem for the moment, think about it later if needed*)
 
     (* (match lbl with
                                 | Nolabel -> (match exp0 with
