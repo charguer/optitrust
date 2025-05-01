@@ -37,8 +37,8 @@ If [t'] is [Trm_seq instrs], then we return [Trm_seq (Trm_let(x,u1) :: instrs)].
 Otherwise, [Trm_seq (Trm_let(x,u1) :: t' :: nil)].
 
 Likewise, if we have a [u1; u2] (encoded in OCaml as Texp_seq),
-First we translate [u1] in [t1]. First we translate [u2] in [t2].
-If [u2] is a [Trm_seq args], we return [Trm_seq (t1::args)].
+First we translate [u1] in [t1]. Then we translate [u2] in [t2].
+If [t2] is a [Trm_seq args], we return [Trm_seq (t1::args)].
 Otherwise, we return [Trm_seq [t1;t2]].
 
 # Translation of function calls
@@ -89,9 +89,41 @@ and tr_value_binding (vb : value_binding) =
   trm_let (tr_pattern vb_pat) (tr_expression vb_expr)
 
 and tr_let_exp (vb_l : value_binding list) (e : expression) : trm =
+  let body = tr_expression e in
   let binding_list = List.map tr_value_binding vb_l in
-  let full_list = add_end (tr_expression e) binding_list in
+  let full_list =
+    (match body.desc with
+    | Trm_seq (l, _) -> binding_list@(Mlist.to_list l)
+    | _ -> binding_list@[body]) in
+
   trm_seq (Mlist.of_list full_list)
+
+and tr_apply (e : expression) (l : ('a * (expression option)) list) : trm =
+  let t = tr_expression e in
+  let args = (List.map (fun x -> let (_,e) = x in (match e with | Some e -> tr_expression e | _ -> failwith "None")) l) in
+
+  let body = (match t.desc with
+    | Trm_apps (t1, t2, _) -> trm_apps t1 (t2@args)
+    | _ -> trm_apps t args ) in
+
+  body
+
+and tr_sequence (u1 : expression) (u2 : expression) : trm =
+  let t1 = tr_expression u1 in
+  let t2 = tr_expression u2 in
+
+  let body1 = (*line could be removed if we wanted to keep blocks? Not so sure about this*)
+    (match t1.desc with
+    | Trm_seq (args, _) -> Mlist.to_list args
+    | _ -> [t1]) in
+
+  let body2 =
+    (match t2.desc with
+    | Trm_seq (args, _) -> Mlist.to_list args
+    | _ -> [t2]) in
+
+    trm_seq (Mlist.of_list (body1@body2))
+
 
 
 and tr_expression (u : expression) : trm =
@@ -104,19 +136,12 @@ and tr_expression (u : expression) : trm =
   | Texp_constant c -> tr_constant c
   | Texp_let (_, vb_l, e) -> tr_let_exp vb_l e
   | Texp_apply (e, l) ->
-      let t = aux e in
-      let args = (List.map (fun x -> let (_,e) = x in (match e with | Some e -> aux e | _ -> failwith "None")) l) in
-
-      let body = (match t.desc with
-        | Trm_apps (t1, t2, _) -> trm_apps t1 (t2@args)
-        | _ -> trm_apps t args ) in
-
-      body
+      tr_apply e l
 
   | Texp_function {cases} -> (match cases with
                             | [{c_lhs; c_rhs}] ->
                               let var = tr_pattern c_lhs in
-                              let expr = tr_expression c_rhs in
+                              let expr = aux c_rhs in
                               (*TODO : Handle types and specs, types are more important*)
                               let body = (match expr.desc with
                                 | Trm_fun (v_list, _typ, body2, _specs) -> trm_fun (var::v_list) typ_auto body2
@@ -134,7 +159,9 @@ and tr_expression (u : expression) : trm =
     let constr = trm_var (name_to_var cd.cstr_name) in
     let args = List.map tr_expression args in
     trm_apps constr args
-    | _ -> failwith "expression not yet translatable"
+  | Texp_sequence (u1, u2) ->
+    tr_sequence u1 u2
+  | _ -> failwith "expression not yet translatable"
 
 and tr_core_type (ct : core_type) : typ =
   match ct.ctyp_desc with
