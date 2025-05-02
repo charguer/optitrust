@@ -142,41 +142,45 @@ let subst_pragmas (va : var) (tv : trm)
           | Taskwait cl -> cl
         | _ -> []
       in
-      let cl' = if cl' <> [] then
-                  List.map (fun c ->
-                      match c with
-                      | Depend dl ->
-                         let io : deps ref = ref [] in
-                         let dl' = List.map (fun dt ->
-                                       match dt with
-                                       | In dl -> io := !io @ dl; In (aux dl)
-                                       | Inout dl ->
-                                          io := !io @ dl; Inout (aux dl)
-                                       | _ -> dt) dl in
-                         io := List.filter (fun d ->
-                                   match d with
-                                   | Dep_trm (_, v) when v = va -> true
-                                   | Dep_var v when v = va -> true
-                                   | _ -> false) !io;
-                         let dl' = List.map (fun dt ->
-                                       match dt with
-                                       | In dl -> In (dl @ !io)
-                                       | _ -> dt) dl' in
-                         Depend dl'
-                      | If e ->
-                         let v0 = Val_lit (Lit_int 0) in
-                         let v0 = trm_val v0 in
-                         let tv' = match e.desc with
-                           | Trm_var (_, v') when v' = va ->
-                              trm_array_get (trm_get tv) v0
-                           | _ -> trm_get tv
-                         in
-                         If (trm_subst_var va tv' e)
-                      | _ -> c) cl'
-                else []
+      let fp' : vars ref = ref [] in
+      let cl' =
+        if cl' <> [] then
+          List.map (fun c ->
+              match c with
+              | Depend dl ->
+                 let io : deps ref = ref [] in
+                 let dl' = List.map (fun dt ->
+                               match dt with
+                               | In dl -> io := !io @ dl; In (aux dl)
+                               | Inout dl ->
+                                  io := !io @ dl; Inout (aux dl)
+                               | _ -> dt) dl in
+                 let fp =
+                   List.fold_left (fun acc d ->
+                       match d with
+                       | Dep_trm (_, v) when v = va -> v :: acc
+                       | Dep_var v when v = va -> v :: acc
+                       | _ -> acc) [] !io
+                 in
+                 fp' := fp; Depend dl'
+              | If e ->
+                 let v0 = Val_lit (Lit_int 0) in
+                 let v0 = trm_val v0 in
+                 let tv' = match e.desc with
+                   | Trm_var (_, v') when v' = va ->
+                      trm_array_get (trm_get tv) v0
+                   | _ -> trm_get tv
+                 in
+                 If (trm_subst_var va tv' e)
+              | _ -> c) cl'
+        else []
       in
       match p with
-      | Task _ -> Task cl'
+      | Task _ -> 
+         let cl' =
+           if (List.length !fp') > 0 then cl' @ [FirstPrivate !fp'] else cl'
+         in
+         Task cl'
       | Taskwait _ -> Taskwait cl'
       | _ -> p) pl
 
@@ -199,10 +203,10 @@ let heapify_on (t : trm) : trm =
     | Typ_ptr { ptr_kind = _; inner_typ = ty } -> typ_has_const ty
     | Typ_array (ty, _) -> typ_has_const ty
     | Typ_constr _ when typ_is_alias ty ->
-      begin match typ_get_alias ty with
-      | Some ty -> typ_has_const ty
-      | None -> false
-      end
+       begin match typ_get_alias ty with
+       | Some ty -> typ_has_const ty
+       | None -> false
+       end
     | _ -> false
   in
   (** [heapify_on.one reference deletes v ty init]: promotes a single variable
@@ -360,27 +364,42 @@ let heapify_on (t : trm) : trm =
         promoted variable and add them to the [deletes] queue. *)
     if !delete > 0 then
       begin
-        let inout = Dep_var v in
-        let inout = [Inout [inout]] in
+        let rec all = fun v vt ts n ->
+          let rec all' = fun t n ->
+            if n > 0 then
+              let v0 = Val_lit (Lit_int 0) in
+              let v0 = trm_val v0 in
+              all' (trm_array_get t v0) (n - 1)
+            else
+              t
+          in
+          if n > 0 then
+            let d = Dep_trm (all' vt n, v) in
+            all v vt (d :: ts) (n - 1)
+          else ts
+        in
+        let vt = trm_var ~kind:vk v in
+        let (_, ty), _ = result in
+        let nli = typ_get_nli ty in
+        let inout = all v vt [] nli in
+        let inout = [Inout inout] in
         let depend = [Depend inout] in
         let clauses = [Default Shared_m] in
         let clauses = clauses @ depend in
-        let clauses =
-          let fp () =
-            [FirstPrivate
-               [new_var (Apac_macros.get_apac_variable ApacDepthLocal)]]
-          in
+        let clauses, firstprivate =
+          let fp = [new_var (Apac_macros.get_apac_variable ApacDepthLocal)] in
           match (!Apac_flags.cutoff_count, !Apac_flags.cutoff_depth) with
           | (true, true) ->
-             clauses @ (fp ()) @ [If (get_cutoff_count_and_depth ())]
+             (clauses @ [If (get_cutoff_count_and_depth ())], fp)
           | (true, false) ->
-             clauses @ [If (get_cutoff_count ())]
+             (clauses @ [If (get_cutoff_count ())], [])
           | (false, true) ->
-             clauses @ (fp ()) @ [If (get_cutoff_depth ())]
+             (clauses @ [If (get_cutoff_depth ())], [])
           | (false, false) ->
-             clauses
+             (clauses, [])
         in
-        let vt = trm_var ~kind:vk v in
+        let firstprivate = [FirstPrivate (v :: firstprivate)] in
+        let clauses = clauses @ firstprivate in
         let vt' = if typ_has_const ty then vt else trm_get vt in
         let dt =
           cutoff_task_candidate (Task clauses) (trm_delete (!delete = 2) vt') in
