@@ -605,7 +605,7 @@ let discover_dependencies
     (** [t] is none of the above, explore the child terms. *)
     | Trm_apps (f, args) ->
        List.fold_left (fun (ins, inouts, dam) item ->
-           main ins inouts dam 0 call `In false item
+           main ins inouts dam 0 call `In iao item
          ) (ins, inouts, dam) (f :: args)
     | Trm_array { items; _ } ->
        List.fold_left (fun (ins, inouts, dam) item ->
@@ -623,7 +623,7 @@ let discover_dependencies
     (** This function cannot explore any other term, try the best-effort
         dependency discovery and warn the user about it. *)
     | _ ->
-       warning t; best_effort ins inouts dam access false t
+       warning t; best_effort ins inouts dam access iao t
   in
   (** Launch the dependency discovery process with default parameters. *)
   main (Dep_set.empty) (Dep_set.empty) (Dep_map.empty) 0 false `In false t
