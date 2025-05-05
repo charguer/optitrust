@@ -530,7 +530,7 @@ let get_trm_kind (t : trm) : trm_kind =
   | Trm_fun _ -> TrmKind_Expr
   | Trm_seq _ -> instr_if_unit
   | Trm_apps _ -> instr_if_unit
-  | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Instr
+  | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_my_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Instr
   | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ | Trm_using_directive _ -> TrmKind_Any
 
 

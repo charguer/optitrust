@@ -173,6 +173,10 @@ let trm_switch ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (cond : t
   (cases : (trms * trm) list) : trm =
   trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_switch (cond, cases))
 
+(** [trm_my_switch ~annot ?loc ?ctx cases]: switch-case statement *)
+let trm_my_switch ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (cases : ((trm * trm) * trm) list) : trm =
+  trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_my_switch cases)
+
 (** [trm_abort ~annot ?loc ?ctx a]: abort instruction *)
 let trm_abort ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (a : abort) : trm =

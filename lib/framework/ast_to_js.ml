@@ -284,6 +284,10 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
                 | ([tpat],body) -> [(pat_label, aux tpat); (body_label, aux body)]
                 | (_,body) -> trm_fail t "Ast_to_js.multipattern switch not yet supported in json output"
            *)
+    | Trm_my_switch _cases ->
+      [ kind_to_field "switch";
+      (* I will cover cases later on *)
+      children_to_field [child_to_json (quote "cond") (aux (trm_unit ()))] ] (*TODO: not at all satisfactory, change it later to what it should look like after discussing it*)
     | Trm_abort res ->
         begin match res with
         | Ret res->

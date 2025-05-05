@@ -642,6 +642,8 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       in
       dattr ^^ string "switch" ^^ blank 1 ^^ parens dcond ^^ blank 1 ^^
         surround 2 1 lbrace dcases rbrace
+    | Trm_my_switch cases ->
+     print_node "Trm_switch ..."
     | Trm_abort a ->
       begin match a with
       | Ret t_o ->

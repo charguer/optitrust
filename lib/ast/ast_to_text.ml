@@ -233,6 +233,8 @@ and print_trm_desc style (t : trm_desc) : document =
          cases
      in
      print_node "Trm_switch" ^^ print_pair dcond (print_list dcases)
+  | Trm_my_switch cases ->
+     print_node "Trm_switch ..."
   | Trm_abort a ->
      let da =
        begin match a with

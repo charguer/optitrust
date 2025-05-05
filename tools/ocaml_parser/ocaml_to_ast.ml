@@ -154,7 +154,11 @@ and tr_expression (u : expression) : trm =
                                               | None -> trm_fun [(tr_pattern pat)] typ_auto (aux e)
                                               | _ -> failwith "   ")
                                 | _ -> failwith "  ") *)
-  | Texp_match _ -> failwith "match not yet translatable"
+  | Texp_match (u, cases, _) ->
+
+
+
+    trm_unit ()
   | Texp_construct (_, cd, args) ->
     let constr = trm_var (name_to_var cd.cstr_name) in
     let args = List.map tr_expression args in

@@ -290,6 +290,16 @@ and trm_desc =
     TODO: Replace with real pattern matching
    *)
   | Trm_switch of trm * ((trms * trm) list)
+  (*Remark/TODO :
+  Switch is translated as a list of cases, composed as such :
+  Trm_my_switch [((t, p), k)] corresponds to :
+  ```
+  switch
+    case t is p -> k
+  ```
+  For the moment, the syntax on the left of the cases is lacking for simplicity. TODO : add the full defined syntax.
+  *)
+  | Trm_my_switch of ((trm * trm) * trm) list
   | Trm_abort of abort                            (* return or break or continue *)
   | Trm_goto of label                             (* goto foo *)
   | Trm_arbitrary of code_kind                    (* "int x = 10" *)
@@ -1015,6 +1025,7 @@ let trm_desc_to_string : trm_desc -> string =
   | Trm_for_c _ -> "Trm_for_c"
   | Trm_do_while _ -> "Trm_do_while"
   | Trm_switch _ -> "Trm_switch"
+  | Trm_my_switch _ -> "Trm_my_switch"
   | Trm_abort _ -> "Trm_abort"
   | Trm_goto _ -> "Trm_goto"
   | Trm_arbitrary _ -> "Trm_arbitrary"
