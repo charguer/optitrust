@@ -125,6 +125,10 @@ and tr_sequence (u1 : expression) (u2 : expression) : trm =
     trm_seq (Mlist.of_list (body1@body2))
 
 
+and tr_computation_pattern (p : computation general_pattern) : trm =
+  match p.pat_desc with
+  | Tpat_value v -> (match (v :> (value general_pattern)).pat_desc with | _ -> failwith "todo") (*small hack I found on the internet, not sure how good this is but at least it compiles*)
+  | _ -> failwith "Did not expect this pattern shape in a match"
 
 and tr_expression (u : expression) : trm =
   let aux = tr_expression in
@@ -154,11 +158,12 @@ and tr_expression (u : expression) : trm =
                                               | None -> trm_fun [(tr_pattern pat)] typ_auto (aux e)
                                               | _ -> failwith "   ")
                                 | _ -> failwith "  ") *)
-  | Texp_match (u, cases, _) ->
+  | Texp_match (u, cases, _) -> (*first of all, put u on the left of everything*)
+      let t = aux u in
+      List.map (fun case -> let {c_lhs; c_rhs} = case in ((t, tr_pattern c_lhs), _)) cases
 
 
 
-    trm_unit ()
   | Texp_construct (_, cd, args) ->
     let constr = trm_var (name_to_var cd.cstr_name) in
     let args = List.map tr_expression args in
@@ -200,7 +205,7 @@ and tr_type (tl : type_declaration list) : typ =
   let td = (match tl with
   | [singleton] -> singleton
   | _ -> failwith "Type declaration not handled") in
-  let typedef_name = new_var (td.typ_name.txt) in
+  let typedef_name = name_to_typvar (td.typ_name.txt) in
 
   let _type_params = td.typ_params in
   let type_kind = td.typ_kind in
