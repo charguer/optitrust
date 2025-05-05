@@ -123,13 +123,18 @@ and tr_sequence (u1 : expression) (u2 : expression) : trm =
     | _ -> [t2]) in
 
     trm_seq (Mlist.of_list (body1@body2))
-
-
+(*
 and tr_computation_pattern (p : computation general_pattern) : trm =
   match p.pat_desc with
-  | Tpat_value v -> (match (v :> (value general_pattern)).pat_desc with | _ -> failwith "todo") (*small hack I found on the internet, not sure how good this is but at least it compiles*)
+  | Tpat_value v -> (match (v :> (value general_pattern)).pat_desc with (*small hack I found on the internet, not sure how good this is but at least it compiles*)
+                    | Tpat_construct (_, cd, pats, _) ->
+                    let constr = trm_var (name_to_var cd.cstr_name) in
+                    (*can I use typed_vars to create terms? *)
+                    let args = List.map tr_expression args in
+                    trm_apps constr args
+                    | _ -> failwith "Did not expect this pattern shape inside a match")
   | _ -> failwith "Did not expect this pattern shape in a match"
-
+*)
 and tr_expression (u : expression) : trm =
   let aux = tr_expression in
   match u.exp_desc with
@@ -159,9 +164,11 @@ and tr_expression (u : expression) : trm =
                                               | None -> trm_fun [(tr_pattern pat)] typ_auto (aux e)
                                               | _ -> failwith "   ")
                                 | _ -> failwith "  ") *)
-  | Texp_match (u, cases, _) -> (*first of all, put u on the left of everything*)
-      let t = aux u in
-      List.map (fun case -> let {c_lhs; c_rhs} = case in ((t, tr_pattern c_lhs), _)) cases
+  | Texp_match (u, cases, _) ->
+    trm_unit ()
+    (*first of all, put u on the left of everything*)
+      (*let t = aux u in
+      List.map (fun case -> let {c_lhs; c_rhs} = case in ((t, tr_pattern c_lhs), _)) cases*)
 
 
 
@@ -186,8 +193,6 @@ and tr_core_type (ct : core_type) : typ =
  *)
 
 
-
-(*faire fold ? Du produit de tout ca. *)
 
 and tr_constructor_decl (cd : constructor_declaration) : union_constructor =
   let arguments = (match cd.cd_args with

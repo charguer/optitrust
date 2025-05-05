@@ -910,7 +910,28 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
         string "class" ^^ blank 1 ^^ dname ^^ sbody ^^ blank 1 ^^ semi
       else
         string "typedef " ^^ string "struct" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ dname ^^ blank 1 ^^ semi
-  | Typedef_union union_const_l -> failwith "Typedef_union printing in C is not yet implemented"
+  | Typedef_union union_const_l ->
+      let has_arguments = List.fold_left (fun b const -> (b || (const.union_constructor_args_type = []))) false union_const_l in
+
+      if has_arguments && (not style.optitrust_syntax) then Flags.verbose_warn None "Ast_to_c.typdef_to_doc: some constructor have arguments but style does not ask for optitrust syntax\n";
+
+      let const_doc_l =
+        List.map (fun {union_constructor_constructor; union_constructor_args_type} ->
+          let constructor = var_to_doc style union_constructor_constructor in
+          let types = separate (comma ^^ (blank 1)) (List.map (decorate_trm style) union_constructor_args_type) in
+
+          (*Checking that there actually are types in the constructor, to avoid useless parenthesis*)
+          let parens_types =
+            match union_constructor_args_type with
+            | [] -> []
+            | _ -> [parens types] in
+
+            separate empty (constructor::parens_types)
+          ) union_const_l in
+
+      separate (blank 1) [string "typedef enum"; dname;
+      braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi (*TODO : Find a way to separate each line with a line break*)
+
       (* TODO:
           if constructor has arguments and  "not style.optitrust_syntax" then warning.
           Flags.verbose_warn None "Ast_to_c.typ_desc_to_doc: typ_fun not implemented\n";
@@ -925,7 +946,6 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
         // or c-like structures.
         Click { x: i64, y: i64 },
     };   *)
-  (*naive idea, but maybe I have to write by hand a function for each constructor? As well as the inversors? Because calling C unions is probably a stretch*)
   | Typedef_enum enum_const_l ->
       let const_doc_l =
         List.map

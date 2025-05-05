@@ -189,9 +189,9 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
   if !Flags.debug_ocaml then begin
     Printf.printf "generated ast : \n";
     (*changed this from (Ast_to_c.default_style ()) to Ast_to_text.default_style*)
-    let s = Ast_to_text.default_style in
+    let s = Ast_to_c.default_style () in
     let ast_style = s in
-    print_string (Ast_to_text.ast_to_string ~style:ast_style ast);
+    print_string (Ast_to_c.ast_to_string ~style:ast_style ast);
   end;
 
   (* Possibly perform the decoding *)
