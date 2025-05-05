@@ -52,6 +52,9 @@ let set_dump_small_steps (foldername : string) : unit =
 let print_backtrace_on_error : bool ref = ref true
  (*LATER: make available from command line*)
 
+(** [debug_ocaml] is for debugging the ocaml input-output *)
+let debug_ocaml = ref true
+
 (** [debug_parsing_serialization]: flag to trace operations involving serialization/deserialization of parse trees. *)
 let debug_parsing_serialization = ref false
 

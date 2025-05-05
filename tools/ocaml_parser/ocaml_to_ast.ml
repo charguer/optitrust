@@ -101,7 +101,7 @@ and tr_let_exp (vb_l : value_binding list) (e : expression) : trm =
 and tr_apply (e : expression) (l : ('a * (expression option)) list) : trm =
   let t = tr_expression e in
   let args = (List.map (fun x -> let (_,e) = x in (match e with | Some e -> tr_expression e | _ -> failwith "None")) l) in
-
+  (* Flatten curried applications as explained at the top of the file *)
   let body = (match t.desc with
     | Trm_apps (t1, t2, _) -> trm_apps t1 (t2@args)
     | _ -> trm_apps t args ) in
@@ -147,6 +147,7 @@ and tr_expression (u : expression) : trm =
                               let var = tr_pattern c_lhs in
                               let expr = aux c_rhs in
                               (*TODO : Handle types and specs, types are more important*)
+                              (* Flatten curried applications as explained at the top of the file *)
                               let body = (match expr.desc with
                                 | Trm_fun (v_list, _typ, body2, _specs) -> trm_fun (var::v_list) typ_auto body2
                                 | _ -> trm_fun [var] typ_auto expr) in
@@ -192,10 +193,9 @@ and tr_constructor_decl (cd : constructor_declaration) : union_constructor =
   let arguments = (match cd.cd_args with
                   | Cstr_tuple ctl -> ctl
                   | _ -> failwith "Argument type not handled") in
-  let union_constructor_constructor = name_to_var cd.cd_name.txt in
-  let union_constructor_inversor = name_to_var cd.cd_name.txt in
-  let union_constructor_args_type = (List.map tr_core_type arguments) in
-  {union_constructor_constructor; union_constructor_inversor; union_constructor_args_type}
+  { union_constructor_constructor = name_to_var cd.cd_name.txt;
+    union_constructor_inversor = name_to_var cd.cd_name.txt;
+    union_constructor_args_type = List.map tr_core_type arguments }
 
 and tr_let (vb_l : value_binding list) : trm = (*also change this part to handle seq flattening*)
   let binding_list = List.map tr_value_binding vb_l in
@@ -211,9 +211,11 @@ and tr_type (tl : type_declaration list) : typ =
   let type_kind = td.typ_kind in
 
   (*we want that constructors have type "union_constructor list"*)
-  let constructors : union_constructor list = (match type_kind with
-                  | Ttype_variant cdl -> List.map (tr_constructor_decl) cdl
-                  | _ -> failwith "Union constructor not handled") in
+  let constructors : union_constructor list =
+    match type_kind with
+    | Ttype_variant cdl -> List.map (tr_constructor_decl) cdl
+    | _ -> failwith "Union constructor not handled"
+    in
 
   let typedef_body = Typedef_union constructors in
 

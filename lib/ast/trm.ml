@@ -2095,7 +2095,7 @@ let trm_neg ?(annot : trm_annot = trm_annot_default) ?(loc) ?(ctx : ctx option) 
 let trm_cmp_binop (binop: binary_op) ?(loc) ?(ctx : ctx option) ?(typ: typ = typ_int) (t1 : trm) (t2 : trm) : trm =
   trm_apps ?loc ?ctx ~typ:typ_bool (trm_binop typ binop) [t1; t2]
 
-(** [trm_eq ?loc ?ctx ?typ t1 t2]: generates t1 = t2 *)
+(** [trm_eq ?loc ?ctx ?typ t1 t2]: generates t1 == t2 *)
 let trm_eq = trm_cmp_binop Binop_eq
 
 (** [trm_eq_inv t1 t2]: deconstructs t = t1 == t2 *)
@@ -2208,8 +2208,7 @@ let trm_let_mut_uninit ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (
   trm_let ~annot ?loc ?ctx (var_name, var_type_ptr) (trm_ref_uninit var_type)
 
 (*****************************************************************************)
-
-  (** [trm_and t1 t2]: generates t1 && t2 *)
+(** [trm_and t1 t2]: generates t1 && t2, which is encoded as [if t1 then t2 else false] with an annotation *)
 let trm_and ?(loc) ?(ctx : ctx option) (t1 : trm) (t2 : trm) : trm =
   trm_add_cstyle Shortcircuit_and (trm_if ?loc ?ctx ~typ:typ_bool t1 t2 (trm_bool false))
 
@@ -2222,6 +2221,21 @@ let trm_ands (ts : trm list) : trm =
   List.fold_lefti (fun i acc t1 ->
     if i = 0 then t1 else trm_and acc t1
   ) (trm_bool true) ts
+
+(*****************************************************************************)
+
+(* TODO Patterns
+
+    trm_pat_var
+    trm_pat_as
+    trm_pat_any
+    trm_pat_is
+    trm_pat_and   trm_apps
+    trm_pat_or
+    trm_pat_not    trm_apps (trm_prim Unop_neg) [t1]
+
+*)
+
 
 (*****************************************************************************)
 

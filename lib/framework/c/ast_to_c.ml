@@ -643,7 +643,16 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       dattr ^^ string "switch" ^^ blank 1 ^^ parens dcond ^^ blank 1 ^^
         surround 2 1 lbrace dcases rbrace
     | Trm_my_switch cases ->
-     print_node "Trm_switch ..."
+     print_node "Trm_my_switch ..."
+(* TODO:
+          if "not style.optitrust_syntax" then warning;
+          switch
+          case t1 then t2;
+          case t1 then t2;
+          end;
+
+          LATER: try to print C's switch and Ocaml's match when possible.
+     *)
     | Trm_abort a ->
       begin match a with
       | Ret t_o ->
@@ -902,6 +911,20 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
       else
         string "typedef " ^^ string "struct" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ dname ^^ blank 1 ^^ semi
   | Typedef_union union_const_l -> failwith "Typedef_union printing in C is not yet implemented"
+      (* TODO:
+          if constructor has arguments and  "not style.optitrust_syntax" then warning.
+          Flags.verbose_warn None "Ast_to_c.typ_desc_to_doc: typ_fun not implemented\n";
+
+      typedef enum WebEvent {
+        // An `enum` variant may either be `unit-like`,
+        PageLoad,
+        PageUnload,
+        // like tuple structs,
+        KeyPress(char),
+        Paste(String),
+        // or c-like structures.
+        Click { x: i64, y: i64 },
+    };   *)
   (*naive idea, but maybe I have to write by hand a function for each constructor? As well as the inversors? Because calling C unions is probably a stretch*)
   | Typedef_enum enum_const_l ->
       let const_doc_l =

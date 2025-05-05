@@ -254,8 +254,71 @@ type trm =
 (** [trms]: a list of trms *)
 and trms = trm list
 
-(** [trm_desc]: description of an ast node *)
+(** [pat]: a representation of a pattern, which is represented as a term *)
+and pat = trm
+
+(** [trm_desc]: description of an ast node.
+    The garmmar of terms includes the representation of binding-boolean-terms and patterns.
+
+    A binding-boolean-trm (written `b` below) can be constructed as:
+    - `b1 && b2` in which case we keep the union of the bindings from the two branches
+    - `b1 || b2` in which case we keep the intersection of the bindings from the branches
+    - `not b` in which case variables bound in `b` are not exported
+    - [WILL WORK?] `if b0 then b1 else b2` (where bindings from b0 scope into b1 but not b2;
+        as a generalization of && and || and 'not', in fact all are encoded into 'if')
+    - `t is p` where `e` is a term and `p` is a pattern-expression.
+
+    A pattern-expression consists of an inversion-function of type `a0 -> (a0 * .. * aN) option`,
+    which can test terms of type `a0` and in case of success produce a tuple of results.
+    Each result may be bound to a variable, and may be recursively tested by means of a pattern.
+
+    An inversion function that returns no output value in case of success has type `a0 -> unit option`,
+    which is isomorphic to `a0 -> bool`. Hence, any boolean function can serve as inversion function.
+
+    ```
+      pattern-trm :=
+        | _     (the wildcard pattern)
+        | ?x    (a bound variable named [x])
+        | pattern-trm as ?x   (alias-pattern)
+        | inversion_function(pattern-trm,..,pattern-trm)
+        | boolean_function
+    ```
+
+    The binding-boolean-terms and the inversion functions are represented using [Trm_apps] like applications,
+    and boolean functions are represented using [Trm_var] like a variable occurrence. For example:
+    a binding-boolean-term [t is Some(?x,?y) && x == 3] is represented as
+    [Trm_apps(Trm_var("and"
+
+    OptiTrust's switch construct generalizes C's switch and OCaml pattern-matching and Rust's if-let.
+    ```
+    switch[-unordered|-nondeterministically]
+    case binding-boolean-trm ==> trm
+    case binding-boolean-trm ==> trm
+    end
+    ```
+
+    If none of the cases are satisfied, the program is stuck, i.e., ends on a fatal error like `assert false`.
+
+    If the `unordered` option is set, then the compiler may test the clauses in any order,
+    and the code may non-deterministically choose any of the matching branches.
+
+    The `nondeterministically` option is stronger than `unordered`, it documents the fact
+    that the programmer intended to include clauses that overlap, and that the corresponding
+    branches produce similar results in case of overlap. [FOR LATER].
+
+    The compiler may issue warnings when: [FOR LATER]
+    - the switch is ordered but a condition is entirely subsumed by a condition form an earlier branch (this would amount to dead code)
+    - the coverage of the conditions does not obviously appear to be exhaustive (use `switch-nonexhaustive` to express that this is fine due to program invariants)
+    - the switch is ordered (and not tagged as nondeterministically) but there is overlap between the branches
+ *)
 and trm_desc =
+  (* TODO
+    Trm_pat_var  (* [?x] as part of a pattern [p], to bind [x] (in a binding-boolean-expression) *)
+    Trm_pat_as   (* [p as ?x] as part of a pattern [p], to bind [x] (in a binding-boolean-expression) *)
+    Trm_pat_any  (* [_] as part of a pattern [p] *)
+    Trm_pat_is of trm * pat  (* [t is p] in a binding-boolean-expression *)
+  *)
+
   | Trm_var of var
   | Trm_lit of lit   (* literal values *)
   | Trm_prim of typ * prim (* overloaded primitive operators on the specified type *) (* TODO: Remove and replace with overloaded builtin functions *)
@@ -290,7 +353,7 @@ and trm_desc =
     TODO: Replace with real pattern matching
    *)
   | Trm_switch of trm * ((trms * trm) list)
-  (*Remark/TODO :
+  (*Remark:   Trm_switch of (bbtrm * trm) list <== TODO
   Switch is translated as a list of cases, composed as such :
   Trm_my_switch [((t, p), k)] corresponds to :
   ```
