@@ -64,11 +64,6 @@ a single Trm_fun in OptiTrust.
 
 type ocaml_ast = Typedtree.implementation
 
-let rec add_end x l = (* not needed *)
-  match l with
-  | [] -> [x]
-  | a::l' -> a::(add_end x l')
-
 let rec tr_constant (c : constant) : trm = match c with
   | Const_int n -> trm_int n
   | Const_char c -> trm_string (Char.escaped c)
@@ -130,6 +125,7 @@ and tr_pat_switch (p : pattern) : trm =
   | Tpat_var (id, _) -> trm_pat_var (name_to_var (Ident.name id))
   | Tpat_any -> trm_pat_any ()
   | _ -> failwith "Pattern not handled when translating matches"
+
 and tr_computation_pattern (p : computation general_pattern) : trm =
   match p.pat_desc with
   | Tpat_value v -> (match (v :> (value general_pattern)).pat_desc with (*small hack I found on the internet, not sure how good this is but at least it compiles*)
@@ -208,8 +204,10 @@ and tr_expression (u : expression) : trm =
 and tr_core_type (ct : core_type) : typ =
   match ct.ctyp_desc with
   | Ttyp_constr (_, ident, _) ->
-    let _name = (match ident.txt with | Lident l -> l |__ -> failwith "Identifier not handled") in
-    typ_int
+    let name = (match ident.txt with | Lident l -> l |__ -> failwith "tr_core_type: Identifier not handled") in
+    let body = if name = "int" then typ_int else typ_var (toplevel_typvar name) in
+    body
+    (* typ_int *)
     (* TODO: arrow *)
   | _ -> failwith "Core type not handled"
 
@@ -234,10 +232,10 @@ and tr_let (vb_l : value_binding list) : trm = (*also change this part to handle
 and tr_type (tl : type_declaration list) : typ =
   let td = (match tl with
   | [singleton] -> singleton
-  | _ -> failwith "Type declaration not handled") in
-  let typedef_name = name_to_typvar (td.typ_name.txt) in
+  | _ -> failwith "Type declaration not handled: too many arguments") in
+  let typedef_name = name_to_typvar (td.typ_name.txt) in (*should it be a typvar or a var ? This is not a "type variable" in the same sense as a polymorphic type, is this a problem? *)
 
-  let _type_params = td.typ_params in
+  let _type_params = td.typ_params in (*ignore it for now. we will try to handle polymorphism without looking at this? Where will the variable be defined then? *)
   let type_kind = td.typ_kind in
 
   (*we want that constructors have type "union_constructor list"*)
