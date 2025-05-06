@@ -57,11 +57,13 @@ ${CODE_VIEWER:="code -r"}
 TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0")")
 export OPTITRUST_FOLDER=$(dirname "${TOOLS_FOLDER}")
 LIB_FOLDER=$(readlink -f ${OPTITRUST_FOLDER}/lib)
+TOOLS_FOLDER=$(readlink -f ${OPTITRUST_FOLDER}/tools)
+FRAMEWORK_FOLDER=$(readlink -f ${OPTITRUST_FOLDER}/framework)
 
 # Disallow execution in the lib folder
-if [[ ${DIRNAME}/ == ${LIB_FOLDER}/* ]]
+if [[ ${DIRNAME}/ == ${LIB_FOLDER}/* || ${DIRNAME}/ == ${TOOLS_FOLDER}/* || ${DIRNAME}/ == ${FRAMEWORK_FOLDER}/*  ]]
 then
-    echo "Cannot start view_result.sh in the lib folder" >&2
+    echo "Cannot start view_result.sh from one of the folders storing the optitrust sources" >&2
     exit 2
 fi
 

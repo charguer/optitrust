@@ -2,6 +2,7 @@
 _build
 tmp
 _doc
+*.log
 *.ast
 *_out.cpp
 *_out.c
