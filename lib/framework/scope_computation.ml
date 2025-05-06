@@ -289,6 +289,7 @@ let enter_scope check_binder scope_ctx t =
           check_binder scope_ctx v true
         end
       ) scope_ctx rfl
+    | Typedef_union _ -> scope_ctx
     | _ -> failwith "unexpected typedef_body"
     end
   | _ ->

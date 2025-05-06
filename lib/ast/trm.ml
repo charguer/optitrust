@@ -174,7 +174,7 @@ let trm_switch ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (cond : t
   trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_switch (cond, cases))
 
 (** [trm_my_switch ~annot ?loc ?ctx cases]: switch-case statement *)
-let trm_my_switch ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (cases : ((trm * trm) * trm) list) : trm =
+let trm_my_switch ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (cases : (bbtrm * trm) list) : trm =
   trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_my_switch cases)
 
 (** [trm_abort ~annot ?loc ?ctx a]: abort instruction *)
@@ -2216,7 +2216,7 @@ let trm_and ?(loc) ?(ctx : ctx option) (t1 : trm) (t2 : trm) : trm =
 let trm_or ?(loc) ?(ctx : ctx option) (t1 : trm) (t2 : trm) : trm =
   trm_add_cstyle Shortcircuit_or (trm_if ?loc ?ctx ~typ:typ_bool t1 (trm_bool true) t2)
 
-(** [trm_ands ts] generalized version of trm_and *)
+(** [trm_ands ts]: generalized version of trm_and *)
 let trm_ands (ts : trm list) : trm =
   List.fold_lefti (fun i acc t1 ->
     if i = 0 then t1 else trm_and acc t1
@@ -2224,17 +2224,31 @@ let trm_ands (ts : trm list) : trm =
 
 (*****************************************************************************)
 
-(* TODO Patterns
+(** [trm_pat_var]: similarly to [trm_var], creates a variable occurence. To be used when creating switch clauses.*)
+let trm_pat_var ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (v : var) : trm =
+  trm_make ~annot ?loc ?typ ?ctx (Trm_pat_var v)
 
-    trm_pat_var
-    trm_pat_as
-    trm_pat_any
-    trm_pat_is
-    trm_pat_and   trm_apps
-    trm_pat_or
-    trm_pat_not    trm_apps (trm_prim Unop_neg) [t1]
+(** [trm_pat_as]: creates an alias in a bbtrm. To be used when creating switch clauses.*)
+let trm_pat_as ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (t : trm) (v : var) : trm =
+  trm_make ~annot ?loc ?typ ?ctx (Trm_pat_as (t, v))
 
-*)
+(** [trm_pat_any]: represents a non-binded variable in a bbtrm. To be used when creating switch clauses.*)
+let trm_pat_any ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) () : trm =
+  trm_make ~annot ?loc ?typ ?ctx (Trm_pat_any)
+
+(** [trm_pat_is]: represents constructor inversion in a bbtrm. To be used when creating switch clauses.*)
+let trm_pat_is ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (t : trm) (p : pat) : trm =
+  trm_make ~annot ?loc ?typ ?ctx (Trm_pat_is (t, p))
+
+(** [trm_pat_and]: alias of [trm_and], represents binding [&&] clauses in a bbtrm. To be used when creating switch clauses.*)
+let trm_pat_and = trm_and
+
+(** [trm_pat_or]: alias of [trm_or], represents non-binding [||] clauses in a bbtrm. To be used when creating switch clauses.*)
+let trm_pat_or = trm_or
+
+(**[trm_pat_neg]: returns [not] clause of a bbtrm. Is equivalent to [trm_apps (trm_prim Unop_neg) [t1]].*)
+let trm_pat_neg ?(loc) ?(ctx : ctx option) (t : trm) : trm =
+  trm_add_cstyle Shortcircuit_neg (trm_if ?loc ?ctx ~typ:typ_bool t (trm_bool false) (trm_bool true))
 
 
 (*****************************************************************************)

@@ -492,6 +492,10 @@ and trm_var_to_doc style (x : var) (t : trm) : document =
 
 (** [trm_to_doc style ~semicolon ~force_expr ~prec ~print_struct_init_type  t]: converts [t] to a pprint document *)
 and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(print_struct_init_type : bool = false) (t : trm) : document =
+
+  let aux = trm_to_doc style in
+  let var_to_doc_switch x = string "?" ^^ (var_to_doc style x) in
+
   let dsemi = if semicolon then semi else empty in
   let t_attributes = trm_get_attr t in
   let dattr =
@@ -504,6 +508,16 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
     | _ when trm_has_cstyle Type t -> typ_to_doc style t
     | _ when trm_has_cstyle ResourceFormula t ->
       dattr ^^ formula_to_doc style t ^^ dsemi
+    | Trm_pat_var x -> var_to_doc_switch x
+    | Trm_pat_as (t, x) ->
+      let str_term = aux t in
+      let str_var = var_to_doc_switch x in
+      str_term ^^ string " as " ^^ str_var
+    | Trm_pat_any -> string "?_"
+    | Trm_pat_is (t, p) ->
+      let str_term = aux t in
+      let str_pat = aux p in
+      str_term ^^ string " is " ^^ str_pat
     | Trm_var x ->
       (* if x.qvar_var = "this"
         then
@@ -643,15 +657,24 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       dattr ^^ string "switch" ^^ blank 1 ^^ parens dcond ^^ blank 1 ^^
         surround 2 1 lbrace dcases rbrace
     | Trm_my_switch cases ->
-     print_node "Trm_my_switch ..."
-(* TODO:
-          if "not style.optitrust_syntax" then warning;
-          switch
-          case t1 then t2;
-          case t1 then t2;
-          end;
+    if (not style.optitrust_syntax) then Flags.verbose_warn None "Ast_to_c.trm_to_doc: trying to print [my_switch] without optitrust_syntax flag\n";
 
-          LATER: try to print C's switch and Ocaml's match when possible.
+    let dcases =
+      separate hardline
+      (List.map
+        (fun (bbt, k) ->
+          string "case" ^^ blank 1 ^^ decorate_trm style bbt ^^ blank 1 ^^
+            string "then" ^^ blank 1 ^^ decorate_trm style k  ^^ colon)
+      cases)
+    in
+
+
+    dattr ^^ string "switch" ^^ hardline ^^
+      dcases ^^
+    string "end"
+
+(* TODO:
+      LATER: try to print C's switch and Ocaml's match when possible.
      *)
     | Trm_abort a ->
       begin match a with
@@ -930,7 +953,7 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
           ) union_const_l in
 
       separate (blank 1) [string "typedef enum"; dname;
-      braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi (*TODO : Find a way to separate each line with a line break*)
+      braces (separate (comma ^^ hardline) const_doc_l)] ^^ dsemi (*TODO : Find a way to separate each line with a line break*)
 
       (* TODO:
           if constructor has arguments and  "not style.optitrust_syntax" then warning.

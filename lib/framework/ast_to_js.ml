@@ -190,6 +190,8 @@ let routine_to_json (routine : omp_routine) : json * json =
      [aux] is goign to be applied for processing chidlren nodes *)
 let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     match t.desc with
+    | Trm_pat_var _ | Trm_pat_as _ | Trm_pat_any
+    | Trm_pat_is _ -> failwith "Trm_Pat not yet translatable to json"
     | Trm_var x ->
         [ kind_to_field "var";
           value_to_field x.name; (* TODO: #var-id , also encode namespaces and id ? *)
@@ -285,7 +287,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
                 | (_,body) -> trm_fail t "Ast_to_js.multipattern switch not yet supported in json output"
            *)
     | Trm_my_switch _cases ->
-      [ kind_to_field "switch";
+      [ kind_to_field "my_switch";
       (* I will cover cases later on *)
       children_to_field [child_to_json (quote "cond") (aux (trm_unit ()))] ] (*TODO: not at all satisfactory, change it later to what it should look like after discussing it*)
     | Trm_abort res ->

@@ -123,18 +123,38 @@ and tr_sequence (u1 : expression) (u2 : expression) : trm =
     | _ -> [t2]) in
 
     trm_seq (Mlist.of_list (body1@body2))
-(*
+
+(**[tr_pat_switch] translates an OCaml pattern into a [pat]. This is intended to be used while generating switch statements*)
+and tr_pat_switch (p : pattern) : trm =
+  match p.pat_desc with
+  | Tpat_var (id, _) -> trm_pat_var (name_to_var (Ident.name id))
+  | Tpat_any -> trm_pat_any ()
+  | _ -> failwith "Pattern not handled when translating matches"
 and tr_computation_pattern (p : computation general_pattern) : trm =
   match p.pat_desc with
   | Tpat_value v -> (match (v :> (value general_pattern)).pat_desc with (*small hack I found on the internet, not sure how good this is but at least it compiles*)
                     | Tpat_construct (_, cd, pats, _) ->
                     let constr = trm_var (name_to_var cd.cstr_name) in
                     (*can I use typed_vars to create terms? *)
-                    let args = List.map tr_expression args in
+                    let args = List.map tr_pat_switch pats in
                     trm_apps constr args
                     | _ -> failwith "Did not expect this pattern shape inside a match")
   | _ -> failwith "Did not expect this pattern shape in a match"
-*)
+
+(**[tr_case] translates an OCaml [computation case] from a pattern matching into an Optitrust switch case. The [trm] argument represents the argument of the OCaml match*)
+and tr_case (t : trm) (c_case : computation case) : bbtrm * trm =
+  (*TODO: handle the [when] case, as [c_guard] in c_case*)
+  let {c_lhs; c_guard; c_rhs} = c_case in
+  let lhs =
+    match c_guard with
+    | Some e -> trm_pat_and (trm_pat_is t (tr_computation_pattern c_lhs)) (tr_expression e)
+    | None -> trm_pat_is t (tr_computation_pattern c_lhs)
+  in
+  let rhs = tr_expression c_rhs in
+
+  (lhs, rhs)
+
+
 and tr_expression (u : expression) : trm =
   let aux = tr_expression in
   match u.exp_desc with
@@ -165,17 +185,22 @@ and tr_expression (u : expression) : trm =
                                               | _ -> failwith "   ")
                                 | _ -> failwith "  ") *)
   | Texp_match (u, cases, _) ->
-    trm_unit ()
-    (*first of all, put u on the left of everything*)
-      (*let t = aux u in
-      List.map (fun case -> let {c_lhs; c_rhs} = case in ((t, tr_pattern c_lhs), _)) cases*)
+    let t = aux u in
+    (*List.map of the cases. Maybe add u as argument to tell it what to put on the left. It takes the computational cases. Look at what the ocaml ast looks like in case*)
+    let translated_cases = List.map (tr_case t) cases in
 
+    trm_my_switch translated_cases
 
 
   | Texp_construct (_, cd, args) ->
     let constr = trm_var (name_to_var cd.cstr_name) in
     let args = List.map tr_expression args in
     trm_apps constr args
+  | Texp_ifthenelse (u1, u2, u3) ->
+    (match u3 with
+    | None -> failwith "else clause not present in if-then-else"
+    | Some e ->
+          trm_if (aux u1) (aux u2) (aux e))
   | Texp_sequence (u1, u2) ->
     tr_sequence u1 u2
   | _ -> failwith "expression not yet translatable"

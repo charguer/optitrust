@@ -21,8 +21,11 @@ let old_resolution = ref false
     1) Structuring statements
     2) Instructions
     3) Expression
-    4) others  *)
+    4) others
+
+    5) Patterns*)
 type trm_kind =
+  | TrmKind_Pat
   | TrmKind_Typedef (* type definition that appears in the AST *)
   | TrmKind_Instr
   | TrmKind_Expr
@@ -521,6 +524,7 @@ let get_trm_kind (t : trm) : trm_kind =
     end
     in
   match t.desc with
+  | Trm_pat_var _ | Trm_pat_as _ | Trm_pat_any | Trm_pat_is _ -> TrmKind_Pat
   | Trm_var _ -> TrmKind_Expr
   | Trm_lit _ -> instr_if_unit
   | Trm_prim _ -> TrmKind_Expr

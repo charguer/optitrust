@@ -254,8 +254,11 @@ type trm =
 (** [trms]: a list of trms *)
 and trms = trm list
 
-(** [pat]: a representation of a pattern, which is represented as a term *)
+(** [pat]: a representation of a pattern, which is seen as a term *)
 and pat = trm
+
+(** [bbtrm]: a representation of a binding-boolean-tern, which is seen as a term *)
+and bbtrm = trm
 
 (** [trm_desc]: description of an ast node.
     The garmmar of terms includes the representation of binding-boolean-terms and patterns.
@@ -287,7 +290,7 @@ and pat = trm
     The binding-boolean-terms and the inversion functions are represented using [Trm_apps] like applications,
     and boolean functions are represented using [Trm_var] like a variable occurrence. For example:
     a binding-boolean-term [t is Some(?x,?y) && x == 3] is represented as
-    [Trm_apps(Trm_var("and"
+    [Trm_apps(Trm_var("and"), [..., Trm_apps(Trm_prim(Binop_eq), ...)])]
 
     OptiTrust's switch construct generalizes C's switch and OCaml pattern-matching and Rust's if-let.
     ```
@@ -312,12 +315,12 @@ and pat = trm
     - the switch is ordered (and not tagged as nondeterministically) but there is overlap between the branches
  *)
 and trm_desc =
-  (* TODO
-    Trm_pat_var  (* [?x] as part of a pattern [p], to bind [x] (in a binding-boolean-expression) *)
-    Trm_pat_as   (* [p as ?x] as part of a pattern [p], to bind [x] (in a binding-boolean-expression) *)
-    Trm_pat_any  (* [_] as part of a pattern [p] *)
-    Trm_pat_is of trm * pat  (* [t is p] in a binding-boolean-expression *)
-  *)
+
+  | Trm_pat_var of var (* [?x] as part of a pattern [p], to bind [x] (in a binding-boolean-expression) *)
+  | Trm_pat_as of pat * var  (* [p as ?x] as part of a pattern [p], to bind [x] (in a binding-boolean-expression) *)
+  | Trm_pat_any (* [_] as part of a pattern [p] *)
+  | Trm_pat_is of trm * pat  (* [t is p] in a binding-boolean-expression *)
+
 
   | Trm_var of var
   | Trm_lit of lit   (* literal values *)
@@ -362,7 +365,7 @@ and trm_desc =
   ```
   For the moment, the syntax on the left of the cases is lacking for simplicity. TODO : add the full defined syntax.
   *)
-  | Trm_my_switch of ((trm * trm) * trm) list
+  | Trm_my_switch of (bbtrm * trm) list
   | Trm_abort of abort                            (* return or break or continue *)
   | Trm_goto of label                             (* goto foo *)
   | Trm_arbitrary of code_kind                    (* "int x = 10" *)
@@ -501,6 +504,8 @@ and cstyle_annot =
   | Ternary_cond (* ask to print Trm_if as [cond ? then_branch : else_branch] *)
   | Shortcircuit_and (* ask to print Trm_if as [a && b] *)
   | Shortcircuit_or (* ask to print Trm_if as [a || b] *)
+
+  | Shortcircuit_neg (* ask to print Trm_if as [not b] in the case the if clause is [if b then false else true] *)
 
   (* describe a sequence that does not impose a scope;
      LATER: maybe refine this notion *)
@@ -1073,6 +1078,11 @@ let dummy_var = toplevel_var ""
 
 let trm_desc_to_string : trm_desc -> string =
   function
+  | Trm_pat_var _ -> "Trm_pat_var"
+  | Trm_pat_as _ -> "Trm_pat_as"
+  | Trm_pat_any -> "Trm_pat_any"
+  | Trm_pat_is _ -> "Trm_pat_is"
+
   | Trm_var _ -> "Trm_var"
   | Trm_lit _ -> "Trm_lit"
   | Trm_prim _ -> "Trm_prim"
