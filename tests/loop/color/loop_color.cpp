@@ -17,9 +17,6 @@ int main(){
     /**/
   return 0;
 }
-/*
-*/
-
 
 void matrix_copy(int* D, int* S) {
   __modifies("D ~> Matrix1(1024)");

@@ -486,11 +486,22 @@ let trm_bool_inv (t: trm) : bool option =
   | Some (Lit_bool b) -> Some b
   | _ -> None
 
-(** [trm_is_one step]: checks if the step of the loop is one or not *)
-let trm_is_one (step : trm) : bool =
-  match trm_int_inv step with
-  | Some 1 -> true
+(** [trm_is_int n t]: checks if the term [t] is exactly the integer constant [n]. *)
+let trm_is_int (n : int) (t : trm) : bool =
+  match trm_int_inv t with
+  | Some m when m = n -> true
   | _ -> false
+
+(** [trm_is_one t]: checks if the [t] is the integer constant [1]. *)
+let trm_is_int_one (t : trm) : bool =
+  trm_is_int 1 t
+
+(* TODO: alias for backward compatibility *)
+let trm_is_one = trm_is_int_one
+
+(** [trm_is_int_zero t]: checks if the [t] is the integer constant [0]. *)
+let trm_is_int_zero (t : trm) : bool =
+  trm_is_int 0 t
 
 (** [trm_inv ~error k t]: returns the results of applying [k] on t, if the result is [None]
      then function fails with error [error]. *)
@@ -2197,11 +2208,26 @@ let trm_add = trm_arith_binop Binop_add
 let trm_add_inv (t : trm) : (trm * trm) option  =
   trm_binop_inv Binop_add t
 
-(** [trm_mul t1 t2]: generates t1 * t2 *)
-let trm_mul = trm_arith_binop Binop_mul
+(** [trm_mul t1 t2]: generates t1 * t2.
+    If [~simpl:true] is provided, and if one of the two terms is
+    the constant [1], then the return value is the other term.
+    If one of the two terms is the constant [0], the return value is [0]. TODO: currently simplify only integer operations, later should generalize to float operation. *)
+let trm_mul ?(simpl = false) ?(loc) ?(ctx : ctx option) ~(typ: typ) (t1 : trm) (t2 : trm) : trm =
+  let default () : trm =
+     trm_arith_binop Binop_mul ?loc ?ctx ~typ t1 t2 in
+  if simpl then begin
+     if trm_is_int_zero t1 || trm_is_int_zero t2 then trm_int 0
+     else if trm_is_int_one t1 then t2
+     else if trm_is_int_one t2 then t1
+     else default()
+  end else default()
 
-(** [trm_exact_div t1 t2]: generates exact_div(t1, t2) *)
-let trm_exact_div = trm_arith_binop Binop_exact_div
+(** [trm_exact_div t1 t2]: generates exact_div(t1, t2).
+  If [~simpl:true] is provided and [t2] is the constant one,
+  then [t1] is returned. *)
+let trm_exact_div ?(simpl = false) ?(loc) ?(ctx : ctx option) ~(typ: typ) (t1 : trm) (t2 : trm) : trm =
+  if simpl && trm_is_int_one t2 then t1 else
+  trm_arith_binop Binop_exact_div ?loc ?ctx ~typ t1 t2
 
 (** [trm_trunc_div t1 t2]: generates t1 / t2 *)
 let trm_trunc_div = trm_arith_binop Binop_trunc_div

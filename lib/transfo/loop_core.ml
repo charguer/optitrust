@@ -35,13 +35,17 @@ let ghost_uncolor = toplevel_var "uncolor"
 let ghost_ro_color = toplevel_var "ro_color"
 let ghost_ro_uncolor = toplevel_var "ro_uncolor"
 
-let ghost_tiled_index_in_range = toplevel_var "tiled_index_in_range"
+let ghost_colored_index_in_range = toplevel_var "colored_index_in_range"
+let ghost_colored_index_in_range_step1 = toplevel_var "colored_index_in_range_step1"
 
 (** [tile_on divides b tile_index t]: tiles loop [t],
       [tile_index] - string representing the index used for the new outer loop,
       [bound] - a tile_bound type variable representing the type of the bound used in
                  this transformation,
-      [t] - ast of targeted loop. *)
+      [t] - ast of targeted loop.
+
+    LIMITATION: currently only handles loops with step=1 in case contracts are used. For the general case, we need to generalize color/uncolor.
+      *)
 let color_on (color_index : string) (nb_colors : trm) (t : trm) : trm =
   let error = "Loop_core.color_on: only simple loops are supported." in
   let ({index; start; direction; stop; step}, body, contract) = trm_inv ~error trm_for_inv t in
@@ -61,8 +65,11 @@ let color_on (color_index : string) (nb_colors : trm) (t : trm) : trm =
     *)
   assert (are_same_trm start (trm_int 0)); (* todo: raise unsupported *)
   assert (direction = DirUp); (* todo: raise unsupported *)
-  assert (contract.strict = true); (* todo: raise unsupported *)
+  (* assert (contract.strict = true); todo: raise unsupported *)
 
+  let simpl = true in (* flag to control simplification of arithmetic in the description of the range of the inner loop *)
+
+  let is_step_one = trm_is_int_one step in
   let outer_range = {
     index = color_index;
     start = (trm_int 0);
@@ -71,51 +78,78 @@ let color_on (color_index : string) (nb_colors : trm) (t : trm) : trm =
     step = trm_step_one () } in
   let inner_range = {
     index;
-    start = trm_var color_index;
+    start = trm_mul_int ~simpl (trm_var color_index) step;
     direction = DirUp;
     stop = stop;
-    step = nb_colors } in
+    step = trm_mul_int ~simpl nb_colors step } in
 
-  let open Resource_formula in
+  (* Produce no contract if current contract is not fully worked out *)
+  let contract_inner, contract_outer, ghosts_before, ghosts_after, new_body =
 
-  let contract_inner = { contract with strict = true } in
-  let contract_outer = { contract with
-    iter_contract = {
-      pre = Resource_set.group_range inner_range contract_inner.iter_contract.pre;
-      post = Resource_set.group_range inner_range contract_inner.iter_contract.post };
-    strict = true } in
+    if not contract.strict then begin
+      (empty_loop_contract, empty_loop_contract, [], [], body)
 
-  (* TODO: Also tile groups in pure resources *)
-  (* TODO: Give the used resource instead of specifying ghost parameters? *)
-  let coloring_ghosts nonro_ghost ro_ghost resources =
-    List.map (fun (_, maybero_formula) ->
-        let ghost, formula =
-          match formula_read_only_inv maybero_formula with
-          | Some { formula } -> ro_ghost, formula
-          | None -> nonro_ghost, maybero_formula
-        in
-        let i = new_var index.name in
-        let items = formula_fun [i, typ_int] (trm_subst_var index (trm_var i) formula) in
-        Resource_trm.ghost (ghost_call ghost [("nb_colors", nb_colors); ("size", stop); ("items", items)])
-      ) resources
-  in
-  let ghosts_before = coloring_ghosts ghost_color ghost_ro_color contract.iter_contract.pre.linear in
-  let ghosts_after = coloring_ghosts ghost_uncolor ghost_ro_uncolor contract.iter_contract.post.linear in
+      (* trm_seq_nobrace_nomarks (
+        [ trm_for outer_range (trm_seq_nomarks
+            (trm_for inner_range body));
+        ]) *)
+    end else begin
+      if not is_step_one then failwith "Loop.color with contracts only handles loops with step 1";
+      Trace.justif "loop coloring is correct";
 
+      let open Resource_formula in
 
+      let contract_inner = { contract with strict = true } in
+      let contract_outer = { contract with
+        iter_contract = {
+          pre = Resource_set.group_range inner_range contract_inner.iter_contract.pre;
+          post = Resource_set.group_range inner_range contract_inner.iter_contract.post };
+        strict = true } in
 
+      (* TODO: Also tile groups in pure resources *)
+      (* TODO: Give the used resource instead of specifying ghost parameters? *)
+      let coloring_ghosts nonro_ghost ro_ghost resources =
+        List.map (fun (_, maybero_formula) ->
+            let ghost, formula =
+              match formula_read_only_inv maybero_formula with
+              | Some { formula } -> ro_ghost, formula
+              | None -> nonro_ghost, maybero_formula
+            in
+            let i = new_var index.name in
+            let items = formula_fun [i, typ_int] (trm_subst_var index (trm_var i) formula) in
+            Resource_trm.ghost (ghost_call ghost [("nb_colors", nb_colors); ("size", stop); ("items", items)])
+          ) resources
+      in
+      let ghosts_before = coloring_ghosts ghost_color ghost_ro_color contract.iter_contract.pre.linear in
+      let ghosts_after = coloring_ghosts ghost_uncolor ghost_ro_uncolor contract.iter_contract.post.linear in
 
+      (* Ghost for justifying that the index falls within the same bound
+         as those given by the original loop *)
 
+      let ghost_color_index = Resource_trm.ghost (ghost_call ghost_colored_index_in_range_step1 [("color_index", trm_var color_index); ("index", trm_var index); ("nb_colors", nb_colors); ("size", stop)]) in
+
+      (* future work: general case
+      let ghost_color_index = Resource_trm.ghost (ghost_call ghost_colored_index_in_range [("color_index", trm_var color_index); ("index", trm_var index); ("nb_colors", nb_colors); ("size", stop); ("step", step)]) in
+      *)
+
+      (* TODO: what is trm_seq_helper and do we need trm_seq_inv *)
+      let body_seq, _ = trm_inv trm_seq_inv body in
+      let new_body = trm_like ~old:body (trm_seq_helper [Trm ghost_color_index; TrmMlist body_seq]) in
+
+      contract_inner, contract_outer, ghosts_before, ghosts_after, new_body
+
+    end in
+
+  (* Final composition of the nested loops *)
   let open Resource_trm in
-
-  (* Final composition - same structure but with our new rewrites *)
   trm_seq_nobrace_nomarks (
-    ghosts_before @ [
-    trm_for ~contract:contract_outer outer_range
-      (trm_for ~contract:contract_inner inner_range body);
-    ] @ ghosts_after)
-
-
+    ghosts_before @
+    [
+    trm_for ~contract:contract_outer outer_range (trm_seq_nomarks
+      [trm_for ~contract:contract_inner inner_range new_body]);
+    ]
+    @ ghosts_after
+    )
 
 
 

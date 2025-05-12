@@ -340,6 +340,24 @@ __GHOST(tiled_index_in_range) {
   __admitted();
 }
 
+__GHOST(colored_index_in_range_step1) {
+  __requires("color_index: int, index: int");
+  __requires("nb_colors: int, size: int");
+  __requires("in_range(color_index, 0..nb_colors)");
+  __requires("in_range(index, range(color_index,size,nb_colors))");
+  __ensures("in_range(index, 0..size)");
+  __admitted();
+}
+
+__GHOST(colored_index_in_range) {
+  __requires("color_index: int, index: int");
+  __requires("nb_colors: int, size: int, step:int");
+  __requires("in_range(color_index, 0..nb_colors)");
+  __requires("in_range(index, range(color_index * step, size, nb_colors * step))");
+  __ensures("in_range(index, 0..size)");
+  __admitted();
+}
+
 __AXIOM(eq_sym, "forall (m n: int) (eq: m = n) -> n = m");
 __AXIOM(zero_mul_intro, "forall (n: int) -> 0 = 0 * n");
 __AXIOM(plus_zero_intro, "forall (n: int) -> n = n + 0");
@@ -375,7 +393,7 @@ __GHOST(ro_color) {
 }
 
 __GHOST(ro_uncolor) {
-  __reverts(ro_uncolor);
+  __reverts(ro_color);
   __admitted();
 }
 

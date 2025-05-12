@@ -16,7 +16,9 @@ open Loop_core
    {@c[for (int index = 0; index < nb_color; index++) {
       for (int i = index*step; i < stop; i += step*nb_color) { body }]}. *)
 let%transfo color (nb_colors : trm) ?(index : string = "c${id}") (tg : target) : unit = (*removed option for string, if needed, can pattern match on index*)
-  apply_at_target_paths (Loop_core.color_on index nb_colors) tg
+  Nobrace_transfo.remove_after (fun () ->
+    apply_at_target_paths (Loop_core.color_on index nb_colors) tg
+  )
 
 (** [tile tile_size index tg]: expects the target [tg] to point at a simple loop,
    say [for (int i = 0; i < stop; i += step) { body } ].
