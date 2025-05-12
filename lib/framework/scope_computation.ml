@@ -160,11 +160,15 @@ let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
   rename_shadows var' scope_ctx;
   var'
 
+(** Auxiliary function for applying [infer_map_binder] in the specific case
+    of variables bound at top-level; for such variables, an entry is added/updated
+    in the global map [Trm.toplevel_vars]. *)
 let infer_id_for_toplevel_var var scope_ctx =
-  let namespaces = match var.namespaces with
-  | "" :: namespaces -> namespaces
-  | namespaces -> List.rev_append scope_ctx.namespace_path_rev namespaces
-  in
+  let namespaces =
+    match var.namespaces with
+    | "" :: namespaces -> namespaces
+    | namespaces -> List.rev_append scope_ctx.namespace_path_rev namespaces
+    in
   if namespaces = [] then
     (* Small optimization for hash-consing when there is no namespace *)
     toplevel_var var.name
@@ -378,6 +382,8 @@ let infer_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : var -> var =
     v'
   )
 
+(** Perform a renaming on certain variable names, as guided by [renames].
+    See ctx.renames. *)
 let rename_vars_if_needed (t : trm) (renames : string Var_map.t) =
   let may_rename (v : var) : var =
     match Var_map.find_opt v renames with
@@ -389,8 +395,19 @@ let rename_vars_if_needed (t : trm) (renames : string Var_map.t) =
   if Var_map.is_empty renames then t
   else trm_rename_vars map_var ~map_binder () t
 
-(** Given term [t], infer variable ids such that they agree with their qualified name for C/C++ scoping rules.
-  Only variable ids equal to [inferred_var_id] are inferred, other ids are checked. *)
+(** Given term [t] describing the root of an AST,
+    infer variable ids such that they agree with their qualified name for C/C++ scoping rules,
+    and return a modified term in which all variables (binders and occurrences) have an id.
+    Only variable ids equal to [inferred_var_id] are inferred, other ids are checked.
+
+    If variables of the input term already have IDs, these IDs are preserved.
+    If the option check_uniqueness is used, the function checks that every binder
+    binds a unique ID.
+
+    If variable names would not have resolved to the IDs already stored in the ast,
+    then the variables are renamed (see ctx.renames). This situation can happen
+    for example if unrolling a loop, a variable bound inside the loop now has
+    multiple occurrences with the same name, which is problematic as shadowing is disallowed.*)
 let infer_var_ids ?(failure_allowed = true) ?(check_uniqueness = not failure_allowed) (t : trm) : trm =
   let ctx, t2 = trm_rename_vars_ret_ctx ~keep_ctx:true
     ~enter_scope:(enter_scope (fun ctx binder predecl -> fst (infer_map_binder ~failure_allowed ctx binder predecl)))

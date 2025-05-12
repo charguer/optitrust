@@ -1059,8 +1059,9 @@ module Toplevel_hashtbl = Hashtbl.Make(Toplevel_id)
     This is used by toplevel_var to check collisions and perform hash consing. *)
 let toplevel_vars = Toplevel_hashtbl.create 128
 
-(** [toplevel_var]: return the toplevel variable with the given name.
-  A new variable identifier is predeclared if the variable did not exist. *)
+(** [toplevel_var]: return the toplevel variable with the given name;
+  if the global map [toplevel_vars] already contains an entry, it returns this entry;
+  otherwise it assigns once and for all a variable identifier to that name. *)
 let toplevel_var ?(namespaces: string list = []) (name : string) : var =
   let id = Toplevel_id.from_qualified_name ~namespaces name in
   match Toplevel_hashtbl.find_opt toplevel_vars id with

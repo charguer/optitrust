@@ -1488,6 +1488,35 @@ type var_metadata = trm_annot * location * typ option * ctx
 let empty_var_metadata () =
   trm_annot_default, None, None, unknown_ctx ()
 
+(** Traverse recursively an AST, keeping track of a ctx for resolving names;
+    this context evolves when encountering binders or scope enter/exit points;
+    returns an extended context for the continuation (e.g. after a let in a sequence)
+
+    - if [keep_ctx] is [false], the field [t.ctx] is discarded (replaced with [unknown_ctx]);
+      keeping ctx is used as an optimization so that typing et al need not be done again.
+    - [enter_scope ctx t] is a function that builds the extended scope, e.g.
+      when entering a loop or function body, or a sequence body, and [t] is the
+      term which introduces the scope.
+    - [exit_scope old_ctx ctx t] is a function to be called when leaving the scope,
+      giving it the outer_ctx (before entering the scope), and the current ctx
+      (e.g. what is obtained at the end of the body of the scope), and applied on
+      the term [t] that introduces the scope.
+    - [post_process ctx t] is called at the end of the recursion on subterms,
+      for computing additional metadata, e.g. we currently use it for gathering
+      all the specifications of all the functions being bound in the AST.
+    - [enter_beta_redex] is TODO (for computing effective arguments in certain function applications)
+    - [map_binder ctx var is_predecl] is called for every name being bound,
+      e.g. a let-binding on a variable, or a type definition. The variable is
+      the one being bound. [is_predecl] is true for function prototypes that
+      are declared but not defined---the only case in which a same name could
+      be bound twice without producing a name conflict; there could be zero or
+      several predeclaration before the proper declaration.
+    - [map_var ctx meta var] is called on every variable occurrence. [ctx] is
+      again the current context. [var] is the current description of the variable.
+      The [meta] data is of the form [(annot, loc, typ, t_ctx)] and describes
+      the information associated with the [trm_var] (if it is another kind of
+      term, the [empty_meta_data] is used, e.g. for handling the "res" of a sequence).
+      *)
 let trm_map_vars_ret_ctx
   ?(keep_ctx = false)
   ?(enter_scope: 'ctx -> trm -> 'ctx = fun ctx t -> ctx)
