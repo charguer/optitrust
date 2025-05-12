@@ -1742,26 +1742,25 @@ let trm_map_vars_ret_ctx
       | Typedef_alias ty ->
         let _, ty' = f_map ctx ty in
         if ty' == ty then td.typedef_body else Typedef_alias ty'
-      | Typedef_union ucl -> td.typedef_body (*this is still NYI, wrote this line to avoid runtime errors*)
-
-            (* TODO:
+      | Typedef_union ucl ->
           let cont_ctx = ref ctx in
-          let ucl' = List.map (fun { var_constructor; var_inversor; constructor_typ } as uc ->
-            let cont_ctx', var' = map_binder !cont_ctx var_constructor false in
+          let ucl' = List.map (fun { union_constructor_constructor; union_constructor_inversor; union_constructor_args_type } ->
+            let cont_ctx', union_constructor_constructor' = map_binder !cont_ctx union_constructor_constructor false in
             cont_ctx := cont_ctx';
-            let cont_ctx', var' = map_binder !cont_ctx var_inversor false in
+            let cont_ctx', union_constructor_inversor' = map_binder !cont_ctx union_constructor_inversor false in
             cont_ctx := cont_ctx';
-            let _, constructor_typ' = f_map cont_ctx constructor_typ in
-             { var_constructor'; var_inversor'; constructor_typ' }
+            let union_constructor_args_type' = List.map (fun t -> let (ctx, t') = f_map !cont_ctx t in t') union_constructor_args_type in
+             { union_constructor_constructor = union_constructor_constructor';
+               union_constructor_inversor = union_constructor_inversor';
+               union_constructor_args_type = union_constructor_args_type' }
           ) ucl in
-        +
+
         let cmp_ucl uc uc' =
-             uc.var_constructor == uc.var_constructor'
-          && ..
-          && ..
+             uc.union_constructor_constructor == uc'.union_constructor_constructor
+          && uc.union_constructor_inversor    == uc'.union_constructor_inversor
+          && uc.union_constructor_args_type   == uc'.union_constructor_args_type
            in
-        if List.for_all2 cmp_ucl ucl ucl' then ucl else Typedef_union ucl'
- *)
+        if List.for_all2 cmp_ucl ucl ucl' then td.typedef_body else Typedef_union ucl'
 
       | Typedef_record rfl ->
         let rfl' = List.map (fun (rf, rf_ann) ->
