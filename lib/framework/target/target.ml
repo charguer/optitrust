@@ -1342,7 +1342,15 @@ let iteri ?(rev : bool = false) (tr : int -> path -> unit) (tg : target) : unit 
   let tg = fix_target_multi tg in
   let t = Trace.ast() in
   with_stringreprs_available_for [tg] t (fun t ->
-    let ps = resolve_target tg t in
+
+    if !Flags.debug_ocaml then
+      Printf.printf "testing resolve_target in a call to iteri -- entry ";
+
+    let ps = resolve_target tg t in (*problem here, not finding any corresponding path...*)
+
+    if !Flags.debug_ocaml then
+      Printf.printf "testing resolve_target in a call to iteri -- exit ";
+
     let ps = if rev then List.rev ps else ps in
     match ps with
     | [] -> ()

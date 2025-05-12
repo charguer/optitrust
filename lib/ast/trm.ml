@@ -1399,6 +1399,7 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
       if (share_if_no_change(*redundant*) && cond' == cond && cases' == cases)
         then t
         else (trm_switch ~annot ?loc ~ctx cond' cases')
+  | Trm_my_switch cases -> t (*TODO: add actual code for this after understanding what the function does, (probably applying f to everything inside?)*)
   | Trm_abort a ->
     begin match a with
     | Ret (Some r) ->
@@ -1438,6 +1439,7 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
       if share_if_no_change(*redundant*) && rfl == rfl'
         then td.typedef_body
         else Typedef_record rfl'
+    | Typedef_union ufl -> Typedef_union ufl (*TODO: think of what applying a function to a union does*)
     | _ -> failwith "trm_map: unexpected typedef_body"
     end in
     if (share_if_no_change(*redundant*) && body' == td.typedef_body)

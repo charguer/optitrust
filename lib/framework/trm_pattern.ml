@@ -2,6 +2,8 @@ open Ast
 open Trm
 open Tools
 
+open Typ
+
 (* TODO: think about the relationship between this, trm_unify, trm_matching.ml, and string matching *)
 
 (** Patterns are terms that may contain pattern variables. *)
@@ -17,6 +19,10 @@ let pattern_namespace = "__pattern"
 let pvar name = name_to_var ~namespaces:[pattern_namespace] name
 
 let trm_pattern_var ?typ name = trm_var ?typ (pvar name)
+let trm_pattern_typedvar ?typ name = (*added this to get [typed vars] in my transformation definition *)
+  match typ with
+  | None -> ((pvar name), typ_auto)
+  | Some t -> ((pvar name), t)
 
 (** Compiles a pattern, i.e. assigns var ids to pattern variables and constructs a set of evars for unification. *)
 let pattern_compile (pattern : trm) : compiled_pattern =
