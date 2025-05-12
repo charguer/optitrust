@@ -81,8 +81,8 @@ let raw_parser (filename: string): trm =
 
       Clflags.locations := false;
 
-      (* if Flags.dump_ocaml_ast then sortir dans un fichier : *)
-      Printtyped.implementation_with_coercion Format.std_formatter typed;
+      if !Flags.dump_ocaml_ast then (*Output the file if asked*)
+        Printtyped.implementation_with_coercion Format.std_formatter typed;
 
       let ast : trm = Ocaml_to_ast.tr_ast typed in
       (*  if !show then  (Ast_to_text.print_ast (Style.internal ()) stdout ast);*)
@@ -160,7 +160,9 @@ let _ =
     "Usage: ./optitrust_parser arg1.cpp .. argN.cpp\n";
 
   filenames := List.rev !filenames;
-  print_string "parsed4 files: ";
+
+  (* print_string "parsed files: ";
   List.iter (fun s -> print_string (s ^ ";")) !filenames;
   print_string "\n";
-  List.iter parse !filenames
+   *)
+   List.iter parse !filenames

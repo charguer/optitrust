@@ -3,7 +3,7 @@ open Optitrust_utils
 let verbose = ref false
 let force = ref false
 let show = ref false
-let dump_ocaml_ast = ref None
+let dump_ocaml_ast = ref false (*TODO : put at as an option string ref, and give the file name as argument of the flag*)
 
 (** [spec]: possible command line arguments. *)
 let spec : (string * Arg.spec * string) list = [
@@ -12,7 +12,7 @@ let spec : (string * Arg.spec * string) list = [
      ("--stdout", Arg.Set show, " print the optitrust AST produced on stdout");
      ("--force", Arg.Set force, " ensures that the input file is parsed even if it is already cached");
      ("-f", Arg.Set force, " shorthand for --force");
-     ("--dump-ocaml-ast", Arg.String (fun f -> dump_ocaml_ast := Some f), " dump the AST as produced by clang into a file")
+     ("--dump-ocaml-ast", Arg.Set dump_ocaml_ast (*Arg.String (fun f -> dump_ocaml_ast := Some f)*), " dump the AST as produced by clang into a file") (*TODO : put back the filename reference*)
    ]
 
 let program_path = Sys.argv.(0)

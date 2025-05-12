@@ -1123,6 +1123,24 @@ let trm_pre_decr ?(annot = trm_annot_default) ?(typ : typ option) (t : trm) : tr
   trm_apps ~annot ?typ (trm_unop (typ_or_auto typ) Unop_pre_decr) [t]
 
 
+(*****************************************************************************)
+
+(** [trm_pat_var]: similarly to [trm_var], creates a variable occurence. To be used when creating switch clauses.*)
+let trm_pat_var ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (v : var) : trm =
+  trm_make ~annot ?loc ?typ ?ctx (Trm_pat_var v)
+
+(** [trm_pat_as]: creates an alias in a bbtrm. To be used when creating switch clauses.*)
+let trm_pat_as ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (t : trm) (v : var) : trm =
+  trm_make ~annot ?loc ?typ ?ctx (Trm_pat_as (t, v))
+
+(** [trm_pat_any]: represents a non-binded variable in a bbtrm. To be used when creating switch clauses.*)
+let trm_pat_any ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) () : trm =
+  trm_make ~annot ?loc ?typ ?ctx (Trm_pat_any)
+
+(** [trm_pat_is]: represents constructor inversion in a bbtrm. To be used when creating switch clauses.*)
+let trm_pat_is ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (t : trm) (p : pat) : trm =
+  trm_make ~annot ?loc ?typ ?ctx (Trm_pat_is (t, p))
+
 let var_any_bool = new_var "ANY_BOOL"
 
 (** [trm_any_bool]: generates ANY_BOOL () *)
@@ -1300,6 +1318,16 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
 
   let t' = match t.desc with
   | Trm_var _ | Trm_lit (Lit_bool _ | Lit_string _ | Lit_unit) -> t
+  | Trm_pat_var _ | Trm_pat_any -> t
+  | Trm_pat_as (p, v) ->
+    let p' = f p in
+    if p == p' then t else trm_pat_as ~annot ?loc ~ctx p' v
+  | Trm_pat_is (t1, t2) ->
+    let t1' = f t1 in
+    let t2' = f t2 in
+    if t1 == t1' && t2 == t2' then t else trm_pat_is ~annot ?loc ~ctx t1' t2'
+
+  (*TODO : add a case with the Trm_pat constructors, probably for most of them just return the t. (In particular Trm_pat_var and Trm_pat_any)*)
   | Trm_lit (Lit_int (ty, n)) ->
     let ty' = f ty in
     if ty == ty' then t else trm_int ~annot ?loc ~ctx ~typ:ty' n
@@ -1399,7 +1427,17 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
       if (share_if_no_change(*redundant*) && cond' == cond && cases' == cases)
         then t
         else (trm_switch ~annot ?loc ~ctx cond' cases')
-  | Trm_my_switch cases -> t (*TODO: add actual code for this after understanding what the function does, (probably applying f to everything inside?)*)
+  | Trm_my_switch cases ->
+  let cases' =
+    list_map
+    (fun (cond, body) -> (f cond, f body))
+    (fun (cond1, body1) (cond2, body2) -> cond1 == cond2 && body1 == body2)
+    cases
+  in
+  if (share_if_no_change && cases == cases')
+    then t
+    else (trm_my_switch ~annot ?loc ~ctx cases')
+  (*TODO: add actual code for this after understanding what the function does, (probably applying f to everything inside?)*)
   | Trm_abort a ->
     begin match a with
     | Ret (Some r) ->
@@ -1439,7 +1477,22 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
       if share_if_no_change(*redundant*) && rfl == rfl'
         then td.typedef_body
         else Typedef_record rfl'
-    | Typedef_union ufl -> Typedef_union ufl (*TODO: think of what applying a function to a union does*)
+    | Typedef_union ucl ->
+      let ucl' =
+        list_map
+        (fun uc ->
+          let args_types =
+            list_map f (==)
+            uc.union_constructor_args_type
+          in
+          {uc with union_constructor_args_type = args_types} (*TODO: think of a way to do the same without having to allocate a new stucture*)
+          )
+        (fun uc1 uc2 -> uc1.union_constructor_args_type == uc2.union_constructor_args_type)
+        ucl
+      in
+      if share_if_no_change && ucl == ucl'
+        then td.typedef_body
+        else Typedef_union ucl'
     | _ -> failwith "trm_map: unexpected typedef_body"
     end in
     if (share_if_no_change(*redundant*) && body' == td.typedef_body)
@@ -1544,6 +1597,8 @@ let trm_map_vars_ret_ctx
     let ctx, trm = match t.desc with
     | Trm_var x ->
       (ctx, map_var ctx (annot, loc, typ, t_ctx) x)
+
+    (*TODO : Add a case for the Trm_pat constructors, this will be needed when I'll have a working Union and Switch*)
 
     | Trm_let ((var, typ), body) ->
       let _, typ' = f_map ctx typ in
@@ -1786,7 +1841,7 @@ let trm_map_vars_ret_ctx
       (body_ctx, t')
 
     | _ ->
-      (ctx, trm_map ~keep_ctx (fun ti -> snd (f_map ctx ti)) t)
+      (ctx, trm_map ~keep_ctx (fun ti -> snd (f_map ctx ti)) t) (*TODO : add cases for the trm_pat *)
 
     in
     trm.errors <- errors;
@@ -2274,22 +2329,7 @@ let trm_ands (ts : trm list) : trm =
   ) (trm_bool true) ts
 
 (*****************************************************************************)
-
-(** [trm_pat_var]: similarly to [trm_var], creates a variable occurence. To be used when creating switch clauses.*)
-let trm_pat_var ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (v : var) : trm =
-  trm_make ~annot ?loc ?typ ?ctx (Trm_pat_var v)
-
-(** [trm_pat_as]: creates an alias in a bbtrm. To be used when creating switch clauses.*)
-let trm_pat_as ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (t : trm) (v : var) : trm =
-  trm_make ~annot ?loc ?typ ?ctx (Trm_pat_as (t, v))
-
-(** [trm_pat_any]: represents a non-binded variable in a bbtrm. To be used when creating switch clauses.*)
-let trm_pat_any ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) () : trm =
-  trm_make ~annot ?loc ?typ ?ctx (Trm_pat_any)
-
-(** [trm_pat_is]: represents constructor inversion in a bbtrm. To be used when creating switch clauses.*)
-let trm_pat_is ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (t : trm) (p : pat) : trm =
-  trm_make ~annot ?loc ?typ ?ctx (Trm_pat_is (t, p))
+(** Pattern operations *)
 
 (** [trm_pat_and]: alias of [trm_and], represents binding [&&] clauses in a bbtrm. To be used when creating switch clauses.*)
 let trm_pat_and = trm_and

@@ -76,11 +76,12 @@ and case_dir =
   | Case_body
 
 (** [union_cstr_dir]: direction to union declaration: the name or the type *)
-and union_cstr_dir =
+(* and union_cstr_dir =
   | Union_cstr_name
   | Union_cstr_type
+ *)
 
-(** [enum_const_dir]: direction to a const enum declaration *)
+ (** [enum_const_dir]: direction to a const enum declaration *)
 and enum_const_dir =
   | Enum_const_name
   | Enum_const_val
