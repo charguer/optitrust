@@ -275,6 +275,7 @@ let enter_scope check_binder scope_ctx t =
           and leaving a 'later' for handling workspaces
        *)
     | Typedef_record rfl ->
+      (* TODO: should be not do a scope for union, so that they bind types and cstr at toplevel? *)
       let scope_ctx = { scope_ctx with namespace_path_rev = td.typedef_name.name :: scope_ctx.namespace_path_rev; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; } in
       (* order of declaration does not matter for class members:
          this is equivalent to implicit predefinitions. *)
@@ -289,7 +290,7 @@ let enter_scope check_binder scope_ctx t =
           check_binder scope_ctx v true
         end
       ) scope_ctx rfl
-    | Typedef_union _ -> scope_ctx
+    | Typedef_union _cstrs -> scope_ctx
     | _ -> failwith "unexpected typedef_body"
     end
   | _ ->

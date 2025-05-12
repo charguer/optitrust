@@ -126,6 +126,8 @@ and constr =
   | Constr_decl_vars of typ_constraint * constr_name * target
   (* decl_type: name *)
   | Constr_decl_type of constr_name
+  (* decl_union_cstr: name -- TODO LATER: constraint type
+  (* LATER | Constr_union_cstr of constr_name *) *)
   (* decl_enum: name, constants *)
   | Constr_decl_enum of constr_name * constr_enum_const
   (* seq *)
@@ -335,6 +337,7 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
     let s_body = aux p_body in
     Constr_decl_vars (ty_pred, name, s_body)
   | Constr_decl_type name -> c
+  (* LATER | Constr_union_cstr name -> c *)
   | Constr_decl_enum (name, c_const) ->
      let s_const = Option.map (List.map (fun (n,tg) -> (n,aux tg))) c_const in
      Constr_decl_enum (name, s_const)
@@ -772,10 +775,19 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
     let is_new_typ = begin match td.typedef_body with
     | Typedef_alias _ -> true
     | Typedef_record _ -> true
+    | Typedef_union _ -> true
     | _ -> false
     end in
     let x = td.typedef_name in
     is_new_typ && check_name name x.name
+  (* LATER
+  *| Constr_union_cstr name, Trm_typedef td ->
+       (* TODO: does it work a target [Constr_decl_type "option"; Constr_union_cstr "None"]?
+          mabye not because both are matching the typedef *)
+      begin match td.typedef_body with
+      | Typedef_union ucl -> List.exists (fun uc -> check_name name uc.union_constructor_constructor.name) ucl
+      | _ -> false
+      end*)
   | Constr_decl_enum (name, cec), Trm_typedef td ->
     begin match td.typedef_body with
     | Typedef_enum xto_l -> check_name name td.typedef_name.name && check_enum_const ~incontracts cec xto_l
@@ -1522,6 +1534,7 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
        )
   | Dir_enum_const (n, ecd), Trm_typedef td ->
      begin match td.typedef_body with
+     (* TODO: Typedef_union using Dir_union_const *)
      | Typedef_enum xto_l ->
           app_to_nth_dflt xto_l n
           (fun (x, t_o) ->

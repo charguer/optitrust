@@ -3,7 +3,7 @@ open Prelude
 
 open Trm_matching
 
-
+let _ = Flags.debug_var_id := true
 
 let _ = Flags.c_parser_name := "Ocaml_parser"
 
@@ -41,17 +41,25 @@ let intro_derived_constructor (trm_from : trm) (trm_to : trm) tg : unit =
   Target.apply_at_target_paths (Rewrite_core.apply_rule_bottom_up ~mark rule) tg
 
 
+
 let intro_cons2 tg : unit =
 
-  let pattern_x : typ = trm_pattern_var "x" in
-  let pattern_y : typ = trm_pattern_var "y" in
-  let pattern_t : typ = trm_pattern_var "t" in
+  (* let var_cons = toplevel_var "Cons" *)
+
+   (* use new_var for pattern vars TODO
+      and put it in the pattern namespace
+   *)
+  let pattern_x : trm = trm_pattern_var "x" in
+  let pattern_y : trm = trm_pattern_var "y" in
+  let pattern_t : trm = trm_pattern_var "t" in
 
   let cons = trm_var (name_to_var "Cons") in
   let cons2 = trm_var (name_to_var "Cons2") in
 
   let trm_from = trm_apps cons [pattern_x; trm_apps cons [pattern_y; pattern_t]] in
   let trm_to = trm_apps cons2 [pattern_x; pattern_y; pattern_t] in
+  (* print_rule with flags id, then rewrite *)
+
   intro_derived_constructor trm_from trm_to tg
 
 

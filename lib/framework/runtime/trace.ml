@@ -186,6 +186,9 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
 
   if not persistant then Unix.unlink ser_filename;
 
+  (* Possibly perform the decoding *)
+  let ast = if !Flags.bypass_cfeatures then Scope_computation.infer_var_ids ast else C_encoding.cfeatures_elim ast in
+
   if !Flags.debug_ocaml then begin
     Printf.printf "generated ast : \n";
     (*changed this from (Ast_to_c.default_style ()) to Ast_to_text.default_style*)
@@ -194,8 +197,6 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
     print_string (Ast_to_c.ast_to_string ~style:ast_style ast);
   end;
 
-  (* Possibly perform the decoding *)
-  let ast = if !Flags.bypass_cfeatures then Scope_computation.infer_var_ids ast else C_encoding.cfeatures_elim ast in
   (* Return the header and the ast *)
   (header, ast)
 

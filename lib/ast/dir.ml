@@ -54,6 +54,9 @@ type dir =
   | Dir_case of int * case_dir
   (* enum_const: direction to constant in enum declaration *)
   | Dir_enum_const of int * enum_const_dir
+  (* union  TODO
+  | Dir_union_cstr of int * union_cstr_dir
+  *)
   (* struct, class methods *)
   | Dir_record_member of int
   (* namespace *)
@@ -71,6 +74,11 @@ and span = { start: int; stop: int; }
 and case_dir =
   | Case_name of int
   | Case_body
+
+(** [union_cstr_dir]: direction to union declaration: the name or the type *)
+and union_cstr_dir =
+  | Union_cstr_name
+  | Union_cstr_type
 
 (** [enum_const_dir]: direction to a const enum declaration *)
 and enum_const_dir =

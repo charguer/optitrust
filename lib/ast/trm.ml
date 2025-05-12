@@ -1653,12 +1653,32 @@ let trm_map_vars_ret_ctx
     | Trm_typedef td ->
       let ctx, typename = map_binder ctx td.typedef_name false in
       (* Class namespace *)
-      let class_ctx = ref (enter_scope ctx t) in
+      let class_ctx = ref (enter_scope ctx t) in (* TODO: why is a class allocated for all kind of typedefs? *)
       let body' = begin match td.typedef_body with
       | Typedef_alias ty ->
         let _, ty' = f_map ctx ty in
         if ty' == ty then td.typedef_body else Typedef_alias ty'
       | Typedef_union ucl -> td.typedef_body (*this is still NYI, wrote this line to avoid runtime errors*)
+
+            (* TODO:
+          let cont_ctx = ref ctx in
+          let ucl' = List.map (fun { var_constructor; var_inversor; constructor_typ } as uc ->
+            let cont_ctx', var' = map_binder !cont_ctx var_constructor false in
+            cont_ctx := cont_ctx';
+            let cont_ctx', var' = map_binder !cont_ctx var_inversor false in
+            cont_ctx := cont_ctx';
+            let _, constructor_typ' = f_map cont_ctx constructor_typ in
+             { var_constructor'; var_inversor'; constructor_typ' }
+          ) ucl in
+        +
+        let cmp_ucl uc uc' =
+             uc.var_constructor == uc.var_constructor'
+          && ..
+          && ..
+           in
+        if List.for_all2 cmp_ucl ucl ucl' then ucl else Typedef_union ucl'
+ *)
+
       | Typedef_record rfl ->
         let rfl' = List.map (fun (rf, rf_ann) ->
           let rf' = begin match rf with
