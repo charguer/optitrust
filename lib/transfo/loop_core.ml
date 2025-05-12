@@ -28,14 +28,24 @@ let color_on_old (nb_colors : trm) (i_color : string option) (t : trm) : trm =
       ]
   ))
 
-  let color_on_1D (nb_colors : trm) (i_color : string option) (t : trm) : trm =
-    let error = "Loop_core.color_on_1D: only simple loops are supported." in
-    let ({index; start; direction; stop; step}, body, contract) = trm_inv ~error trm_for_inv t in
-    let color_index = new_var (match i_color with
-   | Some cl -> cl
-   | _ -> "c" ^ index.name
-  ) in
-  t
+
+let ghost_color = toplevel_var "color"
+let ghost_uncolor = toplevel_var "uncolor"
+
+let ghost_ro_color = toplevel_var "ro_color"
+let ghost_ro_uncolor = toplevel_var "ro_uncolor"
+
+let ghost_tiled_index_in_range = toplevel_var "tiled_index_in_range"
+
+(** [tile_on divides b tile_index t]: tiles loop [t],
+      [tile_index] - string representing the index used for the new outer loop,
+      [bound] - a tile_bound type variable representing the type of the bound used in
+                 this transformation,
+      [t] - ast of targeted loop. *)
+let color_on (color_index : string) (nb_colors : trm) (t : trm) : trm =
+  let error = "Loop_core.color_on: only simple loops are supported." in
+  let ({index; start; direction; stop; step}, body, contract) = trm_inv ~error trm_for_inv t in
+  let color_index = new_var (Tools.string_subst "${id}" index.name color_index) in
     (* GENERATES
     form:
     [[
@@ -48,8 +58,65 @@ let color_on_old (nb_colors : trm) (i_color : string option) (t : trm) : trm =
         for j = 0; j < n; j+=nb_colors
           body(j)
     ]]
-    assuming n = tile_count * tile_size, for the given tile_size.
     *)
+  assert (are_same_trm start (trm_int 0)); (* todo: raise unsupported *)
+  assert (direction = DirUp); (* todo: raise unsupported *)
+  assert (contract.strict = true); (* todo: raise unsupported *)
+
+  let outer_range = {
+    index = color_index;
+    start = (trm_int 0);
+    direction = DirUp;
+    stop = nb_colors;
+    step = trm_step_one () } in
+  let inner_range = {
+    index;
+    start = trm_var color_index;
+    direction = DirUp;
+    stop = stop;
+    step = nb_colors } in
+
+  let open Resource_formula in
+
+  let contract_inner = { contract with strict = true } in
+  let contract_outer = { contract with
+    iter_contract = {
+      pre = Resource_set.group_range inner_range contract_inner.iter_contract.pre;
+      post = Resource_set.group_range inner_range contract_inner.iter_contract.post };
+    strict = true } in
+
+  (* TODO: Also tile groups in pure resources *)
+  (* TODO: Give the used resource instead of specifying ghost parameters? *)
+  let coloring_ghosts nonro_ghost ro_ghost resources =
+    List.map (fun (_, maybero_formula) ->
+        let ghost, formula =
+          match formula_read_only_inv maybero_formula with
+          | Some { formula } -> ro_ghost, formula
+          | None -> nonro_ghost, maybero_formula
+        in
+        let i = new_var index.name in
+        let items = formula_fun [i, typ_int] (trm_subst_var index (trm_var i) formula) in
+        Resource_trm.ghost (ghost_call ghost [("nb_colors", nb_colors); ("size", stop); ("items", items)])
+      ) resources
+  in
+  let ghosts_before = coloring_ghosts ghost_color ghost_ro_color contract.iter_contract.pre.linear in
+  let ghosts_after = coloring_ghosts ghost_uncolor ghost_ro_uncolor contract.iter_contract.post.linear in
+
+
+
+
+
+  let open Resource_trm in
+
+  (* Final composition - same structure but with our new rewrites *)
+  trm_seq_nobrace_nomarks (
+    ghosts_before @ [
+    trm_for ~contract:contract_outer outer_range
+      (trm_for ~contract:contract_inner inner_range body);
+    ] @ ghosts_after)
+
+
+
 
 
 (** [tile_bound]: used for loop tiling transformation *)
