@@ -27,7 +27,7 @@ let mindex_var_inv = toplevel_var_with_dim_inv mindex_var
     [indices ] - indices of the matrix access.
 
      Example:
-     MINDEXN(N1,N2,N3,i1,i2,i3) = i1 * N2 * N3 + i2 * N3 + i3
+     MINDEXN(N1,N2,N3,i1,i2,i3) = i1 * N1 * N3 + i2 * N3 + i3
      Here, dims = [N1, N2, N3] and indices = [i1, i2, i3]. *)
 let mindex (dims : trms) (indices : trms) : trm =
   if List.length dims <> List.length indices then

@@ -939,17 +939,18 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
       if has_arguments && (not style.optitrust_syntax) then Flags.verbose_warn None "Ast_to_c.typdef_to_doc: some constructor have arguments but style does not ask for optitrust syntax\n";
 
       let const_doc_l =
-        List.map (fun {union_constructor_constructor; union_constructor_args_type} ->
-          let constructor = var_to_doc style union_constructor_constructor in
-          let types = separate (comma ^^ (blank 1)) (List.map (decorate_trm style) union_constructor_args_type) in
+        List.map (fun uc ->
+          let dconstructor = var_to_doc style uc.union_constructor_constructor in
+          let dinversor = var_to_doc style uc.union_constructor_inversor in (* LATER: use a style to hide this by default *)
+          let dtypes = separate (comma ^^ (blank 1)) (List.map (decorate_trm style) uc.union_constructor_args_type) in
 
           (*Checking that there actually are types in the constructor, to avoid useless parenthesis*)
-          let parens_types =
-            match union_constructor_args_type with
+          let parens_dtypes =
+            match uc.union_constructor_args_type with
             | [] -> []
-            | _ -> [parens types] in
+            | _ -> [parens dtypes] in
 
-            separate empty (constructor::parens_types)
+            separate empty (dconstructor::parens dinversor::parens_dtypes)
           ) union_const_l in
 
       separate (blank 1) [string "typedef enum"; dname;

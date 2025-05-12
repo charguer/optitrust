@@ -70,6 +70,17 @@ let toplevel_scope_ctx (): scope_ctx = {
   renames = ref Var_map.empty;
 }
 
+(* TODO:
+
+ajouter dans typ.ml ceux qui n'existent pas : option, list, unit, float, string
+
+ajouter les constructeurs aussi : none, some, nil, cons, true, false
+
+les mettre dans toplevel_ctx uniquement si Ast.behavior_ocaml
+dans predefined ou var_ids ou les deux
+*)
+
+
 (* LATER: #var-id, flag to disable check for performance *)
 (* cost: traverse the AST in O(n) and O(m log m) where m is the number of binders. *)
 (* TODO: raise error or ignore the dummy ids (-1) *)
@@ -266,19 +277,12 @@ let enter_scope check_binder scope_ctx t =
     (* TODO: conflicts ~= filter_map is_qualified conflicts *)
     { scope_ctx with namespace_path_rev = name :: scope_ctx.namespace_path_rev; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; }
   | Trm_typedef td ->
+    (* trm_map_vars_ret_ctx does invoke enter_scope only
+       for Typedef_record  when not !Ast.behavior_ocaml *)
     begin match td.typedef_body with
-    | Typedef_alias _ -> scope_ctx
-    (* TODO: Typedef_union  for each constructor C,
-       we need to add a function in scope for C and for __Pattern_C
-       need to return scope_ctx with two additions in it
-       returns something like
 
-           ({ scope_ctx with conflicts =
-            var_ids = Qualified_map.add ... scope_ctx.var_ids }
-
-          and leaving a 'later' for handling workspaces
-       *)
     | Typedef_record rfl ->
+      assert (not !Ast.behavior_ocaml);
       (* TODO: should be not do a scope for union, so that they bind types and cstr at toplevel? *)
       let scope_ctx = { scope_ctx with namespace_path_rev = td.typedef_name.name :: scope_ctx.namespace_path_rev; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; } in
       (* order of declaration does not matter for class members:
@@ -294,8 +298,20 @@ let enter_scope check_binder scope_ctx t =
           check_binder scope_ctx v true
         end
       ) scope_ctx rfl
-    | Typedef_union _cstrs -> scope_ctx
-    | _ -> failwith "unexpected typedef_body"
+    | _ -> failwith "enter_scope does not expect a typedef other than the ones for which enter_scope is called in the function trm_map_vars_ret_ctx, currently only for Typdef_record" (* was: scope_ctx *)
+    (* LATER: is this still relevant?
+
+       Typedef_union  for each constructor C,
+       we need to add a function in scope for C and for __Pattern_C
+       need to return scope_ctx with two additions in it
+       returns something like
+
+           ({ scope_ctx with conflicts =
+            var_ids = Qualified_map.add ... scope_ctx.var_ids }
+
+          and leaving a 'later' for handling workspaces
+       *)
+
     end
   | _ ->
     { scope_ctx with namespace_path_rev = []; toplevel = false; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; }
@@ -341,7 +357,7 @@ let scope_ctx_exit outer_ctx inner_ctx t =
       toplevel = outer_ctx.toplevel;
       shadowed = outer_ctx.shadowed;
       renames = inner_ctx.renames; }
-  | _ -> { outer_ctx with renames = inner_ctx.renames }
+  | _ -> { outer_ctx with renames = inner_ctx.renames } (* TODO: add comment to explain why  *)
 
 let post_process_ctx ~(failure_allowed : bool) ctx t =
   match trm_let_fun_inv t with

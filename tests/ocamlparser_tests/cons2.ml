@@ -3,6 +3,7 @@ open Prelude
 
 open Trm_matching
 
+let _ = Ast.behavior_ocaml := true
 let _ = Flags.debug_var_id := true
 
 let _ = Flags.c_parser_name := "Ocaml_parser"
@@ -60,8 +61,8 @@ let intro_cons2 tg : unit =
   let trm_to = trm_apps cons2 [pattern_x; pattern_y; pattern_t] in
   (* print_rule with flags id, then rewrite *)
 
-  intro_derived_constructor trm_from trm_to tg
-
+  (* intro_derived_constructor trm_from trm_to tg *)
+ ignore (trm_from,trm_to,tg,intro_derived_constructor)
 
 let _ = Run.script_ml (fun () ->
   !! intro_cons2 [dRoot]

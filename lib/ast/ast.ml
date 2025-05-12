@@ -58,6 +58,11 @@ be [Trm_seq].
 let failwith msg = Printf.ksprintf failwith msg
 let sprintf = Printf.sprintf
 
+
+
+(** [behavior_ocaml] is a temporary for controlling certain encodings *)
+let behavior_ocaml = ref false
+
 (*****************************************************************************)
 
 (* TODO: move to loc.ml *)
@@ -462,6 +467,8 @@ and typedef_body =
   | Typedef_alias of typ   (* for abbreviations, e.g. [type 'a t = ('a * 'a)
                           list] or [typedef vect t] *)
   | Typedef_record of record_members
+    (* TODO: for now, a record is interpreted as a class in C++,
+       but interpreted as a standard type definition in OCaml *)
     (* for records / struct, e.g. [type 'a t = { f : 'a; g : int }] *)
   | Typedef_union of union_constructor list
     (* for unions, e.g. [type 'a t = | F : 'a | G : int] *)

@@ -1317,26 +1317,37 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
   in
 
   let t' = match t.desc with
-  | Trm_var _ | Trm_lit (Lit_bool _ | Lit_string _ | Lit_unit) -> t
+  | Trm_var _ -> t
+  | Trm_lit (Lit_bool _ | Lit_string _ | Lit_unit) -> t
   | Trm_pat_var _ | Trm_pat_any -> t
   | Trm_pat_as (p, v) ->
     let p' = f p in
-    if p == p' then t else trm_pat_as ~annot ?loc ~ctx p' v
+    if share_if_no_change && p == p'
+      then t
+      else trm_pat_as ~annot ?loc ~ctx p' v
   | Trm_pat_is (t1, t2) ->
     let t1' = f t1 in
     let t2' = f t2 in
-    if t1 == t1' && t2 == t2' then t else trm_pat_is ~annot ?loc ~ctx t1' t2'
+    if share_if_no_change && t1 == t1' && t2 == t2'
+      then t
+      else trm_pat_is ~annot ?loc ~ctx t1' t2'
 
   (*TODO : add a case with the Trm_pat constructors, probably for most of them just return the t. (In particular Trm_pat_var and Trm_pat_any)*)
   | Trm_lit (Lit_int (ty, n)) ->
     let ty' = f ty in
-    if ty == ty' then t else trm_int ~annot ?loc ~ctx ~typ:ty' n
+    if share_if_no_change && ty == ty'
+      then t
+      else trm_int ~annot ?loc ~ctx ~typ:ty' n
   | Trm_lit (Lit_float (ty, x)) ->
     let ty' = f ty in
-    if ty == ty' then t else trm_float ~annot ?loc ~ctx ~typ:ty' x
+    if share_if_no_change && ty == ty'
+      then t
+      else trm_float ~annot ?loc ~ctx ~typ:ty' x
   | Trm_lit (Lit_null ty) ->
     let ty' = f ty in
-    if ty == ty' then t else trm_null ~annot ?loc ~ctx ty'
+    if share_if_no_change && ty == ty'
+      then t
+      else trm_null ~annot ?loc ~ctx ty'
   | Trm_prim (ty, prim) ->
     let ty' = f ty in
     let prim' = match prim with
@@ -1345,7 +1356,7 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
         if ty_to == ty_to' then prim else Prim_unop (Unop_cast ty_to')
       | _ -> prim
     in
-    if ty == ty' && prim == prim'
+    if share_if_no_change && ty == ty' && prim == prim'
       then t
       else trm_prim ~annot ?loc ~ctx ty' prim'
   | Trm_let ((var, ty), init) ->
@@ -1356,8 +1367,9 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
       else (trm_let ~annot ?loc ~ctx (var, ty') init')
   | Trm_let_mult ts ->
     let ts' = list_map (fun ((x, ty), init) -> ((x, f ty), f init)) (fun ((_, ty1), init1) ((_, ty2), init2) -> ty1 == ty2 && init1 == init2) ts in
-    if (ts' == ts) then t else
-      (trm_let_mult ~annot ?loc ~ctx ts')
+    if (share_if_no_change && ts' == ts)
+      then t
+      else (trm_let_mult ~annot ?loc ~ctx ts')
   | Trm_predecl (var, ty) ->
     let ty' = f ty in
     if (share_if_no_change && ty' == ty)
@@ -1428,16 +1440,19 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
         then t
         else (trm_switch ~annot ?loc ~ctx cond' cases')
   | Trm_my_switch cases ->
-  let cases' =
-    list_map
-    (fun (cond, body) -> (f cond, f body))
-    (fun (cond1, body1) (cond2, body2) -> cond1 == cond2 && body1 == body2)
-    cases
-  in
-  if (share_if_no_change && cases == cases')
-    then t
-    else (trm_my_switch ~annot ?loc ~ctx cases')
-  (*TODO: add actual code for this after understanding what the function does, (probably applying f to everything inside?)*)
+      let cases' =
+        list_map
+        (fun (cond, body) ->
+          let cond' = f cond in
+          let body' = f body in
+          (cond',body'))
+        (fun (cond1, body1) (cond2, body2) -> cond1 == cond2 && body1 == body2)
+        cases
+      in
+      if (share_if_no_change && cases == cases')
+        then t
+        else (trm_my_switch ~annot ?loc ~ctx cases')
+      (*TODO: add actual code for this after understanding what the function does, (probably applying f to everything inside?)*)
   | Trm_abort a ->
     begin match a with
     | Ret (Some r) ->
@@ -1456,37 +1471,38 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
     let body' = begin match td.typedef_body with
     | Typedef_alias ty ->
       let ty' = f ty in
-      if ty' == ty then td.typedef_body else Typedef_alias ty'
+      if share_if_no_change && ty' == ty
+        then td.typedef_body
+        else Typedef_alias ty'
     | Typedef_record rfl ->
       let rfl' = list_map
         (fun (rf, rf_ann) ->
-          let rf' = begin match rf with
-          | Record_method rft ->
-            let rft' = f rft in
-            if share_if_no_change && rft == rft'
-              then rf
-              else Record_method rft'
-          | Record_field (name, ty) ->
-            let ty' = f ty in
-            if ty == ty' then rf else Record_field (name, ty')
-          end in
+          let rf' =
+            begin match rf with
+            | Record_field (name, ty) ->
+                let ty' = f ty in
+                if share_if_no_change && ty == ty'
+                  then rf
+                  else Record_field (name, ty')
+            | Record_method rft ->
+                let rft' = f rft in
+                if share_if_no_change && rft == rft'
+                  then rf
+                  else Record_method rft'
+            end in
           rf', rf_ann
         )
         (fun (rfa, _) (rfb, _) -> rfa == rfb)
         rfl in
-      if share_if_no_change(*redundant*) && rfl == rfl'
+      if share_if_no_change && rfl == rfl'
         then td.typedef_body
         else Typedef_record rfl'
     | Typedef_union ucl ->
       let ucl' =
         list_map
         (fun uc ->
-          let args_types =
-            list_map f (==)
-            uc.union_constructor_args_type
-          in
-          {uc with union_constructor_args_type = args_types} (*TODO: think of a way to do the same without having to allocate a new stucture*)
-          )
+          let args_types' = list_map f (==) uc.union_constructor_args_type in
+          { uc with union_constructor_args_type = args_types' })
         (fun uc1 uc2 -> uc1.union_constructor_args_type == uc2.union_constructor_args_type)
         ucl
       in
@@ -1495,7 +1511,7 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
         else Typedef_union ucl'
     | _ -> failwith "trm_map: unexpected typedef_body"
     end in
-    if (share_if_no_change(*redundant*) && body' == td.typedef_body)
+    if (share_if_no_change && body' == td.typedef_body)
       then t
       else trm_typedef ~annot ?loc ~ctx { td with typedef_body = body' }
   | Trm_template (typ_params, templated) ->
@@ -1553,7 +1569,9 @@ let empty_var_metadata () =
     - [exit_scope old_ctx ctx t] is a function to be called when leaving the scope,
       giving it the outer_ctx (before entering the scope), and the current ctx
       (e.g. what is obtained at the end of the body of the scope), and applied on
-      the term [t] that introduces the scope.
+      the term [t] that introduces the scope. (TODO: should it be the input [t]
+      or the output [t]? See the problem in handling Typedef_record in trm_map_vars_ret_ctx.)
+
     - [post_process ctx t] is called at the end of the recursion on subterms,
       for computing additional metadata, e.g. we currently use it for gathering
       all the specifications of all the functions being bound in the AST.
@@ -1735,58 +1753,89 @@ let trm_map_vars_ret_ctx
       end
 
     | Trm_typedef td ->
-      let ctx, typename = map_binder ctx td.typedef_name false in
-      (* Class namespace *)
-      let class_ctx = ref (enter_scope ctx t) in (* TODO: why is a class allocated for all kind of typedefs? *)
-      let body' = begin match td.typedef_body with
-      | Typedef_alias ty ->
-        let _, ty' = f_map ctx ty in
-        if ty' == ty then td.typedef_body else Typedef_alias ty'
-      | Typedef_union ucl ->
-          let cont_ctx = ref ctx in
-          let ucl' = List.map (fun { union_constructor_constructor; union_constructor_inversor; union_constructor_args_type } ->
-            let cont_ctx', union_constructor_constructor' = map_binder !cont_ctx union_constructor_constructor false in
-            cont_ctx := cont_ctx';
-            let cont_ctx', union_constructor_inversor' = map_binder !cont_ctx union_constructor_inversor false in
-            cont_ctx := cont_ctx';
-            let union_constructor_args_type' = List.map (fun t -> let (ctx, t') = f_map !cont_ctx t in t') union_constructor_args_type in
-             { union_constructor_constructor = union_constructor_constructor';
-               union_constructor_inversor = union_constructor_inversor';
-               union_constructor_args_type = union_constructor_args_type' }
-          ) ucl in
+      let ctx, typename' = map_binder ctx td.typedef_name false in
+      let body', cont_ctx =
+        begin match td.typedef_body with
 
-        let cmp_ucl uc uc' =
-             uc.union_constructor_constructor == uc'.union_constructor_constructor
-          && uc.union_constructor_inversor    == uc'.union_constructor_inversor
-          && uc.union_constructor_args_type   == uc'.union_constructor_args_type
-           in
-        if List.for_all2 cmp_ucl ucl ucl' then td.typedef_body else Typedef_union ucl'
+        | Typedef_alias ty ->
+          let _, ty' = f_map ctx ty in
+          let body' = if ty' == ty then td.typedef_body else Typedef_alias ty' in
+          (body', ctx)
 
-      | Typedef_record rfl ->
-        let rfl' = List.map (fun (rf, rf_ann) ->
-          let rf' = begin match rf with
-          | Record_method rft ->
-            let class_ctx', rft' = f_map !class_ctx rft in
-            class_ctx := class_ctx';
-            if rft == rft' then rf else Record_method rft'
-          | Record_field (field, ty) ->
-            let _, ty' = f_map !class_ctx ty in
-            if ty == ty' then rf else Record_field (field, ty')
-          end in
-          rf', rf_ann
-        ) rfl in
-        if List.for_all2 (==) rfl rfl' then td.typedef_body else Typedef_record rfl'
-      | _ -> failwith "unexpected typedef_body"
-      end in
-      let td' = if (body' == td.typedef_body && typename == td.typedef_name)
-        then td
-        else { typedef_name = typename; typedef_body = body' }
+        | Typedef_union ucl ->
+            let cont_ctx = ref ctx in
+            let ucl' =
+              List.map (fun uc ->
+                let cont_ctx', union_constructor_constructor' = map_binder !cont_ctx uc.union_constructor_constructor false in
+                cont_ctx := cont_ctx';
+                let cont_ctx', union_constructor_inversor' = map_binder !cont_ctx uc.union_constructor_inversor false in
+                cont_ctx := cont_ctx';
+                let union_constructor_args_type' = List.map (fun t -> let (_, t') = f_map !cont_ctx t in t') uc.union_constructor_args_type in
+                { union_constructor_constructor = union_constructor_constructor';
+                  union_constructor_inversor = union_constructor_inversor';
+                  union_constructor_args_type = union_constructor_args_type' }
+             ) ucl in
+
+          let cmp_ucl uc uc' : bool =
+               uc.union_constructor_constructor == uc'.union_constructor_constructor
+            && uc.union_constructor_inversor    == uc'.union_constructor_inversor
+            && uc.union_constructor_args_type   == uc'.union_constructor_args_type
+            in
+          let body' = if List.for_all2 cmp_ucl ucl ucl' then td.typedef_body else Typedef_union ucl' in
+          (body', !cont_ctx)
+
+        | Typedef_record rfl ->
+          if !Ast.behavior_ocaml then begin
+          (* Ocaml record behavior *)
+            let cont_ctx = ref ctx in
+            let rfl' = List.map (fun (rf, rf_ann) ->
+              assert (rf_ann = Access_unspecified); (* no scope modifier on ocaml style records *)
+              let rf' =
+                begin match rf with
+                | Record_field (field, ty) ->
+                  (* Note: could call map_binder on field if we wanted to view field names as projection functions; if so, cont_ctx would be updated for each field. *)
+                  let _, ty' = f_map !cont_ctx ty in
+                  if ty == ty' then rf else Record_field (field, ty')
+                | Record_method rft -> assert false (* should not have method in ocaml style records *)
+                end in
+              (rf', rf_ann)
+            ) rfl in
+             let body' = if List.for_all2 (==) rfl rfl' then td.typedef_body else Typedef_record rfl' in
+             (body', !cont_ctx)
+          end else begin
+          (* C++ class behavior *)
+              let class_ctx = ref (enter_scope ctx t) in (* introduce a namespace for the class *)
+              let rfl' = List.map (fun (rf, rf_ann) ->
+              let rf' = begin match rf with
+              | Record_method rft ->
+                let class_ctx', rft' = f_map !class_ctx rft in
+                class_ctx := class_ctx';
+                if rft == rft' then rf else Record_method rft'
+              | Record_field (field, ty) ->
+                let _, ty' = f_map !class_ctx ty in
+                if ty == ty' then rf else Record_field (field, ty')
+              end in
+              rf', rf_ann
+            ) rfl in
+            (* WARNING: exit_scope is called on a t' that is not phyiscally the same as the t' returned later *)
+            let body' = if List.for_all2 (==) rfl rfl' then td.typedef_body else Typedef_record rfl' in
+            let t'_copy = trm_typedef ~annot ?loc ~ctx:t_ctx { typedef_name = typename'; typedef_body = body' } in
+            let cont_ctx = exit_scope ctx !class_ctx t'_copy in
+            (body', cont_ctx)
+          end
+        | _ -> failwith "unexpected typedef_body"
+        end in
+
+      let td' =
+        if (body' == td.typedef_body && typename' == td.typedef_name)
+          then td
+          else { typedef_name = typename'; typedef_body = body' }
+        in
+      let t' =
+        if (td == td')
+          then t
+          else (trm_typedef ~annot ?loc ~ctx:t_ctx td')
       in
-      let t' = if (td == td')
-        then t
-        else (trm_typedef ~annot ?loc ~ctx:t_ctx td')
-      in
-      let cont_ctx = exit_scope ctx !class_ctx t' in
       (cont_ctx, t')
 
     | Trm_namespace (name, body, inline) ->

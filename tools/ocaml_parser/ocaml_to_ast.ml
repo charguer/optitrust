@@ -205,7 +205,7 @@ and tr_core_type (ct : core_type) : typ =
   match ct.ctyp_desc with
   | Ttyp_constr (_, ident, _) ->
     let name = (match ident.txt with | Lident l -> l |__ -> failwith "tr_core_type: Identifier not handled") in
-    let body = if name = "int" then typ_int else typ_var (toplevel_typvar name) in
+    let body = if name = "int" then typ_int else typ_var (name_to_typvar name) in
     body
     (* typ_int *)
     (* TODO: arrow *)
@@ -222,7 +222,7 @@ and tr_constructor_decl (cd : constructor_declaration) : union_constructor =
                   | Cstr_tuple ctl -> ctl
                   | _ -> failwith "Argument type not handled") in
   { union_constructor_constructor = name_to_var cd.cd_name.txt;
-    union_constructor_inversor = name_to_var cd.cd_name.txt;
+    union_constructor_inversor = name_to_var ("Pattern__" ^ cd.cd_name.txt);
     union_constructor_args_type = List.map tr_core_type arguments }
 
 and tr_let (vb_l : value_binding list) : trm = (*also change this part to handle seq flattening*)

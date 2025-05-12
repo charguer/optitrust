@@ -10,7 +10,6 @@ type li =
       | Cons of int * li
       | Cons2 of int * int * li
 
-
 (*
 let init len f =
   let rec init_aux i f =
