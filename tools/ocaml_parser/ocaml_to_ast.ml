@@ -130,7 +130,7 @@ and tr_computation_pattern (p : computation general_pattern) : trm =
   match p.pat_desc with
   | Tpat_value v -> (match (v :> (value general_pattern)).pat_desc with (*small hack I found on the internet, not sure how good this is but at least it compiles*)
                     | Tpat_construct (_, cd, pats, _) ->
-                    let constr = trm_var (name_to_var cd.cstr_name) in
+                    let constr = trm_var (inversor_var cd.cstr_name) in
                     (*can I use typed_vars to create terms? *)
                     let args = List.map tr_pat_switch pats in
                     trm_apps constr args
@@ -215,14 +215,15 @@ and tr_core_type (ct : core_type) : typ =
  let rec init_aux (i:int) (f:int->int) : li = body
  *)
 
-
+and inversor_var (name : string) : var =
+  name_to_var ("Pattern__" ^ name)
 
 and tr_constructor_decl (cd : constructor_declaration) : union_constructor =
   let arguments = (match cd.cd_args with
                   | Cstr_tuple ctl -> ctl
                   | _ -> failwith "Argument type not handled") in
   { union_constructor_constructor = name_to_var cd.cd_name.txt;
-    union_constructor_inversor = name_to_var ("Pattern__" ^ cd.cd_name.txt);
+    union_constructor_inversor = inversor_var cd.cd_name.txt;
     union_constructor_args_type = List.map tr_core_type arguments }
 
 and tr_let (vb_l : value_binding list) : trm = (*also change this part to handle seq flattening*)
@@ -250,14 +251,12 @@ and tr_type (tl : type_declaration list) : typ =
   trm_typedef {typedef_name; typedef_body}
 
 
-(*  let f = .. and g = ..    [.. ; ..]
-
-*)
-
 let tr_structure_desc (s : structure_item) : trm (* list of trm instead TODO *) = match s.str_desc with
   | Tstr_eval (e, _) -> tr_expression e   (* let _ = .. *)
   | Tstr_value (_, vb_l) -> tr_let vb_l   (* let f = .. *)
   | Tstr_type (_rec_flag, tl) -> tr_type tl  (* type t = .. *)
+  (* TODO : handle cases where we can have a list of definiions, such as : ```let f = .. and g = ..    [.. ; ..]```
+  *)
   | _ -> failwith "structure not yet translatable"
 
 let tr_structure_list l = List.map (tr_structure_desc) l

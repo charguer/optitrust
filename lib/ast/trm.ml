@@ -1332,7 +1332,6 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
       then t
       else trm_pat_is ~annot ?loc ~ctx t1' t2'
 
-  (*TODO : add a case with the Trm_pat constructors, probably for most of them just return the t. (In particular Trm_pat_var and Trm_pat_any)*)
   | Trm_lit (Lit_int (ty, n)) ->
     let ty' = f ty in
     if share_if_no_change && ty == ty'
@@ -1613,8 +1612,24 @@ let trm_map_vars_ret_ctx
     in
 
     let ctx, trm = match t.desc with
-    | Trm_var x ->
+    | Trm_var x | Trm_pat_var x ->
       (ctx, map_var ctx (annot, loc, typ, t_ctx) x)
+    | Trm_pat_as (p, x) ->
+      let (cont_ctx', p') = f_map ctx p in
+      let (cont_ctx', x') = map_binder cont_ctx' x false in
+      let t' = if p == p'
+        then t
+        else trm_pat_as ~annot ?loc ~ctx:t_ctx p' x'
+      in
+      (cont_ctx', t')
+    | Trm_pat_is (t1, t2) ->
+      let (cont_t2, t1') = f_map ctx t1 in
+      let (cont_body, t2') = f_map cont_t2 t2 in
+      let t' = if t1 == t1' && t2 = t2'
+        then t
+        else trm_pat_is ~annot ?loc ~ctx:t_ctx t1' t2'
+      in
+      (cont_body, t')
 
     (*TODO : Add a case for the Trm_pat constructors, this will be needed when I'll have a working Union and Switch*)
 
@@ -1653,7 +1668,19 @@ let trm_map_vars_ret_ctx
       in
       (cont_ctx, t')
 
-    | Trm_for (range, body, contract) ->
+    | Trm_if (cond, then_, else_) -> (*TODO : Discuss it, I think this is needed but not validated yet*)
+      let cont_then, cond' = f_map ctx cond in
+      let _, then_' = f_map cont_then then_ in
+      let _, else_' = f_map ctx then_ in
+
+      let t' = if cond == cond' && then_ == then_' && else_ == else_'
+        then t
+        else trm_if ~annot ?loc ~ctx:t_ctx cond then_ else_
+      in
+
+      (ctx, t')
+
+      | Trm_for (range, body, contract) ->
       let loop_ctx, index = map_binder (enter_scope ctx t) range.index false in
       let _, start = f_map loop_ctx range.start in
       let _, stop = f_map loop_ctx range.stop in
@@ -1838,6 +1865,23 @@ let trm_map_vars_ret_ctx
       in
       (cont_ctx, t')
 
+    | Trm_my_switch cases ->
+
+      let cases' = List.map (fun case ->
+        let (cond, body) = case in
+        (*I don't think there is a need to use enter/exit scope here. There is no interesting term to match on, and no "exit" term at the end. To be discussed again.
+        LATER : Do we need to use "enter_scope" and "exit"*)
+        let (ctx_body, cond') = f_map ctx cond in
+        let (_, body') = f_map ctx_body body in
+        if cond == cond' && body == body' then (cond', body') else case
+        ) cases in
+
+        let body' = if List.for_all2 (==) cases cases'
+      then t
+      else trm_my_switch ~annot ?loc ~ctx:t_ctx cases' in
+
+    (ctx, body') (*once again, context should not change, so I don't see a reason to enter/exit one by hand.*)
+
     | Trm_namespace (name, body, inline) ->
       let body_ctx = ref (enter_scope ctx t) in
       let body' = begin match body.desc with
@@ -1889,7 +1933,7 @@ let trm_map_vars_ret_ctx
       (body_ctx, t')
 
     | _ ->
-      (ctx, trm_map ~keep_ctx (fun ti -> snd (f_map ctx ti)) t) (*TODO : add cases for the trm_pat *)
+      (ctx, trm_map ~keep_ctx (fun ti -> snd (f_map ctx ti)) t)
 
     in
     trm.errors <- errors;
