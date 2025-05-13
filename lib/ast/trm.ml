@@ -1675,7 +1675,7 @@ let trm_map_vars_ret_ctx
 
       let t' = if cond == cond' && then_ == then_' && else_ == else_'
         then t
-        else trm_if ~annot ?loc ~ctx:t_ctx cond then_ else_
+        else trm_if ~annot ?loc ~ctx:t_ctx cond' then_' else_'
       in
 
       (ctx, t')
