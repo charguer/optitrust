@@ -218,12 +218,15 @@ and tr_core_type (ct : core_type) : typ =
 and inversor_var (name : string) : var =
   name_to_var ("Pattern__" ^ name)
 
+and inversor_toplevel_var (name : string) : var =
+  toplevel_var ("Pattern__" ^ name)
+
 and tr_constructor_decl (cd : constructor_declaration) : union_constructor =
   let arguments = (match cd.cd_args with
                   | Cstr_tuple ctl -> ctl
                   | _ -> failwith "Argument type not handled") in
-  { union_constructor_constructor = name_to_var cd.cd_name.txt;
-    union_constructor_inversor = inversor_var cd.cd_name.txt;
+  { union_constructor_constructor = toplevel_var cd.cd_name.txt;
+    union_constructor_inversor = inversor_toplevel_var cd.cd_name.txt;
     union_constructor_args_type = List.map tr_core_type arguments }
 
 and tr_let (vb_l : value_binding list) : trm = (*also change this part to handle seq flattening*)

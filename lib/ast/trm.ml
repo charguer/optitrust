@@ -1873,7 +1873,7 @@ let trm_map_vars_ret_ctx
         LATER : Do we need to use "enter_scope" and "exit"*)
         let (ctx_body, cond') = f_map ctx cond in
         let (_, body') = f_map ctx_body body in
-        if cond == cond' && body == body' then (cond', body') else case
+        if cond == cond' && body == body' then case else (cond', body')
         ) cases in
 
         let body' = if List.for_all2 (==) cases cases'
