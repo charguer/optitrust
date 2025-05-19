@@ -1669,7 +1669,8 @@ let trm_map_vars_ret_ctx
       (cont_ctx, t')
 
     | Trm_if (cond, then_, else_) -> (*TODO : Discuss it, I think this is needed but not validated yet*)
-      let cont_then, cond' = f_map ctx cond in
+      let vars, cond' = bbe_map_and_get_vars ctx cond in
+      let cont_then = extend_ctx_with_list_of_vars vars ctx in
       let _, then_' = f_map cont_then then_ in
       let _, else_' = f_map ctx then_ in
 
@@ -1867,6 +1868,16 @@ let trm_map_vars_ret_ctx
 
     | Trm_my_switch cases ->
 
+        let cases' = List.map (fun (tci, tki) -> (* one case *)
+          let tci',cond_vars = bbe_map_and_get_vars ctx tci in
+          let ctx' = extend_ctx_with_list_of_vars ctx cond_vars in
+          let tki', _ = trm_map ctx' tki in
+          (case tci' then tki'))
+          cases in
+        ctx, trm_my_switch cases'   +++ sharing optimisation
+
+      (* old
+
       let cases' = List.map (fun case ->
         let (cond, body) = case in
         (*I don't think there is a need to use enter/exit scope here. There is no interesting term to match on, and no "exit" term at the end. To be discussed again.
@@ -1879,6 +1890,7 @@ let trm_map_vars_ret_ctx
         let body' = if List.for_all2 (==) cases cases'
       then t
       else trm_my_switch ~annot ?loc ~ctx:t_ctx cases' in
+    *)
 
     (ctx, body') (*once again, context should not change, so I don't see a reason to enter/exit one by hand.*)
 
@@ -1940,6 +1952,47 @@ let trm_map_vars_ret_ctx
     (* TODO: #typfield: Remove next line *)
     let trm = if typ == typ' then trm else trm_alter ?typ:typ' trm in
     post_process ctx trm
+
+  and extend_ctx_with_list_of_vars ctx vars =
+    List.fold_left (map_binder ... ) ctx vars
+
+  and bbe_map_and_get_vars ctx t : trm * list of vars bound by the bbe in case it is a match =
+    match
+    | t is p ->
+        let t' = trm_map ctx t in
+        let p', pvars = pattern_map_and_get_vars p in
+        (t' is p'), pvars
+    | trm_switch cases ->
+        let cases', branch_vars = List.split (List.map (fun (tci, tki) -> (* one case *)
+          let tci',cond_vars = bbe_map_and_get_vars ctx tci in
+          let ctx' = extend_ctx_with_list_of_vars ctx cond_vars in
+          let tki',cont_vars = bbe_map_and_get_vars ctx' tki in
+          let ctx'' = extend_ctx_with_list_of_vars ctx' cont_vars in
+          (case tci' then tki'), (union cond_vars cont_vars))
+          cases) in
+        let branches_nonfalse_vars = List.map snd (List.filter (fun (tki,_branchi_vars) -> not (trm_false_inv tki)) (List.combine (List.map snd cases) branch_vars)) in
+        if branches_nonfalse_vars = [] then error "bbe is empty";
+        let switch_vars = intersect_list_of_vars branches_nonfalse_vars in
+        (trm_switch cases', switch_vars)
+
+  and pattern_map_and_get_vars ctx t : trm * list of vars bound by the pattern = ...
+    match t with
+    | trm_patvar =>
+        (t, singleton map)
+    | trm_apps(t1,[p1,..pn]) =>
+        let t1' = trm_map sur t1
+        let pis',vars_in_pis = list.split (list.map pattern_map pis) in
+        let res =
+          match disjoint_union vars_in_pis with
+          | Some res -> res
+          | None -> error non disjoint in patterns
+          in
+        trm_apps(t1',pis') with sharing optimization,
+    (* later
+    | patany
+    | patalias
+    | pator
+    *)
 
   and resource_items_map ctx resources: 'ctx * resource_item list =
     List.fold_left_map (fun ctx resources ->
@@ -2072,6 +2125,13 @@ let prepare_for_serialize ?(remove_ctx : bool = false) (t:trm) : trm =
     aux t
   end
 
+(** TODO yanni *)
+let remove_all_my_cstyle (t:trm) : trm =
+  let rec aux t =
+    let t = trm_filter_cstyle (function (AndAsSwitch | IfAsSwitch ..) -> false | ... -> true) t in
+    trm_map aux t
+    in
+  aux t
 
 (** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
 let trm_copy (t : trm) : trm =
@@ -2420,11 +2480,12 @@ let trm_ands (ts : trm list) : trm =
     if i = 0 then t1 else trm_and acc t1
   ) (trm_bool true) ts
 
+
 (*****************************************************************************)
 (** Pattern operations *)
 
 (** [trm_pat_and]: alias of [trm_and], represents binding [&&] clauses in a bbtrm. To be used when creating switch clauses.*)
-let trm_pat_and = trm_and
+let trm_pat_and = trm_and ... trm_add_style AndAsSwitch (trm_my_switch  case ....)
 
 (** [trm_pat_or]: alias of [trm_or], represents non-binding [||] clauses in a bbtrm. To be used when creating switch clauses.*)
 let trm_pat_or = trm_or
