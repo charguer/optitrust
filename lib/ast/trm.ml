@@ -1251,17 +1251,24 @@ let trm_seq_enforce (t : trm) : trm =
 
 (* ********************************************************************************************** *)
 
+(**[mem_var l v]: tests belonging of the variable v to the list l by comparing the ids*) (*TODO: implement it using List.mem ? seems a little complicated for nothing*)
 let mem_var (l : var list) (v : var) : bool =
-  List.filter (fun x -> x.id = v.id) l = []
+  List.filter (fun x -> x.id = v.id) l <> [] (*if the list is not empty, then the variable does belong*)
 
-
-let union_list_of_vars l1 l2 : var list = (*TODO: look again at implementation, not a huge fan*)
+let disjoint_union l1 l2 : var list = (*TODO: look again at implementation, not a huge fan*)
   List.fold_left (fun l v -> if mem_var l v then failwith "union is not disjoint, there is a risk of shadowing" else v :: l) l1 l2
 
-let intersect_list_of_vars (var_lists : var list list) : var list = (*TODO:find a way to do a clean intersection*)
-  List.fold_left (fun var_list var -> ) [] var_lists
+(**[union_list_of_vars l1 l2]: computes the union of the two lists, raising an error if the union is not disjoint*)
+let union_list_of_vars (var_lists) : var list = (*TODO: look again at implementation, not a huge fan*)
+  List.fold_left disjoint_union [] var_lists
 
-
+(**[intersect_list_of_vars l1 l2]: computes the intersection of a list of lists of variables*)
+let intersect_list_of_vars (var_lists : var list list) : var list =
+  match var_lists with
+  | [] -> failwith "trying to intersect 0 lists"
+  | [l] -> l (*nothing to intersect with, so I just return itself*)
+  | l1::l ->
+  List.fold_left (fun acc l2 -> List.filter (mem_var l2) acc) l1 l (*use the first list as a base for intersection*)
 
 let trm_combinators_warn_unsupported_case = Tools.resetable_ref true
 
@@ -1474,7 +1481,6 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
       if (share_if_no_change && cases == cases')
         then t
         else (trm_my_switch ~annot ?loc ~ctx cases')
-      (*TODO: add actual code for this after understanding what the function does, (probably applying f to everything inside?)*)
   | Trm_abort a ->
     begin match a with
     | Ret (Some r) ->
@@ -1653,8 +1659,6 @@ let trm_map_vars_ret_ctx
         else trm_pat_is ~annot ?loc ~ctx:t_ctx t1' t2'
       in
       (cont_body, t')
-
-    (*TODO : Add a case for the Trm_pat constructors, this will be needed when I'll have a working Union and Switch*)
 
     | Trm_let ((var, typ), body) ->
       let _, typ' = f_map ctx typ in
@@ -1892,14 +1896,14 @@ let trm_map_vars_ret_ctx
 
       let cases' = List.map (fun (tci, tki) -> (* one case *)
         let tci', cond_vars = bbe_map_and_get_vars ctx tci in
-        let ctx' : 'ctx = extend_ctx_with_list_of_vars ctx cond_vars in (*should be of type 'ctx*)
-        let tki', _ = f_map ctx' tki in
+        let ctx' = extend_ctx_with_list_of_vars ctx cond_vars in (*should be of type 'ctx*)
+        let _, tki' = f_map ctx' tki in
         if tci == tci' && tki == tki' then (tci,tki) else (tci',tki'))
         cases in
       let body' = if (List.for_all2 (==) cases cases')
         then t
         else trm_my_switch ~annot ?loc ~ctx:t_ctx cases' in
-      (t_ctx, body')
+      (ctx, body')
 
       (* old
 
@@ -1981,44 +1985,77 @@ let trm_map_vars_ret_ctx
     Problem : I'm not sure whether I have to take the variables I get as arguments or if I can discard them? *)
   and extend_ctx_with_list_of_vars (ctx : 'ctx) (vars : var list) : 'ctx =
     (*inside function returns a 'ctx. Takes a 'ctx -> vars *)
-    List.fold_left (fun vars_ctx var -> fst (map_binder ctx var false)) ctx vars
+    List.fold_left (fun vars_ctx var -> fst (map_binder vars_ctx var false)) ctx vars
 
-  and bbe_map_and_get_vars (ctx : 'ctx) (t : trm) : trm * var list =
-    match t.desc with
+  (**[bbe_map_and_get_vars ctx t]: applies the map inside a binding-boolean expression and returns the bbe term as well as the bound variables*)
+  and bbe_map_and_get_vars (ctx : 'ctx) (b : bbtrm) : bbtrm * var list =
+    let annot = b.annot in
+(*     let errors = b.errors in *)
+    let loc = b.loc in
+(*     let typ = b.typ in *)
+    let b_ctx = if keep_ctx then b.ctx else unknown_ctx () in
+
+    match b.desc with
     | Trm_pat_is (t, p) ->
         let ctx_pat, t' = f_map ctx t in
         let p', pvars = pattern_map_and_get_vars ctx_pat p in
 
-        trm_pat_is t' p', pvars (*TODO: add the optimisation, and the parameters to the "trm" function*)
-    | Trm_my_switch cases ->
+        let body' = if t == t' && p == p'
+          then t
+          else trm_pat_is ~annot ?loc ~ctx:b_ctx t' p' in
+
+        (body', pvars)
+    | Trm_my_switch cases -> (*seen as bbe*)
         let cases', branch_vars = List.split (List.map (fun (tci, tki) -> (* one case *)
           let tci', cond_vars = bbe_map_and_get_vars ctx tci in
           let ctx' : 'ctx = extend_ctx_with_list_of_vars ctx cond_vars in
 
           let tki',cont_vars = bbe_map_and_get_vars ctx' tki in
-          let ctx'' = extend_ctx_with_list_of_vars ctx' cont_vars in
+          (*let ctx'' = extend_ctx_with_list_of_vars ctx' cont_vars in*) (*I think this is useless? *)
 
-          (tci', tki'), (cond_vars @ cont_vars)) (*TODO: find a better way to do the union. In particular, check if there is no shadowing*)
+          let body' = if tci == tci' && tki == tki' (*optimization*)
+          then (tci, tki)
+          else (tci', tki') in
+
+          (body', (disjoint_union cond_vars cont_vars)))
           cases) in
-        let branches_nonfalse_vars = List.map snd (List.filter (fun (tki,_branchi_vars) -> not (trm_false_inv tki)) (List.combine (List.map snd cases) branch_vars)) in
-        if branches_nonfalse_vars = [] then failwith "This is dead code, there is no binding result of this"; (*still not convinced, we could have a switch that does side effects (like a test?) but does not result in a binding*) (*TODO: think about this*)
-        let switch_vars = intersect_list_of_vars branches_nonfalse_vars in
-        (trm_my_switch cases', switch_vars) (*TODO: add the optimisation, and the parameters to the "trm" function*)
-    | _ -> failwith "Not a core bbe"
 
+        let branches_nonfalse_vars = List.map snd (List.filter (fun (tki,_branchi_vars) -> not (trm_false_inv tki)) (List.combine (List.map snd cases) branch_vars)) in
+
+        if branches_nonfalse_vars = [] then failwith "This is dead code, there is no binding result of this"; (*still not convinced, we could have a switch that does side effects (like a list of boolean test?) but does not result in a binding*) (*TODO: think about this*)
+        let switch_vars = intersect_list_of_vars branches_nonfalse_vars in
+
+        let body' = if List.for_all2 (==) cases cases'
+          then t
+          else trm_my_switch ~annot ?loc ~ctx:b_ctx cases' in (*TODO: see with Arthur the optional arguments, I'm not very convinced on what to propagate*)
+
+        (body', switch_vars)
+    | _ -> failwith "Not a core bbe"
+  (**[pattern_map_and_get_vars ctx t]: applies the map inside a pattern and returns the resulting pattern as well as the bound variables*)
   and pattern_map_and_get_vars (ctx : 'ctx) (p : pat) : pat * var list =
+    let annot = p.annot in
+(*     let errors = t.errors in *)
+    let loc = p.loc in
+(*     let typ = t.typ in *)
+    let p_ctx = if keep_ctx then p.ctx else unknown_ctx () in
+
     match p.desc with
     | Trm_pat_var x ->
-        (p, singleton map) (*singleton map ?*)
-    | Trm_apps (t1, pats, _) ->
-        let t1' = trm_map sur t1 (*devrait être un f_map du coup? *)
-        let pis',vars_in_pis = list.split (list.map pattern_map pis) in
-        let res =
-          match disjoint_union vars_in_pis with
+        (p, [x])
+    | Trm_apps (f, pats, _) ->
+        let _, f' = f_map ctx f in
+        let pats', pats_vars = List.split (List.map (pattern_map_and_get_vars ctx) pats) in
+        let res_vars = union_list_of_vars pats_vars
+          (* match union_list_of_vars pats_vars with
           | Some res -> res
-          | None -> error non disjoint in patterns
+          | None -> error non disjoint in patterns *)
           in
-        trm_apps(t1',pis') with sharing optimization,
+
+          let body' = if f == f' && (List.for_all2 (==) pats pats') (*optimization*)
+          then p
+          else trm_apps ~annot ?loc ~ctx:p_ctx f' pats' in
+
+        (body', res_vars)
     | _ -> failwith "not handled patterns"
     (* later
     | patany
@@ -2158,12 +2195,13 @@ let prepare_for_serialize ?(remove_ctx : bool = false) (t:trm) : trm =
   end
 
 (** TODO yanni *)
-let remove_all_my_cstyle (t:trm) : trm =
+(* let remove_all_my_cstyle (t:trm) : trm =
   let rec aux t =
     let t = trm_filter_cstyle (function (AndAsSwitch | IfAsSwitch ..) -> false | ... -> true) t in
     trm_map aux t
     in
   aux t
+ *)
 
 (** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
 let trm_copy (t : trm) : trm =
@@ -2517,7 +2555,7 @@ let trm_ands (ts : trm list) : trm =
 (** Pattern operations *)
 
 (** [trm_pat_and]: alias of [trm_and], represents binding [&&] clauses in a bbtrm. To be used when creating switch clauses.*)
-let trm_pat_and = trm_and ... trm_add_style AndAsSwitch (trm_my_switch  case ....)
+let trm_pat_and = trm_and (*... trm_add_style AndAsSwitch (trm_my_switch  case ....)*)
 
 (** [trm_pat_or]: alias of [trm_or], represents non-binding [||] clauses in a bbtrm. To be used when creating switch clauses.*)
 let trm_pat_or = trm_or

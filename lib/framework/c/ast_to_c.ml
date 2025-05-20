@@ -659,7 +659,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
     | Trm_my_switch cases ->
     if (not style.optitrust_syntax) then Flags.verbose_warn None "Ast_to_c.trm_to_doc: trying to print [my_switch] without optitrust_syntax flag\n";
 
-    ... tester les IfAsSwitch et autres cas particuliers avec trm_has_cstyle
+    (* ... tester les IfAsSwitch et autres cas particuliers avec trm_has_cstyle *)
 
     let dcases =
       separate hardline

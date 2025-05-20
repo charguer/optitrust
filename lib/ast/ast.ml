@@ -262,7 +262,7 @@ and trms = trm list
 (** [pat]: a representation of a pattern, which is seen as a term *)
 and pat = trm
 
-(** [bbtrm]: a representation of a binding-boolean-tern, which is seen as a term *)
+(** [bbtrm]: a representation of a binding-boolean-term, which is seen as a term *)
 and bbtrm = trm
 
 (** [trm_desc]: description of an ast node.
