@@ -509,6 +509,22 @@
           }
         },
       },
+      // Test shortcuts
+      {
+        "label": "Test OptiTrust Shortcuts",
+        "type": "shell",
+        "command": "tools/test_shortcuts.sh",
+        "args": [ "${file}",
+                  "${lineNumber}" ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+      },
+
+
       // Run script
       {
         "label": "Execute doc/add_tests_into_doc/run.sh",
