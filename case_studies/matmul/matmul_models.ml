@@ -30,5 +30,4 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.simd [nbMulti; cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "j"];
   !! Loop.parallel [nbMulti; cFunBody ""; cStrict; cFor ""];
   !! Loop.unroll ~simpl:Arith.do_nothing [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
-  !! Cleanup.std ();
 )

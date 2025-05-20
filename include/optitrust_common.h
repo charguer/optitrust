@@ -245,6 +245,13 @@ __GHOST(in_range_shift_extend) {
   __ghost(in_range_extend, "x+k, range(a+k, b+k, s), r");
 }
 
+__GHOST(in_range_bounds) {
+  __requires("x: int, a: int, b: int, s: int");
+  __requires("in_range(x, range(a, b, s)), s >= 0");
+  __ensures("lower_bound: x >= a, upper_bound: x <= b");
+  __admitted();
+}
+
 /* ---- Manually split RO resources ---- */
 
 __GHOST(ro_split2) {
@@ -350,7 +357,8 @@ __GHOST(tile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
     "size: int, items: int -> HProp,"
-    "div_check: size = tile_count * tile_size"
+    "div_check: size = tile_count * tile_size,"
+    "positive_tile_size: tile_size >= 0"
   );
   __consumes("Group(0..size, items)");
   __produces("for bi in 0..tile_count ->"
@@ -368,6 +376,7 @@ __GHOST(ro_tile_divides) {
     "tile_count: int, tile_size: int,"
     "size: int, items: int -> HProp,"
     "div_check: size = tile_count * tile_size,"
+    "positive_tile_size: tile_size >= 0,"
     "f: _Fraction"
   );
   __consumes("_RO(f, Group(0..size, items))");

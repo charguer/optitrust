@@ -73,8 +73,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
     let div_check_assert = Resource_trm.ghost_assert div_check_var Resource_formula.(formula_eq ~typ:typ_int count (trm_mul_int tile_count tile_size)) in
     let div_check = trm_var div_check_var in
 
-    let iteration = trm_add_int (trm_mul_int (trm_var tile_index) tile_size) (trm_var index)
-    in
+    let iteration = trm_add_int (trm_mul_int (trm_var tile_index) tile_size) (trm_var index) in
     let new_index = iteration_to_index iteration in
     let outer_range = { index = tile_index; start = (trm_int 0); direction = DirUp; stop = tile_count; step = trm_step_one () } in
     let inner_range = { index; start = (trm_int 0); direction = DirUp; stop = tile_size; step = trm_step_one () } in
