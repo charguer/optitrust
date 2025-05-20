@@ -143,7 +143,7 @@ and tr_case (t : trm) (c_case : computation case) : bbtrm * trm =
   let {c_lhs; c_guard; c_rhs} = c_case in
   let lhs =
     match c_guard with
-    | Some e -> trm_pat_and (trm_pat_is t (tr_computation_pattern c_lhs)) (tr_expression e)
+    | Some e -> trm_bbe_and (trm_pat_is t (tr_computation_pattern c_lhs)) (tr_expression e)
     | None -> trm_pat_is t (tr_computation_pattern c_lhs)
   in
   let rhs = tr_expression c_rhs in

@@ -247,7 +247,11 @@ and print_trm_desc style (t : trm_desc) : document =
      in
      print_node "Trm_switch" ^^ print_pair dcond (print_list dcases)
   | Trm_my_switch cases ->
-     print_node "Trm_switch ..."
+    let dcases =
+      List.map
+        (fun (cond, cont) -> print_pair (print_trm style cond) (print_trm style cont)) cases
+    in
+    print_node "Trm_my_switch" ^^ brackets (separate semi dcases)
   | Trm_abort a ->
      let da =
        begin match a with
@@ -466,6 +470,11 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Ternary_cond -> string "Ternary_cond"
  | Shortcircuit_and -> string "Shortcircuit_and"
  | Shortcircuit_or -> string "Shortcircuit_or"
+
+ | AndAsSwitch -> string "AndAsSwitch"
+ | OrAsSwitch -> string "OrAsSwitch"
+ | NotAsSwitch -> string "NotAsSwitch"
+
  | Shortcircuit_neg -> string "Shortcircuit_neg"
  | No_braces id -> string ("No_braces " ^ string_of_int id)
  | Prefix_step -> string "Prefix_step"

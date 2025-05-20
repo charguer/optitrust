@@ -657,23 +657,29 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       dattr ^^ string "switch" ^^ blank 1 ^^ parens dcond ^^ blank 1 ^^
         surround 2 1 lbrace dcases rbrace
     | Trm_my_switch cases ->
-    if (not style.optitrust_syntax) then Flags.verbose_warn None "Ast_to_c.trm_to_doc: trying to print [my_switch] without optitrust_syntax flag\n";
-
-    (* ... tester les IfAsSwitch et autres cas particuliers avec trm_has_cstyle *)
-
-    let dcases =
-      separate hardline
-      (List.map
-        (fun (bbt, k) ->
-          string "case" ^^ blank 1 ^^ decorate_trm style bbt ^^ blank 1 ^^
-            string "then" ^^ blank 1 ^^ decorate_trm style k  ^^ colon)
-      cases)
-    in
+      if (not style.optitrust_syntax) then Flags.verbose_warn None "Ast_to_c.trm_to_doc: trying to print [my_switch] without optitrust_syntax flag\n";
 
 
-    dattr ^^ string "switch" ^^ hardline ^^
-      dcases ^^
-    string "end"
+      (*TODO: check the structure inside before looking at the annotations*)
+      let body = match cases with
+        | [(b1, k1); (b2,k2)] when trm_has_cstyle AndAsSwitch t ->
+          decorate_trm style b1 ^^ string "&&" ^^ decorate_trm style k1
+        | [(b1, k1); (b2,k2)] when trm_has_cstyle OrAsSwitch t  ->
+          decorate_trm style b1 ^^ string "||" ^^ decorate_trm style k2
+        | [(b1, k1); (b2,k2)] when trm_has_cstyle NotAsSwitch t ->
+          string "not" ^^ decorate_trm style b1
+        | _ -> let dcases = separate hardline
+                            (List.map (fun (bbt, k) ->
+                                        string "case" ^^ blank 1 ^^ decorate_trm style bbt ^^ blank 1 ^^
+                                        string "then" ^^ blank 1 ^^ decorate_trm style k  ^^ colon)
+                                      cases)
+               in
+                dattr ^^ string "switch" ^^ hardline ^^ dcases ^^ string "end"
+      in
+      body
+
+
+
 
 (* TODO:
       LATER: try to print C's switch and Ocaml's match when possible.

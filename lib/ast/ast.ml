@@ -511,7 +511,9 @@ and cstyle_annot =
   | Ternary_cond (* ask to print Trm_if as [cond ? then_branch : else_branch] *)
   | Shortcircuit_and (* ask to print Trm_if as [a && b] *)
   | Shortcircuit_or (* ask to print Trm_if as [a || b] *)
-
+  | AndAsSwitch
+  | OrAsSwitch
+  | NotAsSwitch
   | Shortcircuit_neg (* ask to print Trm_if as [not b] in the case the if clause is [if b then false else true] *)
 
   (* describe a sequence that does not impose a scope;

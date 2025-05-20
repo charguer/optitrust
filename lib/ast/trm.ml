@@ -1252,11 +1252,13 @@ let trm_seq_enforce (t : trm) : trm =
 (* ********************************************************************************************** *)
 
 (**[mem_var l v]: tests belonging of the variable v to the list l by comparing the ids*) (*TODO: implement it using List.mem ? seems a little complicated for nothing*)
-let mem_var (l : var list) (v : var) : bool =
-  List.filter (fun x -> x.id = v.id) l <> [] (*if the list is not empty, then the variable does belong*)
+let mem_var (l : var list) (v : var) : bool = (*TODO: /!!!!\ Very important, I currently have a bug with ids, when this is corrected, change the belonging test to compare ids and not names. This code is currently incorrect !!*)
+  let list_ids = List.map (fun v -> v.name) l in
+  List.mem v.name list_ids (*if the list is not empty, then the variable does belong*)
 
 let disjoint_union l1 l2 : var list = (*TODO: look again at implementation, not a huge fan*)
-  List.fold_left (fun l v -> if mem_var l v then failwith "union is not disjoint, there is a risk of shadowing" else v :: l) l1 l2
+  List.fold_left (fun l v ->
+    if mem_var l v then failwith "union is not disjoint, there is a risk of shadowing" else v :: l) l1 l2
 
 (**[union_list_of_vars l1 l2]: computes the union of the two lists, raising an error if the union is not disjoint*)
 let union_list_of_vars (var_lists) : var list = (*TODO: look again at implementation, not a huge fan*)
@@ -1989,6 +1991,9 @@ let trm_map_vars_ret_ctx
 
   (**[bbe_map_and_get_vars ctx t]: applies the map inside a binding-boolean expression and returns the bbe term as well as the bound variables*)
   and bbe_map_and_get_vars (ctx : 'ctx) (b : bbtrm) : bbtrm * var list =
+
+    (* Printf.printf "calling bbe on : %s\n" (Ast_to_text.ast_to_string b); *)
+
     let annot = b.annot in
 (*     let errors = b.errors in *)
     let loc = b.loc in
@@ -2554,15 +2559,20 @@ let trm_ands (ts : trm list) : trm =
 (*****************************************************************************)
 (** Pattern operations *)
 
-(** [trm_pat_and]: alias of [trm_and], represents binding [&&] clauses in a bbtrm. To be used when creating switch clauses.*)
-let trm_pat_and = trm_and (*... trm_add_style AndAsSwitch (trm_my_switch  case ....)*)
+(** [trm_bbe_and]: alias of [trm_and], represents binding [&&] clauses in a bbtrm. To be used when creating switch clauses.*)
+let trm_bbe_and ?(loc) ?(ctx : ctx option) (b1 : bbtrm) (b2 : bbtrm) : bbtrm =
+  let body = trm_my_switch ?loc ?ctx [(b1, b2); (trm_pat_any (), trm_bool false)] in
+  trm_add_cstyle AndAsSwitch body
 
-(** [trm_pat_or]: alias of [trm_or], represents non-binding [||] clauses in a bbtrm. To be used when creating switch clauses.*)
-let trm_pat_or = trm_or
+(** [trm_bbe_or]: represents non-binding [||] clauses in a bbtrm. To be used when creating switch clauses.*)
+let trm_bbe_or ?(loc) ?(ctx : ctx option) (b1 : bbtrm) (b2 : bbtrm) : bbtrm =
+  let body = trm_my_switch ?loc ?ctx [(b1, trm_bool true); (trm_pat_any (), b2)] in
+  trm_add_cstyle OrAsSwitch body
 
-(**[trm_pat_neg]: returns [not] clause of a bbtrm. Is equivalent to [trm_apps (trm_prim Unop_neg) [t1]].*)
-let trm_pat_neg ?(loc) ?(ctx : ctx option) (t : trm) : trm =
-  trm_add_cstyle Shortcircuit_neg (trm_if ?loc ?ctx ~typ:typ_bool t (trm_bool false) (trm_bool true))
+(**[trm_bbe_neg]: returns [not] clause of a bbtrm. Is equivalent to [trm_apps (trm_prim Unop_neg) [t1]].*)
+let trm_bbe_neg ?(loc) ?(ctx : ctx option) (b : bbtrm) : bbtrm =
+  let body = trm_my_switch ?loc ?ctx [(b, trm_bool false); (trm_pat_any (), trm_bool true)] in
+  trm_add_cstyle NotAsSwitch body
 
 
 (*****************************************************************************)
