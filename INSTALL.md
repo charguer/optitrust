@@ -23,8 +23,13 @@ Installation of system packages:
 Install Clang 15. IMPORTANT: versions released after 15.0.x are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang libclang-dev llvm-dev`). You can try this procedure:
 
 ```sh
-sudo apt install clang-15 llvm-15 clang-format
+wget https://apt.llvm.org/llvm.sh  
+chmod +x llvm.sh
+sudo ./llvm.sh 15
+sudo apt install autoconf libclang-15-dev llvm-15-dev
+
 ```
+Does it make the 
 
 Depending on your prior installation, you might need to add the newly installed version of clang/llvm-config to the path, then select it among all of your versions :
 
@@ -52,9 +57,10 @@ Installation of the opam switch with relevant packages:
 ```sh
    opam init
    opam switch create 4.14.1
+   opam switch create 4.14.1+options --packages=ocaml-variants.4.14.1+options,ocaml-option-flambda
    opam pin add menhirLib 20210419
    opam pin add pprint 20220103
-   opam pin add clangml 4.8.0
+   opam pin add clangml 4.8.0 -> continueanyway 
    opam install dune refl clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving
    # next line used only for generating the documentation of OptiTrust:
    opam install odoc lambdasoup
