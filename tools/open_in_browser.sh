@@ -18,9 +18,9 @@ if [ -z "${OPTITRUST_BROWSER}" ]; then
   if [ -n "${BROWSER}" ]; then
     OPTITRUST_BROWSER="${BROWSER}"
   else
-    # OPTITRUST_BROWSER="xdg-open" // does not work .. version `GLIBCXX_3.4.29' not found (required by /lib/x86_64-linux-gnu/libproxy.so.1)
-    # OPTITRUST_BROWSER="chromium" // does not work
-    OPTITRUST_BROWSER="firefox"
+    OPTITRUST_BROWSER="xdg-open"
+    # apparently xdg-open does not work on Ubuntu due issues with snap
+    # FIX: ask Ubuntu users to define OPTITRUST_BROWSER or BROWSER in their environment
   fi
 fi
 
@@ -37,7 +37,7 @@ if [ -z "${WINDOWTITLE}" ]; then
     nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1
 
 else
-  msg "Title provided. Searching for an existing brower session."
+  msg "Searching for an existing brower session."
 
   WID=`xdotool search --name "${WINDOWTITLE}" | head -1`
 
@@ -60,5 +60,3 @@ else
   fi
 
 fi
-
-msg "open_in_browser.sh script completes"
