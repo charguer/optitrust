@@ -70,8 +70,8 @@ __GHOST(rewrite_linear) {
 }
 
 __GHOST(rewrite_float_linear) {
-  __requires("from: f64, to: f64");
-  __requires("inside: f64 -> HProp");
+  __requires("from: float, to: float");
+  __requires("inside: float -> HProp");
   __requires("by: from =. to");
   __consumes("inside(from)");
   __produces("inside(to)");
