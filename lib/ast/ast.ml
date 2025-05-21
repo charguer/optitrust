@@ -1067,6 +1067,8 @@ module Toplevel_hashtbl = Hashtbl.Make(Toplevel_id)
 (** Set of toplevel variables already attributed.
     This is used by toplevel_var to check collisions and perform hash consing. *)
 let toplevel_vars = Toplevel_hashtbl.create 128
+(*TODO: add a table : [user_readable_id_for_toplevel_vars] map des varids des toplevel vars
+        Or : print directly the names. *)
 
 (** [toplevel_var]: return the toplevel variable with the given name;
   if the global map [toplevel_vars] already contains an entry, it returns this entry;
