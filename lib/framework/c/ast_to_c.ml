@@ -269,13 +269,28 @@ let rec typ_desc_to_doc style (t : typ) : document =
     )
   ]
 
+and print_hashtbl tbl =
+  print_endline "{";
+  Hashtbl.iter (fun key value ->
+    Printf.printf "  %d -> %d\n" key value
+  ) tbl;
+  print_endline "}"
+
 and var_to_doc style (v : var) : document =
   if is_anon_var v then
     string (sprintf "#%d" v.id)
   else
     let qualified = (concat_map (fun q -> string q ^^ string "::") v.namespaces) ^^ string v.name in
     if style.print_var_id then
-      qualified ^^ string ("/*#" ^ string_of_int v.id ^ "*/")
+      (* (Printf.printf "size of the hashtbl : %d\n" (Hashtbl.length user_readable_id_for_toplevel_vars);
+      let id =
+        (if is_toplevel_var v
+        then
+          (print_hashtbl user_readable_id_for_toplevel_vars; (*should print the content of the table*)
+          Printf.printf "looking for var %s with id : %d\n" v.name v.id;
+          Hashtbl.find user_readable_id_for_toplevel_vars v.id) else v.id)
+      in *)
+      qualified ^^ string ("/*#" ^ string_of_int v.id ^ "*/")(* ) *)
     else
       qualified
 

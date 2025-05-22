@@ -1067,6 +1067,13 @@ module Toplevel_hashtbl = Hashtbl.Make(Toplevel_id)
 (** Set of toplevel variables already attributed.
     This is used by toplevel_var to check collisions and perform hash consing. *)
 let toplevel_vars = Toplevel_hashtbl.create 128
+
+(* let id_counter = ref 0
+let fresh_id () = id_counter := !id_counter + 1; !id_counter
+
+let user_readable_id_for_toplevel_vars : (var_id, int)Hashtbl.t = Hashtbl.create 1024
+ *)
+
 (*TODO: add a table : [user_readable_id_for_toplevel_vars] map des varids des toplevel vars
         Or : print directly the names. *)
 
@@ -1081,6 +1088,11 @@ let toplevel_var ?(namespaces: string list = []) (name : string) : var =
   | None ->
       let var = { namespaces; name; id } in
       Toplevel_hashtbl.add toplevel_vars id var;
+      (*   let f_id = (fresh_id ()) in
+        Printf.printf "adding variable %s of id : %d in toplevel, of fresh_id %d\n" name id f_id;
+
+        Hashtbl.add user_readable_id_for_toplevel_vars id f_id;
+        let _ = Hashtbl.find user_readable_id_for_toplevel_vars id in (*will this make an error ?*) *)
       var
 
 (** A dummy variable for special cases. *)
