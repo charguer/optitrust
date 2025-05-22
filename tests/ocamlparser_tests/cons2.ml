@@ -13,11 +13,14 @@ let into_typed_var ?typ (v : var) =
   | None -> (v, typ_auto)
   | Some t -> (v, t)
 
-let intro_cons2 tg : unit =
+let pattern_namespace = "__pattern"
+let pnew_var name = new_var ~namespaces:[pattern_namespace] name
 
-  let x : var = pvar "x" in
-  let y : var = pvar "y" in
-  let t : var = pvar "t" in
+let intro_cons2 (tg : target) : unit =
+
+  let x : var = pnew_var "x" in
+  let y : var = pnew_var "y" in
+  let t : var = pnew_var "t" in
 
   let typed_x : typed_var = into_typed_var x in
   let typed_y : typed_var = into_typed_var y in
@@ -26,7 +29,7 @@ let intro_cons2 tg : unit =
 
   let cons = trm_toplevel_var "Cons" in
   let cons2 = trm_toplevel_var "Cons2" in
-
+(*
   let cons_id =
     match trm_var_inv cons with
     | Some v -> v.id
@@ -40,8 +43,8 @@ let intro_cons2 tg : unit =
   in
 
 
-  Printf.printf "Ccons id : %d\n Cons2 id : %d\n" cons_id cons2_id;
-
+  Printf.printf "\n\nCons id : %d\nCons2 id : %d\n" cons_id cons2_id;
+ *)
   let rule_vars : typed_var list = [typed_x; typed_y; typed_t] in
 
   let mark = "" in
@@ -53,11 +56,26 @@ let intro_cons2 tg : unit =
   let trm_from = trm_apps cons [trm_x; trm_apps cons [trm_y; trm_t]] in
   let trm_to = trm_apps cons2 [trm_x; trm_y; trm_t] in
 
+(*   Printf.printf "trm_from : \n";
+    (*changed this from (Ast_to_c.default_style ()) to Ast_to_text.default_style*)
+    let s = Ast_to_c.default_style () in
+    let ast_style = s in
+    print_string (Ast_to_c.ast_to_string ~style:ast_style trm_from);
+
+
+  Printf.printf "\ntrm_to : \n";
+    (*changed this from (Ast_to_c.default_style ()) to Ast_to_text.default_style*)
+    let s = Ast_to_c.default_style () in
+    let ast_style = s in
+    print_string (Ast_to_c.ast_to_string ~style:ast_style trm_to);
+
+  Printf.printf "\n";
+ *)
   let rule =
     {rule_vars; rule_aux_vars = []; rule_from = trm_from; rule_to = trm_to}
   in
   Target.apply_at_target_paths (Rewrite_core.apply_rule_bottom_up ~mark rule) tg
 
 let _ = Run.script_ml (fun () ->
-  !! intro_cons2 [dRoot]
+  !! intro_cons2 []
 )
