@@ -225,7 +225,12 @@ and tr_constructor_decl (cd : constructor_declaration) : union_constructor =
   let arguments = (match cd.cd_args with
                   | Cstr_tuple ctl -> ctl
                   | _ -> failwith "Argument type not handled") in
-  { union_constructor_constructor = toplevel_var cd.cd_name.txt;
+  (* Printf.printf "trying to add %s to the toplevels\n" cd.cd_name.txt;
+  let constr_var = toplevel_var cd.cd_name.txt in
+  Printf.printf "checking if %s : %d was added to the toplevels\n" constr_var.name constr_var.id;
+  let _ = Hashtbl.find user_readable_id_for_toplevel_vars constr_var.id in *)
+
+  { union_constructor_constructor = (* constr_var *) toplevel_var cd.cd_name.txt;
     union_constructor_inversor = inversor_toplevel_var cd.cd_name.txt;
     union_constructor_args_type = List.map tr_core_type arguments }
 
