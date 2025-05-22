@@ -1643,9 +1643,12 @@ let trm_map_vars_ret_ctx
     in
 
     let ctx, trm = match t.desc with
-    | Trm_var x | Trm_pat_var x ->
+    | Trm_var x ->
       (ctx, map_var ctx (annot, loc, typ, t_ctx) x)
-    | Trm_pat_as (p, x) ->
+    | Trm_pat_var x -> assert false
+    | Trm_pat_as (p, x) -> assert false
+    | Trm_pat_is (t1, t2) -> assert false
+    (* | Trm_pat_as (p, x) ->
       let (cont_ctx', p') = f_map ctx p in
       let (cont_ctx', x') = map_binder cont_ctx' x false in
       let t' = if p == p'
@@ -1661,7 +1664,7 @@ let trm_map_vars_ret_ctx
         else trm_pat_is ~annot ?loc ~ctx:t_ctx t1' t2'
       in
       (cont_body, t')
-
+ *)
     | Trm_let ((var, typ), body) ->
       let _, typ' = f_map ctx typ in
       let _, body' = f_map ctx body in
@@ -2046,7 +2049,8 @@ let trm_map_vars_ret_ctx
 
     match p.desc with
     | Trm_pat_var x ->
-        (p, [x])
+        let (_, x') = map_binder ctx x false in
+        (trm_pat_var x', [x'])
     | Trm_apps (f, pats, _) ->
         let _, f' = f_map ctx f in
         let pats', pats_vars = List.split (List.map (pattern_map_and_get_vars ctx) pats) in
