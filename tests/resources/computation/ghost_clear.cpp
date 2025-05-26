@@ -4,13 +4,13 @@ __DECL(Triv, "int -> Prop");
 
 __GHOST(trivial_init) {
   __requires("k: int");
-  __ensures("Triv(k)");
+  __ensures("triv: Triv(k)");
   __admitted();
 }
 
 __GHOST(trivial_change) {
   __requires("k: int, old_k: int, Triv(old_k)");
-  __ensures("Triv(k)");
+  __ensures("triv: Triv(k)");
   __admitted();
 }
 

@@ -180,7 +180,7 @@ void ghost_scope(int m, int n) {
 
 __ghost_ret ensures_pure() {
   __requires("n: int");
-  __ensures("__is_true(n == n)");
+  __ensures("eq_refl: __is_true(n == n)");
   __admitted();
 }
 
@@ -200,9 +200,9 @@ void ghost_pure(int m, int n) {
     ensures_not_ghost(5);
     ensures_not_ghost(6);
     ensures_not_ghost(7);
-    __ghost(ensures_pure, "n := 1", "#_1 <- #212");
+    __ghost(ensures_pure, "n := 1", "#_1 <- eq_refl");
     requires_pure(1);
-    __ghost(ensures_pure, "n := 3", "#_2 <- #212");
+    __ghost(ensures_pure, "n := 3", "#_2 <- eq_refl");
     requires_pure(3);
   }
   for (int i = 0; i < m; i++) {
@@ -213,9 +213,9 @@ void ghost_pure(int m, int n) {
   split:
     __ghost(ensures_pure, "n := 2");
     requires_pure(2);
-    __ghost(ensures_pure, "n := 3", "#_3 <- #212");
+    __ghost(ensures_pure, "n := 3", "#_3 <- eq_refl");
     requires_pure(3);
-    __ghost(ensures_pure, "n := 4", "#_4 <- #212");
+    __ghost(ensures_pure, "n := 4", "#_4 <- eq_refl");
     requires_pure(4);
     requires_pure(5);
     requires_pure(6);

@@ -11,7 +11,8 @@ It takes about 30 minutes to install the required OCaml software.
 Installation of system packages:
 
 ```sh
-   sudo apt-get install libomp-dev pkg-config zlib1g-dev
+   # lib for OpenMP, for dev files, and coreutils for nohup
+   sudo apt-get install libomp-dev pkg-config zlib1g-dev coreutils
    # for C++ headers support:
    sudo apt-get install libc++-dev
    # optional, only if you prefer using `meld` over `code -d` for viewing diffs:
@@ -276,6 +277,13 @@ If you have a nonempty file, copy the bindings into your file.
     "args": "Open doc for current source file in browser",
     "when": "config.optitrust.enableKeybindings && resourceExtname == .ml"
   },
+  // For testing OptiTrust shortcuts
+  {
+    "key": "alt+shift+f11",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Test OptiTrust Shortcuts",
+    "when": "config.optitrust.enableKeybindings"
+  },  
   // For killing a task, type 'ctrl+k' twice, then 'enter'
   {
      "key": "ctrl+k ctrl+k",

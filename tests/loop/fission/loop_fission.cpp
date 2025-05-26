@@ -136,7 +136,7 @@ void ghost_scope(int m, int n) {
 
 __GHOST(ensures_pure) {
   __requires("n: int");
-  __ensures("n = n");
+  __ensures("eq_refl: n = n");
   __admitted();
 }
 
