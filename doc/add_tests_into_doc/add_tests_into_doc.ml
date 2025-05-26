@@ -8,7 +8,7 @@ let debug = false
 let verbose = false
 
 (* let input_doc_folder = "_build/default/_doc/_html/optitrust/Optitrust/" *)
-let path_to_doc_folder = "_doc/optitrust/Optitrust/"
+let path_to_transfo_doc_folder = "_doc/optitrust/Optitrust_transfo/"
 let path_to_doc_root = "../../../"
 let path_from_doc_to_project_root = "../../../../"
 
@@ -26,7 +26,7 @@ type test_map = (string * string) list
 let compute_test_map () : test_map =
   (* NOTE: module prefix and excluding with_lines.ml seems no longer needed: -name '%s*_doc.ml' -and -not -name '*_with_lines.ml' *)
   do_or_die (sprintf "find tests/ -name '*_doc.ml' > %s" tmp_file);
-  if debug && false then begin
+  if debug then begin
     printf "List of *_doc.ml find found:\n";
     do_or_die (sprintf "cat %s" tmp_file);
   end;
@@ -129,7 +129,7 @@ let insert_headers (soup : 'a node) : unit =
     append_child head defs)
 
 let process_documentation (current_module_lowercase : string) (test_map : test_map) : unit =
-  let html_path = sprintf "%s/%s/index.html" path_to_doc_folder (String.capitalize_ascii current_module_lowercase) in
+  let html_path = sprintf "%s/%s/index.html" path_to_transfo_doc_folder (String.capitalize_ascii current_module_lowercase) in
   let soup = parse_html html_path in (* FOR TESTS: "odoc_spec.html" *)
   insert_headers soup;
   process_specs current_module_lowercase test_map soup;
@@ -139,7 +139,7 @@ let process_documentation (current_module_lowercase : string) (test_map : test_m
 let _ =
   let test_map = compute_test_map () in
 
-  do_or_die (sprintf "find src/transfo -name '*.ml' > %s" tmp_file);
+  do_or_die (sprintf "find lib/transfo -name '*.ml' > %s" tmp_file);
   File.get_lines tmp_file |> List.iter (fun module_src ->
     let current_module_lowercase = Filename.remove_extension (Filename.basename module_src) in
     if verbose then Printf.printf "-- Processing '%s'\n" current_module_lowercase;

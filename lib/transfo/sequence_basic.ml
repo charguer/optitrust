@@ -151,16 +151,16 @@ let%transfo partition ?(braces : bool = false) (blocks : int list) (tg : target)
 (** [shuffle ~braces tg]: expects the target [tg] to point at a sequence of blocks, this transformation will transpose the block structure
 
     think about a sequence of blocks as a matrix.
-    {
+    {[{
       {{t11};{t12};{t13}};
       {{t21};{t22};{t23}};
       {{t31};{t32};{t33}};
-    }
+    }]}
     this will be changed to:
-    {
+    {[{
       {{t11};{t21};{t31}};
       {{t12};{t22};{t32}};
       {{t13};{t23};{t33}};
-    } *)
+    }]} *)
 let%transfo shuffle ?(braces : bool = false) (tg : target) : unit =
   Target.apply_at_target_paths (Sequence_core.shuffle_on braces) tg

@@ -25,10 +25,10 @@ Calls to Trm.toplevel_var must be done before the scope resolution, otherwise th
 {2 Transition states}
 
 After parsing, identifiers are set to the dummy value [0].
-The function {!Scope_computation.infer_var_ids} produces an ast with correct identifiers according to the scoping rules.
+The function {!Optitrust_framework.Scope_computation.infer_var_ids} produces an ast with correct identifiers according to the scoping rules.
 This function is called during the encoding/decoding phases.
 
-If a transformation introduces dummy identifiers, it should call [Scope.infer_var_ids] to compute missing ids at the end of the transformation to restore the invariants.
+If a transformation introduces dummy identifiers, it should call [Optitrust_framework.Scope.infer_var_ids] to compute missing ids at the end of the transformation to restore the invariants.
 
 {2 Checking invariants}
 
@@ -37,7 +37,7 @@ It has an option to also check the Identification Invariant.
 
 {2 Display mechanism}
 
-In order to pretty print ASTs with identifiers in a deterministic and human-readable fashion, we provide a renaming function {!Scope.unique_alpha_rename}.
+In order to pretty print ASTs with identifiers in a deterministic and human-readable fashion, we provide a renaming function {!Optitrust_framework.Scope.unique_alpha_rename}.
 This function renames program variables to give each binder a unique name.
 For example 'x' with id #18 could be printed as 'x__0' and 'x' with id #29 as 'x__1'.
 
