@@ -492,6 +492,11 @@ let trm_is_one (step : trm) : bool =
   | Some 1 -> true
   | _ -> false
 
+let trm_is_zero (step : trm) : bool =
+  match trm_int_inv step with
+  | Some 0 -> true
+  | _ -> false
+
 (** [trm_inv ~error k t]: returns the results of applying [k] on t, if the result is [None]
      then function fails with error [error]. *)
 let trm_inv ?(error : string = "") (k : trm -> 'a option) (t : trm) : 'a =
@@ -546,6 +551,16 @@ let trm_seq_inv (t : trm) : (trm mlist * var option) option =
   | Trm_seq (tl, result) ->  Some (tl, result)
   | _ -> None
 
+let trm_seq_single_inv (t : trm) : trm option =
+
+  match trm_seq_inv t with
+  | Some (ts,_) ->
+    begin
+       match Mlist.to_list ts with
+       | [t1] -> Some (t1)
+       | _ -> None
+    end
+  | _ -> None
 let trm_seq_nth_inv (i : int) (t : trm) : trm option =
   Option.bind (trm_seq_inv t) (fun (instrs, _) ->
     if i < Mlist.length instrs

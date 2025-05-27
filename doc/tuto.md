@@ -10,6 +10,7 @@ This document assumes a working installation of OptiTrust as described in `INSTA
 
 ## Simple loop splitting 
 
+Starting from the following C++ code, we aim to perform loop fission in order to parallelize each resulting loop independently.
 Input
 
 ```c
@@ -25,7 +26,7 @@ void stencil1D(double a[N], double b[N]) {
 }
 ```
 
-Output
+Desired Output
 
 ```c
 const int N = 51200000;
@@ -39,21 +40,61 @@ void stencil1D(double a[N], double b[N]) {
   }
 }
 ```
+### Creating the `stencil` Directory
+
+We start by creating a new folder called `stencil`, and we add two files:
+
+- `stencil1D.ml`: contains the transformation script.
+- `stencil1D.cpp`: contains the original C++ code.
+
+OptiTrust automatically associates the `.ml` file with the `.cpp` file of the same base name that it is supposed to transform.
+
+### Running the Transformation
+
+To have OptiTrust perform the transformation, we need to specify:
+
+- Which transformation to apply,
+- Where in the code to apply it.
+
+In our case, we want to apply the following transformation:
 
 ```ocaml
-!! Loop.fission [cFor "i"; cWrite ~lhs:[cVar "a"] ()]
-
-
-!! Loop.fission [cFor "i"; dNth 1]
+Loop.fission [c1; ...; cn]
 ```
+Here, [c1; ...; cn] is a list of constraints used to locate the corresponding AST node(s) in the C++ code.
+There are several ways to describe the constraints leading to the fission. For example : 
+```ocaml
+Loop.fission [cForBody "i"; tBefore; dSeqNth 1]
+```
+which can be summed up as : "We want to locate a for loop over index i, and insert the fission right before the second statement inside the loop body" 
+Finally, we have the following script : 
+```ocaml
+open Optitrust
+open Prelude
 
+let _ = Flags.check_validity := false
+
+let _ = Run.script_cpp (fun _ ->
+  !! Loop.fission [cForBody "i"; tBefore; dSeqNth 1];
+)
+
+```
+Press F5 to see the diff on your browser. 
+F6 if you want to look only at the diff for this precise transformation 
+and shift + F5 is for the full trace
+F5 : Repeat the last F5/F6 
+F5 and F10 can be used anywhere. 
 benchmarking code: http://icps.u-strasbg.fr/people/bastoul/public_html/teaching/parallelisme/codes/tp1_6_stencil1d.c
 
 
 
 ## Loop splitting with multiple loops
 
-Input
+### Matrix Multiplication Loop Fission
+
+We now consider a matrix multiplication kernel. We want to apply a loop fission to transform the code as follows:
+
+#### Input
 
 ```c
 const int N = 2000;
@@ -69,9 +110,7 @@ void matmat_kernel(double C[N][N], double A[N][N], double B[N][N]) {
   }
 }
 ```
-
-Output
-
+#### Output
 ```c
 const int N = 2000;
 
@@ -91,7 +130,27 @@ void matmat_kernel(double C[N][N], double A[N][N], double B[N][N]) {
   }
 }
 ```
+To achieve this, we apply a loop fission, specifying the point where the fission should occur.
+We also need to indicate the loop nesting level to OptiTrust so that it targets the correct loops.
 
+Here is the script:
+```ocaml
+open Optitrust
+open Prelude
+
+let _ = Flags.check_validity := false
+
+let _ = Run.script_cpp (fun _ ->
+  !! Loop.fission ~nest_of:2 [cForBody "i"; cWrite ~lhs:[cVar "C"] ~rhs:[cDouble 0.] (); tAfter]
+)
+
+```
+Press F5 to see the diff in your browser
+#### Extension 
+We can also flatten the outerloop using 
+```ocaml
+ Loop.collapse [cFor "i"];
+```
 variante: flatten the loops (for k... k <N*N) Loop.collapse
  and use memset to implement as a variant like intro of memcpy using stack_copy_on in matmul demo 
 
@@ -104,15 +163,37 @@ Input
 
 ```c
 const int N = 5000;
-
-void reduction_reinit(double A[N][N], double* sum) { 
-  *sum = 0.;
+\
+void reduction_reinit(double A[N][N], double* sum){
+ *sum = 0
+ double x;
+ x = *sum;
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < N; j++) {
-      *sum += A[i][j];
+      x += A[i][j];
       A[i][j] = 0.;
     }
   }
+ *sum = x
+}
+
+
+
+void reduction_reinit(double A[N][N], double* sum) { 
+ 
+ *sum = 0
+ double x[1][n_cores];
+ x[0] = 0; ??
+  for (int i = 0; i < N; i++) {
+    for (int j = 0; j < N; j++) {
+      x[n_thread] += A[i][j];
+      A[i][j] = 0.;
+    }
+x[myThreadId()] = s
+  
+  }
+  for
+  *sum = 0;
 }
 ```
 
@@ -123,8 +204,10 @@ const int N = 5000;
 
 void reduction_reinit(double A[N][N], double* sum) { 
   *sum = 0.;
-  int sums[nbCores]; // init à zéro
-  #pragma omp parallel 
+  int sums[nbCores];
+   // init à zéro
+  #pragma omp parallel for
+
   for (int i = 0; i < N; i++) {
     int s = 0;
     for (int j = 0; j < N; j++) {
@@ -142,14 +225,31 @@ void reduction_reinit(double A[N][N], double* sum) {
     }
   }
 }
+
+
+void reduction_reinit(double A[N][N], double* sum) {
+ *sum = 0.;
+ #pragma omp parallel
+ for (int i = 0; i < N; i++) {
+  for (int j = 0; j < N; j++) {
+   *sum += A[i][j];
+  }
+ }
+ #pragma omp parallel
+ for (int i = 0; i < N; i++) {
+  for (int j = 0; j < N; j++) {
+   A[i][j] = 0.;
+  }
+ }
+}
 ```
 
 in pic_demo.ml
 ```
-!! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
+!! Matrix.delocalize "x" ~into:"x_of_threads" ~indices:["idCell"; "idCorner"]
       ~init_zero:true ~dim:(var_mut "nbThreads") ~index:"idThread" ~acc_in_place:true ~ops:delocalize_sum ~use:(Some (var "idThread"))
 ```
-
+Delocalize doesn't work -> Variable delocalize is commented, pico_ml delocalize doesn't work because type has changed from string to var
 Version 2: flatten the loops
 
 Version 3: use a memset for the reset instead of the loop
@@ -200,7 +300,7 @@ Intermediate versions:
     }
   }
 }
-
+Est ce que c est des transfos qu on veut faire a la main / par rapport a juste le rajouter dans le  
 // introduce a loop on k restricted to a single iteration
 {
   for (int i = 0; i < N; i++) {
@@ -259,6 +359,7 @@ Intermediate versions:
   }
 }
 ```
-
+Ctrl + F10 run the test in the terminal 
+F10 : repeat last Ctrl + F10
 benchmarking code: http://icps.u-strasbg.fr/people/bastoul/public_html/teaching/parallelisme/codes/tp1_8_polynomial.c
 

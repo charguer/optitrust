@@ -773,6 +773,32 @@ let%transfo stack_copy ~(var : var) ~(copy_var : string) ~(copy_dims : int) (tg 
       end
     )) tg)
 
+  let memset_apply ?(typ:typ option) (t : trm) :trm =
+    let for_error = "Matrix_basic.memset_apply: expected for loop"  in
+    let (range, body, contract) = trm_inv ~error:for_error trm_for_inv t in
+    let seq_error = "Matrix_basic.memset_apply: expected exactly one instr in loop body" in
+    let instr  = trm_inv ~error:seq_error trm_seq_single_inv body  in
+    let aff_error = "Matrix_basic.memset_apply: expected a set operation" in
+    let (lhs,rhs) = trm_inv ~error:aff_error trm_set_inv instr in
+    let arr_error = "Matrix_basic.memset_apply: expected an array affectation" in
+    let (array,dims,indices) = trm_inv ~error:arr_error Matrix_trm.access_inv lhs in
+    let array_typ = match typ with
+      | Some ty -> ty
+      | None ->
+        match array.typ with
+        | Some ty -> get_inner_array_type ty
+        | None -> trm_fail t "Canno't find array type for memset" in
+
+      match (dims,indices) with
+      | (d::l, i::m) ->
+      let { index; start; direction; stop; step } = range in
+      if not (direction = DirUp) then  trm_fail t  "Matrix_basic.memset_apply: expect up direction";
+      if not (trm_is_zero start && trm_is_one step) then trm_fail t "Matrix_basic.memset_apply: expect strart =0 and step = 1";
+      if not (are_same_trm stop d) then  trm_fail t "Matrix_basic.memset_apply: expect stop to match matrix dimension";
+      Matrix_core.matrix_set ~typ:array_typ rhs array dims
+      | _-> trm_fail t "Matrix_basic.memset_apply: not support for 0-dimensional matrices"
+  let%transfo memset (tg:target) : unit =
+  apply_at_target_paths memset_apply tg;;
 let elim_mindex_on_opt (simpl : trm -> trm) (t : trm) : trm option =
   let rec generate_index (acc : trm) (dims : trms) (idxs : trms) : trm =
     match (dims, idxs) with
