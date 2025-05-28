@@ -44,7 +44,7 @@ let matrix_copy ~(typ: typ) (dest: trm) (src: trm) (dims: trm list) : trm =
 
 
 let matrix_set_var nb_dims typ =
-  toplevel_var (sprintf "MATRIX%d_SET_%s" nb_dims (Ast_to_c.typ_to_string typ))
+  toplevel_var (sprintf "MATRIX%d_MEMSET_%s" nb_dims (Ast_to_c.typ_to_string typ))
 let matrix_set ~(typ: typ) (value:trm) (dest: trm) (dims: trm list) : trm=
   let nb_dims = List.length dims in
   let set_var = matrix_set_var nb_dims typ in

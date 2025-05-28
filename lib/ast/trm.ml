@@ -736,7 +736,11 @@ let for_loop_body_trms (t : trm) : trm mlist =
     | _ -> trm_fail body "Ast.for_loop_body_trms: body of a generic loop should be a sequence"
     end
   | _ -> trm_fail t "Ast.for_loop_body_trms: expected a loop"
-
+(** [body_inv t]: Where t is the body of a for loop, checks that the body is a sequence and return its items *)
+  let body_inv (t : trm) : trm mlist =
+    let items,res = trm_inv ~error:"for-loops must have a sequence as body" trm_seq_inv t in
+    if res <> None then trm_fail t "body of for loops must have no result value";
+    items
 (*****************************************************************************)
 
 (** [trm_main_inv_toplevel_defs ast]: returns a list of all toplevel declarations *)
@@ -939,6 +943,18 @@ let trm_fors_inv (nb : int) (t : trm) : ((loop_range * loop_contract) list * trm
       aux (nb - 1) ((range, contract) :: ranges_rev) body
   in
   aux nb [] t
+(* Compute the number of strictly nested for-loops  *)
+let trm_fors_depth (t : trm) : int =
+  let rec aux (acc : int) (t : trm) : int =
+    match trm_for_inv t with
+    | Some (l_range, body, _contract) ->
+      begin match Mlist.to_list (body_inv body)  with
+      | [t_nested] -> aux (acc+1) t_nested
+      | _ -> acc
+    end
+    | _ -> acc
+  in
+  aux 0 t
 
 let trm_ref_inv (t : trm) : (typ * trm) option =
   match trm_apps_inv t with

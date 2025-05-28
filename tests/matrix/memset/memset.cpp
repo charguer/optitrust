@@ -1,9 +1,9 @@
 #include <optitrust.h>
-int test() {
+
+int main() {
   const int N = 1;
   const int M = 3;
   double x[N*M];
-
 
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < M; j++) {
@@ -17,5 +17,6 @@ int test() {
   for (int k = 0; k < N*M; k++) {
     x[MINDEX1(M*N,k)] = 25;
   }
-}
+  // todo : rajouter les erreurs
 
+}
