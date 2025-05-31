@@ -123,10 +123,19 @@ let profile_hpp (profile : string) (output : string) : unit =
 #include <iostream>
 #include <cstdlib>
 #include <fstream>
+#include <sstream>      
 #include <string>
 #include <chrono>
+#include <limits>
+#include <iomanip>
 #include <filesystem>
 
+std::string string_of_double(double value) {
+  std::ostringstream oss;
+  oss << std::setprecision(std::numeric_limits<double>::digits10) << value;
+  return oss.str();      
+}
+      
 class apac_t {
 private:
   std::chrono::high_resolution_clock::time_point begin;
@@ -200,7 +209,7 @@ public:
     if(!profile.is_open())
       throw std::runtime_error(\"Error opening profile!\");
 
-    current.append(std::to_string(timer.elapsed()));
+    current.append(string_of_double(timer.elapsed()));
     current.append(\" }\\n\");
     profile << prefix << current;
     clear();
