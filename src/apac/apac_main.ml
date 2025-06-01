@@ -105,6 +105,11 @@ let compile () : unit =
               nbAny;
               cMark Apac_macros.candidate_body_mark
             ];
+          !? "Annotate the main function with a meta profiling section"
+            Apac_profiling.annotate_main [
+              nbAny;
+              cFunBody !Apac_flags.main
+            ];
           !? "Output profiling source code"
             Apac_parallelization.clear_marks ();
           !? "Compile, run and compute model"

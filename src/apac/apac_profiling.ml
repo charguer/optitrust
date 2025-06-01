@@ -299,6 +299,99 @@ let annotate (tg : target) : unit =
           result
         ) t p) tg
 
+(** [annotate_main tg]: expects the target [tg] to point at the body of the
+    [!Apac_flags.main] function. It then places the body into the meta profiling
+    section [!Apac_macros.profile_section_main]. To this end, the pass surrounds
+    the body with the following additional statements involving the elements of
+    the profiling header [!Apac_macros.profile_hpp]:
+
+    - a declaration of the [!Apac_macros.profile_section_main] profiling section
+      (see [apac_s] in the header),
+    - a call to the initialization method of the profiling section (see
+      [apac_s::initialize] in the header),
+    - a call to the [before] method (see [apac_s::before] in the header)
+      initiating the measurement of the execution time of the underlying
+      statements,
+    - a call to the [after] method (see [apac_s::after] in the header) stopping
+      and recording the measurement of the execution time of the underlying
+      statements.
+
+    For example:
+
+    {[
+    int main() {
+      int * t = init_data(); 
+      c(t, 4);
+      free(t);
+      return 0;
+    }
+    ]}
+
+    translates to:
+      
+    {[
+    int main() {
+      __apac_section_main.initialize("__apac_section_main");
+      __apac_section_main.before();
+      int * t = init_data(); 
+      c(t, 4);
+      free(t);
+      __apac_section_main.after();
+      return 0;
+    ]} *)
+let annotate_main (tg : target) : unit =
+  (** [annotate_main.call c m args]: an auxiliary function to generate a call to
+      a method [m] of the profiling section [c] while passing it [args] as
+      arguments. *)
+  let call (c : var) (m : label) (args : trms) : trm =
+    let f = trm_struct_get (trm_get (trm_var c)) m in
+    trm_apps f args
+  in
+  Target.apply_at_target_paths (fun t ->
+      (** Create a variable for the [!Apac_macros.profile_section_main]
+          section. *)
+      let m = new_var Apac_macros.profile_section_main in
+      (** Declare the section variable. *)
+      let declaration =
+        trm_let_mut (
+            m, Typ.typ_str (Atyp Apac_macros.profile_section_type)
+          ) (trm_uninitialized ())
+      in
+      (** Produce the call to [apac_s::initialize] for the meta profiling section
+          as well as *)
+      let opening =
+        call m Apac_macros.profile_section_init
+          [trm_string Apac_macros.profile_section_main]
+      in
+      (** the call to [apac_s::before] and *)
+      let before =
+        code
+          (Instr
+             (Apac_macros.profile_section_main ^ "." ^
+                Apac_macros.profile_section_before ^
+                  "()"))
+      in
+      (** the call to [apac_s::after]. *)
+      let after =
+        code
+          (Instr
+             (Apac_macros.profile_section_main ^ "." ^
+                Apac_macros.profile_section_after ^
+                  "()"))
+      in
+      (** Deconstruct the body term. *)
+      let error =
+        "Apac_profiling.annotate_main: expected a target to a function body."
+      in
+      let b = trm_inv ~error trm_seq_inv t in
+      (** Surround the original sequence of the body with the meta profiling
+          section terms. *)
+      let b = Mlist.insert_sublist_at 0 [declaration; opening; before] b in
+      let b = Mlist.insert_at ((Mlist.length b) - 1) after b in
+      (** Rebuild the body term and return it. *)
+      trm_seq ~annot:t.annot ~ctx:t.ctx b
+    ) tg
+
 (** [modelize tg]: expects the target [tg] to point at the entire abstract
     syntax tree featuring profiling instructions. It then generates the
     corresponding C source code, compiles it, runs it and modelizes the

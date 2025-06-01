@@ -91,6 +91,10 @@ let profile_section_type : string = "apac_s"
 (** [profile_section_prefix]: variable name prefix for profiling sections. *)
 let profile_section_prefix : string = "__apac_section"
 
+(** [profile_section_main]: variable name for the profiling section
+    corresponding to the main function in the input source code. *)
+let profile_section_main : string = "__apac_section_main"
+
 (** [profile_section_init]: method for initializing profiling sections. *)
 let profile_section_init : string = "initialize"
 

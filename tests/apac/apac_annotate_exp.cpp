@@ -53,8 +53,12 @@ void c(int* tab, int size) {
 }
 
 int main() {
+  apac_s __apac_section_main;
+  __apac_section_main.initialize("__apac_section_main");
+  __apac_section_main.before();
   int* t = (int*)malloc(4 * sizeof(int));
   c(t, 4);
   free(t);
+  __apac_section_main.after();
   return 0;
 }

@@ -34,6 +34,10 @@ let () =
           nbAny;
           cMark Apac_macros.candidate_body_mark
         ];
+      !! Apac_profiling.annotate_main [
+          nbAny;
+          cFunBody !Apac_flags.main
+        ];
       !! Apac_parallelization.clear_marks ();
     );
   Apac_reset.tnt_blast ();
