@@ -296,7 +296,7 @@ Intermediate versions:
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < N; j++) {
       int k = i + j;
-      c[k] += a[i] * b[j];
+      c[i+j] += a[i] * b[j];
     }
   }
 }
@@ -313,7 +313,7 @@ Est ce que c est des transfos qu on veut faire a la main / par rapport a juste l
     }
   }
 }
-// loop reorder, rewrite if-condition
+// loop reorder, rewrite if-condition exist already
 {
   for (int k = 0; k < 2*N+1; k++) {
     for (int i = 0; i < N; i++) {
@@ -329,9 +329,10 @@ Est ce que c est des transfos qu on veut faire a la main / par rapport a juste l
 {
   for (int k = 0; k < 2*N+1; k++) {
     for (int i = 0; i < N; i++) {
-      int j = k-i;
+      int j = k-i; // variable inline
       if (j >= 0 && j < N) {
-        c[k] += a[i] * b[k-i];
+        c[k] += a[i] * b[j];
+        // pourquoi c[j] ???
       }
     }
   }
@@ -351,7 +352,7 @@ Est ce que c est des transfos qu on veut faire a la main / par rapport a juste l
 // work out what is needed to conclude.
 {
   for (int k = 0; k < 2*N+1; k++) {
-    for (int i = max(0,k-N+1); i < max(k,N); i++) {
+    for (int i = max(0,k-N+1); i < min(k,N); i++) {
       if (k-i >= 0 && k-i < N) {
         c[k-i] += a[i] * b[k-i];
       }
