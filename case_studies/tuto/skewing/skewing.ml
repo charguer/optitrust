@@ -47,5 +47,6 @@ let _ =
       !!loop_single [ cVarDefReg "k" ];
       !!extend_range_array_size [ cVarInit "c" ] [ cFor "k" ];
       !!Rewrite.equiv_at
-        "const int i;const int j;const int k ==> (i + j <= k && k < i + j + 1) == (j <= k-i)"
+        "const int i;const int j;const int k ==> (i + j <= k && k < i + j + 1) \
+         == (j <= k-i)"
         [ cIf () ])

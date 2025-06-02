@@ -28,8 +28,7 @@ let elim_loop_single (tg : target) =
 
 let _ =
   Run.script_cpp (fun () ->
-    !!elim_loop_single [cFunBody "main"; cFor "k" ];
-
-   !!Trace.failure_expected
+      !!elim_loop_single [ cFunBody "main"; cFor "k" ];
+      !!Trace.failure_expected
         (fun _e -> true)
-        (fun _ -> elim_loop_single[ cFunBody "main2"; cFor "k" ]))
+        (fun _ -> elim_loop_single [ cFunBody "main2"; cFor "k" ]))

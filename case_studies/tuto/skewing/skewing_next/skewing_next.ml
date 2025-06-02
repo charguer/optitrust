@@ -24,13 +24,13 @@ let if_loop_switch_on (t : trm) : trm =
     {
       index = l_range.index;
       start = r_value;
-      stop = trm_add_int r_value  (trm_int 1) ;
+      stop = trm_add_int r_value (trm_int 1);
       direction = DirUp;
       step = trm_step_one ();
     }
   in
   let new_instrs = Mlist.push_front new_if (Mlist.pop_front instrs) in
-  trm_for new_lrange (trm_seq ?result:res new_instrs) ~contract:contract
+  trm_for new_lrange (trm_seq ?result:res new_instrs) ~contract
 
 let if_loop_switch (tg : target) = apply_at_target_paths if_loop_switch_on tg
 
@@ -50,8 +50,8 @@ let elim_loop_single (tg : target) =
   apply_at_target_paths elim_loop_single_on tg
 
 let _ =
-  Run.script_cpp (fun _ -> Loop.reorder ~order:[ "k"; "i"; "j" ] [ cFor "i" ];
-  if_loop_switch [cFor "j"];
-  elim_loop_single [cFor "j"];
-  Variable.inline [cVarDef "j"];
-  )
+  Run.script_cpp (fun _ ->
+      Loop.reorder ~order:[ "k"; "i"; "j" ] [ cFor "i" ];
+      if_loop_switch [ cFor "j" ];
+      elim_loop_single [ cFor "j" ];
+      Variable.inline [ cVarDef "j" ])
