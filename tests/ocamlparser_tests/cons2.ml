@@ -13,7 +13,7 @@ let into_typed_var ?typ (v : var) =
   | None -> (v, typ_auto)
   | Some t -> (v, t)
 
-let pattern_namespace = "__pattern"
+let pattern_namespace = "Pattern__"
 let pnew_var name = new_var ~namespaces:[pattern_namespace] name
 
 let intro_cons2 (tg : target) : unit =
@@ -56,7 +56,7 @@ let intro_cons2 (tg : target) : unit =
   let trm_from = trm_apps cons [trm_x; trm_apps cons [trm_y; trm_t]] in
   let trm_to = trm_apps cons2 [trm_x; trm_y; trm_t] in
 
-(*   Printf.printf "trm_from : \n";
+   Printf.printf "\ntrm_from : \n";
     (*changed this from (Ast_to_c.default_style ()) to Ast_to_text.default_style*)
     let s = Ast_to_c.default_style () in
     let ast_style = s in
@@ -70,12 +70,12 @@ let intro_cons2 (tg : target) : unit =
     print_string (Ast_to_c.ast_to_string ~style:ast_style trm_to);
 
   Printf.printf "\n";
- *)
+
   let rule =
     {rule_vars; rule_aux_vars = []; rule_from = trm_from; rule_to = trm_to}
   in
   Target.apply_at_target_paths (Rewrite_core.apply_rule_bottom_up ~mark rule) tg
 
 let _ = Run.script_ml (fun () ->
-  !! intro_cons2 []
+  !! intro_cons2 [] (* [nbMulti; dRoot] *) (*I have honestly no idea why this works... is there a link with apply_rule_bottom_up overwriting the actual path? *)
 )

@@ -1701,6 +1701,7 @@ let trm_map_vars_ret_ctx
       (cont_ctx, t')
 
     | Trm_if (cond, then_, else_) -> (*trm_version, so no binding exit*)
+      (*in both the trm and the bbe case, I would want to be able to get a boolean trm as a bbe that does not binding*)
       let cond', vars = bbe_map_and_get_vars ctx cond in
       let cont_then = extend_ctx_with_list_of_vars ctx vars in
       let _, then_' = f_map cont_then then_ in

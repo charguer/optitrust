@@ -21,13 +21,15 @@ let init len f =
   init_aux 0 f
 *)
 
-let rec map f l =
+let v = Cons(3, Cons(2, Nil)) (*should be translated into Cons2(3, 2, Nil)*)
+
+ let rec map f l =
     match l with
-    | Nil when true -> Nil
+    | Nil (* when true *) -> Nil
     | Cons (x, l') -> Cons (f x, map f l')
-    | Cons2 (x, y, l'') -> Cons (f x, Cons (f y, map f l'')) (*transformation should occur here*)
+    | Cons2 (x, y, l'') -> Cons (x, Cons (y, l'')) (*transformation should occur here*)
                      (* -> Cons2 (f x, f y, map f l'')*)
-    | Nil -> Nil
+    (* | Nil -> Nil *)
 (*
 
 let rec iter f l =
