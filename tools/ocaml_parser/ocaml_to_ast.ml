@@ -167,7 +167,7 @@ and tr_expression (u : expression) : trm =
   | Texp_apply (e, l) ->
       tr_apply e l
 
-  | Texp_function {cases} -> (match cases with
+  | Texp_function {cases} -> (match cases with (*add a sequence around the body for everything*)
                             | [{c_lhs; c_rhs}] ->
                               let var = tr_pattern false c_lhs in
                               let expr = aux c_rhs in
@@ -175,9 +175,11 @@ and tr_expression (u : expression) : trm =
                               (* Flatten curried applications as explained at the top of the file *)
                               let body = (match expr.desc with
                                 | Trm_fun (v_list, _typ, body2, _specs) -> trm_fun (var::v_list) typ_auto body2
-                                | _ -> trm_fun [var] typ_auto expr) in
-                                body
-                            | _ -> failwith "More than one case") (*This is not a problem for the moment, think about it later if needed*)
+                                | Trm_seq _ -> trm_fun [var] typ_auto expr
+                                | _ -> trm_fun [var] typ_auto (trm_seq (Mlist.of_list [expr]))) (*added this line because Function_code.beta_reduce_on asks for it*) (*TODO:check with Arthur if this is ok*)
+                              in
+                              body
+                            | _ -> failwith "Trying to translate a function with more than one cases") (*This is not a problem for the moment, think about it later if needed*)
 
     (* (match lbl with
                                 | Nolabel -> (match exp0 with
@@ -271,8 +273,13 @@ let tr_structure_desc (s : structure_item) : trm (* list of trm instead TODO *) 
   *)
   | _ -> failwith "structure not yet translatable"
 
-let tr_structure_list l = List.map (tr_structure_desc) l
-
+let tr_structure_list l =
+  let str_list = List.map (tr_structure_desc) l in
+  List.fold_left
+    (fun acc t -> match trm_seq_inv t with
+      | Some (tl, _) -> acc @ (Mlist.to_list tl)
+      | None -> acc @ [t])
+    [] str_list
 
 (** [tr_ast t]: transalate [t] into OptiTrust AST *)
 let tr_ast (t : ocaml_ast) : trm =
