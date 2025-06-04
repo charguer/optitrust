@@ -55,6 +55,13 @@ let print_backtrace_on_error : bool ref = ref true
 (** [debug_ocaml] is for debugging the ocaml input-output *)
 let debug_ocaml = ref false
 
+(** [dump_as_c] is for printing the ast as c-like code on the standard output during compilation *)
+let dump_as_c = ref false
+
+(** [dump_as_text] is for printing the ast as text code on the standard output during compilation *)
+let dump_as_text = ref false
+
+
 (** [debug_parsing_serialization]: flag to trace operations involving serialization/deserialization of parse trees. *)
 let debug_parsing_serialization = ref false
 

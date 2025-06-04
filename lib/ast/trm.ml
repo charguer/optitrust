@@ -2039,7 +2039,9 @@ let trm_map_vars_ret_ctx
           else trm_my_switch ~annot ?loc ~ctx:b_ctx cases' in (*TODO: see with Arthur the optional arguments, I'm not very convinced on what to propagate*)
 
         (body', switch_vars)
-    | _ -> failwith "Not a core bbe"
+    | _ -> (*in the other cases we just propagate correctly the test, should we test whether or not this is a boolean ? *)
+            let _, body' = f_map ctx b in
+            (body', [])         (* failwith "Not a core bbe" *)
   (**[pattern_map_and_get_vars ctx t]: applies the map inside a pattern and returns the resulting pattern as well as the bound variables*)
   and pattern_map_and_get_vars (ctx : 'ctx) (p : pat) : pat * var list =
     let annot = p.annot in

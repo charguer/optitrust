@@ -189,11 +189,18 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
   (* Possibly perform the decoding *)
   let ast = if !Flags.bypass_cfeatures then Scope_computation.infer_var_ids ast else C_encoding.cfeatures_elim ast in
 
-  if !Flags.debug_ocaml then begin
-    Printf.printf "generated ast : \n";
+  if !Flags.dump_as_c then begin
+    Printf.printf "generated ast as C code : \n";
     let s = Ast_to_c.default_style () in
     let ast_style = s in
     print_string (Ast_to_c.ast_to_string ~style:ast_style ast);
+  end;
+
+  if !Flags.dump_as_text then begin
+    Printf.printf "generated ast as text : \n";
+    let s = {Ast_to_text.default_style with print_var_id = !Flags.debug_var_id} in
+    let ast_style = s in
+    print_string (Ast_to_text.ast_to_string ~style:ast_style ast);
   end;
 
   (* Return the header and the ast *)

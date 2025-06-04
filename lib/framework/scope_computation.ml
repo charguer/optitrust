@@ -130,7 +130,7 @@ let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
     (* If the variable is not found in the current context, it should be a toplevel variable.
        This can be confusing if triggered when not expected.
        In particular if we are inside a namespace, we do not take this into account and consider that the variable has an absolute namespace path. *)
-    | None -> toplevel_var ~namespaces:var.namespaces var.name
+    | None -> toplevel_var ~namespaces:var.namespaces var.name (*the issue is here, I should add the name to the context in fact. So when....*)
   in
   let check_var_id () =
     if failure_allowed then begin

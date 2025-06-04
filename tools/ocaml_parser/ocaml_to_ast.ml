@@ -73,19 +73,23 @@ let rec tr_constant (c : constant) : trm = match c with
   | Const_int64 n -> trm_int (Int64.to_int n)
   | Const_nativeint n -> trm_int (Nativeint.to_int n)
 
-and tr_pattern pat = match pat.pat_desc with
-  | Tpat_var (id, _) -> (name_to_var (Ident.name id), typ_auto)
+and tr_pattern (bind_toplevel : bool) pat = match pat.pat_desc with
+  | Tpat_var (id, _) ->
+    if bind_toplevel then
+      (toplevel_var (Ident.name id), typ_auto)
+    else
+      (name_to_var (Ident.name id), typ_auto)
   | Tpat_any -> failwith "any"
   (*| Tpat_constraint (p, _) -> tr_pattern p*)
   | _ -> failwith "pattern not yet translatable"
 
-and tr_value_binding (vb : value_binding) =
+and tr_value_binding (bind_toplevel : bool) (vb : value_binding) =
   let {vb_pat; vb_expr} = vb in
-  trm_let (tr_pattern vb_pat) (tr_expression vb_expr)
+  trm_let (tr_pattern bind_toplevel vb_pat) (tr_expression vb_expr)
 
 and tr_let_exp (vb_l : value_binding list) (e : expression) : trm =
   let body = tr_expression e in
-  let binding_list = List.map tr_value_binding vb_l in
+  let binding_list = List.map (tr_value_binding false) vb_l in
   let full_list =
     (match body.desc with
     | Trm_seq (l, _) -> binding_list@(Mlist.to_list l)
@@ -165,7 +169,7 @@ and tr_expression (u : expression) : trm =
 
   | Texp_function {cases} -> (match cases with
                             | [{c_lhs; c_rhs}] ->
-                              let var = tr_pattern c_lhs in
+                              let var = tr_pattern false c_lhs in
                               let expr = aux c_rhs in
                               (*TODO : Handle types and specs, types are more important*)
                               (* Flatten curried applications as explained at the top of the file *)
@@ -235,7 +239,7 @@ and tr_constructor_decl (cd : constructor_declaration) : union_constructor =
     union_constructor_args_type = List.map tr_core_type arguments }
 
 and tr_let (vb_l : value_binding list) : trm = (*also change this part to handle seq flattening*)
-  let binding_list = List.map tr_value_binding vb_l in
+  let binding_list = List.map (tr_value_binding true) vb_l in
   trm_seq (Mlist.of_list binding_list)
 
 and tr_type (tl : type_declaration list) : typ =
