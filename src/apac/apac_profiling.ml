@@ -387,7 +387,16 @@ let annotate_main (tg : target) : unit =
       (** Surround the original sequence of the body with the meta profiling
           section terms. *)
       let b = Mlist.insert_sublist_at 0 [declaration; opening; before] b in
-      let b = Mlist.insert_at ((Mlist.length b) - 1) after b in
+      (** If the [l]ast statement of the sequence is a `return' statement, place
+          the call to [apac_s::after] before the latter. *)
+      let i = (Mlist.length b) - 1 in
+      let l = Mlist.nth b i in
+      let b =
+        if is_return l then
+          Mlist.insert_at i after b
+        else
+          Mlist.push_back after b
+      in
       (** Rebuild the body term and return it. *)
       trm_seq ~annot:t.annot ~ctx:t.ctx b
     ) tg
@@ -411,7 +420,7 @@ let modelize (tg : target) : unit =
       as an argument. *)
   let one (line : string) : int * string =
     let regex = Str.regexp Apac_macros.model_re in
-    if Str.string_match regex line 1 then
+    if Str.string_match regex line 0 then
       let vertex = Str.matched_group 1 line in
       let formula = Str.matched_group 2 line in
       (int_of_string vertex, formula)
