@@ -154,6 +154,23 @@ and tr_case (t : trm) (c_case : computation case) : bbtrm * trm =
 
   (lhs, rhs)
 
+(** [tr_function u] : expects a Texp_function *)
+and tr_function (u : expression) : trm =
+  let rec aux (acc_tvars : typed_vars) (u : expression) : trm =
+    match u.exp_desc with
+    | Texp_function {cases} -> begin
+      match cases with (*add a sequence around the body for everything*)
+        | [{c_lhs; c_rhs}] ->
+          let tvar = tr_pattern false c_lhs in
+          aux (tvar::acc_tvars) c_rhs
+        | _ -> failwith "unsupported function binding pattern"
+      end
+    | _ ->
+      assert (acc_tvars <> []);
+      let body = trm_seq_enforce (tr_expression u) in
+      trm_fun (List.rev acc_tvars) typ_auto body
+  in
+  aux [] u
 
 and tr_expression (u : expression) : trm =
   let aux = tr_expression in
@@ -202,7 +219,10 @@ and tr_expression (u : expression) : trm =
     (match u3 with
     | None -> failwith "else clause not present in if-then-else"
     | Some e ->
-          trm_if (aux u1) (aux u2) (aux e))
+          let t1 = aux u1 in
+          let t2 = trm_seq_enforce (aux u2) in
+          let t3 = trm_seq_enforce (aux e) in
+          trm_if t1 t2 t3)
   | Texp_sequence (u1, u2) ->
     tr_sequence u1 u2
   | _ -> failwith "expression not yet translatable"

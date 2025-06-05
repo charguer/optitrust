@@ -1344,12 +1344,12 @@ let iteri ?(rev : bool = false) (tr : int -> path -> unit) (tg : target) : unit 
   with_stringreprs_available_for [tg] t (fun t ->
 
     if !Flags.debug_ocaml then
-      Printf.printf "testing resolve_target in a call to iteri -- entry ";
+      Printf.printf "testing resolve_target in a call to iteri -- entry \n";
 
     let ps = resolve_target tg t in (*problem here, not finding any corresponding path...*)
 
     if !Flags.debug_ocaml then
-      Printf.printf "testing resolve_target in a call to iteri -- exit ";
+      Printf.printf "testing resolve_target in a call to iteri -- exit \n";
 
     let ps = if rev then List.rev ps else ps in
     match ps with

@@ -1587,6 +1587,11 @@ type var_metadata = trm_annot * location * typ option * ctx
 let empty_var_metadata () =
   trm_annot_default, None, None, unknown_ctx ()
 
+(** [assert_body_is_seq t]: is used to very the AST invariant that bodies are made of sequences *)
+let assert_body_is_seq (t : trm) : unit =
+  assert (trm_seq_inv t <> None)
+
+
 (** Traverse recursively an AST, keeping track of a ctx for resolving names;
     this context evolves when encountering binders or scope enter/exit points;
     returns an extended context for the continuation (e.g. after a let in a sequence)
@@ -1617,6 +1622,8 @@ let empty_var_metadata () =
       The [meta] data is of the form [(annot, loc, typ, t_ctx)] and describes
       the information associated with the [trm_var] (if it is another kind of
       term, the [empty_meta_data] is used, e.g. for handling the "res" of a sequence).
+
+    This function checks the invariant that bodies (functions/loops/then/else) consist of sequences.
       *)
 let trm_map_vars_ret_ctx
   ?(keep_ctx = false)
@@ -1627,6 +1634,14 @@ let trm_map_vars_ret_ctx
   ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, bind))
   (map_var: 'ctx -> var_metadata -> var -> trm)
   (ctx: 'ctx) (t: trm): 'ctx * trm =
+
+
+  Printf.printf "Calling trm_map_vars_ret_ctx on : \n";
+  let s = {Ast_to_text.default_style with print_var_id = true} in
+  let ast_style = s in
+  print_string (Ast_to_text.ast_to_string ~style:ast_style t);
+  Printf.printf "\n";
+
   let rec f_map (ctx:'ctx) (t:trm): 'ctx * trm =
     let annot = t.annot in
     let errors = t.errors in
@@ -1702,6 +1717,8 @@ let trm_map_vars_ret_ctx
 
     | Trm_if (cond, then_, else_) -> (*trm_version, so no binding exit*)
       (*in both the trm and the bbe case, I would want to be able to get a boolean trm as a bbe that does not binding*)
+      assert_body_is_seq then_;
+      assert_body_is_seq else_;
       let cond', vars = bbe_map_and_get_vars ctx cond in
       let cont_then = extend_ctx_with_list_of_vars ctx vars in
       let _, then_' = f_map cont_then then_ in
@@ -1714,6 +1731,7 @@ let trm_map_vars_ret_ctx
       (ctx, t')
 
       | Trm_for (range, body, contract) ->
+      assert_body_is_seq body;
       let loop_ctx, index = map_binder (enter_scope ctx t) range.index false in
       let _, start = f_map loop_ctx range.start in
       let _, stop = f_map loop_ctx range.stop in
@@ -1732,6 +1750,7 @@ let trm_map_vars_ret_ctx
       (ctx, t')
 
     | Trm_for_c (init, cond, step, body, invariant) ->
+      assert_body_is_seq body;
       let loop_ctx, init' = f_map (enter_scope ctx t) init in
       let loop_ctx, invariant' = match invariant with
       | None -> (loop_ctx, None)
@@ -1751,6 +1770,17 @@ let trm_map_vars_ret_ctx
       (ctx, t')
 
     | Trm_fun (args, ret, body, contract) ->
+
+      Printf.printf "Trying to assert seq of this body : \n";
+      let s = {Ast_to_text.default_style with print_var_id = true} in
+      let ast_style = s in
+      print_string (Ast_to_text.ast_to_string ~style:ast_style body);
+      Printf.printf "\n";
+
+      assert_body_is_seq body;
+
+      Printf.printf "Verification worked. \n";
+
       let _, ret' = f_map ctx ret in
       let body_ctx, args' = List.fold_left_map (fun ctx typ_arg ->
         let arg, typ = typ_arg in

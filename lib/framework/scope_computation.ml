@@ -423,7 +423,10 @@ let rename_vars_if_needed (t : trm) (renames : string Var_map.t) =
     If variable names would not have resolved to the IDs already stored in the ast,
     then the variables are renamed (see ctx.renames). This situation can happen
     for example if unrolling a loop, a variable bound inside the loop now has
-    multiple occurrences with the same name, which is problematic as shadowing is disallowed.*)
+    multiple occurrences with the same name, which is problematic as shadowing is disallowed.
+
+    This function checks the invariant that bodies (functions/loops/then/else) consist of sequences.
+    *)
 let infer_var_ids ?(failure_allowed = true) ?(check_uniqueness = not failure_allowed) (t : trm) : trm =
   let ctx, t2 = trm_rename_vars_ret_ctx ~keep_ctx:true
     ~enter_scope:(enter_scope (fun ctx binder predecl -> fst (infer_map_binder ~failure_allowed ctx binder predecl)))

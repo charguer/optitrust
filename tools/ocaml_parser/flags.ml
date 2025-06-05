@@ -3,7 +3,7 @@ open Optitrust_utils
 let verbose = ref false
 let force = ref false
 let show = ref false
-let dump_ocaml_ast = ref true (*TODO : put at as an option string ref, and give the file name as argument of the flag*)
+let dump_ocaml_ast = ref false (*TODO : put at as an option string ref, and give the file name as argument of the flag*)
 
 (** [spec]: possible command line arguments. *)
 let spec : (string * Arg.spec * string) list = [
