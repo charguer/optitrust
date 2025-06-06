@@ -64,6 +64,31 @@ a single Trm_fun in OptiTrust.
 
 type ocaml_ast = Typedtree.implementation
 
+let var_counter : int ref = ref 0
+let fresh_res_variable () =
+  let var_name = "__res" ^ (Int.to_string !var_counter) in
+  incr var_counter;
+  var_name
+
+(**[binds_seq t]: adds a bound variable at the end of the sequence to satisfy the ast invariants. Should only be called after [trm_seq_enforce] *)
+let binds_seq (t : trm) : trm =
+  match trm_seq_inv t with
+  | Some (tl, _) ->
+    let tail =
+      begin match Mlist.last tl with
+        | Some tail -> tail
+        | None -> failwith "Ocaml_to_ast.binds_seq : the given argument is an empty sequence of elements"
+      end
+    in
+    let tl = Mlist.pop_back tl in
+    let result = name_to_var (fresh_res_variable ()) in
+    let tail' = trm_let (result, typ_auto) tail in
+    let tl = Mlist.push_back tail' tl in(*
+    let tl = Mlist.push_back (trm_var result) tl in *)
+    trm_seq ~result tl (*TODO: check this together*)
+  | None -> failwith "Ocaml_to_ast.binds_seq : the given arguments is not a sequence"
+
+
 let rec tr_constant (c : constant) : trm = match c with
   | Const_int n -> trm_int n
   | Const_char c -> trm_string (Char.escaped c)
@@ -90,7 +115,7 @@ and tr_value_binding (bind_toplevel : bool) (vb : value_binding) =
 and tr_let_exp (vb_l : value_binding list) (e : expression) : trm =
   let body = tr_expression e in
   let binding_list = List.map (tr_value_binding false) vb_l in
-  let full_list =
+  let full_list = (*TODO: change this code to match on the expression and not on the translated term. Just like what is done in the [tr_function] function's code*)
     (match body.desc with
     | Trm_seq (l, _) -> binding_list@(Mlist.to_list l)
     | _ -> binding_list@[body]) in
@@ -101,7 +126,7 @@ and tr_apply (e : expression) (l : ('a * (expression option)) list) : trm =
   let t = tr_expression e in
   let args = (List.map (fun x -> let (_,e) = x in (match e with | Some e -> tr_expression e | _ -> failwith "None")) l) in
   (* Flatten curried applications as explained at the top of the file *)
-  let body = (match t.desc with
+  let body = (match t.desc with (*TODO: change this code to match on the expression and not on the translated term. Just like what is done in the [tr_function] function's code*)
     | Trm_apps (t1, t2, _) -> trm_apps t1 (t2@args)
     | _ -> trm_apps t args ) in
 
@@ -168,41 +193,36 @@ and tr_function (u : expression) : trm =
     | _ ->
       assert (acc_tvars <> []);
       let body = trm_seq_enforce (tr_expression u) in
-      trm_fun (List.rev acc_tvars) typ_auto body
+      let body' = binds_seq body in
+      trm_fun (List.rev acc_tvars) typ_auto body'
   in
   aux [] u
+
+and recognize_builtin_function (s : string) : trm option = (*TODO: handle all the cases*)
+  match s with
+  | "+" -> Some (trm_binop typ_int Binop_add)
+  | _ -> None
 
 and tr_expression (u : expression) : trm =
   let aux = tr_expression in
   match u.exp_desc with
-  | Texp_ident (_, l, _) -> (match l.txt with
-                     | Lident s -> trm_var (name_to_var s)
-                     | Ldot _ -> failwith "Ldot"
-                     | Lapply _ -> failwith "Lapply")
+  | Texp_ident (_, l, _) ->
+    begin match l.txt with
+    | Lident s ->
+      begin match recognize_builtin_function s with
+      | Some t -> t
+      | None -> trm_var (name_to_var s)
+    end
+    | Ldot _ -> failwith "Ldot"
+    | Lapply _ -> failwith "Lapply"
+    end
   | Texp_constant c -> tr_constant c
   | Texp_let (_, vb_l, e) -> tr_let_exp vb_l e
   | Texp_apply (e, l) ->
       tr_apply e l
 
-  | Texp_function {cases} -> (match cases with (*add a sequence around the body for everything*)
-                            | [{c_lhs; c_rhs}] ->
-                              let var = tr_pattern false c_lhs in
-                              let expr = aux c_rhs in
-                              (*TODO : Handle types and specs, types are more important*)
-                              (* Flatten curried applications as explained at the top of the file *)
-                              let body = (match expr.desc with
-                                | Trm_fun (v_list, _typ, body2, _specs) -> trm_fun (var::v_list) typ_auto body2
-                                | Trm_seq _ -> trm_fun [var] typ_auto expr
-                                | _ -> trm_fun [var] typ_auto (trm_seq (Mlist.of_list [expr]))) (*added this line because Function_code.beta_reduce_on asks for it*) (*TODO:check with Arthur if this is ok*)
-                              in
-                              body
-                            | _ -> failwith "Trying to translate a function with more than one cases") (*This is not a problem for the moment, think about it later if needed*)
-
-    (* (match lbl with
-                                | Nolabel -> (match exp0 with
-                                              | None -> trm_fun [(tr_pattern pat)] typ_auto (aux e)
-                                              | _ -> failwith "   ")
-                                | _ -> failwith "  ") *)
+  | Texp_function {cases} ->
+    tr_function u
   | Texp_match (u, cases, _) ->
     let t = aux u in
     (*List.map of the cases. Maybe add u as argument to tell it what to put on the left. It takes the computational cases. Look at what the ocaml ast looks like in case*)
@@ -221,8 +241,10 @@ and tr_expression (u : expression) : trm =
     | Some e ->
           let t1 = aux u1 in
           let t2 = trm_seq_enforce (aux u2) in
+          let t2' = binds_seq t2 in
           let t3 = trm_seq_enforce (aux e) in
-          trm_if t1 t2 t3)
+          let t3' = binds_seq t3 in
+          trm_if t1 t2' t3')
   | Texp_sequence (u1, u2) ->
     tr_sequence u1 u2
   | _ -> failwith "expression not yet translatable"
