@@ -80,12 +80,20 @@ let binds_seq (t : trm) : trm =
         | None -> failwith "Ocaml_to_ast.binds_seq : the given argument is an empty sequence of elements"
       end
     in
+
     let tl = Mlist.pop_back tl in
-    let result = name_to_var (fresh_res_variable ()) in
-    let tail' = trm_let (result, typ_auto) tail in
-    let tl = Mlist.push_back tail' tl in(*
-    let tl = Mlist.push_back (trm_var result) tl in *)
-    trm_seq ~result tl (*TODO: check this together*)
+
+    let body' =
+      begin match trm_var_inv tail with
+        | Some v -> trm_seq ~result:v tl
+        | None ->
+          let result = name_to_var (fresh_res_variable ()) in
+          let tail' = trm_let (result, typ_auto) tail in
+          let tl = Mlist.push_back tail' tl in
+          trm_seq ~result tl (*TODO: check this together*)
+      end
+    in
+    body'
   | None -> failwith "Ocaml_to_ast.binds_seq : the given arguments is not a sequence"
 
 
@@ -201,6 +209,17 @@ and tr_function (u : expression) : trm =
 and recognize_builtin_function (s : string) : trm option = (*TODO: handle all the cases*)
   match s with
   | "+" -> Some (trm_binop typ_int Binop_add)
+  | "-" -> Some (trm_binop typ_int Binop_sub)
+  | "*" -> Some (trm_binop typ_int Binop_mul)
+  | "+." -> Some (trm_binop typ_f32 Binop_add)
+  | "-." -> Some (trm_binop typ_f32 Binop_sub)
+  | "*." -> Some (trm_binop typ_f32 Binop_mul)
+  | "<" ->  Some (trm_binop typ_int Binop_lt)
+  | ">" ->  Some (trm_binop typ_int Binop_gt)
+  | "<=" ->  Some (trm_binop typ_int Binop_le)
+  | ">=" ->  Some (trm_binop typ_int Binop_ge)
+  | "=" ->  Some (trm_binop typ_int Binop_eq)
+  | "<>" ->  Some (trm_binop typ_int Binop_neq)
   | _ -> None
 
 and tr_expression (u : expression) : trm =
@@ -236,15 +255,16 @@ and tr_expression (u : expression) : trm =
     let args = List.map tr_expression args in
     trm_apps constr args
   | Texp_ifthenelse (u1, u2, u3) ->
-    (match u3 with
-    | None -> failwith "else clause not present in if-then-else"
-    | Some e ->
-          let t1 = aux u1 in
-          let t2 = trm_seq_enforce (aux u2) in
-          let t2' = binds_seq t2 in
-          let t3 = trm_seq_enforce (aux e) in
-          let t3' = binds_seq t3 in
-          trm_if t1 t2' t3')
+    begin match u3 with
+      | None -> failwith "else clause not present in if-then-else"
+      | Some e ->
+            let t1 = aux u1 in
+            let t2 = trm_seq_enforce (aux u2) in
+            let t2' = binds_seq t2 in
+            let t3 = trm_seq_enforce (aux e) in
+            let t3' = binds_seq t3 in
+            trm_if t1 t2' t3'
+    end
   | Texp_sequence (u1, u2) ->
     tr_sequence u1 u2
   | _ -> failwith "expression not yet translatable"
