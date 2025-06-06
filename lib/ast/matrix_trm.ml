@@ -3,6 +3,7 @@ open Trm
 open Typ
 
 let max_nb_dims = 4
+(** TODO : MINDEX and MINDEX INV warning when overflow*)
 
 let toplevel_var_with_dim name_pattern =
   let vars = Array.init (max_nb_dims + 1) (fun n -> toplevel_var (sprintf name_pattern n)) in
@@ -25,7 +26,7 @@ let mindex_var_inv = toplevel_var_with_dim_inv mindex_var
 (** [mindex dims indices]: builds a call to the macro MINDEX(dims, indices)
     [dims] - dimensions of the matrix access,
     [indices ] - indices of the matrix access.
-
+    [dims] and [indices] must have same length
      Example:
      MINDEXN(N1,N2,N3,i1,i2,i3) = i1 * N2 * N3 + i2 * N3 + i3
      Here, dims = [N1, N2, N3] and indices = [i1, i2, i3]. *)
@@ -35,7 +36,9 @@ let mindex (dims : trms) (indices : trms) : trm =
   let n = List.length dims in
   trm_apps (trm_var (mindex_var n)) (dims @ indices)
 
-(** [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t] *)
+(** [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t]
+Guarranted that [dims] and [indices] have the same length*)
+
 let mindex_inv (t : trm) : (trms * trms) option =
   match t.desc with
   | Trm_apps (f, dims_and_indices, _, _) ->
