@@ -12,7 +12,6 @@
 # Any other line will use the 'open_in_browser.sh' script,
 # which is the one that OptiTrust tasks rely upon.
 
-
 FILE=$1
 LINE=$2
 
@@ -45,19 +44,20 @@ elif [ "${LINE}" = "4" ]; then
   echo "LINE=4, thus trying to open test page using xdg-open"
   echo "Command is 'xdg-open ${URL}'"
   xdg-open ${URL}
+  # Trouble observed: works fine in VSCode terminal, but not when executed as a task
 
 elif [ "${LINE}" = "5" ]; then
 
   echo "LINE=5, thus trying to open test page using open_in_browser.sh specifying chromium as browser"
-  export OPTITRUST_BROWSER="chromium"
-  echo "Command is 'OPTITRUST_BROWSER=\"chromium\" tools/open_in_browser.sh ${URL} test'"
-  tools/open_in_browser.sh ${URL} test
+  export OPTITRUST_BROWSER="firefox"
+  echo "Command is: OPTITRUST_BROWSER=\"firefox\" tools/open_in_browser.sh ${URL} \"The OptiTrust test page\""
+  tools/open_in_browser.sh ${URL} "The OptiTrust test page"
 
 else
 
   echo "LINE>5, thus trying to execute script open_in_browser.sh"
-  echo "Command is 'tools/open_in_browser.sh ${URL} test'"
-  tools/open_in_browser.sh ${URL} test
+  echo "Command is: tools/open_in_browser.sh ${URL} \"The OptiTrust test page\""
+  tools/open_in_browser.sh ${URL} "The OptiTrust test page"
 
 fi
 
