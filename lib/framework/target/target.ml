@@ -1343,13 +1343,15 @@ let iteri ?(rev : bool = false) (tr : int -> path -> unit) (tg : target) : unit 
   let t = Trace.ast() in
   with_stringreprs_available_for [tg] t (fun t ->
 
-    if !Flags.debug_ocaml then
+    if !Flags.debug_ocaml then begin
       Printf.printf "testing resolve_target in a call to iteri -- entry \n";
+    end;
 
     let ps = resolve_target tg t in (*problem here, not finding any corresponding path...*)
 
-    if !Flags.debug_ocaml then
+    if !Flags.debug_ocaml then begin
       Printf.printf "testing resolve_target in a call to iteri -- exit \n";
+    end;
 
     let ps = if rev then List.rev ps else ps in
     match ps with
@@ -1555,7 +1557,7 @@ let get_relative_type (tg : target) : target_relative option =
     Should only be called by transformations that do not change type definitions.
     There is an optimization for reparsing only top-level functions that are
     involved in the path targeted by the target [tg]; LATER: should deactivate
-    this for transformations that make global changes beyond the targetd functions *)
+    this for transformations that make global changes beyond the targeted functions *)
 (* TODO: change strategy for reparse, probably based on missing types?
    else on annotations added by clangml but cleared by smart-constructors
    TODO URGENT: the resolve_target does not work with the new Dir_before system *)

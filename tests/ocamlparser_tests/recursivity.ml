@@ -13,6 +13,8 @@ let _ = Flags.debug_var_id := true
 
 let _ = Flags.c_parser_name := "Ocaml_parser"
 
+let _ = Flags.debug_ocaml := false
+
 let _ = Run.script_ml (fun () ->
-  !! Function.inline [nbMulti; cCall "multiply"];
+  !! Function.inline [nbMulti; cCall "fact"];
 )

@@ -72,6 +72,15 @@ let change_binding (x: var) (f_bind: typ -> trm -> trm) (instrs: trm Mlist.t): t
   This function does not really perform the inlining, but return a 'nobrace' sequence.
 *)
 let elim_inside_let ?(mark_result: mark = no_mark) (t: trm) : trm =
+
+  if !Flags.debug_ocaml then begin
+    Printf.printf "Calling elim_inside_let on : \n";
+    let s = {Ast_to_text.default_style with print_var_id = true} in
+    let ast_style = s in
+    print_string (Ast_to_text.ast_to_string ~style:ast_style t);
+    Printf.printf "\n end. \n";
+  end;
+
   Pattern.pattern_match t [
     Pattern.(trm_let !__ !__ (trm_seq !__ (some !__))) (fun x ty instrs seqres () ->
       trm_pass_labels t (trm_seq_nobrace (change_binding seqres (fun tyres resexpr ->

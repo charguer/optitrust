@@ -2,6 +2,9 @@ open Ast
 open Typ
 open Contextualized_error
 
+(**[debug_ast]: a flag used to print debugging informations, TODO: find a more fitting place*)
+let debug_ast : bool ref = ref false
+
 (* **************************** Referent *************************** *)
 
 (** [trm_find_referent t]: returns the referent of trm [t], transitively.
@@ -82,6 +85,7 @@ let trm_lit ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (l : lit) : 
 
 let trm_unit ?(loc) () : trm =
   trm_lit ?loc Lit_unit
+
 let trm_bool ?(loc) (b : bool) =
   trm_lit ?loc (Lit_bool b)
 (* LATER: allow arbitrary sized integer types/values *)
@@ -143,6 +147,9 @@ let trm_if ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(typ : typ o
 let trm_seq ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(result: var option) ?(typ: typ option)
   (tl : trm mlist) : trm =
   trm_make ~annot ?loc ?typ:(if Option.is_none result then Some typ_unit else typ) ?ctx (Trm_seq (tl, result))
+
+let trm_seq_unit ?(loc) () : trm =
+  trm_seq ?loc (Mlist.of_list [trm_unit ()])
 
 (** [trm_seq_nomarks ~annot ?loc ?ctx tl]: like [trm_seq] but takes
    a list as arguments --LATER: use it everywhere it should instead of
@@ -1635,12 +1642,13 @@ let trm_map_vars_ret_ctx
   (map_var: 'ctx -> var_metadata -> var -> trm)
   (ctx: 'ctx) (t: trm): 'ctx * trm =
 
-
-  Printf.printf "Calling trm_map_vars_ret_ctx on : \n";
-  let s = {Ast_to_text.default_style with print_var_id = true} in
-  let ast_style = s in
-  print_string (Ast_to_text.ast_to_string ~style:ast_style t);
-  Printf.printf "\n";
+  if !debug_ast then begin
+    Printf.printf "Calling trm_map_vars_ret_ctx on : \n";
+    let s = {Ast_to_text.default_style with print_var_id = true} in
+    let ast_style = s in
+    print_string (Ast_to_text.ast_to_string ~style:ast_style t);
+    Printf.printf "\n end. \n";
+  end;
 
   let rec f_map (ctx:'ctx) (t:trm): 'ctx * trm =
     let annot = t.annot in
@@ -1771,15 +1779,19 @@ let trm_map_vars_ret_ctx
 
     | Trm_fun (args, ret, body, contract) ->
 
-      Printf.printf "Trying to assert seq of this body : \n";
-      let s = {Ast_to_text.default_style with print_var_id = true} in
-      let ast_style = s in
-      print_string (Ast_to_text.ast_to_string ~style:ast_style body);
-      Printf.printf "\n";
+      if !debug_ast then begin
+        Printf.printf "Trying to assert seq of this body : \n";
+        let s = {Ast_to_text.default_style with print_var_id = true} in
+        let ast_style = s in
+        print_string (Ast_to_text.ast_to_string ~style:ast_style body);
+        Printf.printf "\n end. \n";
+      end;
 
       assert_body_is_seq body;
 
-      Printf.printf "Verification worked. \n";
+      if !debug_ast then begin
+        Printf.printf "Verification worked. \n";
+      end;
 
       let _, ret' = f_map ctx ret in
       let body_ctx, args' = List.fold_left_map (fun ctx typ_arg ->
@@ -2173,6 +2185,15 @@ let trm_rename_vars_ret_ctx
   ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> ctx, map_var ctx bind)
   ?(map_ghost_arg_name: 'ctx -> trm -> var -> var = fun ctx _ g -> map_var ctx g)
   (ctx: 'ctx) (t: trm): 'ctx * trm =
+
+  if !debug_ast then begin
+    Printf.printf "Calling trm_map_vars_ret_ctx from trm_rename_vars_ret_ctx on : \n";
+    let s = {Ast_to_text.default_style with print_var_id = true} in
+    let ast_style = s in
+    print_string (Ast_to_text.ast_to_string ~style:ast_style t);
+    Printf.printf "\n end. \n";
+  end;
+
   trm_map_vars_ret_ctx ~keep_ctx ~enter_scope ~exit_scope ~post_process:(fun ctx t ->
     match t.desc with
     | Trm_apps (fn, args, ghost_args) when ghost_args <> [] ->
@@ -2638,7 +2659,7 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
         if f_pred f then begin
           t_map := Var_map.add f t !t_map;
           (* replace the body with an empty body with an annotation *)
-          let t2 = trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_unit ()) in
+          let t2 = trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_seq_unit ()) in
           trm_add_cstyle BodyHiddenForLightDiff t2
         end else
           t
