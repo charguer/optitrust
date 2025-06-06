@@ -1,6 +1,12 @@
+#!/bin/bash
+
 # This script opens ${URL} in a fresh browser, unless a windows
 # with title ${WINDOWTITLE} already exists, in which case this window
 # in brought to the front and its contents is refreshed.
+
+# If you want to use a specific browser, include a line in your ~/.bashrc such as:
+#    export OPTITRUST_BROWSER=firefox
+
 
 URL=$1
 WINDOWTITLE=$2
@@ -12,16 +18,25 @@ msg() {
 
 # SELECT BROWSER
 # The fastest browser is one already loaded:
-# honor the user defaults unless explicitly asked otherwise
+# honor the user defaults unless explicitly asked otherwise.
+  # Disclaimer: xdg-open does not always work from vscode tasks, hence we don't use it.
 if [ -z "${OPTITRUST_BROWSER}" ]; then
 
-  if [ -n "${BROWSER}" ]; then
-    OPTITRUST_BROWSER="${BROWSER}"
+  if command -v chromium >/dev/null 2>&1; then
+      OPTITRUST_BROWSER="chromium"
+  elif command -v google-chrome >/dev/null 2>&1; then
+      OPTITRUST_BROWSER="google-chrome"
+  elif command -v google-chrome-stable >/dev/null 2>&1; then
+      OPTITRUST_BROWSER="google-chrome-stable"
+  elif command -v firefox >/dev/null 2>&1; then
+      OPTITRUST_BROWSER="firefox"
+  elif [ -n "${BROWSER}" ]; then
+      OPTITRUST_BROWSER="${BROWSER}"
   else
-    OPTITRUST_BROWSER="xdg-open"
-    # apparently xdg-open does not work on Ubuntu due issues with snap
-    # FIX: ask Ubuntu users to define OPTITRUST_BROWSER or BROWSER in their environment
+      echo "No browser found, please install chromium or firefox, or set an environment variable e.g. 'export OPTITRUST_BROWSER=firefox'"
+      exit 1
   fi
+
 fi
 
 msg "Using OPTITRUST_BROWSER=${OPTITRUST_BROWSER}"
@@ -30,19 +45,23 @@ msg "Using OPTITRUST_BROWSER=${OPTITRUST_BROWSER}"
 
 # WINDOWTITLE=""
 
+# TODO: refactor code to factorize the default action.
+
 if [ -z "${WINDOWTITLE}" ]; then
 
     msg "No title provided. Launching a fresh browser."
     ## Launch fresh browser
     nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1
 
-else
-  msg "Searching for an existing brower session."
+elif [ "$XDG_SESSION_TYPE" = "x11" ] && command -v xdotool >/dev/null; then
+
+  msg "Searching for an existing brower session with name '${WINDOWTITLE}' using xdotool on x11."
 
   WID=`xdotool search --name "${WINDOWTITLE}" | head -1`
+  # WID="" # skipping
 
   if [ -n "${WID}" ]; then
-    msg "Existing brower session found, using xdotool to bring it up."
+    msg "Existing brower session found (wid=${WID}), using xdotool to bring it up."
 
     # Immediately brings the window to the front
     # echo ${WID}
@@ -53,10 +72,16 @@ else
 
   else
 
-    msg "No session found. Lauching fresh browser"
+    msg "No existing browser session found. Lauching fresh browser."
     ## Launch fresh browser
     nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1
 
   fi
+
+else
+
+  msg "Launching a fresh browser. (xdotool is not available, or wayland is not deactivated)."
+  ## Launch fresh browser
+  nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1
 
 fi
