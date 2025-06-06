@@ -131,6 +131,7 @@ module StringSet = Set.Make(String)
 
   Action 'compile'
   ==============
+  This action is used to check that expected output files compile using `gcc`.
   Note: arguments to provide are the .ml file, even though the _exp.cpp files are compiled.
     // LATER: we could accept _exp.cpp files
   The files listed in 'tests/ignore_for_compile.tests' are ignored.

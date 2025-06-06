@@ -5,12 +5,14 @@ open Printf
 open Optitrust
 
 let debug = false
-let verbose = false
+let verbose = true
 
 (* let input_doc_folder = "_build/default/_doc/_html/optitrust/Optitrust/" *)
-let path_to_doc_folder = "_doc/optitrust/Optitrust/"
+let path_to_doc_folder = "_doc/optitrust/Optitrust_transfo"
 let path_to_doc_root = "../../../"
 let path_from_doc_to_project_root = "../../../../"
+let path_to_list_of_doc_files_with_doc_tests = "_doc/list_of_doc_files_with_doc_tests.js"
+let path_to_index = "_doc/index.html"
 
 let tmp_file = Filename.temp_file "ocaml_excerpt" ".txt"
 
@@ -22,6 +24,8 @@ let do_or_die (cmd : string) : unit =
     failwith (sprintf "command '%s' failed with exit code '%i'" cmd exit_code)
 
 type test_map = (string * string) list
+
+
 
 let compute_test_map () : test_map =
   (* NOTE: module prefix and excluding with_lines.ml seems no longer needed: -name '%s*_doc.ml' -and -not -name '*_with_lines.ml' *)
@@ -76,28 +80,35 @@ let insert_contents_for_test (test_name: string) (test_path: string) (target_div
   end
 
 
-let process_spec (prefix : string) (deprecated_suffix : string) (test_map : test_map) (spec : 'a node) : unit =
+(* Process a test and return a boolean indicating whether a test could be inserted in the documentation *)
+let process_spec (prefix : string) (deprecated_suffix : string) (test_map : test_map) (spec : 'a node) : bool =
   let id = spec $ ".anchored" |> id |> Option.get in
   let name = String.sub id 4 (String.length id - 4) in (* Remove the 'val-' prefix *)
   let test_name = prefix ^ name in (* e.g. variable_inline *)
-  if verbose then Printf.printf "Reached documentation for %s --> " test_name;
+  (* if verbose then Printf.printf "Reached documentation for %s --> " test_name; *)
   match List.assoc_opt (test_name ^ deprecated_suffix) test_map with
-  | None -> if verbose then Printf.printf "Not found\n"; ()
+  | None -> if verbose then Printf.printf "Searching %s --> Not found\n" test_name; false
   | Some path ->
-      if verbose then Printf.printf "Found\n";
+      if verbose then Printf.printf "Searching %s --> Found\n" test_name;
       (* Generate a div with class "doc-unit-test" *)
       let div = create_element ~classes:["doc-unit-test"] "div" in
       append_child spec div;
-      insert_contents_for_test test_name path div
+      insert_contents_for_test test_name path div;
+      true
 
-let process_specs (current_module_lowercase) (test_map : test_map) (soup : 'a node) : unit =
+(* Process a module and return a boolean indicating the number of tests inserted in the documentation *)
+let process_specs (current_module_lowercase) (test_map : test_map) (soup : 'a node) : int =
   (* String.lowercase_ascii *)
   let (prefix, deprecated_suffix) =
     if String.ends_with ~suffix:"_basic" current_module_lowercase
-    then (String.sub current_module_lowercase 0 (String.length current_module_lowercase - (String.length "basic")), "_basic") (* DEPRECATED _basic case *)
-    else (current_module_lowercase ^ "_", "")
-  in
-  soup $$ ".odoc-spec" |> iter (process_spec prefix deprecated_suffix test_map)
+      then (String.sub current_module_lowercase 0 (String.length current_module_lowercase - (String.length "basic")), "_basic") (* DEPRECATED _basic case *)
+      else (current_module_lowercase ^ "_", "")
+    in
+  let nb_insertion = ref 0 in
+  soup $$ ".odoc-spec" |> iter (fun spec ->
+    let success = process_spec prefix deprecated_suffix test_map spec in
+    if success then incr nb_insertion);
+  !nb_insertion
 
 let parse_html (html_path : string) : soup node =
   let c = open_in html_path in
@@ -128,21 +139,46 @@ let insert_headers (soup : 'a node) : unit =
     let defs = parse headers in
     append_child head defs)
 
-let process_documentation (current_module_lowercase : string) (test_map : test_map) : unit =
-  let html_path = sprintf "%s/%s/index.html" path_to_doc_folder (String.capitalize_ascii current_module_lowercase) in
+(* Process a module and return a boolean indicating the number of tests inserted in the documentation *)
+let process_documentation (html_path : string) (current_module_lowercase : string) (test_map : test_map) : int =
   let soup = parse_html html_path in (* FOR TESTS: "odoc_spec.html" *)
   insert_headers soup;
-  process_specs current_module_lowercase test_map soup;
+  let nb_insertions = process_specs current_module_lowercase test_map soup in
   (* TODO: backup option *)
-  write_html soup html_path (* FOR TESTS: "odoc_spec_after.html" *)
+  write_html soup html_path; (* FOR TESTS: "odoc_spec_after.html" *)
+  nb_insertions
 
 let _ =
   let test_map = compute_test_map () in
 
-  do_or_die (sprintf "find src/transfo -name '*.ml' > %s" tmp_file);
+  do_or_die (sprintf "find lib/transfo -name '*.ml' > %s" tmp_file);
+
+  let doc_files_with_tests = ref [] in
   File.get_lines tmp_file |> List.iter (fun module_src ->
     let current_module_lowercase = Filename.remove_extension (Filename.basename module_src) in
     if verbose then Printf.printf "-- Processing '%s'\n" current_module_lowercase;
-    process_documentation current_module_lowercase test_map
-  )
+    let html_path = sprintf "%s/%s/index.html" path_to_doc_folder (String.capitalize_ascii current_module_lowercase) in
+    let nb_insertions = process_documentation html_path current_module_lowercase test_map in
+    if nb_insertions > 0 then doc_files_with_tests := html_path :: !doc_files_with_tests;
+  );
+  if verbose then Printf.printf "-- Processing Completed\n";
+
+  (* Prepare JS file listing modified files *)
+  let js_doc_with_tests = "var list_of_doc_files_with_doc_tests = {" :: List.rev ("};" :: List.map (fun s -> sprintf "\"%s\"," s) !doc_files_with_tests) in
+  File.put_lines path_to_list_of_doc_files_with_doc_tests js_doc_with_tests;
+  doc_files_with_tests := List.rev !doc_files_with_tests;
+  if verbose then Printf.printf "-- Wrote %s\n" path_to_list_of_doc_files_with_doc_tests;
+
+  (* Update the main index file with direct links to transfos *)
+  ignore (Sys.command ("chmod +w " ^ path_to_index));
+  let soup = parse_html path_to_index in
+  soup $ "ol" |> (fun ol ->
+    List.iter (fun html_path ->
+        let line = sprintf "<li><a href='../%s'>%s</a></li>" html_path html_path in
+        append_child ol (parse line))
+      !doc_files_with_tests);
+  write_html soup path_to_index;
+  if verbose then Printf.printf "-- Updated %s\n" path_to_index
+
+
 
