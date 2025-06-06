@@ -55,7 +55,7 @@ atomic_formula:
   | x=INT_LIT
     { trm_int x }
   | x=FLOAT_LIT
-    { trm_float x }
+    { trm_float ~typ:typ_f32 x }
   | func=atomic_formula; LPAR; args=separated_list(COMMA, formula); RPAR
     { trm_apps ~annot:formula_annot func args }
   | LPAR; f=formula; RPAR
@@ -85,9 +85,9 @@ arith_factor:
   | a=arith_factor; PERCENT; b=ampersand_formula;
     { trm_trunc_mod ~typ:typ_int a b }
   | a=arith_factor; STAR; DOT; b=ampersand_formula;
-    { trm_mul ~typ:typ_f64 a b }
+    { trm_mul ~typ:typ_f32 a b }
   | a=arith_factor; SLASH; DOT; b=ampersand_formula;
-    { trm_exact_div ~typ:typ_f64 a b }
+    { trm_exact_div ~typ:typ_f32 a b }
   | a=ampersand_formula;
     { a }
 
@@ -99,11 +99,11 @@ arith_term:
   | MINUS; b=arith_factor;
     { trm_minus ~typ:typ_int b }
   | a=arith_term; PLUS; DOT; b=arith_factor;
-    { trm_add ~typ:typ_f64 a b }
+    { trm_add ~typ:typ_f32 a b }
   | a=arith_term; MINUS; DOT; b=arith_factor;
-    { trm_sub ~typ:typ_f64 a b }
+    { trm_sub ~typ:typ_f32 a b }
   | MINUS; DOT; b=arith_factor;
-    { trm_minus ~typ:typ_f64 b }
+    { trm_minus ~typ:typ_f32 b }
   | a=arith_factor;
     { a }
 
@@ -121,17 +121,17 @@ formula_cmp:
   | a=arith_term; NEQ; b=arith_term;
     { formula_neq ~typ:typ_int a b }
   | a=arith_term; EQUAL; DOT; b=arith_term;
-    { formula_eq ~typ:typ_f64 a b }
+    { formula_eq ~typ:typ_f32 a b }
   | a=arith_term; LT; DOT; b=arith_term;
-    { formula_lt ~typ:typ_f64 a b }
+    { formula_lt ~typ:typ_f32 a b }
   | a=arith_term; GT; DOT; b=arith_term;
-    { formula_gt ~typ:typ_f64 a b }
+    { formula_gt ~typ:typ_f32 a b }
   | a=arith_term; LEQ; DOT; b=arith_term;
-    { formula_leq ~typ:typ_f64 a b }
+    { formula_leq ~typ:typ_f32 a b }
   | a=arith_term; GEQ; DOT; b=arith_term;
-    { formula_geq ~typ:typ_f64 a b }
+    { formula_geq ~typ:typ_f32 a b }
   | a=arith_term; NEQ; DOT; b=arith_term;
-    { formula_neq ~typ:typ_f64 a b }
+    { formula_neq ~typ:typ_f32 a b }
   | start=arith_term; DOTDOT; stop=arith_term;
     { formula_range start stop (trm_int 1) }
   | a=arith_term;

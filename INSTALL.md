@@ -378,7 +378,7 @@ If you don't see a diff, possible issues include:
 
 The documentation for OptiTrust is generated using the OCaml 'odoc' tool.
 
-https://ocaml.github.io/odoc/odoc_for_authors.html
+https://ocaml.github.io/odoc/odoc/odoc_for_authors.html
 
 The top-level command `make doc` calls 'dune build @doc', which invokes 'odoc'.
 Then, the generated documentation is copied into the folder '_doc'.

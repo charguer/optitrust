@@ -30,7 +30,7 @@ type test_map = (string * string) list
 let compute_test_map () : test_map =
   (* NOTE: module prefix and excluding with_lines.ml seems no longer needed: -name '%s*_doc.ml' -and -not -name '*_with_lines.ml' *)
   do_or_die (sprintf "find tests/ -name '*_doc.ml' > %s" tmp_file);
-  if debug && false then begin
+  if debug then begin
     printf "List of *_doc.ml find found:\n";
     do_or_die (sprintf "cat %s" tmp_file);
   end;

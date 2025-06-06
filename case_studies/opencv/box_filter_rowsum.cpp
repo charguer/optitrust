@@ -1,9 +1,5 @@
 #include <optitrust.h>
 
-/* FIXME: using them breaks some type equalities */
-typedef uint8_t T;
-typedef uint16_t ST;
-
 /*
   cn: number of (color) channels
   w: width of box filter (convolution window)
@@ -12,15 +8,15 @@ typedef uint16_t ST;
 void rowSum(const int w, const uint8_t* S, uint16_t* D, const int n, const int cn) {
   __requires("w >= 0, n >= 1, cn >= 0");
   __reads("S ~> Matrix2(n+w-1, cn)");
-  __modifies("D ~> Matrix2(n, cn)"); // TODO: writes?
+  __writes("D ~> Matrix2(n, cn)");
 
   for (int i = 0; i < n; i++) { // for each pixel
     __sreads("S ~> Matrix2(n+w-1, cn)");
-    __xmodifies("for c in 0..cn -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
+    __xwrites("for c in 0..cn -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
 
     for (int c = 0; c < cn; c++) { // foreach channel
       __sreads("S ~> Matrix2(n+w-1, cn)");
-      __xmodifies("&D[MINDEX2(n, cn, i, c)] ~> Cell");
+      __xwrites("&D[MINDEX2(n, cn, i, c)] ~> Cell");
 
       __ghost(assume, "is_subrange(i..i + w, 0..n + w - 1)"); // TODO: solve
 

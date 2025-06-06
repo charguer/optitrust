@@ -270,6 +270,7 @@ let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = 
 
       let pairs = Ghost_pair.elim_all_pairs_at next_m inner_seq_p in
 
+      (* TODO: relax linear *)
       let loop_pairs = List.map (fun (pair_token, begin_m, end_m) ->
         let split_begin_m = next_m () in
         Ghost_pure.fission ~mark_between:split_begin_m [cPath seq_p; cMark begin_m; tAfter];

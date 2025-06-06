@@ -64,7 +64,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
    Splits the outer [nest_of] loops in two at the targeted interstice.
    Parallelizes loop reads using {! Resources.loop_parallelize_reads} if needed.
    Distributes any ghost pairs with {! Ghost_pair.fission} and {! Ghost_pair.minimize_all_in_seq}.
-   Minimizes output loop contracts using {! Resources.loop_minimize}.
+   Minimizes output loop contracts using {! Optitrust_framework.Resources.loop_minimize}.
 
    For now, fissioning at the begining or the end of a loop does nothing.
    LATER: add flag to control this?
@@ -194,12 +194,15 @@ let%transfo hoist_alloc_loop_list
     [inline] - inlines the array indexing code
     [nest_of] - number of loops to hoist through (expecting a perfect nest of simple loops)
 
+    {[
     for (int l = 0; l < 5; l++) {
       for (int m = 0; m < 2; m++) {
         int x = ...;
       }
     }
+    ]}
     --> first hoist
+    {[
     for (int l = 0; l < 5; l++) {
       int* x_step = MALLOC1(2, sizeof(int));
       for (int m = 0; m < 2; m++) {
@@ -207,7 +210,9 @@ let%transfo hoist_alloc_loop_list
         x = ...;
       }
     }
+    ]}
     --> second hoist
+    {[
     int* x_step_bis = MALLOC2(5, 2, sizeof(int));
     for (int l = 0; l < 5; l++) {
       int*& x_step = x_step_bis[MINDEX2(5, 2, l, 0)];
@@ -216,7 +221,9 @@ let%transfo hoist_alloc_loop_list
         x = ...;
       }
     }
+    ]}
     --> final
+    {[
     int* x_step_bis = MALLOC2(5, 2, sizeof(int));
     for (int l = 0; l < 5; l++) {
       for (int m = 0; m < 2; m++) {
@@ -224,6 +231,7 @@ let%transfo hoist_alloc_loop_list
         x = ...;
       }
     }
+    ]}
  *)
 let%transfo hoist ?(tmp_names : string = "${var}_step${i}")
           ?(name : string = "")
@@ -830,7 +838,7 @@ DETAILS for [unroll]
     Ex:
     Let [tg] target the following loop
 
-    for (int i = a; i < a + N; i++) {
+    for (int i = a; i < a + N; i++)
 
     if N is a variable -> call inline_var on this target
     then
@@ -844,26 +852,30 @@ DETAILS for [unroll]
     [shuffle] is a stand alone transformation (see notes)
     STEP 1 (BASIC): ONLY UNROLL
 
+    {[
     for i { body(i) }
       --->
       { body(i+0) }
       { body(i+1) }
       { body(i+2) }
+    ]}
 
     example:
+    {[
       { int a = (i+0 * 2);
           t[i] = a; }
       { int a = (i+1 * 2);
           t[i] = a; }
+    ]}
 
     STEP2:  software-pipelining is a combi transformation that decomposes as:
 
     START:
-    {
+    {[
       { body(i+0) }
       { body(i+1) }
       { body(i+2) }
-    }
+    ]}
 
     FIRST SUBSTEP : perform renaming of local varaibles (see simd.txt)
 
@@ -878,16 +890,18 @@ DETAILS for [unroll]
            so that we can remove them at the end
         where p points to the item "body(i+k)"
 
+    {[
       ( if body(i) is   instr1 instr2 instr3 instr4 instr5
       ( then i make { { instr1 instr2 } { instr3 instr4 instr5 } }
+    ]}
 
-    {
+    {[
       { { instr1 instr2(i+0) } { instr3 instr4 instr5(i+0) } }
       { { instr1 instr2(i+1) } { instr3 instr4 instr5(i+1) } }
       { { instr1 instr2(i+2) } { instr3 instr4 instr5(i+2) } }
-    }
+    ]}
      THIRD SUBSTEP: reorder instructions
-    {
+    {[
       { { instr1 instr2(i+0) }@nobrace
         { instr1 instr2(i+1) }
         { instr1 instr2(i+2) } }@?
@@ -895,18 +909,18 @@ DETAILS for [unroll]
         { instr3 instr4 instr5(i+1) }
         { instr3 instr4 instr5(i+2) } }@?
       }
-
+    }]
     FOURTH SUBSTEP: remove nobrace sequences
 
     ===================note
       the actual reorder operation is just (the one already implemented):
-     {
+     {[{
       { cmd1(i+0) cmd2 cmd3 }
       { cmd1(i+1) cmd2 cmd3 }
       { cmd1(i+2) cmd2 cmd3 }
-     }
+     }]}
     THIRD SUBSTEP: reorder instructions
-    {
+    {[{
       cmd1(i+0)
       cmd1(i+1)
       cmd1(i+2)
@@ -916,7 +930,7 @@ DETAILS for [unroll]
       cmd3(i+0)
       cmd3(i+1)
       cmd3(i+2)
-    }
+    }]}
 
     LATER: This transformation should be factorized, that may change the docs. *)
 
@@ -1033,6 +1047,7 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (next_mar
 
    Example: order = [k; i; j]
 
+  {[
   for i:
     ia;
     ib;
@@ -1043,9 +1058,11 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (next_mar
         kb; <--- tg @m
       jb;
     ic;
+  ]}
 
   --- bring_down_loop j @m --->
 
+  {[
   for i:
     ia;
     ib;
@@ -1062,9 +1079,11 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (next_mar
       jb;
     ...
     ic;
+  ]}
 
   --- bring_down_loop i @m2 --->
 
+  {[
   for i: <--- (loop_path 2)
     ia;
     ib;
@@ -1083,9 +1102,11 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (next_mar
       jb;
     ...
     ic;
+  ]}
 
   --- bring_down_loop k @m3 --->
 
+  {[
   for i: <--- (loop_path 2)
     ia;
     ib;
@@ -1104,6 +1125,7 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (next_mar
       jb;
     ...
     ic;
+  ]}
 
   --- done ---
 

@@ -223,11 +223,11 @@ let local_name_tile_on (mark_dims : mark)
 
   TODO?
   - what if [alloc_instr] is not available? make it optional, retrieve var, dims, elem_ty, ...
-    from MINDEX calls, as done by {! Matrix_stack_copy}
+    from MINDEX calls, as done by {! Matrix.stack_copy}
   - stack_alloc / heap alloc
   - check consistent API with {! Variable.local_name}
   - factorize and update {! Matrix_basic.local_name} with no tile
-  - factorize with {! Matrix_stack_copy}
+  - factorize with {! Matrix.stack_copy}
   *)
 let%transfo local_name_tile
   ?(mark_dims : mark = no_mark)

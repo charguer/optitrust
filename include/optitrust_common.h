@@ -70,8 +70,8 @@ __GHOST(rewrite_linear) {
 }
 
 __GHOST(rewrite_float_linear) {
-  __requires("from: f64, to: f64");
-  __requires("inside: f64 -> HProp");
+  __requires("from: float, to: float");
+  __requires("inside: float -> HProp");
   __requires("by: from =. to");
   __consumes("inside(from)");
   __produces("inside(to)");
@@ -245,6 +245,13 @@ __GHOST(in_range_shift_extend) {
   __ghost(in_range_extend, "x+k, range(a+k, b+k, s), r");
 }
 
+__GHOST(in_range_bounds) {
+  __requires("x: int, a: int, b: int, s: int");
+  __requires("in_range(x, range(a, b, s)), s >= 0");
+  __ensures("lower_bound: x >= a, upper_bound: x <= b");
+  __admitted();
+}
+
 /* ---- Manually split RO resources ---- */
 
 __GHOST(ro_split2) {
@@ -350,7 +357,8 @@ __GHOST(tile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
     "size: int, items: int -> HProp,"
-    "div_check: size = tile_count * tile_size"
+    "div_check: size = tile_count * tile_size,"
+    "positive_tile_size: tile_size >= 0"
   );
   __consumes("Group(0..size, items)");
   __produces("for bi in 0..tile_count ->"
@@ -368,6 +376,7 @@ __GHOST(ro_tile_divides) {
     "tile_count: int, tile_size: int,"
     "size: int, items: int -> HProp,"
     "div_check: size = tile_count * tile_size,"
+    "positive_tile_size: tile_size >= 0,"
     "f: _Fraction"
   );
   __consumes("_RO(f, Group(0..size, items))");
