@@ -16,6 +16,6 @@ int main() {
     x[MINDEX1(N * M, k)] = 25;
   }
   for (int k = 0; k < N * M; k += 2) {
-    int j = 12 + k;
+    k++;
   }
 }
