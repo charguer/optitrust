@@ -74,6 +74,7 @@ elif [ "$XDG_SESSION_TYPE" = "x11" ] && command -v xdotool >/dev/null; then
 
     msg "No existing browser session found. Lauching fresh browser."
     ## Launch fresh browser
+    msg "Command is: cd `pwd`; nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1"
     nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1
 
   fi

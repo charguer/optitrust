@@ -1,6 +1,7 @@
 #include <optitrust.h>
 const int N = 5000;
 
+
 void polynomial_multiply(double a[N], double b[N]) {
   double *c = MALLOC1(double, 2 * N);
   for (int i = 0; i < N; i++) {

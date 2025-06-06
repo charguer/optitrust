@@ -14,6 +14,7 @@ type style = {
   print_var_id: bool; (* prints the variable ids *)
   show_types: bool;
   show_other: bool;
+  show_loc : bool;
 }
 
 (* Default style *)
@@ -21,17 +22,20 @@ type style = {
 let style_desc =
   { print_var_id = false;
     show_types = false;
-    show_other = false; }
+    show_other = false;
+    show_loc = false; }
 
 let style_full =
-  { print_var_id = false;
+  { print_var_id = true;
     show_types = true;
-    show_other = true; }
+    show_other = true;
+    show_loc = false; } (* only on demand *)
 
 let style_types =
   { print_var_id = false;
     show_types = true;
-    show_other = false; }
+    show_other = false;
+    show_loc = false; }
 
 let default_style = style_desc
 
@@ -394,9 +398,9 @@ and print_trm style (t : trm) : document =
       let derrors = List.map string t.errors in
       print_fields (
         (if style.show_types then [print_opt_field "typ" dtyp] else []) @
+        (if style.show_loc then [print_opt_field "loc" dloc] else []) @
         (if style.show_other then
           [ print_field "annot" dannot;
-            print_opt_field "loc" dloc;
             print_field "ctx" (string dctx);
             print_list_field "errors" derrors ]
         else []) @
