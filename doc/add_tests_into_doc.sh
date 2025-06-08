@@ -5,7 +5,8 @@ cd ${OPTITRUST_PATH}
 
 tryopen() {
   if [ "${USER}" = "charguer" ]; then
-    ~/conf/vscode/show_window.sh || echo "tryopen failed"
+    echo "Trying to open the doc automatically..."
+    ~/conf/vscode/show_window.sh
   fi
 }
 
