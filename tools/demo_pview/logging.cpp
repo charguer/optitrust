@@ -84,7 +84,18 @@ recorder_t::recorder_t() {
 recorder_t::~recorder_t() {
 }
 
-void recorder_t::init() {
+
+void recorder_t::add_basic_for(worker_id_t id, event_type_t type) {
+  // printf("add_basic_for %ld type %d\n", id, type);
+  event_t* event = new basic_event_t(type);
+  event->id = id;
+  event->time = microtime::now() - basetime;
+  events_for[id].events.push_back(event);
+}
+
+
+void recorder_t::init(int nb_workers) {
+  this->nb_workers = nb_workers;
   basetime = microtime::now();
   real_time = cmdline::parse_or_default_bool("log_stdout", false);
   text_mode = cmdline::parse_or_default_bool("log_text", real_time);
@@ -104,12 +115,7 @@ void recorder_t::init() {
   tracking[CSTS] = cmdline::parse_or_default_bool("log_csts", tracking[ESTIMS]);
   tracking[TRANSFER] = cmdline::parse_or_default_bool("log_transfer", false);
   tracking[STDWS] = cmdline::parse_or_default_bool("stdws", false);
-
-  // OPTITRUST: Shortcut to enable tracking all without need for command line arguments
-  bool force_track_all = true;
-
-  bool track_all = force_track_all || cmdline::parse_or_default_bool("log_all", false);
-
+  bool track_all = cmdline::parse_or_default_bool("log_all", false);
   if (track_all)
     set_tracking_all(true);
   if (color_view) {
@@ -118,6 +124,11 @@ void recorder_t::init() {
   }
   if (pview) {
     tracking[PHASES] = true;
+  }
+  // initialize waiting phases
+  add_basic_for(0, ENTER_LAUNCH);
+  for (int id = 0; id < nb_workers; id++) {
+    add_basic_for(id, ENTER_WAIT);
   }
 }
 
@@ -130,7 +141,9 @@ void recorder_t::set_tracking_all(bool state) {
 }
 
 events_t& recorder_t::get_my_events() {
-  return events_for[get_thread_id_or_undef()];
+  worker_id_t id = get_thread_id_or_undef();
+  assert (0 <= id && id < max_nb_workers);
+  return events_for[id].events;
 }
 
 bool recorder_t::is_tracked_kind(event_kind_t kind) {
@@ -165,15 +178,12 @@ static bool event_t_compare_time (event_p e1, event_p e2) {
 }
 
 void recorder_t::merge_and_sort() {
-  printf("merge and sort\n");
   all_events.clear();
-  printf("each thread %ld %d\n", get_undef_thread_id(), get_nb_threads());
-  for (int id = 0 /*get_undef_thread_id()*/; id < get_nb_threads(); id++) {
-    printf("each thread go\n");
-    events_t events = events_for[id];
-    printf("all push\n");
+  // printf("nb thread at output : %d\n", nb_workers);
+  // NOTE: not printing anything for undefined thread id, which is not supported anymore
+  for (int id = 0 /*get_undef_thread_id()*/; id < nb_workers; id++) {
+    events_t events = events_for[id].events;
     for (std::vector<event_p>::iterator it = events.begin(); it != events.end(); it++) {
-      printf(" push\n");
       all_events.push_back(*it);
     }
   }
@@ -206,8 +216,13 @@ void recorder_t::dump_text () {
 }
 
 void recorder_t::output () {
+  // terminate waiting phases, and exit launch
+  for (int id = 0; id < nb_workers; id++) {
+    add_basic_for(id, EXIT_WAIT);
+  }
+  add_basic_for(0, EXIT_LAUNCH);
+
   merge_and_sort();
-  printf("dumpbyte\n");
   dump_byte();
   if (text_mode)
     dump_text();

@@ -13,7 +13,7 @@
 #include <assert.h>
 #include <initializer_list>
 
-// #include "callback.hpp"  only for callbacks
+#include "callback.hpp"
 // #include "worker.hpp"
 
 // for error reporting
@@ -260,6 +260,7 @@ public:
 
 };
 
+
 template <class Item,
           int padding_szb = default_padding_szb,
           int max_nb_workers = default_max_nb_workers>
@@ -275,11 +276,11 @@ using extra = with_undefined<array<Item, padding_szb, max_nb_workers>>;
  * A cell that is accessible only by the calling thread.
  *
  * The usage of this class is similar to that of the class `array`
- * above, except that the `cell` class exports just one method, namlye
+ * above, except that the `cell` class exports just one method, namely
  * `mine()`.
  *
  */
-/*
+
 #ifdef HAVE_STD_TLS
 
 template <class Item>
@@ -400,7 +401,7 @@ public:
 };
 
 #endif
-*/
+
 
 /*---------------------------------------------------------------------*/
 /* Per-worker counters */

@@ -150,7 +150,7 @@ static inline event_kind_t kind_of_type(event_type_t type) {
 class event_t_comparison_t;
 
 class event_t {
-private:
+public: // was private
   int64_t id;
   double time;
 
@@ -186,15 +186,30 @@ typedef std::vector<event_p> events_t;
 /*---------------------------------------------------------------------*/
 
 class recorder_t {
-private:
+public: // could use accessor functions instead
   bool real_time;
   bool text_mode;
+private:
   bool tracking[NUM_KIND_IDS];
 
   // LATER: this vector should use the local_allocator
 
-  typedef data::perworker::extra<events_t> wi_events_t;
-  wi_events_t events_for;
+  // PASL VERSION: typedef data::perworker::extra<events_t> wi_events_t;
+  // PASL VERSION: wi_events_t events_for;
+  // OPTITRUST
+  static constexpr int padding_szb = 64 * 2;
+  static constexpr int max_nb_workers = 128;
+
+  typedef struct {
+    events_t events; // events of a given worker
+    int padding[padding_szb/4];
+  } contents_type;
+
+  int padding[padding_szb/4];
+  __attribute__ ((aligned (64))) contents_type events_for[max_nb_workers];
+
+  int nb_workers;  // set by 'init' function, used by 'output' function
+
   events_t all_events;
   microtime_t basetime;
 
@@ -207,7 +222,7 @@ public:
 
   ~ recorder_t();
 
-  void init();
+  void init(int nb_workers);
 
   void destroy();
 
@@ -218,6 +233,8 @@ public:
   bool is_tracked(event_type_t type);
 
   void add_nocheck(event_p event);
+
+  void add_basic_for(worker_id_t id, event_type_t type);
 
   void add(event_p event);
 

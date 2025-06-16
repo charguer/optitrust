@@ -22,9 +22,9 @@ namespace util {
 namespace atomic {
 
 bool verbose;
-  
+
 pthread_mutex_t print_lock;
-  
+
 void init_print_lock() {
   pthread_mutex_init(&print_lock, nullptr);
 }

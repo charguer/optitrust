@@ -2,19 +2,22 @@
 PVIEW=../../tools/pview
 PVIEW_EXE=../../_build/default/tools/pview/pview.exe
 
-all: build run view
+all: build run
+
+force:
+	rm -f LOG_BIN
+
+# view
 
 build: demo_pview.exe
 
-demo_pview.exe: demo_pview.cpp atomic.cpp microtime.cpp workerlocal.cpp logging.cpp  pcmdline.cpp atomic.hpp microtime.hpp workerlocal.hpp logging.hpp  pcmdline.hpp
-	g++  -o $@  -fmax-errors=1 -fopenmp -O3 -DLOGGING -I . atomic.cpp microtime.cpp workerlocal.cpp logging.cpp  pcmdline.cpp demo_pview.cpp
+demo_pview.exe: demo_pview.cpp atomic.cpp microtime.cpp workerlocal.cpp logging.cpp  pcmdline.cpp atomic.hpp microtime.hpp callback.hpp callback.cpp  workerlocal.hpp logging.hpp  pcmdline.hpp
+	g++  -o $@  -fmax-errors=1 -fopenmp -O2 -DLOGGING -I . atomic.cpp microtime.cpp workerlocal.cpp logging.cpp callback.cpp pcmdline.cpp demo_pview.cpp
 
-force:
-
-run: LOG_BIN force
+run: force LOG_BIN
 
 LOG_BIN: demo_pview.exe
-	./demo_pview.exe
+	./demo_pview.exe -proc 10
 
 pview: $(PVIEW_EXE)
 
