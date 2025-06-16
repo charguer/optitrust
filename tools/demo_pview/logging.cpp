@@ -165,12 +165,19 @@ static bool event_t_compare_time (event_p e1, event_p e2) {
 }
 
 void recorder_t::merge_and_sort() {
+  printf("merge and sort\n");
   all_events.clear();
-  for (int id = get_undef_thread_id(); id < get_nb_threads(); id++) {
+  printf("each thread %ld %d\n", get_undef_thread_id(), get_nb_threads());
+  for (int id = 0 /*get_undef_thread_id()*/; id < get_nb_threads(); id++) {
+    printf("each thread go\n");
     events_t events = events_for[id];
-    for (std::vector<event_p>::iterator it = events.begin(); it != events.end(); it++)
+    printf("all push\n");
+    for (std::vector<event_p>::iterator it = events.begin(); it != events.end(); it++) {
+      printf(" push\n");
       all_events.push_back(*it);
+    }
   }
+  printf("sort\n");
   std::stable_sort (all_events.begin(), all_events.end(), event_t_compare_time);
 }
 
@@ -200,6 +207,7 @@ void recorder_t::dump_text () {
 
 void recorder_t::output () {
   merge_and_sort();
+  printf("dumpbyte\n");
   dump_byte();
   if (text_mode)
     dump_text();
