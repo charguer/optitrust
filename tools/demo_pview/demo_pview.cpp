@@ -40,6 +40,7 @@ int main(int argc, char** argv) {
 
   // general init operations here
   LOG_BASIC(ENTER_ALGO);
+  LOG_BASIC(ALGO_PHASE);
   // -- start algo first phase
 
   int64_t result = 0;
@@ -75,6 +76,7 @@ int main(int argc, char** argv) {
   // If multiple phases, use this: LOG_BASIC(ALGO_PHASE);
 
   // -- end algo
+  LOG_BASIC(ALGO_PHASE);
   LOG_BASIC(EXIT_ALGO);
   // general free operations here
 

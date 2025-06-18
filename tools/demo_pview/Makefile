@@ -17,7 +17,7 @@ demo_pview.exe: demo_pview.cpp atomic.cpp microtime.cpp workerlocal.cpp logging.
 run: force LOG_BIN
 
 LOG_BIN: demo_pview.exe
-	./demo_pview.exe -proc 10
+	./demo_pview.exe -proc 8
 
 pview: $(PVIEW_EXE)
 
