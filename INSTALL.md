@@ -24,12 +24,15 @@ Install Clang 15. IMPORTANT: versions released after 15.0.x are not supported by
 
 ```sh
 wget https://apt.llvm.org/llvm.sh  
-chmod +x llvm.sh
+chmod +x llvm.sh 
 sudo ./llvm.sh 15
 sudo apt install autoconf libclang-15-dev llvm-15-dev
 
 ```
-Does it make the 
+you need to make a symbolic link to redirect clang to clang-15 : 
+```sh
+sudo ln -s /usr/bin/clang-15 /usr/local/bin/clang
+```
 
 Depending on your prior installation, you might need to add the newly installed version of clang/llvm-config to the path, then select it among all of your versions :
 
@@ -56,8 +59,8 @@ Installation of the opam switch with relevant packages:
 
 ```sh
    opam init
-   opam switch create 4.14.1
-   opam switch create 4.14.1+options --packages=ocaml-variants.4.14.1+options,ocaml-option-flambda
+   opam switch create 4.14.1+options --packages=ocaml-v ariants.4.14.1+options,ocaml-option-flambda
+   opam pin add dune 3.18.0
    opam pin add menhirLib 20210419
    opam pin add pprint 20220103
    opam pin add clangml 4.8.0 -> continueanyway 
@@ -69,6 +72,8 @@ Installation of the opam switch with relevant packages:
    # then in any case execute the last line below
    eval $(opam env)
 ```
+
+ Note: dune 3.19.0 is known to have an issue, when executing the tester script (it hangs).
 
  Note: clangml 4.8.0 is from Sept 2022.
 

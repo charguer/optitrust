@@ -1,1 +1,3 @@
 batch/batch.ml
+*.bc
+*.exe

@@ -14,7 +14,8 @@
 
 FILE=$1
 LINE=$2
-
+/usr/bin/gio open tools/test.html
+exit
 echo "Successfully executed shortcut"
 echo "Argument FILE is ${FILE}"
 echo "Argument LINE is ${LINE}"

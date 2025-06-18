@@ -32,5 +32,5 @@ fi
 ulimit -v $((16 * 1024 * 1024)) # Never exceed 16 GiB of memory
 
 # Run the command
-# echo "Running: ${CMD}"
+echo "Running: ${CMD}"
 eval ${CMD}

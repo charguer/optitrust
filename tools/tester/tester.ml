@@ -627,6 +627,8 @@ let action_run ?(exit_on_error = true) (tests : string list) : unit =
   do_or_die (sprintf "%stools/tester/batch_tests.sh %s > tools/tester/batch/batch.ml"
     sdisable_lineshift tests_to_process_string);
 
+  if true then  (Printf.eprintf "generated batch.\n");
+
   (* Delete existing output files to avoid considering them in case an error occurs *)
   let delete_output test =
     let rm (f:string) : unit =
@@ -651,6 +653,7 @@ let action_run ?(exit_on_error = true) (tests : string list) : unit =
     eprintf "Failed to compile tools/tester/batch/batch.ml (error location might be incorrectly reported); command used:\n %s; %s\nIf using it make sure to then run:  rm tools/tester/batch/dune \n" copy_cmd compile_cmd;
     exit 2
   end;
+  if true then  (Printf.eprintf "compiled batch.\n");
   (* DEPRECATED printf "\n"; *)
 
   (* Start redirecting stdout into a temporary file during the execution
@@ -679,8 +682,11 @@ let action_run ?(exit_on_error = true) (tests : string list) : unit =
     end in
 
   (* Execute the `batch.ml` program *)
+  if !verbose then Printf.eprintf "Batch.cmxs created, now trying to dynlink it.\n";
+  flush stderr;
   begin try
     Flags.program_name := "tester.ml";
+    if !verbose then (Printf.eprintf "all ready.\n");
     Dynlink.loadfile "tools/tester/batch/batch.cmxs"
   with
   | Dynlink.Error err ->
@@ -691,6 +697,7 @@ let action_run ?(exit_on_error = true) (tests : string list) : unit =
   end;
   close_redirected_stdout();
   flush stderr;
+  if !verbose then Printf.eprintf "Batch.cmxs executed, now analyzing results.\n";
 
   (* Analyse test results *)
   let tests_all = ref [] in
@@ -937,6 +944,8 @@ let _main : unit =
       else
         Tools.ref_list_add args arg)
     "Usage: ./tester [action] [options] [arg1] .. [argN]\naction = run | create | addexp | fixexp | ignore | code | diff | meld\noptions:\n";
+
+  if !verbose then printf "tester parsed arguments.\n";
 
   (* Check caller_folder has been provided *)
   if !caller_folder = ""
