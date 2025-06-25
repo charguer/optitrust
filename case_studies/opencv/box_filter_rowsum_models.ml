@@ -37,10 +37,13 @@ let only = -1
 
 let fast = if only <> -1 then [occIndex only] else [nbMulti]
 
+let no_simpl (tg : target) : unit = ()
+
 let _ = Run.script_cpp (fun () ->
   !! ();
+  !! Loop.shift_range ~simpl:no_simpl (ShiftBy (trm_find_var "i" [cFor "i"])) [cFor "k"];
 
-  !! Reduce.intro [cVarDef "s"];
+  !! Reduce.intro [cVarDef "sum"];
 
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anyw"
     ["w", int 3; "w", int 5] [cFunBody "rowSum"; cFor "i"];

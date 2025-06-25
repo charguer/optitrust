@@ -21,32 +21,32 @@ void rowSum(const int w, const int* s, int* d, const int n, const int cn) {
       __xwrites("&d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(w, fun k -> S(i+k,c))");
 
       // TODO: difference with assert_prop admit ?
-      // __ghost(assume, "is_subrange(i..i + w, 0..n + w - 1)"); // TODO: solve
+      __ghost(assume, "is_subrange(i..i + w, 0..n + w - 1)"); // TODO: solve
 
       int sum = 0;
       __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_empty(fun k -> S(i+k,c))");
+      __ghost(rewrite_linear, "inside := fun v -> &sum ~~> reduce_int_sum(v, fun k0 -> S(i + k0, c)), from := 0, to := i - i");
 
       // NOTE: why not take range in reduce axiom ?
       // try to shift loop early on ?
-      for (int k = 0; k < w; k++) {
-        __spreserves("&sum ~~> reduce_int_sum(k, fun k0 -> S(i+k0,c))");
+      for (int k = i; k < i+w; k++) {  // for (int k = 0; k < w; k++) {
+        __spreserves("&sum ~~> reduce_int_sum(k-i, fun k0 -> S(i+k0,c))");
 
-        // __ghost(in_range_shift_extend, "k, i, 0..n+w-1, 0, w");
-        __ghost(assume, "in_range(i+k, 0..n+w-1)");
-        __GHOST_BEGIN(focus, ro_matrix2_focus, "s, i+k, c");
-        sum += s[MINDEX2(n+w-1, cn, i+k, c)];
+        __ghost(in_range_extend, "k, i..i+w, 0..n+w-1"); // i+k < n+w-1
+        __GHOST_BEGIN(focus, ro_matrix2_focus, "s, k, c"); // i+k
+        sum += s[MINDEX2(n+w-1, cn, k, c)];
         __GHOST_END(focus);
 
-        __ghost(in_range_bounds, "k", "k_ge_0 <- lower_bound");
+        // __ghost(in_range_bounds, "k", "k_ge_0 <- lower_bound"); // i+k_ge_0
         // TODO: remove admit
-        // __ghost(assert_prop, "proof := admit(k >= 0)", "kmi_ge_0 <- proof");
+        __ghost(assert_prop, "proof := admit(k - i >= 0)", "kmi_ge_0 <- proof");
 
-        // __ghost(rewrite_linear, "inside := fun v -> &sum ~~> reduce_int_sum(k, fun k0 -> S(i + k0, c)) + S(v, c), from := k, to := i + (k - i)");
-        __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_add_right(k, fun k -> S((i+k),c), k_ge_0)");
-        // __ghost(rewrite_linear, "inside := fun v -> &sum ~~> reduce_int_sum(v, fun k0 -> S(i + k0, c)), from := k + 1, to := (k + 1");
+        __ghost(rewrite_linear, "inside := fun v -> &sum ~~> reduce_int_sum(k - i, fun k0 -> S(i + k0, c)) + S(v, c), from := k, to := i + (k - i)");
+        __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_add_right(k - i, fun k -> S((i+k),c), kmi_ge_0)");
+        __ghost(rewrite_linear, "inside := fun v -> &sum ~~> reduce_int_sum(v, fun k0 -> S(i + k0, c)), from := k - i + 1, to := (k + 1) - i");
       }
 
-      // __ghost(rewrite_linear, "inside := fun v -> &sum ~~> reduce_int_sum(v, fun k0 -> S(i + k0, c)), from := i + w - i, to := w");
+      __ghost(rewrite_linear, "inside := fun v -> &sum ~~> reduce_int_sum(v, fun k0 -> S(i + k0, c)), from := i + w - i, to := w");
       d[MINDEX2(n, cn, i, c)] = sum;
     }
   }

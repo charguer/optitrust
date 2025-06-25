@@ -121,26 +121,35 @@ __GHOST(matrix3_span_shift) {
 
 /* ---- Algorithmic Functions ---- */
 
+__DECL(reduce_int_sum, "int * (int -> int) -> int");
+__AXIOM(reduce_int_sum_empty, "forall (f: int -> int) -> 0 = reduce_int_sum(0, f)");
+__AXIOM(reduce_int_sum_add_right, "forall (n: int) (f: int -> int) (_: n >= 0) -> reduce_int_sum(n, f) + f(n) = reduce_int_sum(n + 1, f)");
+
+// DEF
+
 /* TODO: generalize to any monoid/group, see doc/sliding-window.md */
 // template<typename T, typename ST>
-/*inline uint16_t reduce_spe1(int start, int stop, uint8_t* input, int n, int m, int j) {
+// NOTE: using 'int' as 'Z' to avoid overflow questions
+inline int reduce_spe1(int start, int stop, int* input, int n, int m, int j) {
   __requires("check_range: is_subrange(start..stop, 0..n)");
   __requires("bound_check: in_range(j, 0..m)");
-  __reads("input ~> Matrix2(n, m)");
+  __requires("M: int * int -> int"); // FIXME: uint8_t ???
+  __reads("input ~> Matrix2(n, m, M)");
+  __ensures("_Res = reduce_int_sum(stop - start, fun k -> M(k + start, j))");
   __admitted(); // NOT NECESSARY, BUT FASTER
   // __reads("for k in 0..n -> &input[MINDEX2(n, m, k, j)] ~> Cell");
 
-  uint16_t s = (uint16_t)0;
+  int s = 0;
   for (int i = start; i < stop; i++) {
-    __smodifies("&s ~> Cell");
-    __sreads("input ~> Matrix2(n, m)");
+    // __spreserves("&s ~> reduce_int_sum(i - start, fun k -> M(k + start, j))");
+    // __sreads("input ~> Matrix2(n, m, M)");
 
-    __ghost(in_range_extend, "i, start..stop, 0..n");
-    __GHOST_BEGIN(focus, ro_matrix2_focus, "input, i, j");
-    s += (uint16_t)input[MINDEX2(n, m, i, j)];
-    __GHOST_END(focus);
+    // __ghost(in_range_extend, "i, start..stop, 0..n");
+    // __GHOST_BEGIN(focus, ro_matrix2_focus, "input, i, j");
+    s += input[MINDEX2(n, m, i, j)];
+    // __GHOST_END(focus);
   }
   return s;
-}*/
+}
 
 #endif
