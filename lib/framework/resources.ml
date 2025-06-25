@@ -5,7 +5,8 @@ open Resource_contract
 
 let ensure_computed = Trace.recompute_resources
 
-(* TODO: avoid recomputing all resources for validity checks. *)
+(* TODO: avoid recomputing all resources for validity checks.
+   TODO: required_for_check_at path; for on-demand computation. *)
 let required_for_check () : unit =
   if !Flags.check_validity then ensure_computed ()
 
@@ -29,6 +30,16 @@ let before_trm (t : trm) =
     fails if unavailable. *)
 let after_trm (t : trm) =
   unsome_or_trm_fail t "expected resources after to be available" t.ctx.ctx_resources_after
+
+(** [ensure_computed_at]: ensures resources are computed at a certain location.
+    for now, this recomputes resources everywhere before checking that resources are indeed available at the desired location (they could not be available if the code was ignored for lack of specification).
+ *)
+let ensure_computed_at (p : path) : unit =
+  ensure_computed ();
+  let t = Target.resolve_path p in
+  let _ = before_trm t in
+  let _ = after_trm t in
+  ()
 
 (** Returns the instantiation of the post condition perfomed after the term t,
     fails if unavailable. *)
@@ -632,7 +643,7 @@ let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) ?(ke
         )
       ) p_seq
     );
-    recompute_resources ()
+    ensure_computed_at p_seq;
   )
 
 (** <private>
