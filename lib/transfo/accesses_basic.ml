@@ -214,7 +214,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
         Target.iter (fun p ->
           Target.apply_at_path (trm_subst_var v (trm_var ~typ v_tr)) p
         ) [nbAny; cMark f_body_mark; cMark mark_handled_resources];
-        recompute_resources ()
+        Resources.ensure_computed_at p_seq;
       ));
       Trace.justif "all of the transformed gets and sets operate on resources found at the begining of the scope"
     end;
