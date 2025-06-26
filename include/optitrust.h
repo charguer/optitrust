@@ -92,11 +92,29 @@ __GHOST(ro_matrix2_unfocus) {
     __admitted(); \
     memcpy(dest, src, n1 * n2 * n3 * sizeof(T)); \
   }
-
 DEFINE_MATRIX_COPY(int)
 DEFINE_MATRIX_COPY(float)
 DEFINE_MATRIX_COPY(double)
 
+#define DEFINE_MATRIX_MEMSET(T) \
+  inline void MATRIX1_MEMSET_##T(T* dest, T value, int length) { \
+    __writes("dest ~> Matrix1(length)"); \
+    __admitted(); \
+    memset(dest, value, length * sizeof(T)); \
+  } \
+  inline void MATRIX2_MEMSET_##T(T* dest, T value, int n1, int n2) { \
+    __writes("dest ~> Matrix2(n1, n2)"); \
+    __admitted(); \
+    memset(dest, value,  n1 * n2 * sizeof(T)); \
+  } \
+  inline void MATRIX3_MEMSET_##T(T* dest, T value, int n1, int n2, int n3) { \
+    __writes("dest ~> Matrix3(n1, n2, n3)"); \
+    __admitted(); \
+    memset(dest, value,  n1 * n2 * n3 * sizeof(T)); \
+  }
+DEFINE_MATRIX_MEMSET(int)
+DEFINE_MATRIX_MEMSET(float)
+DEFINE_MATRIX_MEMSET(double)
 // span_shift unused for now: this pattern allows copy of an arbitrary span of a matrix
 // TODO: uninit and ro variants
 

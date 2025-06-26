@@ -528,6 +528,24 @@ let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : exte
     | _ -> ()
   ) tg
 
+(** [extend_range_array_size ?dim orig tg] Extends the iteration range of a loop
+    to cover the full length of the array pointed to by [orig].
+
+    This function expects [tg] to point to a for loop.
+
+    TODO: We choose to make orig point to an array declaration, in the future we could make orig directly point to a trm that represents the upper bound of the for loop.
+
+    @param dim:
+      the index of the dimension to consider when accessing the array's size. *)
+
+let extend_range_array_size ?(dim : int = 0) (orig : target) (tg : target) =
+  let array_ref = get_trm_at_exn orig in
+  let error = "Extend_range_array_size: Expected an array declaration" in
+  let _, array = trm_inv ~error trm_ref_inv array_ref in
+  let error = "Extend_range_array_size: Expected use of MALLOC function" in
+  let _ty, dims, _zero_init = trm_inv ~error Matrix_trm.alloc_inv array in
+  let dim_to_consider = List.nth dims dim in
+  extend_range ~start:ExtendToZero ~stop:(ExtendTo dim_to_consider) tg
 (* internal *)
 let adapt_indices ~(upwards : bool) (p : path) : unit =
   ()

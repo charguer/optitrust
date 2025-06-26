@@ -65,6 +65,14 @@ let annot_has_cstyle (cs : cstyle_annot) (t_ann : trm_annot) : bool =
   let cstyles = t_ann.trm_annot_cstyle in
   List.mem cs cstyles
 
+(* **************************** Binop *************************** *)
+let reverse_comp_binop binop : binary_op =
+  match binop with
+  | Binop_gt -> Binop_lt
+  | Binop_lt -> Binop_gt
+  | Binop_ge -> Binop_le
+  | Binop_le -> Binop_ge
+  | _ -> binop
 
 (* **************************** Smart constructors *************************** *)
 
@@ -92,6 +100,9 @@ let trm_float ?annot ?loc ?ctx ?(typ : typ = typ_f64) (v : float) =
   trm_lit ?annot ?loc ?ctx (Lit_float (typ, v))
 let trm_string ?(loc) (s : string) =
   trm_lit ?loc (Lit_string s)
+
+let trm_arbitrary_expr ?(loc) (code : string) : trm =
+  trm_make ?loc (Trm_arbitrary (Expr code))
 
 (** [trm_null ~annot ?loc ?ctx ()]: build the term [nullptr], or [NULL] if [~uppercase:true] *)
 let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (typ: typ) : trm =
@@ -155,6 +166,12 @@ let trm_apps ?(annot = trm_annot_default) ?(loc) ?(typ)
   ?(ctx : ctx option) ?(ghost_args = []) ?(ghost_bind = []) (f : trm) (args : trms) : trm =
   trm_make ~annot ?loc ?typ ?ctx (Trm_apps (f, args, ghost_args, ghost_bind))
 
+  (* Ajouter Trm_apps_var pour factoriser *)
+let trm_min (op1 : trm) (op2 : trm) : trm =
+  trm_apps (trm_var (toplevel_var "min")) [ op1; op2 ]
+
+let trm_max (op1 : trm) (op2 : trm) : trm =
+  trm_apps (trm_var (toplevel_var "max")) [ op1; op2 ]
 (** [trm_while ~annot ?loc ?ctx cond body]: while loop *)
 let trm_while ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (cond : trm) (body : trm) : trm =
   trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_while (cond, body))
@@ -492,6 +509,11 @@ let trm_is_one (step : trm) : bool =
   | Some 1 -> true
   | _ -> false
 
+let trm_is_zero (step : trm) : bool =
+  match trm_int_inv step with
+  | Some 0 -> true
+  | _ -> false
+
 (** [trm_inv ~error k t]: returns the results of applying [k] on t, if the result is [None]
      then function fails with error [error]. *)
 let trm_inv ?(error : string = "") (k : trm -> 'a option) (t : trm) : 'a =
@@ -546,6 +568,16 @@ let trm_seq_inv (t : trm) : (trm mlist * var option) option =
   | Trm_seq (tl, result) ->  Some (tl, result)
   | _ -> None
 
+let trm_seq_single_inv (t : trm) : trm option =
+
+  match trm_seq_inv t with
+  | Some (ts,_) ->
+    begin
+       match Mlist.to_list ts with
+       | [t1] -> Some (t1)
+       | _ -> None
+    end
+  | _ -> None
 let trm_seq_nth_inv (i : int) (t : trm) : trm option =
   Option.bind (trm_seq_inv t) (fun (instrs, _) ->
     if i < Mlist.length instrs
@@ -628,6 +660,16 @@ let trm_binop_inv (op : binary_op) (t : trm) : (trm * trm) option =
     | Some (typ, Prim_binop op'), [a; b] when op = op' -> Some (a, b)
     | _ -> None
     end
+  | _ -> None
+
+(** [trm_binop_full_inv t] extracts a binary operator and its operands if [t] is
+    of the form [a OP b]; returns [Some (a, op, b)] or [None]. *)
+let trm_extract_binop_inv t =
+  match trm_apps_inv t with
+  | Some (f, args) -> (
+      match (trm_prim_inv f, args) with
+      | Some (typ, Prim_binop op'), [ a; b ] -> Some (a, op', b)
+      | _ -> None)
   | _ -> None
 
 let trm_cast_inv (t : trm) : (typ * trm) option =
@@ -721,7 +763,11 @@ let for_loop_body_trms (t : trm) : trm mlist =
     | _ -> trm_fail body "Ast.for_loop_body_trms: body of a generic loop should be a sequence"
     end
   | _ -> trm_fail t "Ast.for_loop_body_trms: expected a loop"
-
+(** [body_inv t]: Where t is the body of a for loop, checks that the body is a sequence and return its items *)
+  let body_inv (t : trm) : trm mlist =
+    let items,res = trm_inv ~error:"for-loops must have a sequence as body" trm_seq_inv t in
+    if res <> None then trm_fail t "body of for loops must have no result value";
+    items
 (*****************************************************************************)
 
 (** [trm_main_inv_toplevel_defs ast]: returns a list of all toplevel declarations *)
@@ -924,6 +970,18 @@ let trm_fors_inv (nb : int) (t : trm) : ((loop_range * loop_contract) list * trm
       aux (nb - 1) ((range, contract) :: ranges_rev) body
   in
   aux nb [] t
+(* Compute the number of strictly nested for-loops  *)
+let trm_fors_depth (t : trm) : int =
+  let rec aux (acc : int) (t : trm) : int =
+    match trm_for_inv t with
+    | Some (l_range, body, _contract) ->
+      begin match Mlist.to_list (body_inv body)  with
+      | [t_nested] -> aux (acc+1) t_nested
+      | _ -> acc
+    end
+    | _ -> acc
+  in
+  aux 0 t
 
 let trm_ref_inv (t : trm) : (typ * trm) option =
   match trm_apps_inv t with
@@ -988,6 +1046,16 @@ let trm_delete_inv (t: trm) : trm option =
     begin match trm_prim_inv f with
     | Some (ty, Prim_delete) -> Some p
     | _ -> None
+    end
+  | _ -> None
+
+let trm_and_inv (t : trm) : (trm*trm) option =
+  match trm_if_inv t with
+  | Some (cond,then_,else_) ->
+    begin
+    match trm_bool_inv else_ with
+      |Some false -> Some (cond,then_)
+      | _ -> None
     end
   | _ -> None
 

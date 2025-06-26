@@ -1160,3 +1160,224 @@ let%transfo delete_if_void (tg : target) : unit =
       | None -> t_seq
     ) p_seq
   ) tg
+
+(** [loop_single_on i t] : Expect an index and a sequence trm t, i-th trm of the
+    sequence should point to a var def.
+    Replace
+      int k = ..
+      tl
+    with
+      for(int k = .. ; k < .. +1 ; k++)
+      {
+        tl
+      }
+
+*)
+let loop_single_on (i : int) (t : trm) : trm =
+  let seq, result =
+    trm_inv ~error:"Loop_single_on: Expected the target to be part of a Seq"
+      trm_seq_inv t
+  in
+  let let_stmt = Mlist.nth seq i in
+  let var, typ, value =
+    trm_inv
+      ~error:
+        "Loop_single_on: Expected the target to be a let operation (int .. = ...;)"
+      trm_let_inv let_stmt
+  in
+  let tl1, _mark, tl2 = Mlist.split_on_marks i seq in
+
+  let l_range : loop_range =
+    {
+      index = var;
+      start = value;
+      stop = trm_add_int value (trm_int 1);
+      direction = DirUp;
+      step = trm_step_one ();
+    }
+  in
+
+  match result with
+  | Some res_expr ->
+      let mut_res_var = new_var "res" in
+      let mut_res = trm_let_mut_uninit (mut_res_var, typ_int) in
+      let new_body =
+        trm_seq_helper
+          [
+            TrmMlist (Mlist.pop_front tl2);
+            Trm (trm_set (trm_var mut_res_var) (trm_var res_expr));
+          ]
+      in
+      let loop = trm_for l_range new_body in
+      let result_v = new_var "__res" in
+      let result_p = trm_let (result_v, typ_int) (trm_var_get mut_res_var) in
+      trm_seq_helper ~result:result_v
+        [ TrmMlist (Mlist.push_back mut_res tl1); Trm loop; Trm result_p ]
+  | None ->
+      let loop = trm_for l_range (trm_seq (Mlist.pop_front tl2)) in
+      trm_seq_helper [ TrmMlist tl1; Trm loop ]
+
+let%transfo loop_single (tg : target) : unit = (apply_at_target_paths_in_seq loop_single_on) tg
+
+(** [elim_loop_single_on t]: Reverse the transformation loop_single_on.
+    Expects t to be a trm_for whose lower bound is trm and upper bound is trm + 1.
+    Replaces the for loop with a let binding and removes the loop.
+    Transform:
+      for(int i = k; i <k + 1 ; k++){
+      tl
+      }
+    into:
+      const int i = k;
+      tl
+*)
+let elim_loop_single_on (t : trm) : trm =
+  let error = "elim_loop_single_on: Expect the target to point to a for loop" in
+  let l_range, body, _contract = trm_inv ~error trm_for_inv_instrs t in
+  if l_range.direction <> DirUp then
+    trm_fail t "elim_loop_single_on: Expect the direction to be DirUp";
+  if not (are_same_trm l_range.step (trm_step_one ())) then
+    trm_fail t "elim_loop_single_on: Expect a step of one for the loop";
+  if not (are_same_trm (trm_add_int l_range.start (trm_int 1)) l_range.stop)
+  then trm_fail t "elim_loop_single_on: Expected a loop with a unique step";
+  let index_start = trm_let (l_range.index, typ_int) l_range.start in
+  trm_seq_nobrace_nomarks
+    (Mlist.to_list(Mlist.push_front index_start body))
+
+(** [elim_loop_single tg]: Expects the target to point to a for loop. Applies
+    [ elim_loop_single_on] *)
+let%transfo elim_loop_single (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun () ->
+      apply_at_target_paths elim_loop_single_on tg)
+
+(** [if_loop_switch t]: Expects t to point to a trm_for
+  The trm for as to be immediatly followed by a trm_if; the only term of the seq.
+  The cond in trm_if has to be a binop_eq.
+  Transform :
+{
+    for(int i = a ; i < b ; i++)
+      {
+      if (a == c)
+        seq
+      }
+}
+  into:
+{
+      for (int i = c ; i < c+1; i++){
+      if(i>= a and i < b )
+        seq
+      }
+ }     *)
+
+let if_loop_switch_on (t : trm) : trm =
+  let error = "if_loop_switch: Expected a for loop" in
+  let l_range, body, contract = trm_inv ~error trm_for_inv t in
+  let error = "if_loop_switch: Expected instrs inside the body" in
+  let instrs, res = trm_inv ~error trm_seq_inv body in
+  let error = "if_loop_switch: Expected if as the first instr" in
+  if Mlist.length instrs <> 1 then
+    trm_fail t
+      "if_loop_switch: Expected exactly one if statement inside the for loop";
+  let cond, then_, else_ =
+    trm_inv ~error trm_if_inv (List.nth (Mlist.to_list instrs) 0)
+  in
+  let error = "if_loop_switch: Expected an equality condition" in
+  let l_value, r_value = trm_inv ~error trm_eq_inv cond in
+  let error =
+    "if_loop_switch: Expected a var as the left part of the equality condition"
+  in
+  let l_value_var = trm_inv ~error trm_var_inv l_value in
+
+  if not (var_eq l_value_var l_range.index) then
+    trm_fail t
+      "if_loop_switch: Expected same trm for loop index and if condition left \
+       value";
+  match l_value.typ with
+  | None -> trm_fail t "if_loop_switch: The index should be typed "
+  | Some typ ->
+      let new_cond =
+        trm_and
+          (trm_ge ~typ l_value l_range.start)
+          (trm_lt ~typ l_value l_range.stop)
+      in
+      let new_if = trm_if new_cond then_ else_ in
+      let new_lrange : loop_range =
+        {
+          index = l_range.index;
+          start = r_value;
+          stop = trm_add_int r_value (trm_int 1);
+          direction = DirUp;
+          step = trm_step_one ();
+        }
+      in
+      let new_instrs = Mlist.replace_at 0 new_if instrs in
+      trm_for new_lrange (trm_seq ?result:res new_instrs) ~contract
+
+let%transfo if_loop_switch (tg : target) = apply_at_target_paths if_loop_switch_on tg
+
+
+(** [reverse_comp ~lhs ~binop ~rhs t] checks if [t] equals [lhs] or [rhs], and
+    returns the comparison in the form (side with [t], op, other side), flipping
+    the operator if needed. Fails if [t] matches neither. *)
+let reverse_comp ~(lhs : trm) ~(binop : binary_op) ~(rhs : trm) t : trm * binary_op * trm =
+  if are_same_trm lhs t then (lhs, binop, rhs)
+  else if are_same_trm rhs t then (rhs, reverse_comp_binop binop, lhs)
+  else
+    trm_fail t
+      "reverse_comp: Did not find the trm t as a trm of the comparaison"
+
+
+
+(** [if_loop_switch_gen_on t] transforms a for-loop with an if-condition into a
+    for-loop with adjusted bounds based on that condition. *)
+
+let refactor_if_in_loop_on (t : trm) : trm =
+  let error = "refactor_if_in_loop: Expected a for loop" in
+  let l_range, body, contract = trm_inv ~error trm_for_inv t in
+  let error = "refactor_if_in_loop: Expected a sequence of instructions inside the loop body"
+  in
+  let instrs, res = trm_inv ~error trm_seq_inv body in
+  if Mlist.length instrs > 1 then
+    trm_fail t "refactor_if_in_loop: Expected exactly the pattern 'for-if'";
+  let new_start = ref l_range.start in
+  let new_stop = ref l_range.stop in
+  let rec aux (t : trm) : unit =
+    match trm_and_inv t with
+    | Some (t1, t2) ->
+        aux t1;
+        aux t2
+    | _ -> (
+        let error = "refactor_if_in_loop: Expected a comparaison trm" in
+        let lhs, binop, rhs = trm_inv ~error trm_extract_binop_inv t in
+        let index, binop, to_comp =
+          reverse_comp ~lhs ~binop ~rhs (trm_var l_range.index)
+        in
+        match binop with
+        | Binop_ge -> new_start := trm_max to_comp !new_start
+        | Binop_gt ->
+            new_start := trm_max (trm_add_int to_comp (trm_int 1)) !new_start
+        | Binop_le ->
+            new_stop := trm_min (trm_add_int to_comp (trm_int 1)) !new_stop
+        | Binop_lt -> new_stop := trm_min to_comp !new_stop
+        | Binop_eq ->
+            new_start := to_comp;
+            new_stop := trm_add_int to_comp (trm_int 1)
+        | _ ->
+            trm_fail t
+              "refactor_if_in_loop: Expected comparison using one of the \
+               following operators: <=, <, ==, >, >=")
+  in
+  let error = "refactor_if_in_loop: Expected exactly a for-if pattern" in
+  let cond, then_, else_ = trm_inv ~error trm_if_inv (Mlist.nth instrs 0) in
+  aux cond;
+  trm_for
+    {
+      start = !new_start;
+      stop = !new_stop;
+      step = l_range.step;
+      index = l_range.index;
+      direction = l_range.direction;
+    }
+    then_ ~contract
+
+let%transfo refactor_if_in_loop (tg : target) =
+  apply_at_target_paths refactor_if_in_loop_on tg

@@ -553,7 +553,26 @@
           "clear": true,
           "reveal": "always"
         },
-      }
+      },
+      {
+      "label": "Run opt_bench on current file",
+      "type": "shell",
+      "command": "/home/emorel/shared/optitrust/tools/bench.sh",
+      "args": [
+        "${file}"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
 
     ]
 }
