@@ -203,3 +203,45 @@ void ghosts() {
   }
   __GHOST_END(fork_out);
 }
+
+
+__GHOST(ensures_pure) {
+  __requires("n: int");
+  __ensures("n = n");
+  __admitted();
+}
+
+void requires_pure(int n) {
+  __requires("n = n");
+}
+
+void ghost_pure_nondep(int m, int n) {
+  __pure();
+
+  for (int i = 0; i < m; i++) {
+    __strict();
+    __xensures("2 = 2");
+
+    __ghost(ensures_pure, "1");
+    requires_pure(1);
+
+    split:
+    __ghost(ensures_pure, "2");
+    requires_pure(1);
+    requires_pure(2);
+  }
+}
+
+void ghost_pure_dep(int m, int n) {
+  __pure();
+
+  for (int i = 0; i < m; i++) {
+    __strict();
+
+    __ghost(ensures_pure, "i");
+    requires_pure(i);
+
+    split:
+    requires_pure(i);
+  }
+}

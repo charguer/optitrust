@@ -4,6 +4,11 @@ open Target
 let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp ( fun _ ->
+     !! Loop_basic.fission_basic [cFunBody "ghost_pure_dep"; cLabel "split"; tBefore];
+     Resources.ensure_computed ();
+     (*
+     !! Loop_basic.fission_basic [cFunBody "ghost_pure_nondep"; cLabel "split"; tBefore];
+
   (* 1. Parallel loops can be fissioned, unless binders are broken. *)
   !! Trace.failure_expected (fun _e -> true) (fun () ->
     Loop_basic.fission_basic [tBefore; cFunDef "parallel"; sInstr "t[i] +="]);
@@ -46,5 +51,5 @@ let _ = Run.script_cpp ( fun _ ->
   ]];
 
   !! Trace.failure_expected (fun _ -> true) (fun () ->
-    Loop_basic.fission_basic [cFunBody "ghosts"; cFor "k"; tBefore]);
+    Loop_basic.fission_basic [cFunBody "ghosts"; cFor "k"; tBefore]);*)
 )

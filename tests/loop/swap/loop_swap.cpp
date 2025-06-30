@@ -135,3 +135,40 @@ void ghost_pure(int* M) {
     }
   }
 }
+
+void ghost_linear_pure(Args) {
+  contracts ?
+      for (int i = 0; i < 4; i++) {
+        __strict();
+        __sreads("S ~> Matrix2(1024, 1024)");
+        __xmodifies(
+            "for j in 0..1024 -> &D[MINDEX2(1024, 1024, bi * 4 + i, j)] ~> "
+            "Cell");
+        __ghost(tiled_index_in_range,
+                "tile_index := bi, index := i, div_check := tile_div_check_i");
+        __ghost(assert_prop, "P := __is_true(1024 == 256 * 4)",
+                "tile_div_check_j <- proof");
+        __ghost(tile_divides,
+                "div_check := tile_div_check_j, items := fun (j: int) -> "
+                "&D[MINDEX2(1024, 1024, bi * 4 + i, j)] ~> Cell");
+        __ghost(
+            color,
+            "nb_colors := 2, size := 256, items := fun (bj: int) -> for j in "
+            "0..4 -> &D[MINDEX2(1024, 1024, bi * 4 + i, bj * 4 + j)] ~> Cell");
+        for (int cj = 0; cj < 2; cj++) {
+          __strict();
+          __sreads("S ~> Matrix2(1024, 1024)");
+          __xmodifies(
+              "for bj in range(cj, 256, 2) -> for j in 0..4 -> "
+              "&D[MINDEX2(1024, 1024, bi * 4 + i, bj * 4 + j)] ~> Cell");
+          __admitted();
+        }
+        __ghost(
+            uncolor,
+            "nb_colors := 2, size := 256, items := fun (bj: int) -> for j in "
+            "0..4 -> &D[MINDEX2(1024, 1024, bi * 4 + i, bj * 4 + j)] ~> Cell");
+        __ghost(untile_divides,
+                "div_check := tile_div_check_j, items := fun (j: int) -> "
+                "&D[MINDEX2(1024, 1024, bi * 4 + i, j)] ~> Cell");
+      }
+}

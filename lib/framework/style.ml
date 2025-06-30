@@ -108,13 +108,13 @@ let internal ?(print_types = false) ?(print_var_id = true) () : output_style =
 
 let internal_ast () : output_style =
   { decode = false;
-    typing = typing_none;
+    typing = typing_annot;
     print = Lang_AST { Ast_to_text.style_full with
       print_var_id = !Flags.debug_var_id } }
 
 let internal_ast_only_desc () : output_style =
   { decode = false;
-    typing = typing_none;
+    typing = typing_annot;
     print = Lang_AST { Ast_to_text.style_desc with
       print_var_id = !Flags.debug_var_id } }
 

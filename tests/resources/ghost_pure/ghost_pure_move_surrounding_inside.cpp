@@ -1,5 +1,7 @@
 #include <optitrust.h>
 
+/* TODO: add clear */
+
 __GHOST(trivial_init) {
   __requires("k: int");
   __ensures("k = k");
@@ -8,7 +10,7 @@ __GHOST(trivial_init) {
 
 __GHOST(trivial_change) {
   __requires("k: int, old_k: int, old_k = old_k");
-  __ensures("k = k");
+  __ensures("proof: k = k");
   __admitted();
 }
 
@@ -24,10 +26,11 @@ void f() {
   __ghost(trivial_init, "k");
   k+2;
   __ghost(trivial_change, "k+3");
-  __ghost(trivial_change, "k+4");
+  __ghost(trivial_change, "k+4", "myproof <- proof");
   for (int i = 0; i < 10; ++i) {
     req_triv(k+3);
     req_triv(k+4);
   }
+  __clear("myproof");
   __ghost(trivial_change, "k+5");
 }

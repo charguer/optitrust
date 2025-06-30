@@ -100,7 +100,7 @@ let ghost_clear (x: var) =
     trm_add_attribute GhostInstr (trm_apps (trm_var var_clear) [trm_var x])
   )
 
-let ghost_clear_inv (t: trm) =
+let ghost_clear_inv (t: trm) : var option  =
   Pattern.pattern_match_opt t [
     Pattern.(trm_apps1 (trm_specific_var var_clear) (trm_var !__)) (fun v () -> v)
   ]
@@ -229,6 +229,14 @@ let ghost_proof_inv (t: trm): (var * trm) option =
     | _ -> None
     end
   | _ -> None
+
+let get_ghost_bind (t: trm) : (var option * var) list =
+  match ghost_call_inv t with
+  | Some { ghost_fn; ghost_args; ghost_bind } -> ghost_bind
+  | _ -> failwith "get_ghost_bind in resource_trm.ml: Not applied to a ghost call."
+
+let get_ghost_bind_names (t: trm) : var list =
+  List.concat_map (fun (vopt, _v) -> Option.to_list vopt) (get_ghost_bind t)
 
 let var_ghost_assume = toplevel_var "assume"
 let assume (f: formula): trm =

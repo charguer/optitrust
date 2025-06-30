@@ -4,6 +4,7 @@ open Target
 let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp ( fun _ ->
+
   !! Loop.fission [cFunBody "pure"; cForBody ~body:[cVarDef "d"] "i"; tBetweenAll];
   !! Loop.fission ~nest_of:2 [cFunBody "pure"; nbMulti; cForBody ~body:[cVarDef "x"] "j"; tBetweenAll];
   !! Loop.fission ~nest_of:3 [cFunBody "pure"; nbMulti; tAfter; cFor ~body:[cVarDef "y"] "i"; cVarDef "b"];

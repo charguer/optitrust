@@ -19,7 +19,7 @@ if [ -z "${OPTITRUST_BROWSER}" ]; then
     OPTITRUST_BROWSER="${BROWSER}"
   else
     # OPTITRUST_BROWSER="xdg-open" // does not work .. version `GLIBCXX_3.4.29' not found (required by /lib/x86_64-linux-gnu/libproxy.so.1)
-    # OPTITRUST_BROWSER="chromium" // does not work
+    # OPTITRUST_BROWSER="chromium"
     OPTITRUST_BROWSER="firefox"
   fi
 fi

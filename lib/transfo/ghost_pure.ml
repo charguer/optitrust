@@ -221,10 +221,15 @@ let move_inside_from_seq (index: int) (seq: trm): trm =
   let error = "Ghost_pair.move_inside_from_seq: expected sequence" in
   let instrs, result = trm_inv ~error trm_seq_inv seq in
   let tl_before, t, tl_after = Mlist.get_item_and_its_relatives index instrs in
+  Printf.printf "tl_before: %d\n" (Mlist.length tl_before);
 
   let last_impure_instr = Mlist.fold_lefti (fun i last t ->
-    if is_pure_ghost_call t then last else (i + 1)) 0 tl_before in
+    if is_pure_ghost_call t then last else (Printf.printf "%d\n" i; (i + 1))) 0 tl_before in
+  Printf.printf "last_impure_instr: %d\n" last_impure_instr;
   let tl_before, pure_ghosts_before = Mlist.split last_impure_instr tl_before in
+  Printf.printf "pure ghosts before: %d\n" (Mlist.length pure_ghosts_before);
+
+  (* TODO: after *)
 
   let new_t = Pattern.pattern_match t [
     Pattern.(trm_for !__ (trm_seq !__ __) !__) (fun range body contract () ->
@@ -233,8 +238,15 @@ let move_inside_from_seq (index: int) (seq: trm): trm =
     (* LATER: Manage other kinds of terms with a notion of inside *)
     Pattern.__ (fun () -> failwith "Ghost_pair.move_inside_from_seq: the targetted item is not handled")
   ] in
+  let to_clear = List.concat_map (fun instr -> Resource_trm.get_ghost_bind_names instr) (Mlist.to_list pure_ghosts_before) in
+  (*List.iter (fun x -> Printf.printf "to_clear: %s\n" x) to_clear;*)
+  let new_tl_after = Mlist.filter (fun instr ->
+    match Resource_trm.ghost_clear_inv instr with
+      | Some v when List.mem v to_clear -> false
+      | _ -> true
+    ) tl_after in
 
-  trm_like ~old:seq (trm_seq_helper ?result [TrmMlist tl_before; Trm new_t; TrmMlist tl_after])
+  trm_like ~old:seq (trm_seq_helper ?result [TrmMlist tl_before; Trm new_t; TrmMlist new_tl_after])
 
 (** Move all the pure ghosts immediately surrounding the targetted instruction inside this instruction. *)
 let%transfo move_surrounding_inside (tg: target): unit =
