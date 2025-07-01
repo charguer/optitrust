@@ -280,13 +280,25 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
 
 (** <private> *)
 let elim_analyse (xy : (var * var) option ref) (t : trm) : trm =
-  let error = "expected variable declaration" in
-  let (x, ty, init) = trm_inv ~error trm_let_inv t in (* instead detect if there is x = y *)
-  assert (Option.is_some (trm_ref_inv init));
-  let error = "expected initial value to be a ref(get(var))" in
-  let (_ty, init_val) = trm_inv ~error trm_ref_inv init in
-  let init_val_get = trm_inv ~error trm_get_inv init_val in
-  let init_val_get_var = trm_inv ~error trm_var_inv init_val_get in
+  let error = "expected variable declaration or copy" in
+  (* detect if there is let x = y *)
+  let (x, init_val) =
+    try
+      let (x, ty, init) = trm_inv trm_let_inv t in
+      assert (Option.is_some (trm_ref_inv init));
+      let error = "expected initial value to be a ref(get(var))" in
+      let (_ty, init_val) = trm_inv ~error trm_ref_inv init in
+      x, init_val
+    with _ -> match t.desc with (* detect if there is x = y*)
+      | Trm_apps (f, [lhs; rhs], _, _) ->
+        begin match f.desc with
+        | Trm_prim (ty, Prim_binop Binop_set) -> trm_inv ~error trm_var_inv lhs, rhs
+        | _ -> trm_fail t error
+        end
+      | _ -> trm_fail t error
+  in
+  let init_val_get = trm_inv ~error:"err2" trm_get_inv init_val in
+  let init_val_get_var = trm_inv ~error:"err3" trm_var_inv init_val_get in
   xy := Some (x, init_val_get_var);
   t
 
@@ -327,9 +339,23 @@ let%transfo elim_reuse (tg : target) : unit =
           let (_, open_hide, close_hide) = Resource_trm.ghost_pair_hide y_cell in
           let instrs = Mlist.insert_at (i + 1) open_hide instrs in
           (* detect if there is y = x at the end *)
+          let last_index = ref None in
+          let instrs = instrs |> Mlist.filteri (fun i instr ->
+          let yx' = ref None in
+          let opt = try Some (elim_analyse yx' instr) with _ -> None in
+          not (match opt with
+          | None -> false
+          | Some _ ->
+            match !yx' with
+            | None -> false
+            | Some (y', x') -> if x' = x && y' = y then (last_index := Some i; true) else false
+          )) in
           let instrs = Mlist.push_back close_hide instrs in
           let forget_init = Resource_trm.ghost_forget_init y_cell in
-          let instrs = Mlist.push_back forget_init instrs in
+          let instrs = match !last_index with
+          | None -> Mlist.push_back forget_init instrs
+          | Some i -> Mlist.insert_at (i + 1) forget_init instrs
+          in
           trm_seq ~annot:t_seq.annot ?result instrs
         ) p_seq;
         Resources.ensure_computed_at p_seq
