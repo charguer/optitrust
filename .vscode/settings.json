@@ -18,13 +18,15 @@
     "*.json": "jsonc",
     "*.tex": "latex",
     "*.js": "javascript",
+    "*.html": "html",
     ".html": "html",
     "*.Makefile": "makefile",
     "array": "cpp",
     "string_view": "cpp",
     "initializer_list": "cpp",
     "utility": "cpp",
-    "compare": "cpp"
+    "compare": "cpp",
+    "matrix_functions.h": "c"
   },
   "swapf.patterns": [
     {
