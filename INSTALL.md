@@ -55,7 +55,7 @@ Installation of the opam switch with relevant packages:
    opam pin add menhirLib 20210419
    opam pin add pprint 20220103
    opam pin add clangml 4.8.0
-   opam install dune refl clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving
+   opam install dune refl clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving graphics
    # next line used only for generating the documentation of OptiTrust:
    opam install odoc lambdasoup
    # fancy traces
@@ -65,6 +65,8 @@ Installation of the opam switch with relevant packages:
 ```
 
  Note: clangml 4.8.0 is from Sept 2022.
+
+ Note: graphics is used by the pview tool only.
 
 ### Install precommit hooks
 
@@ -284,6 +286,19 @@ If you have a nonempty file, copy the bindings into your file.
     "args": "Test OptiTrust Shortcuts",
     "when": "config.optitrust.enableKeybindings"
   },  
+  // For working with pview
+  {
+    "key": "shift+f11",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Execute Pview Makefile",
+    "when": "config.optitrust.enableKeybindings && resourceDirname =~ /^.*\/pview\/.*$/"
+  },  
+  {
+    "key": "shift+f11",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Execute Pview Demo",
+    "when": "config.optitrust.enableKeybindings && resourceDirname =~ /^.*\/demo_pview\/.*$/"
+  },    
   // For killing a task, type 'ctrl+k' twice, then 'enter'
   {
      "key": "ctrl+k ctrl+k",

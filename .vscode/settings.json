@@ -26,7 +26,14 @@
     "initializer_list": "cpp",
     "utility": "cpp",
     "compare": "cpp",
+<<<<<<< HEAD
     "matrix_functions.h": "c"
+=======
+    "atomic": "cpp",
+    "deque": "cpp",
+    "string": "cpp",
+    "vector": "cpp"
+>>>>>>> a0334da4b152bdb4ab02da09e04ce63ef1482115
   },
   "swapf.patterns": [
     {

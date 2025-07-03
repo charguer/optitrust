@@ -523,8 +523,31 @@
           }
         },
       },
-
-
+      // Build pview
+      {
+        "label": "Execute Pview Makefile",
+        "type": "shell",
+        "command": "make -C tools/pview",
+        "args": [ ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+      },
+      {
+        "label": "Execute Pview Demo",
+        "type": "shell",
+        "command": "make -C tools/demo_pview",
+        "args": [ ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+      },
       // Run script
       {
         "label": "Execute doc/add_tests_into_doc/run.sh",
