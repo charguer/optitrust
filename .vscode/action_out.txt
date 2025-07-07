@@ -1,0 +1,13 @@
+Skipping build of cmxs file
+View /home/emorel/shared/optitrust/case_studies/clift/forward.ml with options  -mode step-diff -line 11
+make: Entering directory '/home/emorel/shared/optitrust'
+make -C include precompiled_stdlib.pch
+make[1]: Entering directory '/home/emorel/shared/optitrust/include'
+clang -x c++-header precompiled_stdlib.h -o precompiled_stdlib.pch
+make[1]: Leaving directory '/home/emorel/shared/optitrust/include'
+make: Leaving directory '/home/emorel/shared/optitrust'
+Entering directory '/home/emorel/shared/optitrust'
+Leaving directory '/home/emorel/shared/optitrust'
+Using OPTITRUST_BROWSER=xdg-open
+Searching for an existing brower session.
+No session found. Lauching fresh browser
