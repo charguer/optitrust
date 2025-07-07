@@ -8,10 +8,13 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.failure_expected (fun _ -> true) (fun () ->
     Variable.elim_reuse [cFunBody "f"; cVarDef "y"]);
 
-  !! Variable.elim_reuse [cFunBody "g"; cVarDef "b"];
+  !! Variable.elim_reuse [cFunBody "g"; sInstr "b = a"];
 
   !! Trace.failure_expected (fun _ -> true) (fun () ->
     Variable.elim_reuse [cFunBody "h"; cVarDef "b"]);
+
+  !! Trace.failure_expected (fun _ -> true) (fun () ->
+    Variable.elim_reuse [cFunBody "i"; cVarDef "b"]);
 
   !! Trace.failure_expected (fun _ -> true) (fun () ->
     Variable.elim_reuse [cFunBody "resources_not_available"; cVarDef "x"]);

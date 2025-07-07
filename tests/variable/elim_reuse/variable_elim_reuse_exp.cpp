@@ -16,7 +16,7 @@ void g() {
   __pure();
   int a = 0;
   a++;
-  a = a;
+  int c = a;
 }
 
 void h() {
@@ -25,7 +25,17 @@ void h() {
   int b = a;
   b++;
   a = b;
+  b = 3;
+}
+
+void i() {
+  __pure();
+  int a = 0;
+  int b = a;
   b++;
+  a = b;
+  a = 3;
+  int c = b;
 }
 
 void resources_not_available() {

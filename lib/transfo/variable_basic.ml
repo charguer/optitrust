@@ -280,27 +280,34 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
 
 (** <private> *)
 let elim_analyse (xy : (var * var) option ref) (t : trm) : trm =
-  let error = "expected variable declaration or copy" in
-  (* detect if there is let x = y *)
-  let (x, init_val) =
-    try
-      let (x, ty, init) = trm_inv trm_let_inv t in
-      assert (Option.is_some (trm_ref_inv init));
-      let error = "expected initial value to be a ref(get(var))" in
-      let (_ty, init_val) = trm_inv ~error trm_ref_inv init in
-      x, init_val
-    with _ -> match t.desc with (* detect if there is x = y*)
-      | Trm_apps (f, [lhs; rhs], _, _) ->
-        begin match f.desc with
-        | Trm_prim (ty, Prim_binop Binop_set) -> trm_inv ~error trm_var_inv lhs, rhs
-        | _ -> trm_fail t error
-        end
-      | _ -> trm_fail t error
-  in
-  let init_val_get = trm_inv ~error:"err2" trm_get_inv init_val in
-  let init_val_get_var = trm_inv ~error:"err3" trm_var_inv init_val_get in
+  let error = "expected variable declaration" in
+  let (x, ty, init) = trm_inv ~error trm_let_inv t in (* instead detect if there is x = y *)
+  assert (Option.is_some (trm_ref_inv init));
+  let error = "expected initial value to be a ref(get(var))" in
+  let (_ty, init_val) = trm_inv ~error trm_ref_inv init in
+  let init_val_get = trm_inv ~error trm_get_inv init_val in
+  let init_val_get_var = trm_inv ~error trm_var_inv init_val_get in
   xy := Some (x, init_val_get_var);
   t
+
+(** <private> *)
+(** Matches a copy instruction x = y *)
+let elim_match_copy_back (t : trm) : (var * var) option =
+  let error = "expected variable declaration" in
+  match t.desc with
+  | Trm_apps (f, [lhs; rhs], _, _) ->
+    begin match f.desc with
+    | Trm_prim (ty, Prim_binop Binop_set) ->
+      begin try
+        let x, init_val = trm_inv ~error trm_var_inv lhs, rhs in
+        let init_val_get = trm_inv ~error trm_get_inv init_val in
+        let init_val_get_var = trm_inv ~error trm_var_inv init_val_get in
+        Some (x, init_val_get_var)
+      with _ -> None
+      end
+    | _ -> None
+    end
+  | _ -> None
 
 (** <private> *)
 let elim_reuse_on (i : int) (x : var) (y : var) (seq_t : trm) : trm =
@@ -310,7 +317,10 @@ let elim_reuse_on (i : int) (x : var) (y : var) (seq_t : trm) : trm =
     trm_seq_nobrace_nomarks []
   in
   let substitute_var t =
-    trm_subst_var x (trm_var y) t
+    (* if this is the copy-back instruction, delete it. If not, substitute x with y *)
+    match elim_match_copy_back t with
+    | Some (y', x') -> if x = x' && y = y' then trm_seq_nobrace_nomarks [] else trm_subst_var x (trm_var y) t
+    | None -> trm_subst_var x (trm_var y) t
   in
   let new_instrs = Mlist.update_at_index_and_fix_beyond i ~delete:true
     update_decl substitute_var instrs
@@ -320,6 +330,8 @@ let elim_reuse_on (i : int) (x : var) (y : var) (seq_t : trm) : trm =
 (** [elim_reuse]: given a targeted variable declaration [let x = get(y)], eliminates the variable
   declaration, reusing variable [y] instead of [x].
   This is correct if [y] is not used in the scope of [x], and can be uninit after the scope of [x].
+  Additionally, it checks if there is a copy-back instruction [y = x], in which case it removes it.
+  This only works if x is never used (or written into) after the copy-back.
 
   TODO: think about the relationship between this, [reuse], [elim_redundant], and [local_name].
   local_name should Instr.insert alloc; Storage.reuse; Storage.read_last_write; Instr.delete x = x
@@ -337,26 +349,38 @@ let%transfo elim_reuse (tg : target) : unit =
           let instrs, result = trm_inv ~error trm_seq_inv t_seq in
           let y_cell = Resource_formula.formula_uninit_cell_var y in
           let (_, open_hide, close_hide) = Resource_trm.ghost_pair_hide y_cell in
-          let instrs = Mlist.insert_at (i + 1) open_hide instrs in
           (* detect if there is y = x at the end *)
-          let last_index = ref None in
-          let instrs = instrs |> Mlist.filteri (fun i instr ->
-          let yx' = ref None in
-          let opt = try Some (elim_analyse yx' instr) with _ -> None in
-          not (match opt with
-          | None -> false
-          | Some _ ->
-            match !yx' with
-            | None -> false
-            | Some (y', x') -> if x' = x && y' = y then (last_index := Some i; true) else false
-          )) in
-          let instrs = Mlist.push_back close_hide instrs in
-          let forget_init = Resource_trm.ghost_forget_init y_cell in
-          let instrs = match !last_index with
-          | None -> Mlist.push_back forget_init instrs
-          | Some i -> Mlist.insert_at (i + 1) forget_init instrs
+          let copy_back_index = ref None in
+          Mlist.iteri (fun i instr ->
+            match elim_match_copy_back instr with
+            | None -> ()
+            | Some (y', x') -> if x' = x && y' = y then copy_back_index := Some i
+          ) instrs;
+          (* if we don't have a copy-back, we want to uninit y, because reading from it after the
+            transformation should result in the value of x, unless y has been written into in the meantime *)
+          (* if we do have a copy-back, we can read from y after the transformation, because it is guaranteed to have the value of x
+            However, we also want to prevent any occurence of x after the copy-back, because y is allowed again and its value
+           could be different than the value of x after a few instructions (this is a strong constraint, which could be relaxed) *)
+          let instrs, end_trms = match !copy_back_index with
+            | None ->
+              let forget_init_y = Resource_trm.ghost_forget_init y_cell in
+              instrs, [Trm forget_init_y]
+            | Some i ->
+              let instrs, end_trms = Mlist.split i instrs in
+              let copy_back_instr, end_trms = Mlist.split 1 end_trms in
+              let x_cell = Resource_formula.formula_uninit_cell_var x in
+              let (_, open_x_hide, close_x_hide) = Resource_trm.ghost_pair_hide x_cell in
+              (* during resource check, we keep the copy-back instr so that y can be read from after the transformed seq *)
+              instrs, [TrmMlist copy_back_instr; Trm open_x_hide ; TrmMlist end_trms; Trm close_x_hide]
           in
-          trm_seq ~annot:t_seq.annot ?result instrs
+          let before_instrs, instrs = Mlist.split (i + 1) instrs in
+          trm_seq_helper ~annot:t_seq.annot ?result
+            ([
+              TrmMlist before_instrs; (* untouched instructions before the transfo *)
+              Trm open_hide;          (* hide y *)
+              TrmMlist instrs;        (* instructions where we will substitute x with y *)
+              Trm close_hide          (* unhide y *)
+            ] @ end_trms)
         ) p_seq;
         Resources.ensure_computed_at p_seq
       );
