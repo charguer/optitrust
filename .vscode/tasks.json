@@ -26,9 +26,9 @@
       {
         "label": "View diff",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": "./run_action.sh",
         "options": {
-          "cwd": "${workspaceFolder}",
+          "cwd": "${workspaceFolder}/.vscode",
           "shell": {
             "args": ["-i"]
           }
@@ -37,6 +37,7 @@
           "clear": true
         },
         "args": [
+          "./tools/view_result.sh",
           "step_diff",
           "${relativeFile}",
           "${lineNumber}"
@@ -45,9 +46,9 @@
       {
         "label": "View diff only code",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": "./run_action.sh",
         "options": {
-          "cwd": "${workspaceFolder}",
+          "cwd": "${workspaceFolder}/.vscode",
           "shell": {
             "args": ["-i"]
           }
@@ -104,9 +105,9 @@
       {
         "label": "View trace",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": "./run_action.sh",
         "options": {
-          "cwd": "${workspaceFolder}",
+          "cwd": "${workspaceFolder}/.vscode",
           "shell": {
             "args": ["-i"]
           }
@@ -115,6 +116,7 @@
           "clear": true
         },
         "args": [
+          "./tools/view_result.sh",
           "full_trace",
           "${relativeFile}",
           "${lineNumber}",
@@ -322,16 +324,17 @@
       {
         "label": "Redo last view command",
         "type": "shell",
-        "command": "tools/_last_view_result.sh",
+        "command": "./run_action.sh",
         "options": {
-          "cwd": "${workspaceFolder}",
+          "cwd": "${workspaceFolder}/.vscode",
           "shell": {
             "args": ["-i"]
           }
         },
         "presentation": {
           "clear": true
-        }
+        },
+        "args" : ["./tools/_last_view_result.sh"]
       },
 
       // Run unit tests
