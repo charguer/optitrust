@@ -89,19 +89,19 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
              float *k_cache, float *v_cache, float *logits, int pos,
              int logits_count) {
 
-  float *embedding = CALLOC1(float, embedding_dim);
-  float *mha_norm = CALLOC1(float, embedding_dim);
-  float *mha_q = CALLOC2(float, q_head_count, head_dim);
-  float *mha_score = CALLOC2(float, q_head_count, context_len);
-  float *mha_blend = CALLOC2(float, q_head_count, head_dim);
-  float *mha_att = CALLOC1(float, embedding_dim);
-  float *mha_out = CALLOC1(float, embedding_dim);
-  float *ffn_norm = CALLOC1(float, embedding_dim);
-  float *ffn_fc = CALLOC1(float, hidden_dim);
-  float *ffn_up = CALLOC1(float, hidden_dim);
-  float *ffn_out = CALLOC1(float, embedding_dim);
-  /* printf("\n %d %d %d %d %d %d %d %d %d %d %d %d %f \n", token, vocabulary_len,
-         context_len, layer_count, q_head_count, kv_head_count,
+  float *const embedding = MALLOC1(float, embedding_dim);
+  float *const mha_norm = MALLOC1(float, embedding_dim);
+  float *const mha_q = MALLOC2(float, q_head_count, head_dim);
+  float *const mha_score = MALLOC2(float, q_head_count, context_len);
+  float *const mha_blend = MALLOC2(float, q_head_count, head_dim);
+  float *const mha_att = MALLOC1(float, embedding_dim);
+  float *const mha_out = MALLOC1(float, embedding_dim);
+  float *const ffn_norm = MALLOC1(float, embedding_dim);
+  float *const ffn_fc = MALLOC1(float, hidden_dim);
+  float *const ffn_up = MALLOC1(float, hidden_dim);
+  float *const ffn_out = MALLOC1(float, embedding_dim);
+  /* printf("\n %d %d %d %d %d %d %d %d %d %d %d %d %f \n", token,
+     vocabulary_len, context_len, layer_count, q_head_count, kv_head_count,
          q_head_per_kv_head_count, embedding_dim, head_dim, q_dim, kv_dim,
          hidden_dim, epsilon); */
   // Get embedding representation of each token in the token sequence
@@ -118,7 +118,7 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
   for (int l = 0; l < layer_count; l++) {
 
     // attention rmsnorm
-    rmsnorm(embedding_dim, mha_norm, embedding,
+    rmsnorm(embedding_dim, &mha_norm[MINDEX0()], &embedding[MINDEX0()],
             &(mha_norm_weight[MINDEX2(layer_count, embedding_dim, l, 0)]),
             epsilon);
 
@@ -128,7 +128,8 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
     // qkv matmuls for this position
     for (int q = 0; q < q_head_count; q++) {
       matmul(head_dim, embedding_dim,
-             &mha_q[MINDEX2(q_head_count, head_dim, q, 0)], mha_norm,
+             &mha_q[MINDEX2(q_head_count, head_dim, q, 0)],
+             &mha_norm[MINDEX0()],
              &mha_q_weight[MINDEX4(layer_count, q_head_count, head_dim,
                                    embedding_dim, l, q, 0, 0)]);
     }
@@ -140,7 +141,7 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
       matmul(head_dim, embedding_dim,
              &k_cache[MINDEX4(layer_count, kv_head_count, context_len, head_dim,
                               l, h, pos, 0)],
-             mha_norm,
+             &mha_norm[MINDEX0()],
              &mha_k_weight[MINDEX4(layer_count, kv_head_count, head_dim,
                                    embedding_dim, l, h, 0, 0)]);
     }
@@ -154,7 +155,7 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
       matmul(head_dim, embedding_dim,
              &v_cache[MINDEX4(layer_count, kv_head_count, context_len, head_dim,
                               l, h, pos, 0)],
-             mha_norm,
+             &mha_norm[MINDEX0()],
              &mha_v_weight[MINDEX4(layer_count, kv_head_count, head_dim,
                                    embedding_dim, l, h, 0, 0)]);
     }
@@ -235,7 +236,8 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
               COND)
 
     // final matmul to get the output of the attention
-    matmul(embedding_dim, embedding_dim, mha_out, mha_att,
+    matmul(embedding_dim, embedding_dim, &mha_out[MINDEX0()],
+           &mha_att[MINDEX0()],
            &mha_out_weight[MINDEX3(layer_count, embedding_dim, embedding_dim, l,
                                    0, 0)]);
     COND_DUMP(fwrite_array_float("./dump/mha_out", &mha_out[0], embedding_dim,
@@ -252,21 +254,21 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
                                  embedding_dim, pos, l),
               COND)
 
-    // ffn rmsnormRhum 3L
-    rmsnorm(embedding_dim, ffn_norm, embedding,
+    // ffn rmsnorm
+    rmsnorm(embedding_dim, &ffn_norm[MINDEX0()], &embedding[MINDEX0()],
             &ffn_norm_weight[MINDEX2(layer_count, embedding_dim, l, 0)],
             epsilon);
     COND_DUMP(fwrite_array_float("./dump/ffn_rmsnorm", &ffn_norm[0],
                                  embedding_dim, pos, l),
               COND)
-    matmul(hidden_dim, embedding_dim, ffn_fc, ffn_norm,
+    matmul(hidden_dim, embedding_dim, &ffn_fc[MINDEX0()], &ffn_norm[MINDEX0()],
            &ffn_fc_weight[MINDEX3(layer_count, hidden_dim, embedding_dim, l, 0,
                                   0)]);
 
     COND_DUMP(
         fwrite_array_float("./dump/ffn_fc", &ffn_fc[0], hidden_dim, pos, l),
         COND)
-    matmul(hidden_dim, embedding_dim, ffn_up, ffn_norm,
+    matmul(hidden_dim, embedding_dim, &ffn_up[MINDEX0()], &ffn_norm[MINDEX0()],
            &ffn_up_weight[MINDEX3(layer_count, hidden_dim, embedding_dim, l, 0,
                                   0)]);
     COND_DUMP(
@@ -284,7 +286,7 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
               COND)
 
     // final matmul to get the output of the ffn
-    matmul(embedding_dim, hidden_dim, ffn_out, ffn_fc,
+    matmul(embedding_dim, hidden_dim, &ffn_out[MINDEX0()], &ffn_fc[MINDEX0()],
            &ffn_out_weight[MINDEX3(layer_count, embedding_dim, hidden_dim, l, 0,
                                    0)]);
     COND_DUMP(fwrite_array_float("./dump/ffn_out", &ffn_out[0], embedding_dim,
@@ -300,12 +302,25 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
               COND)
   }
   // final rmsnorm#include <optitrust.h>
-  rmsnorm(embedding_dim, embedding, embedding, out_norm_weight, epsilon);
+  rmsnorm(embedding_dim, &embedding[MINDEX0()], &embedding[MINDEX0()],
+          out_norm_weight, epsilon);
   DUMP(fwrite_array_float("./dump/embedding_final", &embedding[0],
                           embedding_dim, pos, 0))
   // classifier into logits
-  matmul(vocabulary_len, embedding_dim, logits, embedding, out_weight);
+  matmul(vocabulary_len, embedding_dim, &logits[MINDEX0()],
+         &embedding[MINDEX0()], out_weight);
   DUMP(fwrite_array_float("./dump/logits", &logits[0], 100, pos, 0))
+  free(embedding);
+  free(mha_norm);
+  free(mha_q);
+  free(mha_att);
+  free(mha_score);
+  free(mha_blend);
+  free(mha_out);
+  free(ffn_norm);
+  free(ffn_fc);
+  free(ffn_up);
+  free(ffn_out);
 }
 
 void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
