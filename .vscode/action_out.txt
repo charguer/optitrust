@@ -1,5 +1,6 @@
-Skipping build of cmxs file
-View /home/emorel/shared/optitrust/case_studies/clift/forward.ml with options  -mode step-diff -line 11
+Compiled cmx is out of date compared with /home/emorel/shared/optitrust/tools/../lib/transfo/loop.ml
+Building cmxs file
+View /home/emorel/shared/optitrust/case_studies/clift/forward.ml with options  -mode full-trace -line 35
 make: Entering directory '/home/emorel/shared/optitrust'
 make -C include precompiled_stdlib.pch
 make[1]: Entering directory '/home/emorel/shared/optitrust/include'
@@ -8,6 +9,8 @@ make[1]: Leaving directory '/home/emorel/shared/optitrust/include'
 make: Leaving directory '/home/emorel/shared/optitrust'
 Entering directory '/home/emorel/shared/optitrust'
 Leaving directory '/home/emorel/shared/optitrust'
+Waiting for trace server initialization...
+Opening browser on http://localhost:6775/case_studies/clift/forward_trace.html
 Using OPTITRUST_BROWSER=xdg-open
 Searching for an existing brower session.
 No session found. Lauching fresh browser

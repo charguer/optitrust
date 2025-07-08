@@ -13,6 +13,7 @@ rm -f ${ACTION_OUT}
 touch ${ACTION_OUT}
 
 # Request watch.sh to execute the command by writing the command in action.sh
+# TODO : Printer un cd dans le pwd courant
 echo "$*" > ${ACTION_FILE}
 
 # Watch for a change in the output file
