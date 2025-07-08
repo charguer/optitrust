@@ -40,8 +40,19 @@ int main() {
   }
 
   for (int mi = 0; mi < 8; mi++) {
-    float* const m = MALLOC1(float, 2);
+    float *const m = MALLOC1(float, 2);
     free(m);
+  }
+/* TODO : Faire fonctionner les callocs */
+  for (int v = 0; v < 10; v++) {
+    int *  a = MALLOC1(int, 2);
+    float * const b = MALLOC1(float, 2);
+    for(int j = 0 ; j < 2 ; j ++)
+    {
+      a[MINDEX1(2,j)] = j ;
+    }
+    free(a);
+    free(b);
   }
 }
 /*
@@ -89,12 +100,12 @@ int test4() {
 
 // Variable.inline simplification
 
-// (&(&x_step_ter[MINDEX3(9, 5, 2, n, 0, 0))[MINDEX2(5, 2, l, 0)])[MINDEX1(2, m)]
-// = (&x_step_ter[MINDEX3(9, 5, 2, n, l, 0)])[MINDEX1(2, m)]
-// = x_step_ter[MINDEX3(9, 5, 2, n, l, m)
+// (&(&x_step_ter[MINDEX3(9, 5, 2, n, 0, 0))[MINDEX2(5, 2, l, 0)])[MINDEX1(2,
+// m)] = (&x_step_ter[MINDEX3(9, 5, 2, n, l, 0)])[MINDEX1(2, m)] =
+// x_step_ter[MINDEX3(9, 5, 2, n, l, m)
 
 // (&x[MINDEXN(d1, .., dN, i1, 0, .., 0)])[MINDEX{N-1}(d2, .., dN, i2, .., iN)]
 // = x[MINDEXN(d1, .., dN, i1, i2, .., iN)]
 
-// (&x[MINDEXN(d1, .., dN, i1, i{N-M}, 0, .., 0)])[MINDEXM(d{N-M+1}, .., dN, i{N-M+1}, .., iN)]
-// = x[MINDEXN(d1, .., dN, i1, .., iN)]
+// (&x[MINDEXN(d1, .., dN, i1, i{N-M}, 0, .., 0)])[MINDEXM(d{N-M+1}, .., dN,
+// i{N-M+1}, .., iN)] = x[MINDEXN(d1, .., dN, i1, .., iN)]
