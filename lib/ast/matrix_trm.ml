@@ -101,7 +101,7 @@ let access_inv (t : trm) : (trm * trms * trms) option=
 let get ?(typ: typ option) (base : trm) (dims : trms) (indices : trms) : trm =
   trm_get ?typ (access ?elem_typ:typ base dims indices)
 
-(** [get_inv t]: gets the trm inside a get oepration on an access. *)
+(** [get_inv t]: gets the trm inside a get operation on an access. *)
 let get_inv (t : trm) : (trm * trms * trms) option =
   match t.desc with
   | Trm_apps (_f,[base], _, _) when is_get_operation t -> access_inv base
