@@ -3,7 +3,7 @@
 
 #include "dumper.h"
 
-void rmsnorm(int col_count, float* y, float* x, float* w, float epsilon) {
+void rmsnorm(int col_count, float *y, float *x, float *w, float epsilon) {
   float ss = 0.f;
   for (int j = 0; j < col_count; j++) {
     ss += x[MINDEX1(col_count, j)] * x[MINDEX1(col_count, j)];
@@ -17,7 +17,7 @@ void rmsnorm(int col_count, float* y, float* x, float* w, float epsilon) {
   }
 }
 
-void softmax(int col_count, int col_stride, float* x) {
+void softmax(int col_count, int col_stride, float *x) {
   float max_val = x[MINDEX1(col_count, 0)];
   for (int j = 1; j < col_count; j++) {
     if (x[MINDEX1(col_count, j)] > max_val) {
@@ -33,8 +33,22 @@ void softmax(int col_count, int col_stride, float* x) {
     x[MINDEX1(col_count, j)] /= sum;
   }
 }
+void matmul_real(int row_count, int col_count, int red_count, float *y,
+                 float *x, float *w) {
 
-void matmul(int col_count, int red_count, float* y, float* x, float* w) {
+  for (int i = 0; i < row_count; i++) {
+    for (int j = 0; j < col_count; j++) {
+      y[MINDEX2(row_count, col_count, i, j)] = 0.f;
+      for (int k = 0; k < red_count; k++) {
+        y[MINDEX2(row_count, col_count, i, j)] +=
+            x[MINDEX2(row_count, red_count, i, k)] *
+            w[MINDEX2(col_count, red_count, j, k)];
+      }
+    }
+  }
+}
+
+void matmul(int col_count, int red_count, float *y, float *x, float *w) {
   for (int j = 0; j < col_count; j++) {
     y[MINDEX1(col_count, j)] = 0.f;
     for (int k = 0; k < red_count; k++) {
@@ -44,7 +58,7 @@ void matmul(int col_count, int red_count, float* y, float* x, float* w) {
   }
 }
 
-void rope(int col_count, float* x, int pos) {
+void rope(int col_count, float *x, int pos) {
   for (int j = 0; j < col_count; j += 2) {
     float freq = 1.f / powf(500000.f, j / (float)col_count);
     float val = pos * freq;
@@ -57,41 +71,40 @@ void rope(int col_count, float* x, int pos) {
   }
 }
 
-
 void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
                           int q_head_count, int kv_head_count,
                           int q_head_per_kv_head_count, int embedding_dim,
                           int head_dim, int q_dim, int kv_dim, int hidden_dim,
-                          float epsilon, float* embedding_weight,
-                          float* mha_norm_weight, float* mha_q_weight,
-                          float* mha_k_weight, float* mha_v_weight,
-                          float* mha_out_weight, float* ffn_norm_weight,
-                          float* ffn_fc_weight, float* ffn_up_weight,
-                          float* ffn_out_weight, float* out_norm_weight,
-                          float* out_weight, float* k_cache, float* v_cache,
-                          float* logits, int* sequence, int sequence_len) {
-  float* const embedding =
-      (float*)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
-  float* const mha_norm =
-      (float*)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
-  float* const mha_q = (float*)malloc(
+                          float epsilon, float *embedding_weight,
+                          float *mha_norm_weight, float *mha_q_weight,
+                          float *mha_k_weight, float *mha_v_weight,
+                          float *mha_out_weight, float *ffn_norm_weight,
+                          float *ffn_fc_weight, float *ffn_up_weight,
+                          float *ffn_out_weight, float *out_norm_weight,
+                          float *out_weight, float *k_cache, float *v_cache,
+                          float *logits, int *sequence, int sequence_len) {
+  float *const embedding =
+      (float *)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
+  float *const mha_norm =
+      (float *)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
+  float *const mha_q = (float *)malloc(
       MSIZE3(sequence_len, q_head_count, head_dim) * sizeof(float));
-  float* const mha_score = (float*)malloc(
+  float *const mha_score = (float *)malloc(
       MSIZE3(sequence_len, q_head_count, context_len) * sizeof(float));
-  float* const mha_blend = (float*)malloc(
+  float *const mha_blend = (float *)malloc(
       MSIZE3(sequence_len, q_head_count, head_dim) * sizeof(float));
-  float* const mha_att =
-      (float*)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
-  float* const mha_out =
-      (float*)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
-  float* const ffn_norm =
-      (float*)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
-  float* const ffn_fc =
-      (float*)malloc(MSIZE2(sequence_len, hidden_dim) * sizeof(float));
-  float* const ffn_up =
-      (float*)malloc(MSIZE2(sequence_len, hidden_dim) * sizeof(float));
-  float* const ffn_out =
-      (float*)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
+  float *const mha_att =
+      (float *)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
+  float *const mha_out =
+      (float *)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
+  float *const ffn_norm =
+      (float *)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
+  float *const ffn_fc =
+      (float *)malloc(MSIZE2(sequence_len, hidden_dim) * sizeof(float));
+  float *const ffn_up =
+      (float *)malloc(MSIZE2(sequence_len, hidden_dim) * sizeof(float));
+  float *const ffn_out =
+      (float *)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
   for (int i = 0; i < sequence_len; i++) {
     for (int e = 0; e < embedding_dim; e++) {
       embedding[MINDEX2(sequence_len, embedding_dim, i, e)] =
