@@ -3,6 +3,8 @@
 
 #include "dumper.h"
 
+void iter_matvec(int row_count, int col_count, int red_count, float *x,
+                 float *y, float *w);
 void rmsnorm(int col_count, float *y, float *x, float *w, float epsilon) {
   float ss = 0.f;
   for (int j = 0; j < col_count; j++) {

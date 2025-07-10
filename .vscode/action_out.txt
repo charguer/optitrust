@@ -1,6 +1,6 @@
-Compiled cmx is out of date compared with forward_strip_mining.ml
+Compiled cmx is out of date compared with /home/emorel/shared/optitrust/tools/../lib/transfo/variable_basic.ml
 Building cmxs file
-View /home/emorel/shared/optitrust/case_studies/clift/forward_strip_mining.ml with options  -mode full-trace -line 16
+View /home/emorel/shared/optitrust/case_studies/clift/forward_strip_mining.ml with options  -mode full-trace -line 15
 make: Entering directory '/home/emorel/shared/optitrust'
 make -C include precompiled_stdlib.pch
 make[1]: Entering directory '/home/emorel/shared/optitrust/include'
@@ -9,6 +9,105 @@ make[1]: Leaving directory '/home/emorel/shared/optitrust/include'
 make: Leaving directory '/home/emorel/shared/optitrust'
 Entering directory '/home/emorel/shared/optitrust'
 Leaving directory '/home/emorel/shared/optitrust'
+Mismatch on subterm, comparing 'MINDEX2' with 'MINDEX1'.
+Locations: 'File /home/emorel/shared/optitrust/case_studies/clift/forward_strip_mining.cpp, line 41, columns 9-16' and 'File /home/emorel/shared/optitrust/case_studies/clift/forward_strip_mining.cpp, line 53, columns 7-14.'
+Mismatch comparing
+------
+{
+  for (int i = 0; i < row_count; i++) {
+    for (int j = 0; j < col_count; j++) {
+      (y[+](MINDEX2(row_count, col_count, i, j))) = 0.f;
+      for (int k = 0; k < red_count; k++) {
+        +=((y[+](MINDEX2(row_count, col_count, i, j))),*(x[+](MINDEX2(row_count, red_count, i, k)
+          )) * *(w[+](MINDEX2(col_count, red_count, j, k))));
+      }
+    }
+  }
+}
+------
+{
+  for (int i = 0; i < sequence_len; i++) {
+    for (int j = 0; j < head_dim; j++) {
+      ((mha_q[+](MINDEX3(q_head_count, sequence_len, head_dim, q, i, 0)))[+](MINDEX1(head_dim, j)
+      )) = 0.f;
+      for (int k = 0; k < embedding_dim; k++) {
+        +=(((mha_q[+](MINDEX3(q_head_count, sequence_len, head_dim, q, i, 0)))[+](
+            MINDEX1(head_dim, j))),*((mha_norm[+](MINDEX2(sequence_len, embedding_dim, i, 0)
+          ))[+](MINDEX1(embedding_dim, k))) * *((mha_q_weight[+](MINDEX4(layer_count, q_head_count, head_dim, embedding_dim, l, q, 0, 0)
+          ))[+](MINDEX2(head_dim, embedding_dim, j, k))));
+      }
+    }
+  }
+}
+------
+[0;31mERROR[0m: @ path [(Dir_seq_nth 8); Dir_let_body; Dir_body; (Dir_seq_nth 12); Dir_body;
+  (Dir_seq_nth 1); Dir_body]:
+Optitrust_framework.Trm_matching.Rule_mismatch
+========> BACKTRACE:
+Raised at Optitrust_framework__Trm_matching.rule_match.(fun) in file "lib/framework/trm_matching.ml", line 259, characters 4-23
+Called from Optitrust_transfo__Function_core.uninline_on.(fun) in file "lib/transfo/function_core.ml", line 266, characters 13-100
+Called from Optitrust_framework__Prelude.update_span_helper in file "lib/framework/prelude.ml", line 63, characters 30-43
+Called from Optitrust_framework__Path.apply_on_path.aux_on_path_rec.aux in file "lib/framework/target/path.ml" (inlined), line 47, characters 18-43
+Called from Optitrust_framework__Path.apply_on_path.aux_on_path_rec in file "lib/framework/target/path.ml", line 93, characters 42-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 20-25
+Called from Stdlib__List.mapi in file "list.ml" (inlined), line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 98, characters 15-25
+Called from Optitrust_ast__Mlist.update_nth in file "lib/ast/mlist.ml", line 225, characters 20-54
+Called from Optitrust_framework__Path.apply_on_path.aux_on_path_rec in file "lib/framework/target/path.ml", line 63, characters 33-58
+Called from Optitrust_framework__Path.apply_on_path.aux_on_path_rec.aux in file "lib/framework/target/path.ml" (inlined), line 47, characters 18-43
+Called from Optitrust_framework__Path.apply_on_path.aux_on_path_rec in file "lib/framework/target/path.ml", line 93, characters 42-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 20-25
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml" (inlined), line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 98, characters 15-25
+Called from Optitrust_ast__Mlist.update_nth in file "lib/ast/mlist.ml", line 225, characters 20-54
+Called from Optitrust_framework__Path.apply_on_path.aux_on_path_rec in file "lib/framework/target/path.ml", line 63, characters 33-58
+Called from Optitrust_framework__Path.apply_on_path.aux_on_path_rec.aux in file "lib/framework/target/path.ml" (inlined), line 47, characters 18-43
+Called from Optitrust_framework__Path.apply_on_path.aux_on_path_rec in file "lib/framework/target/path.ml", line 103, characters 45-53
+Called from Optitrust_framework__Path.apply_on_path.aux_on_path_rec.aux in file "lib/framework/target/path.ml" (inlined), line 47, characters 18-43
+Called from Optitrust_framework__Path.apply_on_path.aux_on_path_rec in file "lib/framework/target/path.ml", line 91, characters 34-42
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 20-25
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml" (inlined), line 96, characters 34-50
+Called from Stdlib__List.mapi in file "list.ml", line 98, characters 15-25
+Called from Optitrust_ast__Mlist.update_nth in file "lib/ast/mlist.ml", line 225, characters 20-54
+Called from Optitrust_framework__Path.apply_on_path.aux_on_path_rec in file "lib/framework/target/path.ml", line 63, characters 33-58
+Called from Optitrust_framework__Path.handle_path_error in file "lib/framework/target/path.ml", line 35, characters 6-10
+Re-raised at Optitrust_ast__Contextualized_error.contextualized_exn in file "lib/ast/contextualized_error.ml", line 18, characters 12-89
+Called from Optitrust_framework__Trace.apply in file "lib/framework/runtime/trace.ml", line 1400, characters 23-42
+Called from Optitrust_transfo__Function_basic.uninline.(fun) in file "lib/transfo/function_basic.ml", line 98, characters 4-84
+Called from Optitrust_framework__Target.iteri.(fun).tr_wrapped in file "lib/framework/target/target.ml", line 1338, characters 4-10
+Called from Optitrust_framework__Target.with_stringreprs_available_for in file "lib/framework/target/target.ml", line 1254, characters 10-14
+Called from Optitrust_framework__Target.iteri.(fun) in file "lib/framework/target/target.ml", line 1344, characters 2-1023
+Called from Optitrust_framework__Trace.step_and_get_handle.(fun) in file "lib/framework/runtime/trace.ml", line 1026, characters 10-17
+Called from Optitrust_framework__Trace.step in file "lib/framework/runtime/trace.ml", line 1033, characters 14-69
+Called from Optitrust_framework__Target.iteri.(fun).tr_wrapped in file "lib/framework/target/target.ml", line 1338, characters 4-10
+Called from Optitrust_framework__Trace.step_and_get_handle.(fun) in file "lib/framework/runtime/trace.ml", line 1026, characters 10-17
+Called from Optitrust_framework__Trace.step in file "lib/framework/runtime/trace.ml", line 1033, characters 14-69
+Called from Stdlib__List.iteri in file "list.ml" (inlined), line 114, characters 12-17
+Called from Stdlib__List.iteri in file "list.ml", line 116, characters 16-27
+Called from Optitrust_framework__Target.with_stringreprs_available_for in file "lib/framework/target/target.ml", line 1254, characters 10-14
+Called from Optitrust_framework__Target.iteri.(fun) in file "lib/framework/target/target.ml", line 1344, characters 2-1023
+Called from Optitrust_framework__Trace.step_and_get_handle.(fun) in file "lib/framework/runtime/trace.ml", line 1026, characters 10-17
+Called from Optitrust_framework__Trace.step in file "lib/framework/runtime/trace.ml", line 1033, characters 14-69
+Called from Optitrust_framework__Run.script.(fun) in file "lib/framework/runtime/run.ml", line 158, characters 8-141
+
 Waiting for trace server initialization...
 Opening browser on http://localhost:6775/case_studies/clift/forward_strip_mining_trace.html
 Using OPTITRUST_BROWSER=xdg-open
