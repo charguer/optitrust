@@ -943,3 +943,88 @@ let%transfo read_last_write ~(write : target) (tg : target) : unit =
     in
     rd_value
   ) tg
+
+(** [tiles_accesses block_size nb_blocks x index_dim t]: changes all the
+    occurences of the array to the tiled form.
+    - [block_size] size of the blocks used for tiling
+    - [nb_blocks] number of blocks used for tilling
+    - [x] - var representing the array for which we want to modify the accesses
+    - [index_dim] index of the tiled array's dimension
+    - [t] - ast node located in the same level or deeper as the array
+      declaration Assumptions:
+    - x is not used in function definitions, but only in var declarations
+    - the array_size is block_size * nb_blocks *)
+
+let tile_accesses (block_size : trm) (nb_blocks : trm) (x : typvar)
+    (index_dim : int) (t : trm) : trm =
+  access_map
+    (fun (base, dims, indices) ->
+      let dimfront, current_dim, dimback =
+        List.get_item_and_its_relatives index_dim dims
+      in
+      let ifront, current_index, iback =
+        List.get_item_and_its_relatives index_dim indices
+      in
+      ( base,
+        dimfront @ [ nb_blocks; block_size ] @ dimback,
+        ifront
+        @ [
+            trm_trunc_div_int current_index block_size;
+            trm_trunc_mod_int current_index block_size;
+          ]
+        @ iback ))
+    x t
+
+(** [tile_at block_name block_size index t]: transform an array declaration from
+    a normal shape into a tiled one, then call apply_tiling to change all the
+    array occurrences into the correct form.
+    - [nb_blocks] - optional, use to indicate the nb of tiled blocks, if not
+      provided, a const int is declared to compute division.
+    - [block_size] the size of the tile,
+    - [index] the index of the instruction inside the sequence
+    - [t] - ast of the outer sequence containing the array declaration.
+
+    Ex: t[i] -> t[i/B][i%B] *)
+let tile_at ?(nb_blocks : trm option) ~(block_size : trm) ~(index_dim : int)
+    (index : int) (t : trm) : trm =
+  let tl, result = trm_inv trm_seq_inv t in
+  let lfront, d, lback = Mlist.get_item_and_its_relatives index tl in
+  let array_var, typ, typ_alloc, trms, init =
+    trm_inv ~error:"Matrix_basic.tile_at : Expected an array declaration (maybe you forgot const?)"
+      let_alloc_inv d
+  in
+  if not (0 <= index_dim && index_dim <= List.length trms) then
+    trm_fail t
+      "Matrix_basic.tile_at: index_dim must be betweeen the number of \
+       dimensions"
+  else
+    let dimfront, current_dim, dimback =
+      List.get_item_and_its_relatives index_dim trms
+    in
+    let lfront, nb_blocks =
+      match nb_blocks with
+      | Some x -> (lfront, x)
+      | None ->
+          let new_block_var = name_to_var (array_var.name ^ "_blocks") in
+          (* nb_blocks = ceil(array_size / block_size)
+             where ceil(a/b) is computed as (a+b -1) /b *)
+          let new_block =
+            trm_let (new_block_var, typ_int)
+              (trm_trunc_div_int
+                 (trm_add_int current_dim (trm_sub_int block_size (trm_int 1)))
+                 block_size)
+          in
+          (Mlist.push_back new_block lfront, trm_var new_block_var)
+    in
+    let new_dims = dimfront @ [ nb_blocks; block_size ] @ dimback in
+    let new_d =
+      trm_let (array_var, typ)
+        (Matrix_trm.alloc ~zero_init:init typ_alloc new_dims)
+    in
+    let lback =
+      Mlist.map
+        (fun t -> (tile_accesses block_size nb_blocks array_var index_dim) t)
+        lback
+    in
+    let new_items = Mlist.merge (Mlist.push_back new_d lfront) lback in
+    trm_seq ?result new_items
