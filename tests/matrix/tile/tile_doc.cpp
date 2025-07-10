@@ -1,7 +1,7 @@
 #include <optitrust.h>
-int main() {
-  float *a = MALLOC1(float, 10);
-  for (int i = 0; i < 10; i++) {
-    a[MINDEX1(10,i)] = i +1;
-  }
+int f(int N1, int N2, int N3, int i1, int i2, int i3) {
+  int const block_size = 10;
+  float * const a = MALLOC3(float, N1, N2, N3);
+  a[MINDEX3(N1, N2, N3, i1, i2, i3)] = 0;
 }
+// Partir avec 3 dim, pas de chiffres, mettre des variables
