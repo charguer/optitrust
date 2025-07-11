@@ -3,6 +3,7 @@
 # This script watches over for any modification of ACTION_FILE
 # and executes the file when it gets modified.
 # Requires the `inotify-tools` package.
+# you must run it, to be able to triggers tasks like view diff
 # Assumes it is called from the .vscode folder
 
 
@@ -29,7 +30,7 @@ while true; do
        cat ${ACTION_FILE}
        rm -f ${ACTION_OUT_TEMP}
        # Execute the action, and save the output
-       # TODO ARthur : remove this when fix run action
+       # TODO Arthur : remove this when fix run action
        cd ..
        ./.vscode/${ACTION_FILE} > ./.vscode/${ACTION_OUT_TEMP} 2>&1
        mv ./.vscode/${ACTION_OUT_TEMP} ./.vscode/${ACTION_OUT} -f
