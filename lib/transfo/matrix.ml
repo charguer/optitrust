@@ -79,6 +79,7 @@ let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(ac
 
 (** [reorder_dims ~rotate_n ~order tg] expects the target [tg] to point at at a matrix declaration, then it will find the occurrences of ALLOC and INDEX functions
       and apply the reordering of the dimensions. *)
+(* TODO :Can be done with access_map to improve efficiency and to avoid confusion with other variables named x.name   *)
 let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg : target) : unit =
   let rotate_n = match rotate_n with Some n -> n | None -> 0  in
   Target.iter (fun p ->
@@ -236,3 +237,24 @@ let%transfo storage_folding ~(dim : int) ~(size : trm)
 let%transfo stack_copy ~(var : string) ~(copy_var : string) ~(copy_dims : int) (tg : target) : unit =
   let (var, _) = find_var var tg in
   Matrix_basic.stack_copy ~var ~copy_var ~copy_dims tg
+
+(* TODO : Later, need a reciprocal to this transformation *)
+
+(** [tile ~block_type block_size tg]: expects the target [tg] to point at an
+    array declaration which has to be a const pointer. Then it takes that
+    declaration and transforms it into a tiled array. All the accesses of the
+    targeted array are handled as well.
+    - [block_size] size of the block of tiles.
+    - [index_dim] Index of the dimension to tile
+    - [nb_blocks] optional, numbers of blocks in the tiled array Note : If
+      nb_blocks is not given, and that the array size N is not divsible by
+      block_size, then nb_blocks is computed as the upper part of N /
+      block_size, this will extend the array and that might incorrect if this
+      array is used in other functions
+
+    Example: float * a = malloc(MSIZE1(N1))
+
+    Into: float * a = malloc(MSIZE2(N1/block_size,block_size)) *)
+let%transfo tile ?(nb_blocks : trm option) ~(block_size : trm) ~(index_dim : int)
+    (tg : target) : unit =
+  apply_at_target_paths_in_seq (tile_at ~block_size ?nb_blocks ~index_dim) tg
