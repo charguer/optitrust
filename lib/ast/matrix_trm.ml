@@ -188,7 +188,7 @@ let free_inv (t : trm) : trm option = trm_delete_inv t
       dims, indices) and returns a transformed triple (base', dims', indices').
     - [x] : the variable representing the array.
     - [t] : term to inspect and transform.
-    - [indepth] (optional): if [true] (defaul, the function is applied
+    - [indepth] (optional): if [true] (default), the function is applied
       recursively to all subterms of [t]. Returns a new term where all accesses
       to [x] have been replaced using [f]. *)
 let rec access_map ?(indepth = true)
@@ -200,7 +200,7 @@ let rec access_map ?(indepth = true)
           let base', dims', indices' = f (base, dims, indices) in
           access base' dims' indices'
       | _ -> trm_map (access_map f x) t)
-  | _ when indepth == true -> trm_map (access_map f x) t
+  | _ when indepth = true -> trm_map (access_map f x) t
   | _ -> t
 
 let ghost_mindex_unfold matrix dims res_pattern =
