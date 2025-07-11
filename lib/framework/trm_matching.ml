@@ -104,8 +104,12 @@ let parse_rule ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : strin
 (** [Rule_mismatch]: exception raised by [rule_match] *)
 exception Rule_mismatch
 
+(* Flag to report errors using low-level syntax *)
+let debug_trm_matching = false
+
 (** [rule_match ~higher_order_inst vars pat t]: LATER: Arthur  *)
 let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : typed_vars) (pat : trm) (t : trm) : tmap =
+  let error_msg = debug_trm_matching || error_msg in
 
   (** [inst] maps each pattern variable to an optional term and to a type;
      when pattern variables are not yet instantiated, the term is absent. *)
@@ -116,6 +120,7 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
     match Var_map.find_opt x !inst with
     | None -> failwith "Trm_matching.rule_match: called find_var without first checking is_var"
     | Some (ty, None) ->
+      if debug_trm_matching then Tools.debug "Instantiating variable %s for the first time." (var_to_string x);
       inst := Var_map.add x (ty, Some u) !inst
     | Some (ty, Some t0) ->
       if not (are_same_trm t0 u) then begin
@@ -127,6 +132,8 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
           Tools.debug "Locations: '%s' and '%s.'" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
         end;
         raise Rule_mismatch
+      end else begin
+        if debug_trm_matching then Tools.debug "Finding variable %s another time." (var_to_string x);
       end
     in
   let _get_binding (x : var) : (var * typ) option =
@@ -229,6 +236,12 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
 
     | (Trm_prim _, Trm_prim _ | Trm_lit _, Trm_lit _) when are_same_trm t1 t2 -> ()
 
+    | Trm_if (cond1, then1, else1),
+      Trm_if (cond2, then2, else2) ->
+        aux cond1 cond2;
+        aux then1 then2;
+        aux else1 else2
+
     | Trm_for (range1, body1, _),
       Trm_for (range2, body2, _) ->
         aux range1.start range2.start;
@@ -253,8 +266,12 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
   begin try aux pat t
   with Rule_mismatch ->
     if error_msg then begin
-      Tools.debug "Mismatch comparing\n------\n%s\n------\n%s\n------" (Ast_to_c.ast_to_string ~optitrust_syntax:true pat)
-          (Ast_to_c.ast_to_string ~optitrust_syntax:true t);
+      Tools.debug "Mismatch comparing\n------\n%s\n------\n%s\n------" (Ast_to_c.ast_to_string ~optitrust_syntax:true pat) (Ast_to_c.ast_to_string ~optitrust_syntax:true t);
+      if debug_trm_matching then begin
+        let style = Ast_to_text.style_full in
+        Tools.debug "With pattern variables: %s\n" (String.concat "," (List.map (fun (s,t) -> var_to_string s) vars));
+        Tools.debug "Mismatch comparing\n------\n%s\n------\n%s\n------" (Ast_to_text.ast_to_string ~style pat) (Ast_to_text.ast_to_string ~style t);
+      end
     end;
     raise Rule_mismatch
   end;

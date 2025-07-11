@@ -58,6 +58,7 @@ let _ = Run.script_cpp (fun () ->
     Instr.gather_targets [c; cFor "i"; cArrayWrite "D"];
   );
   !! Loop.shift_range (ShiftBy (trm_find_var "c" [cMark "anycn"])) [cMark "anycn"; cFor ~body:[cArrayWrite "D"] "i"];
+  (* "to_prove" *)
   !! Cleanup.std ();
 
 )
