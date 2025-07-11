@@ -2,9 +2,13 @@
 #include <optitrust.h>
 
 #include "dumper.h"
-
-void iter_matvec(int row_count, int col_count, int red_count, float *x,
-                 float *y, float *w);
+void iter_matvec(int row_count, int col_count, int red_count, float *const x,
+                 float *const y, float *const w) {
+  for (int i = 0; i < row_count; i++) {
+    matvec(col_count, red_count, &x[MINDEX2(row_count, col_count, i, 0)],
+           &y[MINDEX2(row_count, red_count, i, 0)], w);
+  }
+}
 void rmsnorm(int col_count, float *y, float *x, float *w, float epsilon) {
   float ss = 0.f;
   for (int j = 0; j < col_count; j++) {
@@ -35,8 +39,8 @@ void softmax(int col_count, int col_stride, float *x) {
     x[MINDEX1(col_count, j)] /= sum;
   }
 }
-void matmul_real(int row_count, int col_count, int red_count, float *y,
-                 float *x, float *w) {
+void matmul(int row_count, int col_count, int red_count, float *y, float *x,
+            float *w) {
 
   for (int i = 0; i < row_count; i++) {
     for (int j = 0; j < col_count; j++) {
@@ -50,7 +54,7 @@ void matmul_real(int row_count, int col_count, int red_count, float *y,
   }
 }
 
-void matmul(int col_count, int red_count, float *y, float *x, float *w) {
+void matvec(int col_count, int red_count, float *y, float *x, float *w) {
   for (int j = 0; j < col_count; j++) {
     y[MINDEX1(col_count, j)] = 0.f;
     for (int k = 0; k < red_count; k++) {
@@ -123,7 +127,7 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
     }
     for (int q = 0; q < q_head_count; q++) {
       for (int i = 0; i < sequence_len; i++) {
-        matmul(head_dim, embedding_dim,
+        matvec(head_dim, embedding_dim,
                &mha_q[MINDEX3(q_head_count, sequence_len, head_dim, q, i, 0)],
                &mha_norm[MINDEX2(sequence_len, embedding_dim, i, 0)],
                &mha_q_weight[MINDEX4(layer_count, q_head_count, head_dim,
@@ -132,7 +136,7 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
     }
     for (int h = 0; h < kv_head_count; h++) {
       for (int i = 0; i < sequence_len; i++) {
-        matmul(head_dim, embedding_dim,
+        matvec(head_dim, embedding_dim,
                &k_cache[MINDEX4(layer_count, kv_head_count, context_len,
                                 head_dim, l, h, i, 0)],
                &mha_norm[MINDEX2(sequence_len, embedding_dim, i, 0)],
@@ -142,7 +146,7 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
     }
     for (int h = 0; h < kv_head_count; h++) {
       for (int i = 0; i < sequence_len; i++) {
-        matmul(head_dim, embedding_dim,
+        matvec(head_dim, embedding_dim,
                &v_cache[MINDEX4(layer_count, kv_head_count, context_len,
                                 head_dim, l, h, i, 0)],
                &mha_norm[MINDEX2(sequence_len, embedding_dim, i, 0)],
@@ -207,7 +211,7 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
       }
     }
     for (int i = 0; i < sequence_len; i++) {
-      matmul(embedding_dim, embedding_dim,
+      matvec(embedding_dim, embedding_dim,
              &mha_out[MINDEX2(sequence_len, embedding_dim, i, 0)],
              &mha_att[MINDEX2(sequence_len, embedding_dim, i, 0)],
              &mha_out_weight[MINDEX3(layer_count, embedding_dim, embedding_dim,
@@ -226,14 +230,14 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
           &ffn_norm_weight[MINDEX2(layer_count, embedding_dim, l, 0)], epsilon);
     }
     for (int i = 0; i < sequence_len; i++) {
-      matmul(hidden_dim, embedding_dim,
+      matvec(hidden_dim, embedding_dim,
              &ffn_fc[MINDEX2(sequence_len, hidden_dim, i, 0)],
              &ffn_norm[MINDEX2(sequence_len, embedding_dim, i, 0)],
              &ffn_fc_weight[MINDEX3(layer_count, hidden_dim, embedding_dim, l,
                                     0, 0)]);
     }
     for (int i = 0; i < sequence_len; i++) {
-      matmul(hidden_dim, embedding_dim,
+      matvec(hidden_dim, embedding_dim,
              &ffn_up[MINDEX2(sequence_len, hidden_dim, i, 0)],
              &ffn_norm[MINDEX2(sequence_len, embedding_dim, i, 0)],
              &ffn_up_weight[MINDEX3(layer_count, hidden_dim, embedding_dim, l,
@@ -249,7 +253,7 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
       }
     }
     for (int i = 0; i < sequence_len; i++) {
-      matmul(embedding_dim, hidden_dim,
+      matvec(embedding_dim, hidden_dim,
              &ffn_out[MINDEX2(sequence_len, embedding_dim, i, 0)],
              &ffn_fc[MINDEX2(sequence_len, hidden_dim, i, 0)],
              &ffn_out_weight[MINDEX3(layer_count, embedding_dim, hidden_dim, l,
@@ -269,7 +273,7 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
             out_norm_weight, epsilon);
   }
   for (int i = 0; i < sequence_len; i++) {
-    matmul(vocabulary_len, embedding_dim, &logits[MINDEX0()],
+    matvec(vocabulary_len, embedding_dim, &logits[MINDEX0()],
            &embedding[MINDEX2(sequence_len, embedding_dim, i, 0)], out_weight);
   }
   free(ffn_out);
