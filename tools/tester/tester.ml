@@ -627,7 +627,7 @@ let action_run ?(exit_on_error = true) (tests : string list) : unit =
   do_or_die (sprintf "%stools/tester/batch_tests.sh %s > tools/tester/batch/batch.ml"
     sdisable_lineshift tests_to_process_string);
 
-  if true then  (Printf.eprintf "generated batch.\n");
+  if !verbose then  (Printf.eprintf "generated batch.\n");
 
   (* Delete existing output files to avoid considering them in case an error occurs *)
   let delete_output test =
@@ -653,7 +653,7 @@ let action_run ?(exit_on_error = true) (tests : string list) : unit =
     eprintf "Failed to compile tools/tester/batch/batch.ml (error location might be incorrectly reported); command used:\n %s; %s\nIf using it make sure to then run:  rm tools/tester/batch/dune \n" copy_cmd compile_cmd;
     exit 2
   end;
-  if true then  (Printf.eprintf "compiled batch.\n");
+  if !verbose then  (Printf.eprintf "compiled batch.\n");
   (* DEPRECATED printf "\n"; *)
 
   (* Start redirecting stdout into a temporary file during the execution

@@ -1263,7 +1263,7 @@ let%transfo elim_loop_single (tg : target) : unit =
   into:
 {
       for (int i = c ; i < c+1; i++){
-      if(i>= a and i < b )
+      if(i>= a && i < b )
         seq
       }
  }     *)

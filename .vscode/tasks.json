@@ -557,7 +557,7 @@
       {
       "label": "Run opt_bench on current file",
       "type": "shell",
-      "command": "/home/emorel/shared/optitrust/tools/bench.sh",
+      "command": "./tools/bench.sh",
       "args": [
         "${file}"
       ],
@@ -570,6 +570,9 @@
         "reveal": "always",
         "focus": false,
         "panel": "shared"
+      },
+      "options": {
+          "cwd": "${workspaceFolder}/"
       },
       "problemMatcher": []
     }

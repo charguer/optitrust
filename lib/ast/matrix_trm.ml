@@ -25,7 +25,7 @@ let mindex_var_inv = toplevel_var_with_dim_inv mindex_var
 
 (** [mindex dims indices]: builds a call to the macro MINDEX(dims, indices)
     [dims] - dimensions of the matrix access,
-    [indices ] - indices of the matrix access.
+    [indices] - indices of the matrix access.
     [dims] and [indices] must have same length
      Example:
      MINDEXN(N1,N2,N3,i1,i2,i3) = i1 * N2 * N3 + i2 * N3 + i3

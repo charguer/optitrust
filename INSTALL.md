@@ -59,11 +59,11 @@ Installation of the opam switch with relevant packages:
 
 ```sh
    opam init
-   opam switch create 4.14.1+options --packages=ocaml-v ariants.4.14.1+options,ocaml-option-flambda
+   opam switch create 4.14.1+options --packages=ocaml-variants.4.14.1+options,ocaml-option-flambda
    opam pin add dune 3.18.0
    opam pin add menhirLib 20210419
    opam pin add pprint 20220103
-   opam pin add clangml 4.8.0 -> continueanyway 
+   opam pin add clangml 4.8.0  # -> continueanyway 
    opam install dune refl clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving
    # next line used only for generating the documentation of OptiTrust:
    opam install odoc lambdasoup
@@ -73,7 +73,7 @@ Installation of the opam switch with relevant packages:
    eval $(opam env)
 ```
 
- Note: dune 3.19.0 is known to have an issue, when executing the tester script (it hangs).
+ Note: dune 3.19.0 is known to have an issue, when executing the tester script use 3.18.0 instead
 
  Note: clangml 4.8.0 is from Sept 2022.
 

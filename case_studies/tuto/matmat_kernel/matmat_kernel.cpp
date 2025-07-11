@@ -1,7 +1,7 @@
 #include <optitrust.h>
 const int N = 2000;
 
-void matmat_kernel(double C[N*N], double A[N*N], double B[N*N]) {
+void matmat_kernel(double* C, double* A, double* B) {
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < N; j++) {
       C[MINDEX2(N,N,i,j)] = 0.;  //
