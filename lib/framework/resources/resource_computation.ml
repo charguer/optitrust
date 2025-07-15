@@ -874,10 +874,10 @@ let rec simplify_frac_wands (frac_wands: (var * frac_wand) list): frac_simplific
             List.iter his (fun ha -> auxiliary.push[ha -> gi]
   *)
 
-
 (** [simplify_read_only_resources res] tries to simplify all read only resources from [res]
     joining all the fractions such that there is no pair of resources of the form
     [RO(h_i - f_1 - ... - f_n, H), RO(g - h_0 - ... - h_i - ... - h_n, H)]
+    (closeFracs in the paper)
  *)
 let simplify_read_only_resources ~(aliases: trm varmap) (res: linear_resource_set): (linear_resource_set * frac_simplification_steps) =
   let res = List.map (fun (h, t) -> (h, trm_subst aliases t)) res in
@@ -972,6 +972,7 @@ let global_errors : (resource_error_phase * exn) list ref = ref []
     Certain nodes [ti] in [t] may have their field [ti.errors]
     storing the error messages. *)
 exception ResourceError of trm * resource_error_phase * exn
+
 
 let _ = Printexc.register_printer (function
   | MismatchingType (t, actual_typ, expected_typ) ->
@@ -1185,6 +1186,8 @@ let check_loop_contract_types ~(pure_ctx: pure_env) (contract: loop_contract): u
   let pure_ctx = check_pure_resource_types ~pure_ctx contract.loop_ghosts in
   check_fun_contract_types ~pure_ctx contract.iter_contract;
   check_linear_resource_types ~pure_ctx contract.parallel_reads;
+  (* ARTHUR: added this same check for atomic resources *)
+  check_linear_resource_types ~pure_ctx contract.parallel_atomic;
   ignore (check_resource_set_types ~pure_ctx contract.invariant)
 
 let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
@@ -1318,6 +1321,23 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
 
     | Binop_array_get ->
       failwith "Pure arrays are not yet supported, therefore Binop_array_get cannot be typed"
+
+    (* ARTHUR: had to have a model for foumula_pointd_to. *)
+    | Binop_faa ->
+      assert (is_typ_auto typ);
+      let vartyp = new_hyp "T" in
+      let typ = typ_var vartyp in
+      let target_var = new_hyp "box" in
+      let added_value_var = new_hyp "added_value" in
+      let model_var = new_hyp "v" in
+      let frac_var = new_hyp "f" in
+      let atomic_cell = formula_atomic ~frac:(trm_var frac_var) (formula_points_to (trm_var target_var) (trm_var model_var)) in
+      let contract = {
+        pre = Resource_set.make ~pure:[(vartyp, typ_type); (target_var, typ_ptr (typ_atomic typ)); (added_value_var, typ) ; (frac_var, typ_frac)] ~linear:[new_anon_hyp (), atomic_cell] ();
+        (*post = Resource_set.make ~pure:[var_result, typ_ptr typ] ()*)
+        post = Resource_set.make ~pure:[var_result, typ] ~linear:[new_anon_hyp (), atomic_cell] ()
+      } in
+      typ_auto, { args = [target_var; added_value_var]; contract; inverse = None }
   in
   match prim with
   | Prim_unop op -> find_unop_spec op
@@ -2027,11 +2047,15 @@ let init_ctx = Resource_set.make ~pure:[
   typ_char_var, typ_type;
   typ_ptr_var, typ_pure_simple_fun [typ_type] typ_type;
   typ_const_var, typ_pure_simple_fun [typ_type] typ_type;
+  typ_atomic_var, typ_pure_simple_fun [typ_type] typ_type;
   typ_range_var, typ_type;
   Resource_formula.var_range, typ_pure_simple_fun [typ_int; typ_int; typ_int] typ_range;
   Resource_formula.var_group, typ_pure_simple_fun [typ_range; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_frac, typ_type;
   Resource_formula.var_read_only, typ_pure_simple_fun [Resource_formula.typ_frac; typ_hprop] typ_hprop;
+  (* ARTHUR : duplicated line above, not sure what to change if anything.
+    What about typ_pure_simple_fun being about "non-polymorphic" functions ? Any issue with FAA being polymorphic ? *)
+  Resource_formula.var_atomic, typ_pure_simple_fun [Resource_formula.typ_frac; typ_hprop] typ_hprop;
   Resource_formula.var_is_true, typ_pure_simple_fun [typ_bool] typ_prop;
   Resource_formula.var_is_false, typ_pure_simple_fun [typ_bool] typ_prop;
   Resource_formula.var_not, typ_pure_simple_fun [typ_prop] typ_prop;

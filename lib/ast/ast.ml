@@ -528,6 +528,8 @@ and binary_op =
   | Binop_shiftl        (* a >> k *)
   | Binop_shiftr        (* a << k *)
   | Binop_xor           (* a ^ b *)
+(* ARTHUR: Added binary operation FAA*)
+  | Binop_faa           (* t[i]+=x (fetch and add), avoids concurrent access *)
 
 (** [consistency_mode]: C++ memory model consistency *)
 and consistency_mode =
@@ -697,6 +699,7 @@ and loop_contract = {
   loop_ghosts: resource_item list; (* loop_ghosts => vars => __requires *)
   invariant: resource_set; (* invariant => shrd.inv => __smodifies; must be empty for parallel loops *)
   parallel_reads: resource_item list; (* parallel_reads => shrd.reads => __sreads *) (* all the resources should be of the form RO(_, _) *)
+  parallel_atomic: resource_item list; (* parallel_atomic => shrd.atomic => __satomic*)
   iter_contract: fun_contract;
     (* iter_contract.pre => excl.pre => __xconsumes;
        iter_contract.post => excl.post => __xproduces;
@@ -1073,7 +1076,7 @@ let empty_fun_contract =
 
 (** The empty loop contract, like on a loop without any annotation *)
 let empty_loop_contract =
-  { loop_ghosts = []; invariant = empty_resource_set; parallel_reads = []; iter_contract = empty_fun_contract; strict = false }
+  { loop_ghosts = []; invariant = empty_resource_set; parallel_reads = []; parallel_atomic = []; iter_contract = empty_fun_contract; strict = false }
 
 (** The empty strict loop contract, that contains nothing *)
 let empty_strict_loop_contract =

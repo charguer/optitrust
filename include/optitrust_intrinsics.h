@@ -16,6 +16,7 @@ inline void __pure() {}
 inline void __requires(__resource_list) {}
 inline void __ensures(__resource_list) {}
 inline void __reads(__resource_list) {}
+inline void __atomic(__resource_list) {}
 inline void __writes(__resource_list) {}
 inline void __modifies(__resource_list) {}
 inline void __preserves(__resource_list) {}
@@ -35,6 +36,7 @@ inline void __srequires(__resource_list) {}
 inline void __smodifies(__resource_list) {}
 inline void __spreserves(__resource_list) {}
 inline void __sreads(__resource_list) {}
+inline void __satomic(__resource_list) {}
 
 inline void __admitted() {}
 

@@ -884,6 +884,7 @@ let __pure = name_to_var "__pure"
 let __requires = name_to_var "__requires"
 let __ensures = name_to_var "__ensures"
 let __reads = name_to_var "__reads"
+let __atomic = name_to_var "__atomic"
 let __writes = name_to_var "__writes"
 let __modifies = name_to_var "__modifies"
 let __preserves = name_to_var "__preserves"
@@ -902,6 +903,7 @@ let __srequires = name_to_var "__srequires"
 let __smodifies = name_to_var "__smodifies"
 let __spreserves =  name_to_var "__spreserves"
 let __sreads = name_to_var "__sreads"
+let __satomic = name_to_var "__satomic"
 let __strict = name_to_var "__strict"
 
 let __reverts = name_to_var "__reverts"
@@ -920,13 +922,14 @@ let fun_clause_type_inv (clause: var) : fun_contract_clause_type option =
   | "__requires" -> Some Requires
   | "__ensures" -> Some Ensures
   | "__reads" -> Some Reads
+  | "__atomic" -> Some Atomic
   | "__writes" -> Some Writes
   | "__modifies" -> Some Modifies
   | "__preserves" -> Some Preserves
   | "__consumes" -> Some Consumes
   | "__produces" -> Some Produces
   | "__xrequires" | "__xensures" | "__xreads" | "__xwrites" | "__xmodifies" | "__xpreserves"
-  | "__xconsumes" | "__xproduces" | "__srequires" | "__sreads" | "__smodifies" | "__spreserves" | "__strict" ->
+  | "__xconsumes" | "__xproduces" | "__srequires" | "__sreads" | "__satomic" | "__smodifies" | "__spreserves" | "__strict" ->
     failwith "Found the loop contract clause '%s' in a function contract" clause.name
   | _ -> None
 
@@ -943,10 +946,12 @@ let loop_clause_type_inv (clause: var) : loop_contract_clause_type option =
   | "__xproduces" -> Some (Exclusive Produces)
   | "__srequires" -> Some InvariantGhosts
   | "__sreads" -> Some SharedReads
+  | "__satomic" -> Some SharedAtomic
   | "__smodifies" -> Some SharedModifies
   | "__spreserves" -> Some SharedPreserves
   | "__strict" -> Some Strict
-  | "__pure" | "__ensures" | "__reads" | "__writes" | "__modifies" | "__preserves" | "__consumes" | "__produces" ->
+  (* ARTHUR: added it below *)
+  | "__pure" | "__ensures" | "__reads" | "__atomic" | "__writes" | "__modifies" | "__preserves" | "__consumes" | "__produces" ->
     failwith "Found the function contract clause '%s' in a loop contract" clause.name
   | _ -> None
 
@@ -1275,6 +1280,7 @@ let rec encode_contract (style: style) (t: trm): trm =
 
   match t.desc with
   | Trm_fun (args, ty, body0, contract) ->
+    (* TODO : let body0 = if trm_annot_has ghost_instr t then trm_seq_empty*)
     let body = add_contract_to_fun_body body0 contract in
     if body == body0
       then t

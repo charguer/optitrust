@@ -101,6 +101,7 @@ and print_binop (op : binary_op) : document =
   | Binop_shiftr -> string "Binop_shiftr"
   | Binop_xor -> string "Binop_xor"
   (*| Binop_fmod -> string "Binop_fmod"*)
+  | Binop_faa -> string "Binop_FAA"
 
 (** [print_consistency cm]: converts OpenMP memory consistency model to pprint document *)
 and print_consistency (cm : consistency_mode) : document =

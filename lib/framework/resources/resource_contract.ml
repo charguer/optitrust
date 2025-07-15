@@ -22,6 +22,10 @@ type fun_contract_clause_type =
   (** Syntactic sugar for consuming [_RO(f, R)] and producing [_RO(f, R)].
       [f] is a new fraction added to the required pure resource items. *)
 
+  | Atomic
+  (** Syntactic sugar for consuming [_ATOMIC(f, R)] and producing [_ATOMIC(f, R)].
+      [f] is a new fraction added to the required pure resource items. *)
+
   | Writes
   (** Syntactic sugar for consuming [_Uninit(R)] and producing [R]. *)
 
@@ -57,6 +61,9 @@ type loop_contract_clause_type =
 
   | SharedReads
   (** Linear resource items that are read in parallel by all loop iterations. *)
+
+  | SharedAtomic
+  (** Linear resource items that are written by atomic operations in parallel by all loop iterations. *)
 
   | Strict
   (** On loop contracts, do not allow other resources than the one mentionned inside the loop iterations.
@@ -118,11 +125,13 @@ let rec encode_formula (formula: formula): formula =
       formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "Matrix%d" (List.length dims)))) dims)
   | None -> trm_map encode_formula formula
 
-let push_read_only_fun_contract_res ((name, formula): resource_item) (contract: fun_contract): fun_contract =
+(*ARTHUR : transformed "read_only" into "fractional_access"*)
+(* Used both for read only and atomic operations. *)
+let push_frac_access_fun_contract_res (formula_fun: frac:typ -> typ -> typ) ((name, formula): resource_item) (contract: fun_contract): fun_contract =
   let frac_var, frac_ghost = new_frac () in
-  let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
-  let pre = Resource_set.add_linear (name, ro_formula) { contract.pre with pure = frac_ghost :: contract.pre.pure } in
-  let post = Resource_set.add_linear (name, ro_formula) contract.post in
+  let frac_access_formula = formula_fun ~frac:(trm_var frac_var) formula in
+  let pre = Resource_set.add_linear (name, frac_access_formula) { contract.pre with pure = frac_ghost :: contract.pre.pure } in
+  let post = Resource_set.add_linear (name, frac_access_formula) contract.post in
   { pre; post }
 
 let resource_item_uninit ((name, formula): resource_item): resource_item =
@@ -136,10 +145,12 @@ let push_fun_contract_clause (clause: fun_contract_clause_type)
   | Consumes -> { contract with pre = Resource_set.add_linear res contract.pre }
   | Ensures -> { contract with post = Resource_set.push_front_pure res contract.post }
   | Produces -> { contract with post = Resource_set.add_linear res contract.post }
-  | Reads -> push_read_only_fun_contract_res res contract
+  | Reads -> push_frac_access_fun_contract_res formula_read_only res contract
+  | Atomic -> push_frac_access_fun_contract_res formula_atomic res contract
   | Writes -> { pre = Resource_set.add_linear (resource_item_uninit res) contract.pre ; post = Resource_set.add_linear res contract.post }
   | Modifies | Preserves -> { pre = Resource_set.add_linear res contract.pre ; post = Resource_set.add_linear res contract.post }
 
+(* ARTHUR: Copied code here, as no easy call on the corresponding function was possible. *)
 let push_loop_contract_clause (clause: loop_contract_clause_type)
     (res: resource_item) (contract: loop_contract) =
   match clause with
@@ -158,6 +169,11 @@ let push_loop_contract_clause (clause: loop_contract_clause_type)
     let frac_var, frac_ghost = new_frac () in
     let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
     { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; parallel_reads = (name, ro_formula) :: contract.parallel_reads }
+  | SharedAtomic ->
+    let name, formula = res in
+    let frac_var, frac_ghost = new_frac () in
+    let atomic_formula = formula_atomic ~frac:(trm_var frac_var) formula in
+    { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; parallel_atomic = (name, atomic_formula) :: contract.parallel_atomic }
   | Strict -> failwith "Strict should never appear with resources inside"
 
 let parse_contract_res_item ((name, formula): contract_resource_item): resource_item =
@@ -234,11 +250,13 @@ let fun_contract_subst ctx contract =
   { pre = Resource_set.subst ctx contract.pre;
     post = Resource_set.subst ctx contract.post }
 
+(* ARTHUR: no change, is ok ?*)
 (** [loop_contract_subst ctx contract] substitutes variables from [ctx] inside [contract] *)
 let loop_contract_subst ctx contract =
   { loop_ghosts = contract.loop_ghosts;
     invariant = Resource_set.subst ctx contract.invariant;
     parallel_reads = List.map (fun (h, t) -> (h, trm_subst ctx t)) contract.parallel_reads;
+    parallel_atomic = List.map (fun (h, t) -> (h, trm_subst ctx t)) contract.parallel_atomic;
     iter_contract = fun_contract_subst ctx contract.iter_contract;
     strict = contract.strict }
 

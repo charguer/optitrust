@@ -287,12 +287,16 @@ let minimize_loop_contract contract post_inst usage =
   in
   let new_invariant = { contract.invariant with linear = new_linear_invariant } in
   let new_parallel_reads = added_par_reads @ List.filter (fun (hyp, _) -> Var_map.mem hyp usage) contract.parallel_reads in
+  (* TODO: added_parallel_atomic *)
+  let added_par_atomic = [] in
+  let new_parallel_atomic = added_par_atomic @ List.filter (fun (hyp, _) -> Var_map.mem hyp usage) contract.parallel_atomic in
 
   let new_iter_contract = minimize_fun_contract ~output_new_fracs:new_fracs contract.iter_contract post_inst usage in
 
   let new_contract = { loop_ghosts = !new_fracs @ contract.loop_ghosts;
     invariant = new_invariant;
     parallel_reads = new_parallel_reads;
+    parallel_atomic = new_parallel_atomic;
     iter_contract = new_iter_contract;
     strict = contract.strict }
   in
@@ -345,6 +349,7 @@ let make_strict_loop_contract_on (t: trm): trm =
   let fracs = ref [] in
   let lin_invariant = ref [] in
   let parallel_reads = ref [] in
+  let parallel_atomic = ref [] in
   List.iter (fun (x, f) ->
     match Var_map.find_opt x body_res_usage with
     | None -> ()
@@ -354,7 +359,9 @@ let make_strict_loop_contract_on (t: trm): trm =
       let frac, frac_item = new_frac () in
       fracs := frac_item :: !fracs;
       let { formula = f } = formula_read_only_inv_all f in
-      parallel_reads := (new_anon_hyp (), formula_read_only ~frac:(trm_var frac) f) :: !parallel_reads
+      parallel_reads := (new_anon_hyp (), formula_read_only ~frac:(trm_var frac) f) :: !parallel_reads;
+      (*parallel_atomic := (new_anon_hyp (), formula_atomic ~frac:(trm_var frac) f) :: !parallel_atomic.
+      TODO BONUS: enable the treatment of automatic contracts with atomics *)
     | Some _ -> failwith "Found a usage incompatible with the loop contract frame")
     contract_frame;
 
@@ -362,6 +369,7 @@ let make_strict_loop_contract_on (t: trm): trm =
     loop_ghosts = (List.rev !fracs) @ contract.loop_ghosts;
     invariant = Resource_set.add_linear_list (List.rev !lin_invariant) contract.invariant;
     parallel_reads = (List.rev !parallel_reads) @ contract.parallel_reads;
+    parallel_atomic = (List.rev !parallel_atomic) @ contract.parallel_atomic;
     iter_contract = contract.iter_contract;
     strict = true }
   in
@@ -399,6 +407,7 @@ let __pure = Requires, ""
 let __requires (r: string) = Requires, r
 let __ensures (r: string) = Ensures, r
 let __reads (r: string) = Reads, r
+let __atomic (r: string) = Atomic, r
 let __writes (r: string) = Writes, r
 let __modifies (r: string) = Modifies, r
 let __preserves (r: string) = Preserves, r
@@ -416,6 +425,7 @@ let __xconsumes (r: string) = Exclusive Consumes, r
 let __xproduces (r: string) = Exclusive Produces, r
 let __srequires (r: string) = InvariantGhosts, r
 let __sreads (r: string) = SharedReads, r
+let __satomic (r: string) = SharedAtomic, r
 let __smodifies (r: string) = SharedModifies, r
 let __spreserves (r: string) = SharedPreserves, r
 

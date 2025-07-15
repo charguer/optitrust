@@ -32,6 +32,8 @@ let precedence_prim (p : prim) : precedence =
     | Binop_xor -> (7, LtoR)
     | Binop_bitwise_or -> (6, LtoR)
     | Binop_set -> (2, RtoL)
+    (* ARTHUR: what *)
+    | Binop_faa -> precedence_default
     end
   | Prim_compound_assign_op _ -> (2, RtoL)
   | _ -> precedence_default
@@ -65,6 +67,9 @@ let sub_prec ((prec, assoc): precedence): int * int =
   | NA -> (prec, prec)
 
 (** [parentheses_needed ~prec t]: checks if the precedence of [t] is greater then [prec]. *)
+(* ARTHUR: added case here to make sure parentheses are never put around a faa call *)
 let parentheses_needed ?(prec : int = 0)  (t : trm) =
-  let (prec', assoc) = precedence_trm t in
-  prec' < prec
+  match t.desc with
+    | Trm_prim (_, Prim_binop Binop_faa) -> false
+    | _ -> let (prec', assoc) = precedence_trm t in
+           prec' < prec

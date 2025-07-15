@@ -102,6 +102,16 @@ let typ_const_constr = typ_var typ_const_var
 let typ_const ?loc (t : typ) : typ =
   typ_apps ?loc typ_const_constr [t]
 
+let typ_atomic_var = toplevel_typvar "atomic"
+let typ_atomic_constr = typ_var typ_atomic_var
+(** [typ_atomic ?loc t]: wrapper for making the corresponding const type.
+  After decoding, const types should only appear behind a pointer.
+  LATER: Think about constness of struct fields, for now we only support structs without const fields.
+  LATER: Probably this type constructor should be removed entirely, and only exist temporarily during the C encoding.
+  *)
+let typ_atomic ?loc (t : typ) : typ =
+  typ_apps ?loc typ_atomic_constr [t]
+
 let typ_ptr_var = toplevel_typvar "ptr"
 let typ_ptr_constr = typ_var typ_ptr_var
 (** [typ_ptr ?loc t]: build a pointer type around t *)
@@ -187,6 +197,12 @@ let typ_apps_inv (ty : typ) : (typvar * typ list) option =
 let typ_const_inv (ty : typ) : typ option =
   match typ_apps_inv ty with
   | Some (v, [ty]) when var_eq v typ_const_var -> Some ty
+  | _ -> None
+
+(** [typ_atomic_inv ty]: get the inner type of an atomic *)
+let typ_atomic_inv (ty : typ) : typ option =
+  match typ_apps_inv ty with
+  | Some (v, [ty]) when var_eq v typ_atomic_var -> Some ty
   | _ -> None
 
 (** [typ_ptr_inv ty]: get the inner type of a pointer *)

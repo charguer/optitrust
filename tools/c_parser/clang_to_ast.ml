@@ -127,6 +127,11 @@ let ctx_var_add (tv : var) (t : typ) : unit =
 let wrap_const ~(const : bool) (t : typ) : typ =
   if const then typ_const t else t
 
+(* ARTHUR *)
+(** [wrap_atomic ~atomic t]: wrap type [t] into an atomic type if [atomic] is true *)
+let wrap_atomic ~(atomic : bool) (t : typ) : typ =
+  if atomic then typ_atomic t else t
+
 
 (** [trm_for_c_inv_simple_init init]: checks if the init loop component is simple. If that's the case then return
    initial value of the loop index.
@@ -188,6 +193,7 @@ let redundant_template_definition_type = ref false
 (* Raised by [tr_decl] when the current declaration is a redundant template definition. *)
 exception RedundantTemplateDefinition
 
+(* ARTHUR *)
 (** [tr_type_desc ?loc ~const]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions,
     [loc] gives the location of the type in the file that has been translated,
     if [const] is true then it means [d] is a const type, similarly if [const] is false then [d] is not a const type *)
@@ -210,6 +216,10 @@ let rec tr_type_desc ?(loc : location) ?(namespaces = []) (d : type_desc) : typ 
         let size = tr_expr e in
         typ_array t ~size
     end
+  (* ARTHUR: see clang__ast *)
+  | Atomic q ->
+    let t = tr_qual_type ?loc q in
+    typ_atomic t
   | VariableArray {element = q; size = eo} ->
     let t = tr_qual_type ?loc q in
     let size = tr_expr eo in
@@ -892,6 +902,13 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
     end
 
   | StmtExpr stmt -> tr_stmt stmt
+
+  | Atomic { op = C11_atomic_fetch_add; args = [t_pointer; _t_mode; t_arg ] } ->
+    let tr_args = List.map tr_expr [t_pointer; t_arg] in
+    trm_apps (trm_binop typ_auto Binop_faa) tr_args
+
+  | Atomic { op = C11_atomic_fetch_add; args } ->
+    failwith "Clang_to_ast.ml.tr_expr: This atomic operation is not supported."
 
   | UnexposedExpr RecoveryExpr ->
     loc_fail loc "Clang_to_ast.tr_expr: parsing failure"

@@ -71,6 +71,21 @@ __GHOST(ro_matrix2_unfocus) {
   __ghost(close_wand);
 }
 
+__GHOST(atomic_matrix1_focus) {
+  __requires("T: Type, matrix: ptr(T), i: int, n: int, f: _Fraction");
+  __requires("bound_check: in_range(i, 0..n)");
+  __consumes("_ATOMIC(f, matrix ~> Matrix1(n))");
+  __produces("Wand(_ATOMIC(f, &matrix[MINDEX1(n, i)] ~> Cell), _ATOMIC(f, matrix ~> Matrix1(n))), _ATOMIC(f, &matrix[MINDEX1(n, i)] ~> Cell)");
+  __admitted(); // for efficiency
+  /* __ghost(atomic_group_focus, "f := f, i := i, bound_check := bound_check"); */
+}
+
+__GHOST(atomic_matrix1_unfocus) {
+  __reverts(atomic_matrix1_focus);
+  __admitted(); // for efficiency
+  /* __ghost(close_wand); */
+}
+
 /* ---- Definition of matrix memcpy ---- */
 
 #define DEFINE_MATRIX_COPY(T) \

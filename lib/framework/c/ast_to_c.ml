@@ -223,6 +223,7 @@ let rec typ_desc_to_doc style (t : typ) : document =
     Pattern.typ_isize (fun () -> string "ptrdiff_t");
     Pattern.(typ_const !(typ_var __)) (fun t () -> string "const " ^^ typ_to_doc style t);
     Pattern.(typ_const !__) (fun t () -> typ_to_doc style t ^^ string " const");
+    Pattern.(typ_atomic !__) (fun t () -> string "_Atomic " ^^ typ_to_doc style t);
     Pattern.(typ_ptr !__) (fun t () -> typ_to_doc style t ^^ star);
     Pattern.(typ_ref !__) (fun t () -> typ_to_doc style t ^^ ampersand);
     Pattern.(typ_array __ __) (fun () ->
@@ -405,6 +406,8 @@ and binop_to_doc style (op : binary_op) : document =
   | Binop_shiftl -> twice langle
   | Binop_shiftr -> twice rangle
   | Binop_xor -> caret
+  (* ARTHUR: what *)
+  | Binop_faa -> (string "atomic_fetch_add") ^^ lparen ^^ comma ^^ rparen
 
 (** [prim_to_doc style p]: converts primitives to pprint documents. *)
 and prim_to_doc style (ty: typ) (p : prim) : document =
@@ -1014,6 +1017,8 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_
             | None -> bracketed_trm (t2)
             | Some (_dims, indices) -> separate empty (List.map bracketed_trm indices)
             end
+          (*ARTHUR : here to say what the code will be (positions?) Then what is the other for ?*)
+          | Binop_faa -> (string "atomic_fetch_add") ^^ lparen ^^ d1 ^^ comma ^^ d2 ^^ rparen
           | _ ->
             let op_d = binop_to_doc style op in
             separate (blank 1) [d1; op_d; d2]

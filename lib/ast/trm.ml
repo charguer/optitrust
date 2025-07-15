@@ -1301,10 +1301,11 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
     let loop_ghosts = resource_items_map contract.loop_ghosts in
     let invariant = resource_set_map contract.invariant in
     let parallel_reads = resource_items_map contract.parallel_reads in
+    let parallel_atomic = resource_items_map contract.parallel_atomic in
     let iter_contract = fun_contract_map contract.iter_contract in
     if share_if_no_change && loop_ghosts == contract.loop_ghosts && invariant == contract.invariant && parallel_reads == contract.parallel_reads && iter_contract == contract.iter_contract
       then contract
-      else { loop_ghosts; invariant; parallel_reads; iter_contract; strict = contract.strict }
+      else { loop_ghosts; invariant; parallel_reads; parallel_atomic; iter_contract; strict = contract.strict }
   in
 
   let t' = match t.desc with
@@ -1800,11 +1801,12 @@ let trm_map_vars_ret_ctx
     let ctx, loop_ghosts = resource_items_map ctx contract.loop_ghosts in
     let ctx, invariant = resource_set_map ctx contract.invariant in
     let ctx, parallel_reads = resource_items_map ctx contract.parallel_reads in
+    let ctx, parallel_atomic = resource_items_map ctx contract.parallel_atomic in
     let ctx, iter_contract = fun_contract_map ctx contract.iter_contract in
     let contract =
       if (loop_ghosts == contract.loop_ghosts && invariant == contract.invariant && parallel_reads == contract.parallel_reads && iter_contract == contract.iter_contract)
       then contract
-      else { loop_ghosts; invariant; parallel_reads; iter_contract; strict = contract.strict }
+      else { loop_ghosts; invariant; parallel_reads; parallel_atomic; iter_contract; strict = contract.strict }
     in
     (ctx, contract)
 

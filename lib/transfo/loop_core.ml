@@ -46,6 +46,8 @@ let ghost_colored_index_in_range_step1 = toplevel_var "colored_index_in_range_st
 
     LIMITATION: currently only handles loops with step=1 in case contracts are used. For the general case, we need to generalize color/uncolor.
       *)
+
+(* ARTHUR: managing atomics in tiling and coloring_ghosts. *)
 let color_on (color_index : string) (nb_colors : trm) (t : trm) : trm =
   let error = "Loop_core.color_on: only simple loops are supported." in
   let ({index; start; direction; stop; step}, body, contract) = trm_inv ~error trm_for_inv t in
@@ -245,6 +247,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
         loop_ghosts = contract.loop_ghosts;
         invariant = Resource_set.subst_var index new_index contract.invariant;
         parallel_reads = contract.parallel_reads;
+        parallel_atomic = contract.parallel_atomic;
         iter_contract = {
           pre = Resource_set.subst_var index new_index contract.iter_contract.pre;
           post = Resource_set.subst_var index new_index contract.iter_contract.post };
@@ -254,6 +257,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
         loop_ghosts = contract.loop_ghosts;
         invariant = Resource_set.subst_var index outer_index contract.invariant;
         parallel_reads = contract.parallel_reads;
+        parallel_atomic = contract.parallel_atomic;
         iter_contract = {
           pre = Resource_set.group_range inner_range contract_inner.iter_contract.pre;
           post = Resource_set.group_range inner_range contract_inner.iter_contract.post };

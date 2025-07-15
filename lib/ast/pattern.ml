@@ -371,6 +371,11 @@ let typ_const fty k ty =
   | Some ty -> fty k ty
   | None -> raise Next
 
+let typ_atomic fty k ty =
+  match typ_atomic_inv ty with
+  | Some ty -> fty k ty
+  | None -> raise Next
+
 let typ_ptr fty k ty =
   match typ_ptr_inv ty with
   | Some ty -> fty k ty

@@ -79,6 +79,8 @@ let ghost_swap (outer_range: loop_range) inner_range (_, formula) =
                 = stars_j stars_k P'R(j,k)
     // SV * stars_j SR(j,n) * UV * stars_j UR(j) * PV(k) * stars_j stars_k P'R(j,k) * F
 *)
+
+(* ARTHUR: managing the atomic in here *)
 let swap_on (t: trm): trm =
   (* TODO: refactor *)
   Pattern.pattern_match t [
@@ -96,10 +98,13 @@ let swap_on (t: trm): trm =
       let loop_ghosts = inner_contract.loop_ghosts in
       let inner_inv = inner_contract.invariant in
       let inner_par_reads = inner_contract.parallel_reads in
+      (* ARTHUR: Same as reads ? *)
+      let inner_par_atomic = inner_contract.parallel_atomic in
       let inner_pre = inner_contract.iter_contract.pre in
       let inner_post = inner_contract.iter_contract.post in
 
       let outer_par_reads_hyps = List.fold_left (fun acc (hyp, _) -> Var_set.add hyp acc) Var_set.empty outer_contract.parallel_reads in
+      let outer_par_atomic_hyps = List.fold_left (fun acc (hyp, _) -> Var_set.add hyp acc) Var_set.empty outer_contract.parallel_atomic in
       let inner_invoc = Option.unsome inner_loop.ctx.ctx_resources_contract_invoc in
       let from_outer_par_reads_set = List.fold_left (fun acc { hyp; inst_by } ->
           if Var_set.mem (Resource_computation.Formula_inst.origin_hyp inst_by) outer_par_reads_hyps then
@@ -108,9 +113,18 @@ let swap_on (t: trm): trm =
             acc
         ) Var_set.empty inner_invoc.contract_inst.used_linear in
       let is_from_outer_par_reads (hyp, _) = Var_set.mem hyp from_outer_par_reads_set in
+      let from_outer_par_atomic_set = List.fold_left (fun acc { hyp; inst_by } ->
+          if Var_set.mem (Resource_computation.Formula_inst.origin_hyp inst_by) outer_par_atomic_hyps then
+            Var_set.add hyp acc
+          else
+            acc
+        ) Var_set.empty inner_invoc.contract_inst.used_linear in
+      let is_from_outer_par_atomic (hyp, _) = Var_set.mem hyp from_outer_par_atomic_set in
+
 
       let par_lininv, group_lininv = List.partition is_from_outer_par_reads inner_inv.linear in
       let par_reads_twice, group_par_reads = List.partition is_from_outer_par_reads inner_par_reads in
+      let par_atomic_twice, group_par_atomic = List.partition is_from_outer_par_atomic inner_par_atomic in
       (* [par_iter] = par_pre = par_post *)
       let par_iter, group_pre = List.partition is_from_outer_par_reads inner_pre.linear in
       let (_, group_post, _) = Resource_computation.subtract_linear_resource_set inner_post.linear par_iter in
@@ -126,13 +140,15 @@ let swap_on (t: trm): trm =
       let new_inner_pre = { outer_contract.iter_contract.pre with linear = group_pre @ group_par_reads @ group_lininv } in
       let new_inner_post = Resource_set.union { outer_contract.iter_contract.post with linear = group_post @ group_par_reads } (Resource_set.subst_loop_range_step inner_range (Resource_set.make ~linear:group_lininv ())) in
       let new_inner_par_reads = par_lininv @ par_reads_twice @ par_iter in
-      let new_inner_contract = { loop_ghosts; invariant = Resource_set.empty; parallel_reads = new_inner_par_reads; iter_contract = { pre = new_inner_pre; post = new_inner_post }; strict = true } in
+      let new_inner_par_atomic = par_lininv @ par_atomic_twice @ par_iter in
+      let new_inner_contract = { loop_ghosts; invariant = Resource_set.empty; parallel_reads = new_inner_par_reads; parallel_atomic = new_inner_par_atomic; iter_contract = { pre = new_inner_pre; post = new_inner_post }; strict = true } in
 
       let new_outer_inv = Resource_set.union (Resource_set.group_range outer_range (Resource_set.make ~linear:group_lininv ())) (Resource_set.make ~linear:par_lininv ()) in
       let new_outer_par_reads = (Resource_set.group_range outer_range (Resource_set.make ~linear:group_par_reads ())).linear @ par_reads_twice in
+      let new_outer_par_atomic = (Resource_set.group_range outer_range (Resource_set.make ~linear:group_par_atomic ())).linear @ par_atomic_twice in
       let new_outer_pre = Resource_set.union (Resource_set.group_range outer_range (Resource_set.make ~linear:group_pre ())) (Resource_set.make ~linear:par_iter ()) in
       let new_outer_post = Resource_set.union (Resource_set.group_range outer_range (Resource_set.make ~linear:group_post ())) (Resource_set.make ~linear:par_iter ()) in
-      let new_outer_contract = { loop_ghosts; invariant = new_outer_inv; parallel_reads = new_outer_par_reads; iter_contract = { pre = new_outer_pre; post = new_outer_post }; strict = true } in
+      let new_outer_contract = { loop_ghosts; invariant = new_outer_inv; parallel_reads = new_outer_par_reads; parallel_atomic = new_outer_par_atomic; iter_contract = { pre = new_outer_pre; post = new_outer_post }; strict = true } in
 
       trm_seq_nobrace_nomarks (swaps_pre @
         [trm_for inner_range ~annot:inner_loop.annot ~contract:new_outer_contract (trm_seq_nomarks [

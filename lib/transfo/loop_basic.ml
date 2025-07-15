@@ -375,6 +375,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
         loop_ghosts = contract.loop_ghosts;
         invariant = { contract.invariant with linear = tl1_inv };
         parallel_reads = contract.parallel_reads;
+        parallel_atomic = contract.parallel_atomic;
         iter_contract = {
           pre = contract.iter_contract.pre;
           post = middle_iter_contract;
@@ -385,6 +386,8 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
         loop_ghosts = contract.loop_ghosts;
         invariant = { contract.invariant with linear = tl2_inv_writes };
         parallel_reads = tl1_inv_reads @ contract.parallel_reads;
+        (* TODO: parallel_atomic *)
+        parallel_atomic = tl1_inv_reads @ contract.parallel_atomic;
         iter_contract = {
           pre = { middle_iter_contract with pure = middle_iter_contract.pure @ contract.iter_contract.pre.pure };
           post = contract.iter_contract.post; (* LATER: Can be slightly more clever here, by removing ensures that are already done by the first loop. *)
@@ -512,6 +515,7 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
         List.filter (fun (h, _) -> Var_map.mem h hyps) resources
       in
       let interference_resources = resource_set_of_hyp_map interference ctx2.linear in
+      (* TODO: add parallel_atomic ? *)
       let shared1 = contract1.invariant.linear @ contract1.parallel_reads in
       let shared2 = contract2.invariant.linear @ contract2.parallel_reads in
       let resources_in_common ra rb =
@@ -543,6 +547,7 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
         loop_ghosts = contract1.loop_ghosts @ contract2.loop_ghosts;
         invariant = Resource_set.union contract1.invariant contract2.invariant;
         parallel_reads = contract1.parallel_reads @ contract2.parallel_reads;
+        parallel_atomic = contract1.parallel_atomic @ contract2.parallel_atomic;
         iter_contract = {
           pre = Resource_set.union pre1 { pre2 with linear = pre2' };
           post = Resource_set.union post2 { post1 with linear = post1' };

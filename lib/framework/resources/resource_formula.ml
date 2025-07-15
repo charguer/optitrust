@@ -25,6 +25,10 @@ let new_anon_hyp (): var =
 let var_read_only = toplevel_var "_RO"
 let trm_read_only = trm_var var_read_only
 
+(** Primitive function that constructs a atomic only resource. *)
+let var_atomic = toplevel_var "_ATOMIC"
+let trm_atomic = trm_var var_atomic
+
 (** Primitive type of fractions. *)
 let var_frac = toplevel_typvar "_Fraction"
 let typ_frac = trm_var var_frac
@@ -209,6 +213,9 @@ let formula_uninit_cell_inv (t: formula): formula option =
    [formula_read_only ~frac:a H] *)
 let formula_read_only ~(frac: formula) (res: formula) =
   trm_apps ~annot:formula_annot trm_read_only [frac; res]
+
+let formula_atomic ~(frac: formula) (res: formula) =
+  trm_apps ~annot:formula_annot trm_atomic [frac; res]
 
 let var_free = toplevel_var "Free"
 let formula_free (base_ptr: var) (cells: formula) : formula =
