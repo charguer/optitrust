@@ -1,3 +1,5 @@
 batch/batch.ml
+*.bc
+*.exe
 batch/batch.exe
 batch/batch.bc
