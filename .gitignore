@@ -59,3 +59,4 @@ _doc
 # other ignored files
 .idea
 .vscode/action_out.txt
+.ocamlformat

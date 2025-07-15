@@ -28,6 +28,9 @@ let replace ?(reparse : bool = false) (node : trm) : target -> unit =
 let replace_fun (name : var) (tg : target) : unit =
   Target.apply_at_target_paths (Expr_core.replace_fun_on name) tg
 
+let replace_with_code (code:string) (tg:target) : unit =
+  Target.apply_at_target_paths (fun t -> trm_arbitrary_expr code) tg;
+  Trace.reparse ()
 
 (** [view_subterms tg]: displays on stdout all the subterms of the targeted term.
    For viewing on stdout all subterms of a program, use:

@@ -579,7 +579,29 @@
           "clear": true,
           "reveal": "always"
         },
-      }
+      },
+      {
+      "label": "Run opt_bench on current file",
+      "type": "shell",
+      "command": "./tools/bench.sh",
+      "args": [
+        "${file}"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "options": {
+          "cwd": "${workspaceFolder}/"
+      },
+      "problemMatcher": []
+    }
 
     ]
 }

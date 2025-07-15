@@ -165,7 +165,7 @@ let%transfo local_name ~(var : var) (var_typ : typ)
           trm_seq_nobrace_nomarks [open_w; t; close_w]
         ) p
         );
-        recompute_resources ()
+        Resources.ensure_computed_at p
       )
     end
   )) tg
@@ -281,7 +281,7 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
 (** <private> *)
 let elim_analyse (xy : (var * var) option ref) (t : trm) : trm =
   let error = "expected variable declaration" in
-  let (x, ty, init) = trm_inv ~error trm_let_inv t in
+  let (x, ty, init) = trm_inv ~error trm_let_inv t in (* instead detect if there is x = y *)
   assert (Option.is_some (trm_ref_inv init));
   let error = "expected initial value to be a ref(get(var))" in
   let (_ty, init_val) = trm_inv ~error trm_ref_inv init in
@@ -326,12 +326,13 @@ let%transfo elim_reuse (tg : target) : unit =
           let y_cell = Resource_formula.formula_uninit_cell_var y in
           let (_, open_hide, close_hide) = Resource_trm.ghost_pair_hide y_cell in
           let instrs = Mlist.insert_at (i + 1) open_hide instrs in
+          (* detect if there is y = x at the end *)
           let instrs = Mlist.push_back close_hide instrs in
           let forget_init = Resource_trm.ghost_forget_init y_cell in
           let instrs = Mlist.push_back forget_init instrs in
           trm_seq ~annot:t_seq.annot ?result instrs
         ) p_seq;
-        recompute_resources ()
+        Resources.ensure_computed_at p_seq
       );
       Trace.justif (sprintf "variable %s is not used after declaration" y.name)
     end;

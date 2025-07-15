@@ -151,6 +151,60 @@ void MATRIX3_COPY_double(double* dest, double* src, int n1, int n2, int n3) {
   memcpy(dest, src, n1 * n2 * n3 * sizeof(double));
 }
 
+void MATRIX1_MEMSET_int(int* dest, int value, int length) {
+  __writes("dest ~> Matrix1(length)");
+  __admitted();
+  memset(dest, value, length * sizeof(int));
+}
+
+void MATRIX2_MEMSET_int(int* dest, int value, int n1, int n2) {
+  __writes("dest ~> Matrix2(n1, n2)");
+  __admitted();
+  memset(dest, value, n1 * n2 * sizeof(int));
+}
+
+void MATRIX3_MEMSET_int(int* dest, int value, int n1, int n2, int n3) {
+  __writes("dest ~> Matrix3(n1, n2, n3)");
+  __admitted();
+  memset(dest, value, n1 * n2 * n3 * sizeof(int));
+}
+
+void MATRIX1_MEMSET_float(float* dest, float value, int length) {
+  __writes("dest ~> Matrix1(length)");
+  __admitted();
+  memset(dest, value, length * sizeof(float));
+}
+
+void MATRIX2_MEMSET_float(float* dest, float value, int n1, int n2) {
+  __writes("dest ~> Matrix2(n1, n2)");
+  __admitted();
+  memset(dest, value, n1 * n2 * sizeof(float));
+}
+
+void MATRIX3_MEMSET_float(float* dest, float value, int n1, int n2, int n3) {
+  __writes("dest ~> Matrix3(n1, n2, n3)");
+  __admitted();
+  memset(dest, value, n1 * n2 * n3 * sizeof(float));
+}
+
+void MATRIX1_MEMSET_double(double* dest, double value, int length) {
+  __writes("dest ~> Matrix1(length)");
+  __admitted();
+  memset(dest, value, length * sizeof(double));
+}
+
+void MATRIX2_MEMSET_double(double* dest, double value, int n1, int n2) {
+  __writes("dest ~> Matrix2(n1, n2)");
+  __admitted();
+  memset(dest, value, n1 * n2 * sizeof(double));
+}
+
+void MATRIX3_MEMSET_double(double* dest, double value, int n1, int n2, int n3) {
+  __writes("dest ~> Matrix3(n1, n2, n3)");
+  __admitted();
+  memset(dest, value, n1 * n2 * n3 * sizeof(double));
+}
+
 __ghost_ret matrix2_span_shift() {
   __requires("T: Type");
   __requires("matrix: ptr(T)");
