@@ -45,7 +45,7 @@ type style = {
 
 (** Default style, depends on the global flags *)
 let default_style () : style = {
-  print_contract_internal_repr = false;
+  print_contract_internal_repr = true;
   print_var_id = !Flags.debug_var_id;
   print_string_repr = !Flags.debug_stringreprs;
   print_mark = true;
@@ -56,7 +56,7 @@ let default_style () : style = {
   c_alloc = true;
   pretty_matrix_notation = !Flags.pretty_matrix_notation;
   pretty_fraction_notation = true;
-  commented_pragma = !Flags.use_clang_format;
+  commented_pragma = !Flags.use_clang_format; (*false  TODO: add a separate flag !Flags.use_clang_format *)
   hide_seq = false;
 }
 

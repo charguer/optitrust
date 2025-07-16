@@ -333,6 +333,9 @@ module Pattern = struct
   let formula_read_only f_frac f_formula =
     trm_apps2 (trm_specific_var var_read_only) f_frac f_formula
 
+  let formula_atomic f_frac f_formula =
+    trm_apps2 (trm_specific_var var_atomic) f_frac f_formula
+
   let formula_group f_index f_range f_group_body k t =
     match formula_group_inv t with
     | Some (index, range, body) ->
@@ -355,7 +358,7 @@ module Pattern = struct
     trm_apps1 (trm_specific_var var_is_true) f
 end
 
-type read_only_formula = { frac: formula; formula: formula }
+(* type read_only_formula = { frac: formula; formula: formula }
 let formula_read_only_inv (formula : formula): read_only_formula option =
   Pattern.pattern_match_opt formula [
     Pattern.(formula_read_only !__ !__) (fun frac formula () -> { frac; formula })
@@ -372,6 +375,46 @@ let formula_map_under_read_only (f_map: formula -> formula) (formula: formula) =
 let formula_read_only_inv_all (formula: formula): read_only_formula =
   Pattern.pattern_match formula [
     Pattern.(formula_read_only !__ !__) (fun frac formula () -> { frac; formula });
+    Pattern.__ (fun () -> {frac = full_frac; formula})
+  ]*)
+
+type frac_formula = { frac: formula; formula: formula }
+let formula_read_only_inv (formula : formula): frac_formula option =
+  Pattern.pattern_match_opt formula [
+    Pattern.(formula_read_only !__ !__) (fun frac formula () -> { frac; formula })
+  ]
+
+(** Applies a function below a read only wrapper if there is one,
+    otherwise simply applies the function. *)
+let formula_map_under_read_only (f_map: formula -> formula) (formula: formula) =
+  match formula_read_only_inv formula with
+  | Some { frac; formula } ->
+    formula_read_only ~frac (f_map formula)
+  | None -> f_map formula
+
+let formula_read_only_inv_all (formula: formula): frac_formula =
+  Pattern.pattern_match formula [
+    Pattern.(formula_read_only !__ !__) (fun frac formula () -> {frac ; formula });
+    Pattern.__ (fun () -> {frac = full_frac; formula})
+  ]
+
+(* TODO: should be factorised with above ro functions *)
+let formula_atomic_inv (formula : formula): frac_formula option =
+  Pattern.pattern_match_opt formula [
+    Pattern.(formula_atomic !__ !__) (fun frac formula () -> { frac; formula })
+  ]
+
+(** Applies a function below a atomic wrapper if there is one,
+    otherwise simply applies the function. *)
+let formula_map_under_atomic (f_map: formula -> formula) (formula: formula) =
+  match formula_atomic_inv formula with
+  | Some { frac; formula } ->
+    formula_atomic ~frac (f_map formula)
+  | None -> f_map formula
+
+let formula_atomic_inv_all (formula: formula): frac_formula =
+  Pattern.pattern_match formula [
+    Pattern.(formula_atomic !__ !__) (fun frac formula () -> { frac; formula });
     Pattern.__ (fun () -> {frac = full_frac; formula})
   ]
 

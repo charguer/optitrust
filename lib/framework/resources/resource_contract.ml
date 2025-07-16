@@ -198,11 +198,11 @@ let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: 'clause_t
 let contract_outside_loop range contract =
   let invariant_before = Resource_set.subst_loop_range_start range contract.invariant in
   let pre = Resource_set.group_range range contract.iter_contract.pre in
-  let pre = Resource_set.union invariant_before (Resource_set.add_linear_list contract.parallel_reads pre) in
+  let pre = Resource_set.union invariant_before (Resource_set.add_linear_list (contract.parallel_reads @ contract.parallel_atomic) pre) in
   let pre = { pre with pure = contract.loop_ghosts @ pre.pure } in
   let invariant_after = Resource_set.subst_loop_range_end range contract.invariant in
   let post = Resource_set.group_range range contract.iter_contract.post in
-  let post = Resource_set.add_linear_list contract.parallel_reads post in
+  let post = Resource_set.add_linear_list (contract.parallel_reads @ contract.parallel_atomic) post in
   let post = Resource_set.union invariant_after post in
   { pre; post }
 
@@ -212,15 +212,22 @@ let parallel_reads_inside_loop range par_reads =
       (x, formula_read_only ~frac:(formula_frac_div frac (formula_range_count (formula_loop_range range))) formula)
     ) par_reads
 
+let parallel_atomic_inside_loop range par_reads =
+  List.map (fun (x, formula) ->
+      let { frac; formula } = formula_atomic_inv_all formula in
+      (x, formula_atomic ~frac:(formula_frac_div frac (formula_range_count (formula_loop_range range))) formula)
+    ) par_reads
+
 (** [contract_inside_loop range contract] takes the [contract] of a for-loop over [range] and returns
   the contract of its body. *)
 let contract_inside_loop range contract =
+  let par_atomic_inside = parallel_atomic_inside_loop range contract.parallel_atomic in
   let par_reads_inside = parallel_reads_inside_loop range contract.parallel_reads in
-  let pre = Resource_set.union contract.invariant (Resource_set.add_linear_list par_reads_inside contract.iter_contract.pre) in
+  let pre = Resource_set.union contract.invariant (Resource_set.add_linear_list (par_reads_inside @ par_atomic_inside) contract.iter_contract.pre) in
   let index_in_range_hyp = (new_anon_hyp (), formula_in_range (trm_var range.index) (formula_loop_range range)) in
   let pre = { pre with pure = (range.index, typ_int) :: index_in_range_hyp :: contract.loop_ghosts @ pre.pure } in
   let invariant_after_one_iter = Resource_set.subst_loop_range_step range contract.invariant in
-  let post = Resource_set.add_linear_list par_reads_inside contract.iter_contract.post in
+  let post = Resource_set.add_linear_list (par_reads_inside @ par_atomic_inside) contract.iter_contract.post in
   let post = Resource_set.union invariant_after_one_iter post in
   { pre; post }
 
