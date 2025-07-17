@@ -70,29 +70,66 @@ void test_faa_for_loop (_Atomic int* ns, const int* A) {
   return (start <= i && i < stop);
 } */
 
-void faa_with_for_and_if (_Atomic int* ns, const int* A) {
+void matrix_copy(_Atomic int* ns, int* np, int* S) {
+  __modifies("np ~> Matrix1(1024)");
+  __reads("S ~> Matrix1(1024)");
+  __atomic("ns ~> Matrix1(1024)");
+
+  for (int i = 0; i < 1024; ++i) {
+    __strict();
+    __xmodifies("&np[MINDEX1(1024, i)] ~> Cell");
+    __sreads("S ~> Matrix1(1024)");
+    __satomic("ns ~> Matrix1(1024)");
+    for (int d = -5 ; d < 6 ; ++d) {
+    __strict();
+    __smodifies("&np[MINDEX1(1024, i)] ~> Cell");
+    __sreads("S ~> Matrix1(1024)");
+    __satomic("ns ~> Matrix1(1024)");
+
+      if (d==0) {
+        __GHOST_BEGIN(focus2, ro_matrix1_focus, "S, i");
+        np[MINDEX1(1024, i)] += S[MINDEX1(1024, i)];
+        __GHOST_END(focus2);
+      }
+      else {
+        const int j = i+d;
+
+        __ghost(assume, "in_range(j, 0..1024)"); // LATER: deduced from if is_in_range
+        __GHOST_BEGIN(focusns, atomic_matrix1_focus, "ns, j");
+        __GHOST_BEGIN(focus, ro_matrix1_focus, "S, j");
+        /* atomic_set_int(&ns[MINDEX1(1024, i)], S[MINDEX1(1024, i)]); */
+        int a = atomic_fetch_add(&ns[MINDEX1(1024, j)], S[MINDEX1(1024, j)]);
+        __GHOST_END(focus);
+        __GHOST_END(focusns);
+
+      }
+    }
+  }
+}
+
+/* void faa_with_for_and_if (_Atomic int* ns, const int* A) {
   __reads("A ~> Matrix1(1024)");
   __atomic("ns ~> Matrix1(1024)");
 
   for (int i=0 ; i<1024 ; i++) {
     __strict();
     __sreads("A ~> Matrix1(1024)");
-    /* __satomic("ns ~> Matrix1(1024)");
- */
+    __satomic("ns ~> Matrix1(1024)");
+
     for (int d = -5 ; d < 6 ; ++d) {
       const int j = i+d;
       if (0 <= j && j < 1024) {
         __ghost(assume, "in_range(j, 0..1024)"); // LATER: deduced from if is_in_range
 
-        /* __GHOST_BEGIN(focusns, atomic_matrix1_focus, "ns, j");
+        __GHOST_BEGIN(focusns, atomic_matrix1_focus, "ns, j");
         __GHOST_BEGIN(focusA, ro_matrix1_focus, "A, j");
           int a = atomic_fetch_add(&ns[MINDEX1(1024, j)], A[MINDEX1(1024, j)]);
         __GHOST_END(focusA);
-        __GHOST_END(focusns); */
+        __GHOST_END(focusns);
       }
     }
   }
-}
+} */
 
 
 /* void test_faa_for_loop2 (int* np, _Atomic int* ns, const int* A) {
@@ -128,7 +165,16 @@ void faa_with_for_and_if (_Atomic int* ns, const int* A) {
   }
 }}
 } */
-/* TODO : 1) tiler boucle sur i ci-dessus et color
+
+/*
+  - Changer le type des opérations atomiques pour que le deuxième argument n'ait pas à l'être : quel fichier ?
+  - Les sharedatomic disparaissent dans l'output (même dans l'input ?). Pas les atomic sur les fonctions.
+    C'est dans quel fichier déjà ?
+  - Définir une fonction atomic_set (optitrust.h ou dans le typeur, comme binopset)
+    de type atomic T* -> T -> unit, pour pouvoir faire un A[i] = k quand k n'est pas de type atomic.
+
+
+  TODO : 1) tiler boucle sur i ci-dessus et color
           2)
 
   n ~> Matrix
@@ -137,7 +183,7 @@ void faa_with_for_and_if (_Atomic int* ns, const int* A) {
 
   n[2] ~> Matrix
 
-  arraytovariables? => priorité dernière
+  arraytovariables? => priorité dernière (todo)
 
   ns
   np
@@ -148,7 +194,8 @@ void faa_with_for_and_if (_Atomic int* ns, const int* A) {
 
     où tc : estce que j est à distance 1/2 bloc du bloc au plus
 
-  toatomic : atomic type, atomic contract, atomic operation => avant dernier
+  toatomic (cf toconst): atomic type, atomic contract, atomic operation => avant dernier
+  all at the same time, or not if the standard operations can be performed on atomic types.
 
   Instr.insert   [cMark "test_on_j"; dThen; tFirst]
     => ghost assume j in max(0,bi-B/2)..min(bi+B+B/2,1024)

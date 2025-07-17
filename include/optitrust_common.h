@@ -757,4 +757,12 @@ __GHOST(ro_mindex3_fold) {
   __admitted();
 }
 
+/* Later: polymorphism using template. */
+void atomic_set_int(_Atomic int* p, int n) {
+  __requires("f: _Fraction");
+  __modifies("_ATOMIC(f, p ~> Cell)");
+  __admitted();
+}
+
+
 #endif
