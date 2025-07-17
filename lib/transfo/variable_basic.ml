@@ -291,23 +291,15 @@ let elim_analyse (xy : (var * var) option ref) (t : trm) : trm =
   t
 
 (** <private> *)
-(** Matches a copy instruction x = y *)
+(* Matches a copy instruction x = y *)
 let elim_match_copy_back (t : trm) : (var * var) option =
-  let error = "expected variable declaration" in
-  match t.desc with
-  | Trm_apps (f, [lhs; rhs], _, _) ->
-    begin match f.desc with
-    | Trm_prim (ty, Prim_binop Binop_set) ->
-      begin try
-        let x, init_val = trm_inv ~error trm_var_inv lhs, rhs in
-        let init_val_get = trm_inv ~error trm_get_inv init_val in
-        let init_val_get_var = trm_inv ~error trm_var_inv init_val_get in
-        Some (x, init_val_get_var)
-      with _ -> None
-      end
-    | _ -> None
-    end
-  | _ -> None
+  try
+    let lhs, rhs = trm_inv (trm_binop_inv Binop_set) t in
+    let x, init_val = trm_inv trm_var_inv lhs, rhs in
+    let init_val_get = trm_inv trm_get_inv init_val in
+    let init_val_get_var = trm_inv trm_var_inv init_val_get in
+    Some (x, init_val_get_var)
+  with _ -> None
 
 (** <private> *)
 let elim_reuse_on (i : int) (x : var) (y : var) (seq_t : trm) : trm =

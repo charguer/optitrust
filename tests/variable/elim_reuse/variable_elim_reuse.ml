@@ -5,6 +5,7 @@ let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun _ ->
   !! Variable.elim_reuse [cFunBody "f"; cVarDef "x"];
+  !! Variable.elim_reuse [cFunBody "f"; cVarDef "c"];
   !! Trace.failure_expected (fun _ -> true) (fun () ->
     Variable.elim_reuse [cFunBody "f"; cVarDef "y"]);
 

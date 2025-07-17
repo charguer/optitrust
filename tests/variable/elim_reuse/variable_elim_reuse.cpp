@@ -12,6 +12,10 @@ void f() {
     y += 3;
   }
   b++;
+
+  int c = b;
+  c++;
+  b = c;
 }
 
 // valid transformation with copy-back
