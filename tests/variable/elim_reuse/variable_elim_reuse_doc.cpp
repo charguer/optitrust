@@ -2,7 +2,6 @@
 
 void f() {
   __pure();
-
   int a = 0;
   int b = 0;
   {
@@ -12,4 +11,8 @@ void f() {
     y += 3;
   }
   b++;
+
+  int c = b;
+  c++;
+  b = c;
 }
