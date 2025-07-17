@@ -2,7 +2,7 @@ open Prelude
 open Target
 open Matrix_trm
 
-(** [reorder_dims order tg]: expects the target [tg] to point at a call to MSIZE or MINDEX functions,
+(** [reorder_dims order tg]: expects the target [tg] to point at a call to MALLOC or MINDEX functions,
       then it will reorder their args based on [order], where [order] is a list of indices which the
       current args should follow. *)
 let%transfo reorder_dims ?(rotate_n : int = 0) ?(order : int list = []) (tg : target) : unit =
@@ -584,10 +584,11 @@ let simpl_access_of_access_on (t : trm) : trm =
 
    TODO: should this be in another file?
    *)
-let%transfo simpl_access_of_access (tg : target) : unit =
+let%transfo simpl_access_of_access ?(indepth:bool =false )(tg : target) : unit =
   Trace.justif_always_correct ();
   Trace.tag_simpl_access ();
-  Target.apply_at_target_paths simpl_access_of_access_on tg
+
+  Target.apply_at_target_paths (maybe_trm_bottom_up_try indepth simpl_access_of_access_on) tg
 
 (* internal *)
 let find_occurences_and_add_mindex0 (x : var) (t : trm) : (bool * trm) =

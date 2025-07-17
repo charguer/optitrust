@@ -88,7 +88,7 @@ let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg :
     let error = "Matrix.reorder_dims: expected a target to a variable declaration." in
     let (x, _, _) = trm_inv ~error trm_let_inv tg_trm in
     Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr
-    [[cVarDef x.name; cCall ~regexp:true ".ALLOC."];
+    [[cVarInit x.name];
      [cCellAccess ~base:[cVarId x] (); cCall ~regexp:true "MINDEX."]
     ]])
   ) tg

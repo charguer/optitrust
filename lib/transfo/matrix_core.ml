@@ -187,17 +187,22 @@ let pointwise_fors
 (*                        Core transformations on C matrices                                        *)
 (****************************************************************************************************)
 
+
+
 (** [reorder_dims_aux order t]: reorders the dimensions in a call to MSIZE or MINDEX,
       [order] - a list of indices based on which the elements in dims should be ordered,
-      [t] - ast of the call to MSIZE or MINDEX. *)
+      [t] - ast of the call to MALLOC or MINDEX. *)
 let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
+  Printf.printf "%s \n " (Ast_to_text.ast_to_string t);
+  let typ_alloc = ref (trm_int 1) in
+  let init_alloc = ref false in
   let dims, indices =
     match mindex_inv t with
     | Some (dims, indices) -> dims, Some indices
-    | None -> match msize_inv t with
-      | Some dims -> dims, None
+    | None -> match alloc_inv t with
+      | Some (typ,dims, init) -> typ_alloc := typ; init_alloc := init; dims,None
       | None -> trm_fail t "Matrix_core.reorder_dims_aux: expected a function call to MSIZE or MINDEX"
-  in
+    in
   let nb = List.length dims in
   let order = if rotate_n <> 0
     then let id_perm = List.range 0 (nb - 1) in
@@ -214,7 +219,7 @@ let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
     let reordered_indices = List.reorder order indices in
     mindex reordered_dims reordered_indices
   | None ->
-    msize reordered_dims
+    alloc !typ_alloc reordered_dims ~zero_init:!init_alloc
 
 
 (** [insert_alloc_dim_aux new_dim t]: adds a new dimension at the beginning of the list of dimension,
