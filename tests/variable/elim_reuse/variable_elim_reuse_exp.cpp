@@ -38,6 +38,15 @@ void i() {
   int c = b;
 }
 
+void j() {
+  __pure();
+  int a = 0;
+  int b = a;
+  b++;
+  a = b;
+  a = b;
+}
+
 void resources_not_available() {
   int a = 0;
   { int x = a; }

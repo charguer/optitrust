@@ -50,6 +50,18 @@ void i() {
   int c = b;
 }
 
+// multiple copy-back instructions
+// currently, this should fail, but it could be possible to change the transformation to remove each of these copy-back instructions
+// the current workaround would be to call Sequence_basic.delete to remove the excess copy-back instructions
+void j() {
+  __pure();
+  int a = 0;
+  int b = a;
+  b++;
+  a = b;
+  a = b;
+}
+
 void resources_not_available() {
   int a = 0;
   {
