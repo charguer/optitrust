@@ -18,8 +18,7 @@ void f() {
   b = c;
 }
 
-// valid transformation with copy-back
-void g() {
+void copy_back() {
   __pure();
   int a = 0;
   int b = a;
@@ -28,8 +27,7 @@ void g() {
   int c = a;
 }
 
-// we should not be allowed to write into y (here b) after the copy-back
-void h() {
+void bad_write_after_copy_back() {
   __pure();
   int a = 0;
   int b = a;
@@ -38,9 +36,7 @@ void h() {
   b = 3;
 }
 
-// a very artificial example which shows that we sometimes want to prevent reading from y (in this case b)
-// after the transformation (the transformation would be valid if we did not have the `a = 3;` instruction)
-void i() {
+void bad_read_after_copy_back() {
   __pure();
   int a = 0;
   int b = a;
@@ -50,10 +46,9 @@ void i() {
   int c = b;
 }
 
-// multiple copy-back instructions
 // currently, this should fail, but it could be possible to change the transformation to remove each of these copy-back instructions
 // the current workaround would be to call Sequence_basic.delete to remove the excess copy-back instructions
-void j() {
+void mutltiple_copy_backs() {
   __pure();
   int a = 0;
   int b = a;

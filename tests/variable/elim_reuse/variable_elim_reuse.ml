@@ -9,16 +9,16 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.failure_expected (fun _ -> true) (fun () ->
     Variable.elim_reuse [cFunBody "f"; cVarDef "y"]);
 
-  !! Variable.elim_reuse [cFunBody "g"; sInstr "b = a"];
+  !! Variable.elim_reuse [cFunBody "copy_back"; sInstr "b = a"];
 
   !! Trace.failure_expected (fun _ -> true) (fun () ->
-    Variable.elim_reuse [cFunBody "h"; cVarDef "b"]);
+    Variable.elim_reuse [cFunBody "bad_write_after_copy_back"; cVarDef "b"]);
 
   !! Trace.failure_expected (fun _ -> true) (fun () ->
-    Variable.elim_reuse [cFunBody "i"; cVarDef "b"]);
+    Variable.elim_reuse [cFunBody "bad_read_after_copy_back"; cVarDef "b"]);
 
   !! Trace.failure_expected (fun _ -> true) (fun () ->
-    Variable.elim_reuse [cFunBody "j"; cVarDef "b"]);
+    Variable.elim_reuse [cFunBody "mutltiple_copy_backs"; cVarDef "b"]);
 
   !! Trace.failure_expected (fun _ -> true) (fun () ->
     Variable.elim_reuse [cFunBody "resources_not_available"; cVarDef "x"]);

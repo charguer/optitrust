@@ -12,14 +12,14 @@ void f() {
   b++;
 }
 
-void g() {
+void copy_back() {
   __pure();
   int a = 0;
   a++;
   int c = a;
 }
 
-void h() {
+void bad_write_after_copy_back() {
   __pure();
   int a = 0;
   int b = a;
@@ -28,7 +28,7 @@ void h() {
   b = 3;
 }
 
-void i() {
+void bad_read_after_copy_back() {
   __pure();
   int a = 0;
   int b = a;
@@ -38,7 +38,7 @@ void i() {
   int c = b;
 }
 
-void j() {
+void mutltiple_copy_backs() {
   __pure();
   int a = 0;
   int b = a;
