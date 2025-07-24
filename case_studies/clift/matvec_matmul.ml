@@ -16,9 +16,10 @@ let _ =
   Run.script_cpp (fun () ->
       !!Function.inline [ cCall "matvec" ];
       (* !! Matrix.simpl_access_of_access [cFunDef "iter_matvec";cArrayRead "y"]; *)
-      !!Matrix.simpl_access_of_access
+      !!Matrix.simpl_access_of_access ~indepth:true [f];
+      (* !!Matrix.simpl_access_of_access
         [ nbMulti; f; cWrite () ~lhs:[ cVar "x" ]; dLHS ];
-      !!Matrix.simpl_access_of_access [ nbMulti; f; cArrayRead "y"; dArg 0 ];
+      !!Matrix.simpl_access_of_access [ nbMulti; f; cArrayRead "y"; dArg 0 ]; *)
       (* !!Matrix.simpl_index_add
         [ nbMulti; f; cCellAccess ~base:[ cVar "x" ] (); cStrict ]; *)
       !!Matrix.simpl_index_add
@@ -32,5 +33,6 @@ let _ =
       !!Function.uninline
         ~f:[ cFunDef "matmul" ]
         [ cFunBody "iter_matvec"; dSeqNth 0 ]
+        (* Matrix.  *)
       (* !! Matrix.simpl_access_of_access [cFunDef "matmul";cVarInit "q" ]; *)
       (* !! Function.uninline ~f:[cFunDef "matmul"] [cFunDef "iter_matvec"] *))

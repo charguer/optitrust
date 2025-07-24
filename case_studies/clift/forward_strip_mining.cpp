@@ -2,6 +2,16 @@
 #include <optitrust.h>
 
 #include "dumper.h"
+
+void matvec(int col_count, int red_count, float *y, float *x, float *w) {
+  for (int j = 0; j < col_count; j++) {
+    y[MINDEX1(col_count, j)] = 0.f;
+    for (int k = 0; k < red_count; k++) {
+      y[MINDEX1(col_count, j)] +=
+          x[MINDEX1(red_count, k)] * w[MINDEX2(col_count, red_count, j, k)];
+    }
+  }
+}
 void iter_matvec(int row_count, int col_count, int red_count, float *const x,
                  float *const y, float *const w) {
   for (int i = 0; i < row_count; i++) {
@@ -54,16 +64,6 @@ void matmul(int row_count, int col_count, int red_count, float *y, float *x,
   }
 }
 
-void matvec(int col_count, int red_count, float *y, float *x, float *w) {
-  for (int j = 0; j < col_count; j++) {
-    y[MINDEX1(col_count, j)] = 0.f;
-    for (int k = 0; k < red_count; k++) {
-      y[MINDEX1(col_count, j)] +=
-          x[MINDEX1(red_count, k)] * w[MINDEX2(col_count, red_count, j, k)];
-    }
-  }
-}
-
 void rope(int col_count, float *x, int pos) {
   for (int j = 0; j < col_count; j += 2) {
     float freq = 1.f / powf(500000.f, j / (float)col_count);
@@ -78,7 +78,7 @@ void rope(int col_count, float *x, int pos) {
 }
 
 void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
-                          int q_head_count, int kv_head_count,
+                          int q_head_count, const int kv_head_count,
                           int q_head_per_kv_head_count, int embedding_dim,
                           int head_dim, int q_dim, int kv_dim, int hidden_dim,
                           float epsilon, float *embedding_weight,
@@ -94,11 +94,11 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
   float *const mha_norm =
       (float *)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
   float *const mha_q = (float *)malloc(
-      MSIZE3(sequence_len, q_head_count, head_dim) * sizeof(float));
+      MSIZE3(q_head_count, sequence_len, head_dim) * sizeof(float));
   float *const mha_score = (float *)malloc(
-      MSIZE3(sequence_len, q_head_count, context_len) * sizeof(float));
+      MSIZE3(q_head_count, sequence_len, context_len) * sizeof(float));
   float *const mha_blend = (float *)malloc(
-      MSIZE3(sequence_len, q_head_count, head_dim) * sizeof(float));
+      MSIZE3(q_head_count, sequence_len, head_dim) * sizeof(float));
   float *const mha_att =
       (float *)malloc(MSIZE2(sequence_len, embedding_dim) * sizeof(float));
   float *const mha_out =
@@ -144,6 +144,7 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
                                      embedding_dim, l, h, 0, 0)]);
       }
     }
+    test:
     for (int h = 0; h < kv_head_count; h++) {
       for (int i = 0; i < sequence_len; i++) {
         matvec(head_dim, embedding_dim,

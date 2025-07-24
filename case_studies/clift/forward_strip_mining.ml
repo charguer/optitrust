@@ -6,12 +6,16 @@ let f = cFunDef "generate_prompt_proc"
 
 let _ =
   Run.script_cpp (fun () ->
-      (* let (q_head_per_kv_head_count,_) = find_var "q_head_per_kv_head_count" [f] in
-   let (kv_headcount,_) = find_var "kv_head_count" [f] in
-  (* !! Loop_basic.grid_enumerate [("h2", trm_var kv_headcount);("q2", trm_var q_head_per_kv_head_count)] [nbMulti; f; cFor "q"]; *)
-  !!! ();
-  !! Arrays.tile q_head_per_kv_head_count [f; cVarDef "mha_q"]; *)
-   (* !!   Function.inline [ nbMulti; cCall "matmul" ];
-   !!   Function.uninline ~f:[ cFunDef "matmul_real" ] [nbMulti; cForBody "q" ; dSeqNth 0] *)
-   !!Function.uninline ~f:[cFunDef "iter_matvec"][nbMulti; cForBody "q"]
-  )
+      let q_head_per_kv_head_count =
+        trm_find_var "q_head_per_kv_head_count" [ cFunDefAndDecl "generate_prompt_proc" ]
+      in
+      let kv_headcount = trm_find_var "kv_head_count" [ cFunDefAndDecl "generate_prompt_proc" ] in
+      !!Matrix.tile ~block_size:q_head_per_kv_head_count ~nb_blocks:kv_headcount ~index_dim:0
+        [ nbMulti; f; cVarDefs [ "mha_q"; "mha_score"; "mha_blend" ] ];
+
+      !!Loop_basic.grid_enumerate
+        [ ("h2", kv_headcount); ("q2", q_head_per_kv_head_count) ]
+        [ nbMulti; f; cFor "q" ];
+      !!Variable.inline [ nbMulti; f; cVarDef "q" ];
+      !!Rewrite.equiv_at "int i; int j ; int k; ==> (i*j +k) /j == i" ~indepth:true [ f ];
+      !!Rewrite.equiv_at "int i; int j ; int k; ==> (i*j +k) %j == k" ~indepth:true [ f ])
