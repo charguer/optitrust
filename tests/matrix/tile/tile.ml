@@ -22,4 +22,9 @@ let _ =
       !!Matrix.tile
         ~block_size:(trm_find_var "block_size" [ cFunDef "main5" ])
         ~index_dim:0
-        [ cFunDef "main5"; cVarDef "a" ])
+        [ cFunDef "main5"; cVarDef "a" ];
+      !!Matrix.tile
+        ~block_size:(trm_find_var "block_size" [ cFunDefAndDecl "main6" ])
+        ~nb_blocks:(trm_find_var "nb_blocks" [ cFunDefAndDecl "main6" ])
+        ~index_dim:0
+        [ cFunDef "main6"; cVarDef "a" ];  )
