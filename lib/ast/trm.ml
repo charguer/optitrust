@@ -1531,7 +1531,15 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
 let rec trm_bottom_up (f : trm -> trm) (t : trm) : trm =
   let t2 = trm_map (trm_bottom_up f) t in
   f t2
+(** [trm_bottom_up_try] : tries to applies f on t recursively from bottom to top and catch error*)
+let  trm_bottom_up_try (f : trm -> trm) (t : trm) : trm =
+  let try_f t = try f t
+        with Contextualized_error _ -> t in
+  trm_bottom_up try_f t
 
+(** [maybe_trm_bottom_up_try] : Wrapper for transformation that has an indepth optional arguments to call trm_bottom_up_try when indepth is true *)
+let maybe_trm_bottom_up_try (indepth:bool) (f : trm -> trm) (t:trm) : trm =
+  if indepth then trm_bottom_up_try f t else f t
 (** [trm_iter f t]: similar to [trm_map] but this one doesn't return a trm at the end. *)
 let trm_iter (f : trm -> unit) (t : trm) : unit =
   ignore (trm_map (fun t -> f t; t) t)
