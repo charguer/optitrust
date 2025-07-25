@@ -53,4 +53,15 @@ int main() {
     __smodifies("m ~> UninitMatrix1(2)");
   }
   free(m);
+  int** const a = (int**)malloc(MSIZE1(10) * sizeof(int*));
+  float* const b = (float*)malloc(MSIZE2(10, 2) * sizeof(float));
+  for (int v = 0; v < 10; v++) {
+    a[MINDEX1(10, v)] = (int*)malloc(MSIZE1(2) * sizeof(int));
+    for (int j = 0; j < 2; j++) {
+      a[MINDEX1(10, v)][MINDEX1(2, j)] = j;
+    }
+    free(a[MINDEX1(10, v)]);
+  }
+  free(b);
+  free(a);
 }

@@ -40,14 +40,14 @@ let _ = Run.script_cpp (fun () ->
     let paths = Target.resolve_target [nbMulti; cMark mark] in
     let paths = List.remove_duplicates (List.map (fun p -> (Path.parent p)) paths) in
     List.iter (fun path ->
-      Target.apply_at_path (trm_bottom_up (fun t ->
-        try Matrix.simpl_access_of_access_on t
-        with Contextualized_error _ -> t)) path
+      Target.apply_at_path (trm_bottom_up_try
+        Matrix.simpl_access_of_access_on
+       ) path
       ) paths;
     List.iter (fun path ->
-      Target.apply_at_path (trm_bottom_up (fun t ->
-        try Matrix.simpl_index_add_on t
-        with Contextualized_error _ -> t)) path
+      Target.apply_at_path (trm_bottom_up_try
+        Matrix.simpl_index_add_on
+        ) path
       ) paths;
   )
 )
