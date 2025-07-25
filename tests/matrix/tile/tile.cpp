@@ -52,14 +52,15 @@ int main5() {
 
   a[MINDEX1(N1, 4)] = 42;
 }
+// block size and nb_blocks are arguments
 
-int main6(int const N1,int const nb_blocks, int const block_size) {
+int main6(int const N1, int const nb_blocks, int const block_size) {
 
-  float *const a = MALLOC1(float, N1 );
+  float *const a = MALLOC1(float, N1);
   for (int i = 0; i < nb_blocks; i++) {
     for (int j = 0; j < block_size; j++) {
 
-      a[MINDEX1(N1, i*block_size +j)] = 42;
+      a[MINDEX1(N1, i * block_size + j)] = 42;
     }
   }
 }
