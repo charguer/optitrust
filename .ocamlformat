@@ -1,1 +1,3 @@
 wrap-comments=false
+margin=100
+break-cases=all

@@ -1060,8 +1060,8 @@ let expand_common (recurse : bool) (e : expr) : expr =
 
 (** [expand] and [expand_rec] can be passed as arguments to [Arith.simpl] *)
 let expand = expand_common false
-let expand_rec = expand_common true (* Warning: might be quadratic? *)
 
+let expand_rec = expand_common true (* Warning: might be quadratic? *)
 
 (******************************************************************************)
 (*                          Euclidian                                         *)
