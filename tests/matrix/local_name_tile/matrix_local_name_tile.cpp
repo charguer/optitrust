@@ -1,16 +1,19 @@
 #include <optitrust.h>
 
-typedef int T;
 // FIXME: not supported yet
 // T* b;
+//
+// doing:
+//
+// typedef int T;
 
 void f() {
   __pure();
 
   // TODO: deal with CALLOC
-  T* const a = MALLOC3(T, 10, 10, 4);
-  __GHOST_BEGIN(focusa, group2_focus_subrange_uninit,
-    "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell, "
+  int* const a = MALLOC3(int, 10, 10, 4);
+  __GHOST_BEGIN(focusa, group2_focus_subrange,
+    "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> UninitCell, "
     "sub_range := 2..10");
   for (int i = 0; i < 10; i++) {
     __xwrites("for j in 2..10 ->"
@@ -41,9 +44,9 @@ void f() {
   __GHOST_END(focusa);
   free(a);
 
-  T* const b = MALLOC3(T, 10, 10, 4);
-  __GHOST_BEGIN(focusb, group2_focus_subrange_uninit,
-    "items := fun i -> fun j -> for k in 0..4 -> &b[MINDEX3(10,10,4,i,j,k)] ~> Cell, "
+  int* const b = MALLOC3(int, 10, 10, 4);
+  __GHOST_BEGIN(focusb, group2_focus_subrange,
+    "items := fun i -> fun j -> for k in 0..4 -> &b[MINDEX3(10,10,4,i,j,k)] ~> UninitCell, "
     "sub_range := 2..10");
   for (int i = 0; i < 10; i++) {
     __xwrites("for j in 2..10 ->"
@@ -61,9 +64,9 @@ void f() {
   __GHOST_END(focusb);
   free(b);
 
-  T* const c = MALLOC3(T, 10, 10, 4);
-  __GHOST_BEGIN(focusc, group2_focus_subrange_uninit,
-    "items := fun i -> fun j -> for k in 0..4 -> &c[MINDEX3(10,10,4,i,j,k)] ~> Cell, "
+  int* const c = MALLOC3(int, 10, 10, 4);
+  __GHOST_BEGIN(focusc, group2_focus_subrange,
+    "items := fun i -> fun j -> for k in 0..4 -> &c[MINDEX3(10,10,4,i,j,k)] ~> UninitCell, "
     "sub_range := 2..10");
   for (int i = 0; i < 10; i++) {
     __xwrites("for j in 2..10 ->"

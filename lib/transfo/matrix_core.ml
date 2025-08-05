@@ -34,17 +34,27 @@ let let_alloc_uninit_inv (t : trm) : (var * typ * trms) option =
     Some (v, elem_t, dims)
   ))
 
-let matrix_copy_var nb_dims typ =
+let matrix_copy_var nb_dims typ : var =
   toplevel_var (sprintf "MATRIX%d_COPY_%s" nb_dims (Ast_to_c.typ_to_string typ))
 
-let matrix_copy ~(typ: typ) (dest: trm) (src: trm) (dims: trm list) =
+let matrix_copy ~(typ: typ) (dest: trm) (src: trm) (dims: trm list) : trm =
   let nb_dims = List.length dims in
   let copy_var = matrix_copy_var nb_dims typ in
   trm_apps (trm_var copy_var) (dest :: src :: dims)
 
+
+let matrix_set_var nb_dims typ =
+  toplevel_var (sprintf "MATRIX%d_MEMSET_%s" nb_dims (Ast_to_c.typ_to_string typ))
+let matrix_set ~(typ: typ) (value:trm) (dest: trm) (dims: trm list) : trm=
+  let nb_dims = List.length dims in
+  let set_var = matrix_set_var nb_dims typ in
+  trm_apps (trm_var set_var) (dest::value::dims)
+
+
+
 (** [matrix_copy_at dest d_offset d_dims src s_offset s_dims copy_dims] uses a series
     of ghosts to issue a [MATRIX*_COPY_*] from matrix [dest] at [d_offset] to matrix [src] at [s_offset].
-
+  let matrix_set ..
     Assumes both dest and src resources are already focussed on the region to be copied.
     This is often the case because of surrounding loops, else you can independantly add ghosts to focus the relevant rows.
 

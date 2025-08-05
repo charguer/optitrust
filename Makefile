@@ -60,6 +60,9 @@ doc:
 	@ ./doc/add_tests_into_doc.sh
 	@ echo "You can view the documentation by typing 'make viewdoc'".
 
+test_into_doc:
+	@ ./doc/add_tests_into_doc.sh
+
 # TODO: avoid rebuilding entire doc every time?
 .PHONY: viewdoc
 viewdoc: doc
