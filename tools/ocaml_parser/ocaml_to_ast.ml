@@ -65,6 +65,8 @@ a single Trm_fun in OptiTrust.
 type ocaml_ast = Typedtree.implementation
 
 let var_counter : int ref = ref 0
+
+(**[fresh_res_variable ()]: is called to create a fresh new variable at the end of a sequence. Should only be used when translating/creating sequences*)
 let fresh_res_variable () =
   let var_name = "__res" ^ (Int.to_string !var_counter) in
   incr var_counter;
@@ -96,7 +98,7 @@ let binds_seq (t : trm) : trm =
     body'
   | None -> failwith "Ocaml_to_ast.binds_seq : the given arguments is not a sequence"
 
-
+(**[tr_constant c]: translates an OCaml Asttypes.constant into an OptiTrust term*)
 let rec tr_constant (c : constant) : trm = match c with
   | Const_int n -> trm_int n
   | Const_char c -> trm_string (Char.escaped c)
@@ -106,7 +108,13 @@ let rec tr_constant (c : constant) : trm = match c with
   | Const_int64 n -> trm_int (Int64.to_int n)
   | Const_nativeint n -> trm_int (Nativeint.to_int n)
 
-and tr_pattern (bind_toplevel : bool) pat = match pat.pat_desc with
+(**[tr_pattern bind_toplevel pat]: translates an OCaml [value general_pattern] pat, into an OptiTrust typed_var.
+The boolean [bind_toplevel] determines if the new variable is defined as toplevel or not.
+For the moment only translates variables, which is enough for what we do, but should be generalized later.
+*)
+(*TODO: for the moment moves toplevel recursion to normal recursion*)
+and tr_pattern (bind_toplevel : bool) pat : typed_var =
+   match pat.pat_desc with
   | Tpat_var (id, _) ->
     if bind_toplevel then
       (toplevel_var (Ident.name id), typ_auto)
@@ -116,10 +124,12 @@ and tr_pattern (bind_toplevel : bool) pat = match pat.pat_desc with
   (*| Tpat_constraint (p, _) -> tr_pattern p*)
   | _ -> failwith "pattern not yet translatable"
 
+(**[tr_value_binding bind_toplevel vb]: translates an OCaml [value_binding] vb, into an OptiTrust let-term*)
 and tr_value_binding (bind_toplevel : bool) (vb : value_binding) =
   let {vb_pat; vb_expr} = vb in
   trm_let (tr_pattern bind_toplevel vb_pat) (tr_expression vb_expr)
 
+(**[tr_let_exp vb_l e]: translates an OCaml let binding, into an OptiTrust sequence of bindings ending with a result*)
 and tr_let_exp (vb_l : value_binding list) (e : expression) : trm =
   let body = tr_expression e in
   let binding_list = List.map (tr_value_binding false) vb_l in
@@ -130,6 +140,7 @@ and tr_let_exp (vb_l : value_binding list) (e : expression) : trm =
 
   trm_seq (Mlist.of_list full_list)
 
+(**[tr_apply e l]: translates an OCaml function application, into an OptiTrust application*)
 and tr_apply (e : expression) (l : ('a * (expression option)) list) : trm =
   let t = tr_expression e in
   let args = (List.map (fun x -> let (_,e) = x in (match e with | Some e -> tr_expression e | _ -> failwith "None")) l) in
@@ -140,11 +151,13 @@ and tr_apply (e : expression) (l : ('a * (expression option)) list) : trm =
 
   body
 
+(**[tr_sequence u1 u2]: translates an OCaml sequence, into an OptiTrust sequence.
+Preserves the invariant of not having sequences directly under sequences*)
 and tr_sequence (u1 : expression) (u2 : expression) : trm =
   let t1 = tr_expression u1 in
   let t2 = tr_expression u2 in
 
-  let body1 = (*line could be removed if we wanted to keep blocks? Not so sure about this*)
+  let body1 =
     (match t1.desc with
     | Trm_seq (args, _) -> Mlist.to_list args
     | _ -> [t1]) in
@@ -156,16 +169,19 @@ and tr_sequence (u1 : expression) (u2 : expression) : trm =
 
     trm_seq (Mlist.of_list (body1@body2))
 
-(**[tr_pat_switch] translates an OCaml pattern into a [pat]. This is intended to be used while generating switch statements*)
+(**[tr_pat_switch] translates an OCaml pattern into an OptiTrust [pat].
+This is intended to be used when generating switch statements*)
 and tr_pat_switch (p : pattern) : trm =
   match p.pat_desc with
   | Tpat_var (id, _) -> trm_pat_var (name_to_var (Ident.name id))
   | Tpat_any -> trm_pat_any ()
   | _ -> failwith "Pattern not handled when translating matches"
 
+(**[tr_computation_pattern] translates an OCaml pattern into an OptiTrust [pat].
+This is intended to be used when generating switch statements*)
 and tr_computation_pattern (p : computation general_pattern) : trm =
   match p.pat_desc with
-  | Tpat_value v -> (match (v :> (value general_pattern)).pat_desc with (*small hack I found on the internet, not sure how good this is but at least it compiles*)
+  | Tpat_value v -> (match (v :> (value general_pattern)).pat_desc with (*small hack I found on the internet, seems to be working fine.*)
                     | Tpat_construct (_, cd, pats, _) ->
                     let constr = trm_var (inversor_var cd.cstr_name) in
                     (*can I use typed_vars to create terms? *)
@@ -174,7 +190,7 @@ and tr_computation_pattern (p : computation general_pattern) : trm =
                     | _ -> failwith "Did not expect this pattern shape inside a match")
   | _ -> failwith "Did not expect this pattern shape in a match"
 
-(**[tr_case] translates an OCaml [computation case] from a pattern matching into an Optitrust switch case. The [trm] argument represents the argument of the OCaml match*)
+(**[tr_case] translates an OCaml [computation case] from a pattern matching into an OptiTrust switch case. The [trm] argument represents the argument of an OCaml match*)
 and tr_case (t : trm) (c_case : computation case) : bbtrm * trm =
   (*TODO: handle the [when] case, as [c_guard] in c_case*)
   let {c_lhs; c_guard; c_rhs} = c_case in
@@ -187,7 +203,8 @@ and tr_case (t : trm) (c_case : computation case) : bbtrm * trm =
 
   (lhs, rhs)
 
-(** [tr_function u] : expects a Texp_function *)
+(** [tr_function u] : translates an OCaml function into an OptiTrust term.
+[tr_function] is expected to be called when [u] is a Texp_function*)
 and tr_function (u : expression) : trm =
   let rec aux (acc_tvars : typed_vars) (u : expression) : trm =
     match u.exp_desc with
@@ -206,6 +223,7 @@ and tr_function (u : expression) : trm =
   in
   aux [] u
 
+(**[recognize_builtin_function s]: recognizes an OCaml built_in operation and returns the corresponding OptiTrust term if it exists*)
 and recognize_builtin_function (s : string) : trm option = (*TODO: handle all the cases*)
   match s with
   | "+" -> Some (trm_binop typ_int Binop_add)
@@ -222,6 +240,8 @@ and recognize_builtin_function (s : string) : trm option = (*TODO: handle all th
   | "<>" ->  Some (trm_binop typ_int Binop_neq)
   | _ -> None
 
+(**[tr_expression u]: translates an OCaml expression into an OptiTrust term.
+Main function of the file, matches on the structure of [u] and calls the corresponding functions as necessary*)
 and tr_expression (u : expression) : trm =
   let aux = tr_expression in
   match u.exp_desc with
@@ -269,6 +289,7 @@ and tr_expression (u : expression) : trm =
     tr_sequence u1 u2
   | _ -> failwith "expression not yet translatable"
 
+(**[tr_core_type ct]: translates an OCaml [core_type] into an OptiTrust [typ]*)
 and tr_core_type (ct : core_type) : typ =
   match ct.ctyp_desc with
   | Ttyp_constr (_, ident, _) ->
@@ -283,12 +304,17 @@ and tr_core_type (ct : core_type) : typ =
  let rec init_aux (i:int) (f:int->int) : li = body
  *)
 
+(**[inversor_var name]: creates an uninitialized variable by adding the "Pattern__" prefix to [name].
+This function is expected to be used when calling an "inversor version" of a type constructor*)
 and inversor_var (name : string) : var =
   name_to_var ("Pattern__" ^ name)
 
+(**[inversor_toplevel_var name]: creates a toplevel variable by adding the "Pattern__" prefix to [name]
+This function is expected to be used when creating an "inversor version" of a type constructor*)
 and inversor_toplevel_var (name : string) : var =
   toplevel_var ("Pattern__" ^ name)
 
+(**[tr_constructor_decl cd]: translates an OCaml [constructor_declaration] into an OptiTrust constructor definition*)
 and tr_constructor_decl (cd : constructor_declaration) : union_constructor =
   let arguments = (match cd.cd_args with
                   | Cstr_tuple ctl -> ctl
@@ -302,10 +328,13 @@ and tr_constructor_decl (cd : constructor_declaration) : union_constructor =
     union_constructor_inversor = inversor_toplevel_var cd.cd_name.txt;
     union_constructor_args_type = List.map tr_core_type arguments }
 
+(**[tr_let vb_l]: translates an OCaml list of let-declarations into an OptiTrust sequence of let bindings*)
 and tr_let (vb_l : value_binding list) : trm = (*also change this part to handle seq flattening*)
   let binding_list = List.map (tr_value_binding true) vb_l in
   trm_seq (Mlist.of_list binding_list)
 
+(**[tr_type tl]: translates an OCaml [type_declaration list] into an OptiTrust type.
+Assumes for the moment that [tl] is a singleton, and that the type is not polymorphic.*)
 and tr_type (tl : type_declaration list) : typ =
   let td = (match tl with
   | [singleton] -> singleton
@@ -326,6 +355,9 @@ and tr_type (tl : type_declaration list) : typ =
 
   trm_typedef {typedef_name; typedef_body}
 
+(**[tr_structure_desc s]: translates an OCaml [structure_item] into an OptiTrust term.
+For the moment only supports expression evaluation, value bindings and type declarations.*)
+(*In particular: TODO: add support for pattern matching to add our new syntax.*)
 
 let tr_structure_desc (s : structure_item) : trm (* list of trm instead TODO *) = match s.str_desc with
   | Tstr_eval (e, _) -> tr_expression e   (* let _ = .. *)
@@ -335,7 +367,8 @@ let tr_structure_desc (s : structure_item) : trm (* list of trm instead TODO *) 
   *)
   | _ -> failwith "structure not yet translatable"
 
-let tr_structure_list l =
+(**[tr_structure_list s]: translates an OCaml [structure_item list] into an OptiTrust [trm list].*)
+let tr_structure_list (l : structure_item list) : trm list =
   let str_list = List.map (tr_structure_desc) l in
   List.fold_left
     (fun acc t -> match trm_seq_inv t with
@@ -343,7 +376,7 @@ let tr_structure_list l =
       | None -> acc @ [t])
     [] str_list
 
-(** [tr_ast t]: transalate [t] into OptiTrust AST *)
+(** [tr_ast t]: translates an OCaml AST [t] into an OptiTrust AST *)
 let tr_ast (t : ocaml_ast) : trm =
   (* TODO List.flatten ... *)
   (*

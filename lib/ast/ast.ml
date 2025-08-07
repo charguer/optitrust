@@ -60,7 +60,7 @@ let sprintf = Printf.sprintf
 
 
 
-(** [behavior_ocaml] is a temporary for controlling certain encodings *)
+(** [behavior_ocaml] is a temporary flag for controlling certain encodings *)
 let behavior_ocaml = ref false
 
 (*****************************************************************************)
