@@ -527,7 +527,7 @@ let get_trm_kind (t : trm) : trm_kind =
     end
     in
   match t.desc with
-  | Trm_pat_var _ | Trm_pat_as _ | Trm_pat_any | Trm_pat_is _ -> TrmKind_Pat
+  | Trm_pat_var _ | Trm_pat_as _ | Trm_pat_any | Trm_pat_is _ | Trm_pat_when _ -> TrmKind_Pat
   | Trm_var _ -> TrmKind_Expr
   | Trm_lit _ -> instr_if_unit
   | Trm_prim _ -> TrmKind_Expr

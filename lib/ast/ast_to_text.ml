@@ -165,6 +165,10 @@ and print_trm_desc style (t : trm_desc) : document =
   let str_var = print_var style x in
   string "Trm_pat_var" ^^ parens (str_term ^^ comma ^^ blank 1 ^^ str_var)
   | Trm_pat_any -> string "Trm_pat_any"
+  | Trm_pat_when (p, b) ->
+    let str_pat = aux p in
+    let str_bbe = aux b in
+    string "Trm_pat_when" ^^ parens (str_pat ^^ comma ^^ blank 1 ^^ str_bbe)
   | Trm_pat_is (t, p) ->
   let str_term = aux t in
   let str_pat = aux p in

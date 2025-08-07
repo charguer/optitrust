@@ -1347,7 +1347,7 @@ let iteri ?(rev : bool = false) (tr : int -> path -> unit) (tg : target) : unit 
       Printf.printf "testing resolve_target in a call to iteri -- entry \n";
     end;
 
-    let ps = resolve_target tg t in (*problem here, not finding any corresponding path...*)
+    let ps = resolve_target tg t in
 
     if !Flags.debug_ocaml then begin
       Printf.printf "testing resolve_target in a call to iteri -- exit \n";

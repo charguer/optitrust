@@ -529,6 +529,10 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       let str_var = var_to_doc_switch x in
       str_term ^^ string " as " ^^ str_var
     | Trm_pat_any -> string "?_"
+    | Trm_pat_when (p, b) ->
+      let str_pat = aux p in
+      let str_bbe = aux b in
+      str_pat ^^ string " when " ^^ str_bbe
     | Trm_pat_is (t, p) ->
       let str_term = aux t in
       let str_pat = aux p in

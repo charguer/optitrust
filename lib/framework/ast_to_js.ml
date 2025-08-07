@@ -191,7 +191,7 @@ let routine_to_json (routine : omp_routine) : json * json =
 let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     match t.desc with
     | Trm_pat_var _ | Trm_pat_as _ | Trm_pat_any
-    | Trm_pat_is _ -> failwith "Trm_Pat not yet translatable to json"
+    | Trm_pat_is _ | Trm_pat_when _ -> failwith "Trm_Pat not yet translatable to json"
     | Trm_var x ->
         [ kind_to_field "var";
           value_to_field x.name; (* TODO: #var-id , also encode namespaces and id ? *)

@@ -60,7 +60,7 @@ let sprintf = Printf.sprintf
 
 
 
-(** [behavior_ocaml] is a temporary for controlling certain encodings *)
+(** [behavior_ocaml] is a temporary flag for controlling certain encodings *)
 let behavior_ocaml = ref false
 
 (*****************************************************************************)
@@ -262,13 +262,13 @@ and trms = trm list
 (** [pat]: a representation of a pattern, which is seen as a term *)
 and pat = trm
 
-(** [bbtrm]: a representation of a binding-boolean-term, which is seen as a term *)
-and bbtrm = trm
+(** [bbe]: a representation of a binding-boolean-expressions, which is seen as a term *)
+and bbe = trm
 
 (** [trm_desc]: description of an ast node.
-    The garmmar of terms includes the representation of binding-boolean-terms and patterns.
+    The garmmar of terms includes the representation of binding-boolean-expression and patterns.
 
-    A binding-boolean-trm (written `b` below) can be constructed as:
+    A binding-boolean-exp (written `b` below) can be constructed as:
     - `b1 && b2` in which case we keep the union of the bindings from the two branches
     - `b1 || b2` in which case we keep the intersection of the bindings from the branches
     - `not b` in which case variables bound in `b` are not exported
@@ -292,16 +292,16 @@ and bbtrm = trm
         | boolean_function
     ```
 
-    The binding-boolean-terms and the inversion functions are represented using [Trm_apps] like applications,
+    The binding-boolean-expression and the inversion functions are represented using [Trm_apps] like applications,
     and boolean functions are represented using [Trm_var] like a variable occurrence. For example:
-    a binding-boolean-term [t is Some(?x,?y) && x == 3] is represented as
+    a binding-boolean-expression [t is Some(?x,?y) && x == 3] is represented as
     [Trm_apps(Trm_var("and"), [..., Trm_apps(Trm_prim(Binop_eq), ...)])]
 
     OptiTrust's switch construct generalizes C's switch and OCaml pattern-matching and Rust's if-let.
     ```
     switch[-unordered|-nondeterministically]
-    case binding-boolean-trm ==> trm
-    case binding-boolean-trm ==> trm
+    case binding-boolean-exp ==> exp
+    case binding-boolean-exp ==> exp
     end
     ```
 
@@ -322,10 +322,10 @@ and bbtrm = trm
 and trm_desc =
 
   | Trm_pat_var of var (* [?x] as part of a pattern [p], to bind [x] (in a binding-boolean-expression) *)
-  | Trm_pat_as of pat * var  (* [p as ?x] as part of a pattern [p], to bind [x] (in a binding-boolean-expression) *)
-  | Trm_pat_any (* [_] as part of a pattern [p] *)
+  | Trm_pat_as of pat * var
+  | Trm_pat_any (* [_] as part of a pattern [p] *) (*encode this with a constructor later*)
   | Trm_pat_is of trm * pat  (* [t is p] in a binding-boolean-expression *)
-
+  | Trm_pat_when of pat * bbe (* a guarded pattern [p when b] *)
 
   | Trm_var of var
   | Trm_lit of lit   (* literal values *)
@@ -358,19 +358,9 @@ and trm_desc =
         b3;
         break;
     }
-    TODO: Replace with real pattern matching
    *)
   | Trm_switch of trm * ((trms * trm) list)
-  (*Remark:   Trm_switch of (bbtrm * trm) list <== TODO
-  Switch is translated as a list of cases, composed as such :
-  Trm_my_switch [((t, p), k)] corresponds to :
-  ```
-  switch
-    case t is p -> k
-  ```
-  For the moment, the syntax on the left of the cases is lacking for simplicity. TODO : add the full defined syntax.
-  *)
-  | Trm_my_switch of (bbtrm * trm) list
+  | Trm_my_switch of (bbe * trm) list
   | Trm_abort of abort                            (* return or break or continue *)
   | Trm_goto of label                             (* goto foo *)
   | Trm_arbitrary of code_kind                    (* "int x = 10" *)
@@ -1106,6 +1096,7 @@ let trm_desc_to_string : trm_desc -> string =
   | Trm_pat_as _ -> "Trm_pat_as"
   | Trm_pat_any -> "Trm_pat_any"
   | Trm_pat_is _ -> "Trm_pat_is"
+  | Trm_pat_when _ -> "Trm_pat_when"
 
   | Trm_var _ -> "Trm_var"
   | Trm_lit _ -> "Trm_lit"

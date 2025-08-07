@@ -181,7 +181,7 @@ let trm_switch ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (cond : t
   trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_switch (cond, cases))
 
 (** [trm_my_switch ~annot ?loc ?ctx cases]: switch-case statement *)
-let trm_my_switch ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (cases : (bbtrm * trm) list) : trm =
+let trm_my_switch ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (cases : (bbe * trm) list) : trm =
   trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_my_switch cases)
 
 (** [trm_abort ~annot ?loc ?ctx a]: abort instruction *)
@@ -1147,17 +1147,20 @@ let trm_pre_decr ?(annot = trm_annot_default) ?(typ : typ option) (t : trm) : tr
 let trm_pat_var ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (v : var) : trm =
   trm_make ~annot ?loc ?typ ?ctx (Trm_pat_var v)
 
-(** [trm_pat_as]: creates an alias in a bbtrm. To be used when creating switch clauses.*)
+(** [trm_pat_as]: creates an alias in a bbe. To be used when creating switch clauses.*)
 let trm_pat_as ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (t : trm) (v : var) : trm =
   trm_make ~annot ?loc ?typ ?ctx (Trm_pat_as (t, v))
 
-(** [trm_pat_any]: represents a non-binded variable in a bbtrm. To be used when creating switch clauses.*)
+(** [trm_pat_any]: represents a non-binded variable in a bbe. To be used when creating switch clauses.*)
 let trm_pat_any ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) () : trm =
   trm_make ~annot ?loc ?typ ?ctx (Trm_pat_any)
 
-(** [trm_pat_is]: represents constructor inversion in a bbtrm. To be used when creating switch clauses.*)
+(** [trm_pat_is]: represents constructor inversion in a bbe. To be used when creating switch clauses.*)
 let trm_pat_is ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (t : trm) (p : pat) : trm =
   trm_make ~annot ?loc ?typ ?ctx (Trm_pat_is (t, p))
+
+let trm_pat_when ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (p : pat) (b : bbe) : trm =
+  trm_make ~annot ?loc ?typ ?ctx (Trm_pat_when (p, b))
 
 let var_any_bool = new_var "ANY_BOOL"
 
@@ -1370,6 +1373,12 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
     if share_if_no_change && t1 == t1' && t2 == t2'
       then t
       else trm_pat_is ~annot ?loc ~ctx t1' t2'
+  | Trm_pat_when (p, b) ->
+    let p' = f p in
+    let b' = f b in
+    if share_if_no_change && p == p' && b == b'
+      then t
+      else trm_pat_when ~annot ?loc ~ctx p' b'
 
   | Trm_lit (Lit_int (ty, n)) ->
     let ty' = f ty in
@@ -1594,7 +1603,7 @@ type var_metadata = trm_annot * location * typ option * ctx
 let empty_var_metadata () =
   trm_annot_default, None, None, unknown_ctx ()
 
-(** [assert_body_is_seq t]: is used to very the AST invariant that bodies are made of sequences *)
+(** [assert_body_is_seq t]: is used to verify the AST invariant that bodies are made of sequences *)
 let assert_body_is_seq (t : trm) : unit =
   assert (trm_seq_inv t <> None)
 
@@ -1671,6 +1680,7 @@ let trm_map_vars_ret_ctx
     | Trm_pat_var x -> assert false
     | Trm_pat_as (p, x) -> assert false
     | Trm_pat_is (t1, t2) -> assert false
+    | Trm_pat_when (p, b) -> assert false
     (* | Trm_pat_as (p, x) ->
       let (cont_ctx', p') = f_map ctx p in
       let (cont_ctx', x') = map_binder cont_ctx' x false in
@@ -2036,7 +2046,7 @@ let trm_map_vars_ret_ctx
     List.fold_left (fun vars_ctx var -> fst (map_binder vars_ctx var false)) ctx vars
 
   (**[bbe_map_and_get_vars ctx t]: applies the map inside a binding-boolean expression and returns the bbe term as well as the bound variables*)
-  and bbe_map_and_get_vars (ctx : 'ctx) (b : bbtrm) : bbtrm * var list =
+  and bbe_map_and_get_vars (ctx : 'ctx) (b : bbe) : bbe * var list =
 
     (* Printf.printf "calling bbe on : %s\n" (Ast_to_text.ast_to_string b); *)
 
@@ -2617,18 +2627,18 @@ let trm_ands (ts : trm list) : trm =
 (*****************************************************************************)
 (** Pattern operations *)
 
-(** [trm_bbe_and]: alias of [trm_and], represents binding [&&] clauses in a bbtrm. To be used when creating switch clauses.*)
-let trm_bbe_and ?(loc) ?(ctx : ctx option) (b1 : bbtrm) (b2 : bbtrm) : bbtrm =
+(** [trm_bbe_and]: alias of [trm_and], represents binding [&&] clauses in a bbe. To be used when creating switch clauses.*)
+let trm_bbe_and ?(loc) ?(ctx : ctx option) (b1 : bbe) (b2 : bbe) : bbe =
   let body = trm_my_switch ?loc ?ctx [(b1, b2); (trm_pat_any (), trm_bool false)] in
   trm_add_cstyle AndAsSwitch body
 
-(** [trm_bbe_or]: represents non-binding [||] clauses in a bbtrm. To be used when creating switch clauses.*)
-let trm_bbe_or ?(loc) ?(ctx : ctx option) (b1 : bbtrm) (b2 : bbtrm) : bbtrm =
+(** [trm_bbe_or]: represents non-binding [||] clauses in a bbe. To be used when creating switch clauses.*)
+let trm_bbe_or ?(loc) ?(ctx : ctx option) (b1 : bbe) (b2 : bbe) : bbe =
   let body = trm_my_switch ?loc ?ctx [(b1, trm_bool true); (trm_pat_any (), b2)] in
   trm_add_cstyle OrAsSwitch body
 
-(**[trm_bbe_neg]: returns [not] clause of a bbtrm. Is equivalent to [trm_apps (trm_prim Unop_neg) [t1]].*)
-let trm_bbe_neg ?(loc) ?(ctx : ctx option) (b : bbtrm) : bbtrm =
+(**[trm_bbe_neg]: returns [not] clause of a bbe. Is equivalent to [trm_apps (trm_prim Unop_neg) [t1]].*)
+let trm_bbe_neg ?(loc) ?(ctx : ctx option) (b : bbe) : bbe =
   let body = trm_my_switch ?loc ?ctx [(b, trm_bool false); (trm_pat_any (), trm_bool true)] in
   trm_add_cstyle NotAsSwitch body
 
