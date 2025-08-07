@@ -835,6 +835,7 @@ let transform_range_on
  (to_prove : trm list)
  (pre_res_trans : loop_range -> loop_range -> 'a -> resource_item list -> trm list)
  (post_res_trans : loop_range -> loop_range -> 'a -> resource_item list -> trm list)
+ (next_inv_trans : loop_range -> loop_range -> 'a -> resource_set -> trm list)
  (new_index : string)
  (mark_let : mark) (mark_for : mark) (mark_contract_occs : mark)
  (t : trm) : trm =
@@ -852,12 +853,26 @@ let transform_range_on
    trm_add_mark mark_for (trm_for_instrs ~annot:t.annot range' body_terms')
    (* trm_fail t "expected loop contract when checking validity" ? *)
  else
-   let ghosts_before = pre_res_trans range range' data contract.iter_contract.pre.linear in
-   let ghosts_after = post_res_trans range range' data contract.iter_contract.post.linear in
+   let pre_ghosts = pre_res_trans range range' data contract.iter_contract.pre.linear in
+   let post_ghosts = post_res_trans range range' data contract.iter_contract.post.linear in
    let contract' = Resource_contract.loop_contract_subst (Var_map.singleton range.index (trm_add_mark mark_contract_occs index_expr)) contract in
-   trm_seq_nobrace_nomarks (to_prove @ ghosts_before @ [
-    trm_add_mark mark_for (trm_for_instrs ~annot:t.annot ~contract:contract' range' body_terms'
-   )] @ ghosts_after)
+   let with_index_start range contract = Resource_set.subst_var range.index range.start (Resource_set.filter_with_var range.index contract.invariant) in
+   let with_index_stop range contract = Resource_set.subst_var range.index range.stop (Resource_set.filter_with_var range.index contract.invariant) in
+   let start_inv_ghost = Resource_trm.ghost_admitted {
+    pre = with_index_start range contract;
+    post = with_index_start range' contract';
+   } in
+   let stop_inv_ghost = Resource_trm.ghost_admitted {
+    pre = with_index_stop range' contract';
+    post = with_index_stop range contract;
+   } in
+   let next_inv_ghost = next_inv_trans range range' data contract.invariant in
+   let body_terms' = Mlist.merge body_terms' (Mlist.of_list next_inv_ghost) in
+   trm_seq_nobrace_nomarks (to_prove @ pre_ghosts @ [
+    start_inv_ghost;
+    trm_add_mark mark_for (trm_for_instrs ~annot:t.annot ~contract:contract' range' body_terms');
+    stop_inv_ghost
+   ] @ post_ghosts)
  end
 
 let shift_range_on (kind : shift_kind) =
@@ -898,7 +913,15 @@ let shift_range_on (kind : shift_kind) =
   let to_prove = [] in
   let pre_res_trans = shift_ghosts ghost_group_shift ghost_ro_group_shift in
   let post_res_trans = shift_ghosts ghost_group_unshift ghost_ro_group_unshift in
-  transform_range_on new_range to_prove pre_res_trans post_res_trans
+  let next_inv_trans r r' shift inv =
+    let inv_with_index = Resource_set.filter_with_var r.index inv in
+    if Resource_set.is_empty inv_with_index then [] else [
+      Resource_trm.ghost_admitted {
+        pre = Resource_set.subst_var r.index (trm_add_int (trm_sub_int (trm_var r'.index) shift) r'.step) inv_with_index;
+        post = Resource_set.subst_var r.index (trm_sub_int (trm_add_int (trm_var r'.index) r'.step) shift) inv_with_index;
+      }]
+  in
+  transform_range_on new_range to_prove pre_res_trans post_res_trans next_inv_trans
 
 (** [shift_range index kind]: shifts a loop index range according to [kind], using a new [index] name.
 
@@ -964,8 +987,11 @@ let scale_range_on (factor : trm) =
     )
   in
   let pre_res_trans = scale_ghosts ghost_group_scale ghost_ro_group_scale in
-  let post_res_trans = scale_ghosts ghost_group_unscale ghost_ro_group_scale in
-  transform_range_on new_range to_prove pre_res_trans post_res_trans
+  let post_res_trans = scale_ghosts ghost_group_unscale ghost_ro_group_scale in  let next_inv_trans r r' () inv =
+    (* TODO *)
+    []
+  in
+  transform_range_on new_range to_prove pre_res_trans post_res_trans next_inv_trans
 
 (** [scale_range index factor tg]: expects target [tg] to point at a for loop
   [index]. [factor] denotes the factor by which indices are multiplied.

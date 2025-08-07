@@ -160,3 +160,33 @@ __ghost_ret matrix3_span_shift() {
       "a, i2, i3)");
   __admitted();
 }
+
+__ghost(assert_inhabited, "x := arbitrary(int * (int -> int) -> int)",
+        "reduce_int_sum <- x");
+
+__ghost(assert_prop,
+        "proof := admit(forall (f: int -> int) -> __is_true(0 == "
+        "reduce_int_sum(0, f)))",
+        "reduce_int_sum_empty <- proof");
+
+__ghost(
+    assert_prop,
+    "proof := admit(forall (n: int) (f: int -> int) (_: __is_true(n >= 0)) -> "
+    "__is_true(reduce_int_sum(n, f) + f(n) == reduce_int_sum(n + 1, f)))",
+    "reduce_int_sum_add_right <- proof");
+
+int reduce_spe1(int start, int stop, int* input, int n, int m, int j) {
+  __requires("check_range: is_subrange(start..stop, 0..n)");
+  __requires("bound_check: in_range(j, 0..m)");
+  __requires("M: int * int -> int");
+  __ensures(
+      "__is_true(_Res == reduce_int_sum(stop - start, fun k -> M(k + start, "
+      "j)))");
+  __reads("input ~> Matrix2(n, m, M)");
+  __admitted();
+  int s = 0;
+  for (int i = start; i < stop; i++) {
+    s += input[MINDEX2(n, m, i, j)];
+  }
+  return s;
+}

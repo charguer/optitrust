@@ -88,6 +88,37 @@ __ghost_ret ro_matrix2_unfocus() {
   __ghost(close_wand);
 }
 
+__ghost_ret ro_matrix3_focus() {
+  __requires("T: Type");
+  __requires("matrix: ptr(T)");
+  __requires("i: int");
+  __requires("j: int");
+  __requires("k: int");
+  __requires("m: int");
+  __requires("n: int");
+  __requires("o: int");
+  __requires("f: _Fraction");
+  __requires("bound_check_i: in_range(i, 0..m)");
+  __requires("bound_check_j: in_range(j, 0..n)");
+  __requires("bound_check_k: in_range(k, 0..o)");
+  __consumes("_RO(f, matrix ~> Matrix3(m, n, o))");
+  __produces(
+      "Wand(_RO(f, &matrix[MINDEX3(m, n, o, i, j, k)] ~> Cell), _RO(f, matrix "
+      "~> Matrix3(m, n, o)))");
+  __produces("_RO(f, &matrix[MINDEX3(m, n, o, i, j, k)] ~> Cell)");
+  __ghost(ro_group_focus, "f := f, i := i, bound_check := bound_check_i");
+  __ghost(ro_group_focus, "f := f, i := j, bound_check := bound_check_j");
+  __ghost(ro_group_focus, "f := f, i := k, bound_check := bound_check_k");
+  __ghost(wand_simplify);
+  __ghost(wand_simplify);
+}
+
+__ghost_ret ro_matrix3_unfocus() {
+  __reverts(ro_matrix3_focus);
+  __admitted();
+  __ghost(close_wand);
+}
+
 void MATRIX1_COPY_int(int* dest, int* src, int length) {
   __writes("dest ~> Matrix1(length)");
   __reads("src ~> Matrix1(length)");

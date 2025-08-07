@@ -15,5 +15,5 @@ let _ = Run.script_cpp(fun _ ->
 
   !! Loop_basic.shift_range "j" (ShiftBy (trm_int 2)) [cFunBody "excl_array"; cFor "i"];
 
-  !! Loop_basic.shift_range "j" (ShiftBy (trm_int 2)) [cFunDef "non_transparent_ghosts"; cFor "i"];
+  !! Loop_basic.shift_range "i2" (ShiftBy (trm_int 2)) [cFunDef "non_transparent_ghosts"; cFor "i"];
 )
