@@ -121,15 +121,16 @@ __GHOST(matrix3_span_shift) {
 
 /* ---- Algorithmic Functions ---- */
 
-__DECL(reduce_int_sum, "int * (int -> int) -> int");
-__AXIOM(reduce_int_sum_empty, "forall (f: int -> int) -> 0 = reduce_int_sum(0, f)");
-__AXIOM(reduce_int_sum_add_right, "forall (n: int) (f: int -> int) (_: n >= 0) -> reduce_int_sum(n, f) + f(n) = reduce_int_sum(n + 1, f)");
+__DECL(reduce_int_sum, "int * int * (int -> int) -> int");
+__AXIOM(reduce_int_sum_empty, "forall (n : int) (f: int -> int) -> 0 = reduce_int_sum(n, n, f)");
+__AXIOM(reduce_int_sum_add_right, "forall (a: int) (b: int) (f: int -> int) (_: b >= a) -> reduce_int_sum(a, b, f) + f(b) = reduce_int_sum(a, b + 1, f)");
 
 // DEF
 
 /* TODO: generalize to any monoid/group, see doc/sliding-window.md */
 // template<typename T, typename ST>
 // NOTE: using 'int' as 'Z' to avoid overflow questions
+/*
 inline int reduce_spe1(int start, int stop, int* input, int n, int m, int j) {
   __requires("check_range: is_subrange(start..stop, 0..n)");
   __requires("bound_check: in_range(j, 0..m)");
@@ -151,5 +152,5 @@ inline int reduce_spe1(int start, int stop, int* input, int n, int m, int j) {
   }
   return s;
 }
-
+*/
 #endif

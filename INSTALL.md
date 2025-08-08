@@ -23,13 +23,13 @@ Installation of system packages:
 Install Clang 15. IMPORTANT: versions released after 15.0.x are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang libclang-dev llvm-dev`). You can try this procedure:
 
 ```sh
-wget https://apt.llvm.org/llvm.sh  
-chmod +x llvm.sh 
+wget https://apt.llvm.org/llvm.sh
+chmod +x llvm.sh
 sudo ./llvm.sh 15
 sudo apt install autoconf libclang-15-dev llvm-15-dev
 
 ```
-you need to make a symbolic link to redirect clang to clang-15 : 
+you need to make a symbolic link to redirect clang to clang-15 :
 ```sh
 sudo ln -s /usr/bin/clang-15 /usr/local/bin/clang
 ```
@@ -63,7 +63,7 @@ Installation of the opam switch with relevant packages:
    opam pin add dune 3.18.0
    opam pin add menhirLib 20210419
    opam pin add pprint 20220103
-   opam pin add clangml 4.8.0  # -> continueanyway 
+   opam pin add clangml 4.8.0  # -> continueanyway
    opam install dune refl clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving
    # next line used only for generating the documentation of OptiTrust:
    opam install odoc lambdasoup
@@ -312,7 +312,7 @@ If you have a nonempty file, copy the bindings into your file.
     "command": "workbench.action.tasks.runTask",
     "args": "Test OptiTrust Shortcuts",
     "when": "config.optitrust.enableKeybindings"
-  },  
+  },
   // For killing a task, type 'ctrl+k' twice, then 'enter'
   {
      "key": "ctrl+k ctrl+k",

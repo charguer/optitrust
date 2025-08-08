@@ -40,23 +40,24 @@ let fast = if only <> -1 then [occIndex only] else [nbMulti]
 let no_simpl (tg : target) : unit = ()
 
 let _ = Run.script_cpp (fun () ->
-  !! ();
-  !! Loop.shift_range ~simpl:no_simpl (ShiftBy (trm_find_var "i" [cFor "i"])) [cFor "k"];
-
-  !! Reduce.intro [cVarDef "sum"];
-
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anyw"
     ["w", int 3; "w", int 5] [cFunBody "rowSum"; cFor "i"];
-  !! Reduce.elim ~inline:true [nbMulti; cMark "w"; cCall "reduce_spe1"];
+  (* TODO:
+    !! Reduce.elim ~inline:true [nbMulti; cMark "w"; cCall "reduce_spe1"];
+
+    !! Loop.unroll [nbMulti; cMark "w"; cFor "k"];
+    + fold adds
+  *)
   !! Loop.collapse [nbMulti; cMark "w"; cFor "i"];
 
-
   !! Loop.swap [nbMulti; cMark "anyw"; cFor "i"];
+  !! Loop.split_range ~nb:1 [nbMulti; cMark "anyw"; cFor "i"]; (* TODO: resource *)
   !! Reduce.slide ~mark_alloc:"acc" [nbMulti; cMark "anyw"; cArrayWrite "D"];
   !! Reduce.elim [nbMulti; cMark "acc"; cCall "reduce_spe1"];
 
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
-  !! Reduce.elim ~inline:true [nbMulti; cMark "anyw"; cFor "i"; cCall "reduce_spe1"];
+  (* !! Reduce.elim ~inline:true [nbMulti; cMark "anyw"; cFor "i"; cCall "reduce_spe1"]; *)
+  !! Loop.unroll [nbMulti; cMark "anyw"; cFor "i"; cFor "k"];
   !! Loop.shift_range (StartAtZero) [nbMulti; cMark "anyw"; cFor "i"];
   !! Loop.scale_range ~factor:(trm_find_var "cn" []) [nbMulti; cMark "anyw"; cFor "i"];
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anycn" ~simpl:custom_specialize_simpl
