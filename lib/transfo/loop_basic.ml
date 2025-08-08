@@ -835,7 +835,7 @@ let transform_range_on
  (to_prove : trm list)
  (pre_res_trans : loop_range -> loop_range -> 'a -> resource_item list -> trm list)
  (post_res_trans : loop_range -> loop_range -> 'a -> resource_item list -> trm list)
- (next_inv_trans : loop_range -> loop_range -> 'a -> resource_set -> trm list)
+ (next_inv_trans : loop_range -> loop_range -> 'a -> resource_set -> mark -> trm list)
  (new_index : string)
  (mark_let : mark) (mark_for : mark) (mark_contract_occs : mark)
  (t : trm) : trm =
@@ -866,7 +866,7 @@ let transform_range_on
     pre = with_index_stop range' contract';
     post = with_index_stop range contract;
    } in
-   let next_inv_ghost = next_inv_trans range range' data contract.invariant in
+   let next_inv_ghost = next_inv_trans range range' data contract.invariant mark_contract_occs in
    let body_terms' = Mlist.merge body_terms' (Mlist.of_list next_inv_ghost) in
    trm_seq_nobrace_nomarks (to_prove @ pre_ghosts @ [
     start_inv_ghost;
@@ -913,11 +913,11 @@ let shift_range_on (kind : shift_kind) =
   let to_prove = [] in
   let pre_res_trans = shift_ghosts ghost_group_shift ghost_ro_group_shift in
   let post_res_trans = shift_ghosts ghost_group_unshift ghost_ro_group_unshift in
-  let next_inv_trans r r' shift inv =
+  let next_inv_trans r r' shift inv mark_contract_occs =
     let inv_with_index = Resource_set.filter_with_var r.index inv in
     if Resource_set.is_empty inv_with_index then [] else [
       Resource_trm.ghost_admitted {
-        pre = Resource_set.subst_var r.index (trm_add_int (trm_sub_int (trm_var r'.index) shift) r'.step) inv_with_index;
+        pre = Resource_set.subst_var r.index (trm_add_mark mark_contract_occs (trm_add_int (trm_sub_int (trm_var r'.index) shift) r'.step)) inv_with_index;
         post = Resource_set.subst_var r.index (trm_sub_int (trm_add_int (trm_var r'.index) r'.step) shift) inv_with_index;
       }]
   in
@@ -987,7 +987,7 @@ let scale_range_on (factor : trm) =
     )
   in
   let pre_res_trans = scale_ghosts ghost_group_scale ghost_ro_group_scale in
-  let post_res_trans = scale_ghosts ghost_group_unscale ghost_ro_group_scale in  let next_inv_trans r r' () inv =
+  let post_res_trans = scale_ghosts ghost_group_unscale ghost_ro_group_scale in  let next_inv_trans r r' () inv mark_contract_occs =
     (* TODO *)
     []
   in

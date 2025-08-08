@@ -1293,6 +1293,12 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
       pure_prim (Prim_binop binop)
 
     | Binop_set ->
+      (*
+        (dest, value) ->
+        requires T: type, dest: ptr(T), value: T
+        consumes dest ~> UninitCell
+        produces dest ~> value
+      *)
       assert (is_typ_auto typ);
       let vartyp = new_hyp "T" in
       let typ = typ_var vartyp in
@@ -1326,6 +1332,12 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
     let pure_binop_typ = compute_pure_typ empty_pure_env (trm_binop typ op) in
     if not (are_same_trm pure_binop_typ (typ_pure_simple_fun [typ; typ] typ)) then
       failwith "Invalid compound assign operator";
+    (*
+      (dest, operand) ->
+      requires dest: ptr(typ), operand: typ, dest_val: typ
+      consumes dest ~> dest_val
+      produces dest ~> dest_val op operand
+    *)
     let dest_var = new_hyp "dest" in
     let model_var = new_hyp "dest_val" in
     let pre_model = if !Flags.use_resources_with_models then [model_var, typ] else [] in

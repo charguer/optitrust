@@ -271,6 +271,14 @@ let rewrite_var_in_res_ghosts ?(filter_changed = true) var ?from ?into ?by res =
 (*****************************************************************************)
 (* Contracts and annotations *)
 
+(* is this ghost code ?
+   includes instructions tagged as ghost, as well as ghost pairs and admitted. *)
+let is_any_ghost_code (t: trm): bool =
+  trm_has_attribute GhostInstr t ||
+  Option.is_some (admitted_inv t) ||
+  Option.is_some (ghost_begin_inv t) ||
+  Option.is_some (ghost_end_inv t)
+
 let delete_annots_on
   ?(delete_contracts = true)
   ?(delete_ghost = true)
@@ -293,10 +301,7 @@ let delete_annots_on
       end else false
     in
     let t =
-      if delete_ghost &&
-        ((test_is_ghost t) ||
-        (Option.is_some (ghost_begin_inv t)) ||
-        (Option.is_some (ghost_end_inv t)))
+      if delete_ghost && ((test_is_ghost t) || is_any_ghost_code t)
       then Nobrace.trm_seq_nomarks []
       else t
     in

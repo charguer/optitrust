@@ -405,6 +405,7 @@ let%transfo simpl_scoped_ghosts (ghosts_before : trm list) (ghosts_after : trm l
    #equiv-rewrite: fixes a similar problem as the code in Variable_basic.subst . *)
 let%transfo simpl_scoped ~(simpl : unit -> unit) (tg : target) : unit =
   if !Flags.check_validity then Target.iter (fun p ->
+  Nobrace_transfo.remove_after (fun () ->
   Trace.without_resource_computation_between_steps (fun () ->
     let error = "expected for loop" in
     let t = Target.get_trm_at_exn (target_of_path p) in
@@ -413,6 +414,7 @@ let%transfo simpl_scoped ~(simpl : unit -> unit) (tg : target) : unit =
     let new_t = Target.get_trm_at_exn (target_of_path p) in
     let (new_range, _, new_contract) = trm_inv ~error trm_for_inv new_t in
 
+    (* rewrites for exclusive resource groups *)
     let resource_item_rewrite_group acc range new_range r1 r2 =
       let open Resource_formula in
       let r1 = formula_group_range range r1 in
@@ -431,14 +433,28 @@ let%transfo simpl_scoped ~(simpl : unit -> unit) (tg : target) : unit =
       resource_item_list_rewrite_group acc range new_range r1.pure r2.pure;
       resource_item_list_rewrite_group acc range new_range r1.linear r2.linear;
     in
-    let rewrites_before = ref [] in
+
+    (* rewrites for invariant resources *)
+    (* FIXME: duplicated code with Loop_basic.transform_range_on *)
+    let with_index_start range contract = Resource_set.subst_var range.index range.start (Resource_set.filter_with_var range.index contract.invariant) in
+    let with_index_stop range contract = Resource_set.subst_var range.index range.stop (Resource_set.filter_with_var range.index contract.invariant) in
+    let start_inv_ghost = Resource_trm.ghost_admitted {
+      pre = with_index_start range contract;
+      post = with_index_start new_range new_contract;
+    } in
+    let stop_inv_ghost = Resource_trm.ghost_admitted {
+      pre = with_index_stop new_range new_contract;
+      post = with_index_stop range contract;
+    } in
+
+    let rewrites_before = ref [start_inv_ghost] in
     (* resource_set_rewrite rewrites_before contract.invariant new_contract.invariant; *)
     resource_set_rewrite_group rewrites_before range new_range contract.iter_contract.pre new_contract.iter_contract.pre;
-    let rewrites_after = ref [] in
+    let rewrites_after = ref [stop_inv_ghost] in
     (* resource_set_rewrite rewrites_after new_contract.invariant contract.invariant; *)
     resource_set_rewrite_group rewrites_after new_range range new_contract.iter_contract.post contract.iter_contract.post;
     simpl_scoped_ghosts !rewrites_before !rewrites_after p
-  )) tg
+  ))) tg
   else simpl ()
 
 let%transfo simpl_range ~(simpl : target -> unit) (tg : target) : unit =
@@ -481,7 +497,7 @@ let transform_range
     end;
     simpl_scoped ~simpl:(fun () ->
       simpl_range ~simpl ((target_of_path p_seq) @ [cMark mark_for]);
-      simpl [nbAny; cMark mark_occs];
+      simpl [nbAny; cMark mark_for; cMark mark_occs];
     ) [cMark mark_for];
     if index = "" then
       Loop_basic.rename_index prev_index.name ((target_of_path p_seq) @ [cMark mark_for])
