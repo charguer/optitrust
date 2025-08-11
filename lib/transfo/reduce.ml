@@ -228,23 +228,6 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
   let new_range = { range with start = trm_add_mark mark_simpl (trm_add_int range.start step) } in
   if !Flags.check_validity then begin
     let open Resource_formula in
-    let dispatch_ghosts ghost ro_ghost formula =
-      match formula_read_only_inv formula with
-      | Some { formula } -> ro_ghost, formula
-      | None -> ghost, formula
-    in
-    let add_split_ghost ghost_fn =
-      (* TODO: factorize pattern with tiling ghosts *)
-      List.map (fun (_, formula) ->
-        let ghost, formula = ghost_fn formula in
-        let i = new_var range.index.name in
-        let items = formula_fun [i, typ_int] (trm_subst_var range.index (trm_var i) formula) in
-        Resource_trm.ghost (ghost_call ghost [
-          "start", range.start; "stop", range.stop; "step", step;
-          "split", new_range.start; "items", items
-        ])
-      )
-    in
     let split_assumption = Resource_trm.(Resource_formula.[
       assume (formula_in_range new_range.start (formula_range range.start range.stop step))
     ]) in
@@ -258,10 +241,10 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
         (formula_range (trm_int 0) n step)
       );
     ]) in
-    let split_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_split ghost_ro_group_split)) contract.iter_contract.pre.linear in
-    let join_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_join ghost_ro_group_join)) contract.iter_contract.post.linear in
-    let pure_split_ghosts = Loop_core.(add_split_ghost (fun f -> ghost_pure_group_split, f)) contract.iter_contract.pre.pure in
-    let pure_join_ghosts = Loop_core.(add_split_ghost (fun f -> ghost_pure_group_join, f)) contract.iter_contract.post.pure in
+    let split_ghosts = Loop_core.add_split_ghost range new_range.start contract.iter_contract.pre.linear in
+    let join_ghosts = Loop_core.add_join_ghost range new_range.start contract.iter_contract.post.linear in
+    let pure_split_ghosts = Loop_core.add_split_ghost_pure range new_range.start contract.iter_contract.pre.pure in
+    let pure_join_ghosts = Loop_core.add_join_ghost_pure range new_range.start contract.iter_contract.post.pure in
     let one_range = { range with stop = new_range.start } in
     let (unroll_ghosts, roll_ghosts) = Loop_core.unroll_ghost_pair one_range contract [range.start] in
     let new_contract = contract |>

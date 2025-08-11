@@ -1193,14 +1193,24 @@ let%transfo fold_instrs ~(index : string) ?(start : int = 0) ?(step : int = 1) (
   fold ~index ~start ~step !nb_targets first_target;
   Variable.fold ~nonconst:true [nbAny; cVarDef "" ~body:[cStrictNew; cInt !nb_targets]]
 
+let%transfo split_range ?(nb: int = 0) ?(cut: trm = trm_unit ())
+  ?(mark_loop1 : mark = no_mark) ?(mark_loop2 : mark = no_mark)
+  ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
+  Marks.with_marks (fun next_mark -> Target.iter (fun p ->
+    let mark_simpl = next_mark () in
+    Loop_basic.split_range ~nb ~cut ~mark_loop1 ~mark_loop2 ~mark_simpl (target_of_path p);
+    simpl [cMark mark_simpl];
+  ) tg)
+
 (** [unroll_first_iterations nb tg]: expects the target [tg] to be pointing at a simple loop;
    it extracts the sequences associated with the [nb] first iterations before loop.
    . *)
 let%transfo unroll_first_iterations (nb:int) ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
-  Target.iter (fun p ->
-    Loop_basic.split_range ~nb (target_of_path p);
-    unroll ~simpl (target_of_path p)
-  ) tg
+  Marks.with_marks (fun next_mark -> Target.iter (fun p ->
+    let mark_loop1 = next_mark () in
+    split_range ~simpl ~nb ~mark_loop1 (target_of_path p);
+    unroll ~simpl [cMark mark_loop1]
+  ) tg)
 
 (** [unroll_first_iteration tg]: expects the target [tg] to be pointing at a simple loop, it
    extracts the sequence associated with the first iteration before the loop. *)

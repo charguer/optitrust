@@ -429,6 +429,29 @@ let ghost_group_join = toplevel_var "group_join"
 let ghost_ro_group_join = toplevel_var "ro_group_join"
 let ghost_pure_group_join = toplevel_var "pure_group_join"
 
+let dispatch_ghosts ghost ro_ghost formula =
+  (* TODO: move to resource formula module *)
+  match Resource_formula.formula_read_only_inv formula with
+  | Some { formula } -> ro_ghost, formula
+  | None -> ghost, formula
+
+let add_split_or_join_ghost range split ghost_fn =
+  (* TODO: factorize pattern with tiling ghosts *)
+  List.map (fun (_, formula) ->
+    let ghost, formula = ghost_fn formula in
+    let i = new_var range.index.name in
+    let items = Resource_formula.formula_fun [i, typ_int] (trm_subst_var range.index (trm_var i) formula) in
+    Resource_trm.ghost (ghost_call ghost [
+      "start", range.start; "stop", range.stop; "step", range.step;
+      "split", split; "items", items
+    ])
+  )
+
+let add_split_ghost range split = add_split_or_join_ghost range split (dispatch_ghosts ghost_group_split ghost_ro_group_split)
+let add_join_ghost range split = add_split_or_join_ghost range split (dispatch_ghosts ghost_group_join ghost_ro_group_join)
+let add_split_ghost_pure range split = add_split_or_join_ghost range split (fun f -> ghost_pure_group_split, f)
+let add_join_ghost_pure range split = add_split_or_join_ghost range split (fun f -> ghost_pure_group_join, f)
+
 (** [split_range_at nb cut]: splits a loop into two loops based on the range,
      [nb] - by default this argument has value 0, if provided it means that it will split the loop at start + nb iteration,
      [cut] - by default this argument has value tmr_unit(), if provided then the loop will be splited at that iteration,
@@ -436,22 +459,48 @@ let ghost_pure_group_join = toplevel_var "pure_group_join"
 
      TODO: Optional arguments instead of weird "default" values
      *)
-let split_range_at (nb : int) (cut : trm) (t : trm) : trm =
-  let error = "Loop_core.split_range: expected a target to a simple for loop" in
-  let (range, body, _contract) = trm_inv ~error trm_for_inv t in
+let split_range_at (nb : int) (cut : trm)
+  (mark_loop1 : mark) (mark_loop2 : mark)
+  (mark_simpl : mark) (t : trm) : trm =
+  let error = "expected a target to a simple for loop" in
+  let (range, body, contract) = trm_inv ~error trm_for_inv t in
   let split_index = match nb, cut with
-    | 0, {desc = Trm_lit (Lit_unit); _} -> trm_fail t "Loop_core.split_range_aux: one of the args nb or cut should be set "
+    | 0, {desc = Trm_lit (Lit_unit); _} -> trm_fail t "one of the args nb or cut should be set "
     | 0, _ -> cut
     | _, {desc = Trm_lit (Lit_unit);_} ->
-      begin match trm_int_inv range.start with
+      (* begin match trm_int_inv range.start with
       | Some start -> trm_int (start + nb)
-      | None -> trm_add_int range.start (trm_int nb)
-      end
+      | None -> *) trm_add_int range.start (trm_int nb) (*
+      end *)
     | n, c -> trm_fail t "Loop_core.split_range_aux: can't provide both the nb and cut args"
   in
-  trm_seq_nobrace_nomarks [
-    trm_for { range with stop = split_index } body;
-    trm_copy (trm_for { range with start = split_index } body)]
+  let split_index = trm_add_mark mark_simpl split_index in
+  let range1 = { range with stop = split_index } in
+  let range2 = { range with start = split_index } in
+  let (pre_ghosts, post_ghosts) = if !Flags.check_validity then begin
+    if not (Resources.trm_is_pure split_index) then
+      trm_fail split_index "basic range splitting does not support non-pure split point";
+    let to_prove = Resource_trm.to_prove Resource_formula.(formula_is_subrange (formula_loop_range range1) (formula_loop_range range)) in
+    let linear_splits = add_split_ghost range split_index contract.iter_contract.pre.linear in
+    let linear_joins = add_join_ghost range split_index contract.iter_contract.post.linear in
+    let pure_splits = add_split_ghost_pure range split_index contract.iter_contract.pre.pure in
+    let pure_joins = add_join_ghost_pure range split_index contract.iter_contract.post.pure in
+    (to_prove :: (pure_splits @ linear_splits), pure_joins @ linear_joins)
+  end else
+    ([], [])
+  in
+  let error = "expected body instructions" in
+  let (body_instrs, _) = trm_inv ~error trm_seq_inv body in
+  let assume_range = Resource_formula.(Resource_trm.(assume (
+    formula_in_range (trm_var range.index) (formula_loop_range range)
+  ))) in
+  let new_body_instrs = Mlist.push_front assume_range body_instrs in
+  let new_body = trm_seq ~annot:body.annot new_body_instrs in
+  trm_seq_helper ~braces:false [
+    TrmList pre_ghosts;
+    Trm (trm_add_mark mark_loop1 (trm_for ~contract range1 new_body));
+    Trm (trm_add_mark mark_loop2 (trm_copy (trm_for ~contract range2 new_body)));
+    TrmList post_ghosts]
 
 (** [rename_index_on new_index]: renames the loop index variable *)
 let rename_index_on (new_index : string) (t: trm) : trm =

@@ -808,9 +808,13 @@ let%transfo fold ~(index : string) ~(start : int) ~(step : int) (tg : target) : 
 
 (** [split_range nb cut tg]: expects the target [tg] to point at a simple loop
     then based on the arguments nb or cut it will split the loop into two loops. *)
-let%transfo split_range ?(nb : int = 0) ?(cut : trm = trm_unit()) (tg : target) : unit =
+let%transfo split_range ?(nb : int = 0) ?(cut : trm = trm_unit())
+  ?(mark_loop1 : mark = no_mark) ?(mark_loop2 : mark = no_mark)
+  ?(mark_simpl: mark = no_mark) (tg : target) : unit =
   Nobrace_transfo.remove_after( fun _ ->
-    apply_at_target_paths (Loop_core.split_range_at nb cut) tg )
+    apply_at_target_paths (Loop_core.split_range_at nb cut mark_loop1 mark_loop2 mark_simpl) tg;
+    Trace.justif "split point is pure and will be proved to belong in loop range"
+  )
 
 type shift_kind =
 | ShiftBy of trm
