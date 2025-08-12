@@ -12,20 +12,17 @@ void rowSum(int w, int* s, int* d, int n, int cn, int c, int* sum) {
   __requires("w >= 0");
   __requires("n >= 1");
   __requires("cn >= 0");
-  /* __writes(
-      "d ~> Matrix2(n, cn, fun (i: int) (c: int) -> reduce_int_sum(i, i + w, "
-      "fun k -> S(k, c)))"); */
   __reads("s ~> Matrix2(n + w - 1, cn, S)");
 
   __requires("in_range(c, 0..cn)");
   /* __modifies("for i in 0..1 -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i + "
          "w, fun k -> S(k, c))"); */
-  __modifies("sum ~~> reduce_int_sum(0 + 1 - 1, 0 + 1 + w - 1, fun k0 -> S(k0, c))");
-  __consumes("for i in (0 + 1)..n -> &d[MINDEX2(n, cn, i, c)] ~> UninitCell");
-  __produces("for i in (0 + 1)..n -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i "
+  __modifies("sum ~~> reduce_int_sum(0, 0 + w, fun k0 -> S(k0, c))");
+  __consumes("for i in 1..n -> &d[MINDEX2(n, cn, i, c)] ~> UninitCell");
+  __produces("for i in 1..n -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i "
              "+ w, fun k -> S(k, c))");
 
-  for (int i = 0 + 1; i < n; i++) {
+  for (int i = 1; i < n; i++) {
     __strict();
     __sreads("s ~> Matrix2(n + w - 1, cn, S)");
     __xwrites(

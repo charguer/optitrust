@@ -5,6 +5,8 @@ let _ = Flags.check_validity := true
 let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp(fun _ ->
+  !! ();
+
   let matrix_s = trm_find_var "s" [cFunBody "rowSum"] in
   let n = trm_find_var "n" [cFunBody "rowSum"] in
   let w = trm_find_var "w" [cFunBody "rowSum"] in

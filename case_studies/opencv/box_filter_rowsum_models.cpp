@@ -1,5 +1,10 @@
 #include <optitrust_models.h>
 
+__GHOST(plus1) {
+  __requires("n: int, np1: int, np1 = n + 1");
+  __ensures("eq: np1 = n + 1");
+}
+
 /*
   cn: number of (color) channels
   w: width of box filter (convolution window)
@@ -32,7 +37,8 @@ void rowSum(const int w, const int* s, int* d, const int n, const int cn) {
         __GHOST_END(focus);
 
         __ghost(in_range_bounds, "k, i", "k_ge_i <- lower_bound");
-        __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_add_right(i, k, fun k -> S(k,c), k_ge_i)");
+        __ghost(plus1, "k, k+1", "kp1 <- eq");
+        __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_add_right(i, k, fun k -> S(k,c), k_ge_i, k + 1, kp1)");
       }
 
       d[MINDEX2(n, cn, i, c)] = sum;

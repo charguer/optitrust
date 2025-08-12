@@ -57,15 +57,16 @@ let reduce_rw_a_b a b a' b' f_elem inside =
   ]
 
 (** <private> *)
-let slide_on (available_sum : trm) (a : trm) (b : trm) (w : trm) (p_of_i : trm -> trm)
-  (f_elem : trm) (k_compute_f_elem : (trm -> (trm -> trms) -> trms))
-  (mark_alloc : mark) (mark_simpl : mark) (span : Dir.span) (t : trm) : trm =
+let slide_on (available_sum: trm) (a: trm) (b: trm) (w: trm) (f_elem: trm)
+  (ap1: trm) (p_of_i: trm -> trm)
+  (k_compute_f_elem: (trm -> (trm -> trms) -> trms))
+  (mark_alloc: mark) (mark_simpl: mark) (span: Dir.span) (t: trm) : trm =
   update_span_helper span t (fun instrs ->
     let sum = new_var "sum" in
     let typ = Option.unsome ~error:"expected pointer type" available_sum.typ in
     let var_i = new_var "i" in
     let loop_range = { index = var_i; direction = DirUp;
-      start = trm_add_int a (trm_int 1); stop = b; step = trm_int 1 } in
+      start = ap1; stop = b; step = trm_int 1 } in
     let i = trm_var var_i in
     let pi = p_of_i i in
     let ai = trm_sub_int i (trm_int 1) in
@@ -81,7 +82,11 @@ let slide_on (available_sum : trm) (a : trm) (b : trm) (w : trm) (p_of_i : trm -
       push_loop_contract_clause (SharedModifies) (new_anon_hyp (), sum_res (reduce ai bi f_elem))
     )) in
     [
-      Trm (trm_let_mut (sum, typ) available_sum);
+      Trm (trm_add_mark mark_alloc (trm_let_mut (sum, typ) available_sum));
+      TrmList (reduce_rw_a_b
+        a (trm_add_int a w)
+        (trm_sub_int ap1 (trm_int 1)) (trm_sub_int (trm_add_int ap1 w) (trm_int 1))
+        f_elem sum_res);
       Trm (trm_for loop_range ~contract (trm_seq_helper [
         TrmList (
         k_compute_f_elem ai (fun prev_f_elem ->
@@ -99,9 +104,11 @@ let slide_on (available_sum : trm) (a : trm) (b : trm) (w : trm) (p_of_i : trm -
 
   {@cpp[
   __modifies("sum ~~> reduce_int_sum(a, a + w, f)");
-  __consumes("for i in (a + 1)..b -> &p(i) ~> UninitCell");
-  __produces("for i in (a + 1)..b -> &p(i) ~~> reduce_int_sum(i, i + w, f)");
+  __consumes("for i in ap1..b -> &p(i) ~> UninitCell");
+  __produces("for i in ap1..b -> &p(i) ~~> reduce_int_sum(i, i + w, f)");
   ]}
+
+  with [ap1 = a + 1].
 
   In other words, a sum stencil of width [w] is computed over [f(i)] values,
   and stored in [p(i)] for [i] in [(a + 1)..b], assuming we already know the prior result computed for [a].
@@ -110,26 +117,27 @@ let slide_on (available_sum : trm) (a : trm) (b : trm) (w : trm) (p_of_i : trm -
 
   *)
 let%transfo slide_basic
-  (available_sum : trm) (a : trm) (b : trm) (w : trm) (p_of_i : trm -> trm)
-  (f_elem : trm) (k_compute_f_elem : (trm -> (trm -> trms) -> trms))
-  ?(mark_alloc : mark = no_mark) ?(mark_simpl : mark = no_mark)
-  (tg : target) : unit =
+  (available_sum: trm) (a: trm) (b: trm) (w: trm) (f_elem: trm)
+  (ap1: trm) (p_of_i: trm -> trm)
+  (k_compute_f_elem: (trm -> (trm -> trms) -> trms))
+  ?(mark_alloc: mark = no_mark) ?(mark_simpl: mark = no_mark)
+  (tg: target) : unit =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let p_seq, span = Path.extract_last_dir_span p in
-    Target.apply_at_path (slide_on available_sum a b w p_of_i f_elem k_compute_f_elem mark_alloc mark_simpl span) p_seq
+    Target.apply_at_path (slide_on available_sum a b w f_elem ap1 p_of_i k_compute_f_elem mark_alloc mark_simpl span) p_seq
   ) tg)
 
 (** [slide tg]: when targeting a span with [tg], identifies the following pattern:
 
   {@cpp[
-  // __consumes("sum ~~> reduce_int_sum(a, a + w, f)");
-  __consumes("sum ~~> reduce_int_sum(a + 1 - 1, a + 1 + w - 1, f)");
-  __produces("for i in (a + 1)..b -> &p(i) ~~> reduce_int_sum(i, i + w, f)");
+  __consumes("sum ~~> reduce_int_sum(a, a + w, f)");
+  __produces("for i in ap1..b -> &p(i) ~~> reduce_int_sum(i, i + w, f)");
   ]}
 
-  to call [slide_basic] with relevant arguments.
+  assuming [ap1 = a + 1], to call [slide_basic] with relevant arguments.
   *)
-let%transfo slide (k_compute_f_elem : (trm -> (trm -> trms) -> trms)) (tg : target) : unit =
+let%transfo slide ?(mark_alloc: mark = no_mark)
+  (k_compute_f_elem : (trm -> (trm -> trms) -> trms)) (tg : target) : unit =
   Target.iter (fun p ->
     let p_seq, span = Path.extract_last_dir_span p in
     ignore (update_span_helper span (Target.resolve_path p_seq) (fun instrs ->
@@ -137,15 +145,12 @@ let%transfo slide (k_compute_f_elem : (trm -> (trm -> trms) -> trms)) (tg : targ
       let open Resource_formula in
       let (res_before, res_after) = Resources.around_instrs instrs in
 
-      (* 1. find consumed reduction pattern: sum ~~> reduce_int_sum(a + 1 - 1, a + 1 + w - 1, f_elem) *)
+      (* 1. find consumed reduction pattern: sum ~~> reduce_int_sum(a, a + w, f_elem) *)
       let error = "could not find consumed reduction part of slide pattern" in
       let (sum, a, w, f_elem) = Option.unsome ~error (List.find_map (fun (_, r) ->
         Pattern.pattern_match_opt r [
           Pattern.(
-            (formula_points_to !__ (reduce_pat
-              (trm_sub (trm_add !__ (trm_int (eq 1))) (trm_int (eq 1)))
-              (trm_sub (trm_add (trm_add !__ (trm_int (eq 1))) !__) (trm_int (eq 1)))
-              !__))
+            (formula_points_to !__ (reduce_pat !__ (trm_add !__ !__) !__))
           ) (fun sum a a2 w f_elem () ->
             Pattern.when_ (are_same_trm a a2);
 
@@ -155,18 +160,18 @@ let%transfo slide (k_compute_f_elem : (trm -> (trm -> trms) -> trms)) (tg : targ
         ]
       ) res_before.linear) in
 
-      (* 2. find produced reduction pattern: for i in (a + 1)..b -> &p ~~> reduce_int_sum(i, i + w, f_elem) *)
+      (* 2. find produced reduction pattern: for i in ap1..b -> &p ~~> reduce_int_sum(i, i + w, f_elem) *)
       let error = "could not find produced reduction part of slide pattern" in
-      let (i, b, pi) = Option.unsome ~error (List.find_map (fun (_, r) ->
+      let (i, ap1, b, pi) = Option.unsome ~error (List.find_map (fun (_, r) ->
         Pattern.pattern_match_opt r [
-          Pattern.(formula_group !__ (formula_range (trm_add !__ (trm_int (eq 1))) !__ (trm_int (eq 1)))
+          Pattern.(formula_group !__ (formula_range !__ !__ (trm_int (eq 1)))
             (formula_points_to !__ (reduce_pat (trm_var !__) (trm_add (trm_var !__) !__) !__))
-          ) (fun i a2 b p i2 i3 w2 f_elem2 () ->
+          ) (fun i ap1 b p i2 i3 w2 f_elem2 () ->
             Pattern.when_ ((var_eq i i2) && (var_eq i i3));
-            Pattern.when_ ((are_same_trm a a2) && (are_same_trm w w2) && (are_same_trm f_elem f_elem2));
+            Pattern.when_ ((are_same_trm w w2) && (are_same_trm f_elem f_elem2));
 
             (* DEBUG : Show.trm_internal ~msg:"produced" r; *)
-            (i, b, p)
+            (i, ap1, b, p)
           );
         ]
       ) res_after.linear) in
@@ -174,7 +179,7 @@ let%transfo slide (k_compute_f_elem : (trm -> (trm -> trms) -> trms)) (tg : targ
       (* 3. call [slide_basic] *)
       let available_sum = trm_get sum in
       let p_of_i i' = trm_subst_var i i' pi in
-      slide_basic available_sum a b w p_of_i f_elem k_compute_f_elem (target_of_path p);
+      slide_basic ~mark_alloc available_sum a b w f_elem ap1 p_of_i k_compute_f_elem (target_of_path p);
 
       []
     ))

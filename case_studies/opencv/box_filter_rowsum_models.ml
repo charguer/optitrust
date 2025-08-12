@@ -31,12 +31,6 @@ let custom_specialize_simpl tg =
     Loop.simplify_all_ghosts_group_scale [];
   )
 
-let only = -1
-(* comment next line for doing all versions *)
- (* let only = 2 *)
-
-let fast = if only <> -1 then [occIndex only] else [nbMulti]
-
 let no_simpl (tg : target) : unit = ()
 
 let _ = Run.script_cpp (fun () ->
@@ -45,31 +39,51 @@ let _ = Run.script_cpp (fun () ->
   (* TODO:
     !! Reduce.elim ~inline:true [nbMulti; cMark "w"; cCall "reduce_spe1"];
 
-    !! Loop.unroll [nbMulti; cMark "w"; cFor "k"];
-    + fold adds
+    is following unroll + fold adds
+  !! Loop.unroll [nbMulti; cMark "w"; cFor "k"];
   *)
   !! Loop.collapse [nbMulti; cMark "w"; cFor "i"];
 
+  (* TODO: infer code below *)
+  let matrix_s = trm_find_var "s" [cMark "anyw"] in
+  let n = trm_find_var "n" [cMark "anyw"] in
+  let w = trm_find_var "w" [cMark "anyw"] in
+  let cn = trm_find_var "cn" [cMark "anyw"] in
+  let matrix_s_dims = [trm_sub_int (trm_add_int n w) (trm_int 1); cn] in
+  let c = trm_find_var "c" [cMark "anyw"; cPlusEq ()] in
+  let k_compute_f_elem k con =
+    let open Resource_formula in
+    let open Resource_trm in
+
+    let in_range_ghosts = List.map2 (fun i d ->
+      Resource_trm.to_prove (formula_in_range i (formula_range (trm_int 0) d (trm_int 1)))
+    ) [k; c] matrix_s_dims in
+    let (_, focus, unfocus) = ghost_pair (ghost_ro_matrix2_focus ~matrix:matrix_s k c) in
+    in_range_ghosts @ [focus] @ con(Matrix_trm.get matrix_s matrix_s_dims [k; c]) @ [unfocus]
+  in
+
   !! Loop.swap [nbMulti; cMark "anyw"; cFor "i"];
-  !! Loop.split_range ~nb:1 [nbMulti; cMark "anyw"; cFor "i"]; (* TODO: resource *)
-  !! Reduce.slide ~mark_alloc:"acc" [nbMulti; cMark "anyw"; cArrayWrite "D"];
-  !! Reduce.elim [nbMulti; cMark "acc"; cCall "reduce_spe1"];
+  (* TODO: would need to make slide less syntax-driven to enable simpl again *)
+  !! Loop.unroll_first_iteration ~simpl:no_simpl [nbMulti; cMark "anyw"; cFor "i"];
+  !! Reduce_models.slide ~mark_alloc:"acc" k_compute_f_elem [nbMulti; cMark "anyw"; cFor "i"];
+  (* TODO: do that in slide combi *)
+  !! Resources.make_strict_loop_contracts [nbMulti; cMark "anyw"; cFor "i"];
 
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
-  (* !! Reduce.elim ~inline:true [nbMulti; cMark "anyw"; cFor "i"; cCall "reduce_spe1"]; *)
-  !! Loop.unroll [nbMulti; cMark "anyw"; cFor "i"; cFor "k"];
-  !! Loop.shift_range (StartAtZero) [nbMulti; cMark "anyw"; cFor "i"];
-  !! Loop.scale_range ~factor:(trm_find_var "cn" []) [nbMulti; cMark "anyw"; cFor "i"];
+  (* !! Loop.shift_range (StartAtZero) [nbMulti; cMark "anyw"; cFor "i"];
+  !! Loop.scale_range ~factor:(trm_find_var "cn" []) [nbMulti; cMark "anyw"; cFor "i"]; *)
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anycn" ~simpl:custom_specialize_simpl
     ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "anyw"; cFor "c"];
-      (*
+
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
-  !! Target.foreach (fast@[cMark "cn"]) (fun c ->
-    Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i" ~body:[cArrayWrite "D"]];
-    Instr.gather_targets [c; cStrict; cArrayWrite "D"];
-    Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor ~stop:[cVar "w"] "i"];
-    Instr.gather_targets [c; cFor "i"; cArrayWrite "D"];
+  !! Target.foreach [nbMulti; cMark "cn"] (fun c ->
+    Printf.printf "next cn fusions\n";
+    Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i"];
+    Instr.gather_targets [c; cStrict; cArrayWrite "d"];
+    Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "k"];
+    Instr.gather_targets [c; cFor "i"; cArrayWrite "d"];
   );
+  (*
   !! Loop.shift_range (ShiftBy (trm_find_var "c" [cMark "anycn"])) [cMark "anycn"; cFor ~body:[cArrayWrite "D"] "i"];
 *)
 )
