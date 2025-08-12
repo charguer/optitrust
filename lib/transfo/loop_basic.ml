@@ -474,24 +474,17 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
   ) loops in
   match loops_ri with
   | [(loop_range1, loop_instrs1, contract1); (loop_range2, loop_instrs2, contract2)] ->
-    (* DEPRECATED: need to rename index anyway since #var-id
-    if not (same_loop_index loop_range1 loop_range2) then
-      trm_fail t "Loop_basic.fusion_on: expected matching loop indices"; *)
     if not (same_loop_range loop_range1 loop_range2) then
       trm_fail t "Loop_basic.fusion_on: expected matching loop ranges";
     let new_loop_range, _, _ = List.nth loops_ri target_loop_i in
     let idx1 = loop_range1.index in
     let idx2 = loop_range2.index in
 
-    let contract = if contract1.strict && contract2.strict then
+    let contract = if contract1.strict && contract2.strict then begin
       let open Resource_formula in
 
       let loop1 = List.nth loops 0 in
       let loop2 = List.nth loops 1 in
-      if Var_set.mem loop_range1.index (Resource_set.used_vars contract1.invariant) then
-        trm_fail loop1 "loop invariant uses loop index";
-      if Var_set.mem loop_range2.index (Resource_set.used_vars contract2.invariant) then
-        trm_fail loop2 "loop invariant uses loop index";
 
       let usage1 = Resources.usage_of_trm loop1 in
       let usage2 = Resources.usage_of_trm loop2 in
@@ -506,16 +499,6 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
         List.filter (fun (h, _) -> Var_map.mem h hyps) resources
       in
       let interference_resources = resource_set_of_hyp_map interference ctx2.linear in
-      let shared1 = contract1.invariant.linear @ contract1.parallel_reads in
-      let shared2 = contract2.invariant.linear @ contract2.parallel_reads in
-      let resources_in_common ra rb =
-        let (used, _, _, _) = Resource_computation.partial_extract_linear_resource_set interference_resources shared1 in
-        used <> []
-      in
-      (* TODO: instead of filtering, add featrues to collect interference to match paper formula *)
-      if resources_in_common interference_resources shared1 ||
-         resources_in_common interference_resources shared2
-      then trm_fail t (Resources.string_of_interference interference);
 
       let (pre1, post1, pre2, post2) =
         if upwards
@@ -530,20 +513,59 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
           contract2.iter_contract.pre,
           contract2.iter_contract.post)
       in
-      let (_, post1', pre2', _) =
-        (* TODO: the same on resource_set to match paper *)
-        Resource_computation.partial_extract_linear_resource_set post1.linear pre2.linear in
-      {
-        loop_ghosts = contract1.loop_ghosts @ contract2.loop_ghosts;
-        invariant = Resource_set.union contract1.invariant contract2.invariant;
-        parallel_reads = contract1.parallel_reads @ contract2.parallel_reads;
-        iter_contract = {
-          pre = Resource_set.union pre1 { pre2 with linear = pre2' };
-          post = Resource_set.union post2 { post1 with linear = post1' };
-        };
-        strict = true;
-      }
-    else if !Flags.check_validity then
+
+      (* TODO: merge the two code paths and generalize, maybe only when using models? *)
+      if interference_resources = [] then
+        let invariant = if upwards
+        then Resource_set.union
+          contract1.invariant
+          (Resource_set.subst_var idx2 (trm_var idx1) contract2.invariant)
+        else Resource_set.union
+          (Resource_set.subst_var idx1 (trm_var idx2) contract1.invariant)
+          contract2.invariant
+        in
+        {
+          loop_ghosts = contract1.loop_ghosts @ contract2.loop_ghosts;
+          invariant;
+          parallel_reads = contract1.parallel_reads @ contract2.parallel_reads;
+          iter_contract = {
+            pre = Resource_set.union pre1 pre2;
+            post = Resource_set.union post2 post1;
+          };
+          strict = true;
+        }
+      else begin
+        if Var_set.mem loop_range1.index (Resource_set.used_vars contract1.invariant) then
+          trm_fail loop1 "loop invariant uses loop index";
+        if Var_set.mem loop_range2.index (Resource_set.used_vars contract2.invariant) then
+          trm_fail loop2 "loop invariant uses loop index";
+
+        let shared1 = contract1.invariant.linear @ contract1.parallel_reads in
+        let shared2 = contract2.invariant.linear @ contract2.parallel_reads in
+        let resources_in_common ra rb =
+          let (used, _, _, _) = Resource_computation.partial_extract_linear_resource_set interference_resources shared1 in
+          used <> []
+        in
+        (* TODO: instead of filtering, add featrues to collect interference to match paper formula *)
+        if resources_in_common interference_resources shared1 ||
+          resources_in_common interference_resources shared2
+        then trm_fail t (Resources.string_of_interference interference);
+
+        let (_, post1', pre2', _) =
+          (* TODO: the same on resource_set to match paper *)
+          Resource_computation.partial_extract_linear_resource_set post1.linear pre2.linear in
+        {
+          loop_ghosts = contract1.loop_ghosts @ contract2.loop_ghosts;
+          invariant = Resource_set.union contract1.invariant contract2.invariant;
+          parallel_reads = contract1.parallel_reads @ contract2.parallel_reads;
+          iter_contract = {
+            pre = Resource_set.union pre1 { pre2 with linear = pre2' };
+            post = Resource_set.union post2 { post1 with linear = post1' };
+          };
+          strict = true;
+        }
+      end
+    end else if !Flags.check_validity then
       trm_fail t "requires annotated for loops to check validity"
     else
       empty_loop_contract
