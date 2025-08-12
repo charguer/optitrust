@@ -217,13 +217,9 @@ let hoist_on (name : string)
     let free_index_opt = ref None in
     Mlist.iteri (fun i instr ->
       match Matrix_trm.free_inv instr with
-      | Some freed ->
-        begin match trm_var_inv freed with
-        | Some freed_var when var_eq freed_var !old_var ->
-          assert (Option.is_none !free_index_opt);
-          free_index_opt := Some i;
-        | _ -> ()
-        end
+      | Some freed when trm_is_var ~var:!old_var freed ->
+        assert (Option.is_none !free_index_opt);
+        free_index_opt := Some i;
       | _ -> ()
     ) body_instrs_new_decl;
     match !free_index_opt with

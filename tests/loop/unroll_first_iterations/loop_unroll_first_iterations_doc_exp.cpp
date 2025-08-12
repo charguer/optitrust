@@ -4,6 +4,8 @@ void f() {
   __pure();
   int x = 0;
   __ghost(to_prove, "P := is_subrange(0..2, 0..10)");
+  __ghost(assume, "P := in_range(0, 0..2)");
+  __ghost(assume, "P := in_range(1, 0..2)");
   __ghost(assume, "P := in_range(0, 0..10)");
   x += 0;
   __ghost(assume, "P := in_range(1, 0..10)");

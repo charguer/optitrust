@@ -12,12 +12,8 @@ let reduce (start : trm) (stop : trm) (input : trm) (n : trm) (m : trm) (j : trm
 (** [reduce_inv]: returns the list of arguments of a call to [reduce]. *)
 let reduce_inv (t : trm) : (trm * trm * trm * trm * trm * trm) option =
   match trm_apps_inv t with
-  | Some (f, [start; stop; input; n; m; j]) ->
-    begin match trm_var_inv f with
-    | Some v when var_eq v reduce_var ->
-      Some (start, stop, input, n, m, j)
-    | _ -> None
-    end
+  | Some (f, [start; stop; input; n; m; j]) when trm_is_var ~var:reduce_var f ->
+    Some (start, stop, input, n, m, j)
   | _ -> None
 
 (* MAYBE LATER: subrange focus

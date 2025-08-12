@@ -238,6 +238,10 @@ let var_ghost_to_prove = toplevel_var "to_prove"
 let to_prove (f: formula): trm =
   ghost (ghost_call var_ghost_to_prove ["P", f])
 
+let to_prove_bind (f: formula): (var * trm) =
+  let v = new_var "H" in
+  (v, ghost (ghost_call ~ghost_bind:[Some v, "H"] var_ghost_to_prove ["P", f]))
+
 (*****************************************************************************)
 (* Integer rewriting *)
 

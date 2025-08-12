@@ -169,8 +169,23 @@ __ghost(assert_prop,
         "reduce_int_sum(n, n, f)))",
         "reduce_int_sum_empty <- proof");
 
+__ghost(
+    assert_prop,
+    "proof := admit(forall (a: int) (b: int) (f: int -> int) (_: __is_true(b "
+    ">= a)) (bp1: int) (_: __is_true(bp1 == b + 1)) -> "
+    "__is_true(reduce_int_sum(a, b, f) + f(b) == reduce_int_sum(a, bp1, f)))",
+    "reduce_int_sum_add_right <- proof");
+
+__ghost(
+    assert_prop,
+    "proof := admit(forall (a: int) (b: int) (f: int -> int) (_: __is_true(b > "
+    "a)) (ap1: int) (_: __is_true(ap1 == a + 1)) -> "
+    "__is_true(reduce_int_sum(a, b, f) - f(a) == reduce_int_sum(ap1, b, f)))",
+    "reduce_int_sum_sub_left <- proof");
+
 __ghost(assert_prop,
-        "proof := admit(forall (a: int) (b: int) (f: int -> int) (_: "
-        "__is_true(b >= a)) -> __is_true(reduce_int_sum(a, b, f) + f(b) == "
-        "reduce_int_sum(a, b + 1, f)))",
-        "reduce_int_sum_add_right <- proof");
+        "proof := admit(forall (a: int) (b: int) (ap1: int) (bp1: int) (f: int "
+        "-> int) (_: __is_true(b >= a)) (_: __is_true(ap1 == a + 1)) (_: "
+        "__is_true(bp1 == b + 1)) -> __is_true(reduce_int_sum(a, b, f) + "
+        "(f(bp1) - f(a)) == reduce_int_sum(ap1, bp1, f)))",
+        "reduce_int_sum_slide <- proof");

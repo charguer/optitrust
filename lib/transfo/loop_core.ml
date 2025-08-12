@@ -326,7 +326,13 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
     | Some n -> (fun i -> trm_add_mark subst_mark (trm_int (n + i * step)))
     | None -> (fun i -> trm_add_mark subst_mark (trm_add_int start (trm_int (i * step))))
   in
-  let new_indices = List.init nb_iter index_trm in
+  let new_indices = match nb_iter with
+  | 0 -> []
+  | _ ->
+    let computed = List.init nb_iter index_trm in
+    let computed = List.tl computed in
+    (trm_add_mark subst_mark range.start) :: computed
+  in
 
   let indexed_invariant = Resource_set.filter_with_var index contract.invariant in
   let rewrite_indexed_invariant_ghosts from into =
@@ -347,9 +353,18 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
   if not contract.strict then
     outer_seq
   else
+    let unroll_in_range_ghosts = List.map (fun new_index ->
+      Resource_formula.(Resource_trm.(assume (
+        formula_in_range new_index (formula_loop_range range)
+      )))
+    ) new_indices in
     let (unroll_ghosts, roll_ghosts) = unroll_ghost_pair range contract new_indices in
-    trm_seq_nobrace_nomarks (unroll_ghosts @ outer_seq :: roll_ghosts)
-
+    trm_seq_helper ~braces:false [
+      TrmList unroll_in_range_ghosts;
+      TrmList unroll_ghosts;
+      Trm outer_seq;
+      TrmList roll_ghosts;
+    ]
 
 (** [unswitch_at trm_index t]: extracts an if statement inside the loop whose condition,
     is not dependent on the index of the loop or any other local variables,

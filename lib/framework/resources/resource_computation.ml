@@ -144,7 +144,7 @@ let new_fracs_from_used_set (res_used: used_resource_set): (var * formula) list 
     | None -> None
   ) res_used.used_linear
 
-let formula_style = C_encoding.style_of_output_style (Style.default_style (* DEBUG: internal ~print_types:true *) ())
+let formula_style = C_encoding.style_of_output_style (Style.default_style ())
 let formula_to_string = C_encoding.formula_to_string formula_style
 let named_formula_to_string = C_encoding.named_formula_to_string formula_style
 let filter_pure_resources = C_encoding.filter_pure_resources
@@ -973,10 +973,13 @@ let global_errors : (resource_error_phase * exn) list ref = ref []
     storing the error messages. *)
 exception ResourceError of trm * resource_error_phase * exn
 
+(* let debug_1108 = ref (fun (item: resource_item) (context: resource_item list) -> ()) *)
+
 let _ = Printexc.register_printer (function
   | MismatchingType (t, actual_typ, expected_typ) ->
     Some (Printf.sprintf "Expression '%s' is of type '%s', but was expected of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string actual_typ) (Ast_to_c.ast_to_string expected_typ))
   | Resource_not_found (kind, item, context) ->
+    (* ((!debug_1108) item context); *)
     Some (Printf.sprintf "%s resource not found:\n%s\nIn context:\n%s" (resource_kind_to_string kind) (named_formula_to_string item) (resource_list_to_string context))
   | Spec_not_found fn ->
     Some (Printf.sprintf "No specification for function %s" (var_to_string fn))
