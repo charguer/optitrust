@@ -286,3 +286,15 @@ let local_name_aux (mark : mark)
       let final_trm = Nobrace.trm_seq_nomarks [fst_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr] in
       trm_add_mark mark final_trm
     end
+
+(* TODO:
+let var_ghost_ro_matrix2_focus = toplevel_var_with_dim "ro_matrix%d_focus"
+*)
+let index_names = ["i"; "j"]
+let dimension_names = ["m"; "n"]
+let ghost_ro_matrix_focus ?typ ?matrix ?frac ?dims indices =
+  let indices = List.zip index_names (List.map Option.some indices) in
+  let dims = List.zip dimension_names (List.map Option.some (Option.value ~default:[] dims)) in
+  Resource_trm.ghost_call_opt_args
+    (toplevel_var (sprintf "ro_matrix%d_focus" (List.length indices)))
+    (["T", typ; "matrix", matrix; "f", frac] @ indices @ dims)

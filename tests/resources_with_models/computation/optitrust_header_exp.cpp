@@ -186,6 +186,6 @@ __ghost(
 __ghost(assert_prop,
         "proof := admit(forall (a: int) (b: int) (ap1: int) (bp1: int) (f: int "
         "-> int) (_: __is_true(b >= a)) (_: __is_true(ap1 == a + 1)) (_: "
-        "__is_true(bp1 == b + 1)) -> __is_true(reduce_int_sum(a, b, f) + "
-        "(f(bp1) - f(a)) == reduce_int_sum(ap1, bp1, f)))",
+        "__is_true(bp1 == b + 1)) -> __is_true(reduce_int_sum(a, b, f) + (f(b) "
+        "- f(a)) == reduce_int_sum(ap1, bp1, f)))",
         "reduce_int_sum_slide <- proof");

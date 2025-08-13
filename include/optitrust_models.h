@@ -128,7 +128,7 @@ __AXIOM(reduce_int_sum_empty, "forall (n : int) (f: int -> int) -> 0 = reduce_in
 __AXIOM(reduce_int_sum_add_right, "forall (a: int) (b: int) (f: int -> int) (_: b >= a) (bp1 : int) (_: bp1 = b + 1) -> reduce_int_sum(a, b, f) + f(b) = reduce_int_sum(a, bp1, f)");
 __AXIOM(reduce_int_sum_sub_left, "forall (a: int) (b: int) (f: int -> int) (_: b > a) (ap1 : int) (_: ap1 = a + 1) -> reduce_int_sum(a, b, f) - f(a) = reduce_int_sum(ap1, b, f)");
 
-__AXIOM(reduce_int_sum_slide, "forall (a: int) (b: int) (ap1: int) (bp1: int) (f: int -> int) (_: b >= a) (_: ap1 = a + 1) (_: bp1 = b + 1) -> reduce_int_sum(a, b, f) + (f(bp1) - f(a)) = reduce_int_sum(ap1, bp1, f)");
+__AXIOM(reduce_int_sum_slide, "forall (a: int) (b: int) (ap1: int) (bp1: int) (f: int -> int) (_: b >= a) (_: ap1 = a + 1) (_: bp1 = b + 1) -> reduce_int_sum(a, b, f) + (f(b) - f(a)) = reduce_int_sum(ap1, bp1, f)");
 /*
   "forall (a: int) (b: int) (ap1: int) (bp1: int) (f: int -> int)  (b_geq_a: b >= a) (ap1_eq: ap1 = a + 1) (bp1_eq: bp1 = b + 1) -> rw reduce_int_sum_add_right(a, b, f, b_geq_a, bp1_eq);
   rw reduce_int_sum_sub_left(a, bp1, f, _, ap1_eq)");

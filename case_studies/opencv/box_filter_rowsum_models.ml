@@ -45,28 +45,10 @@ let _ = Run.script_cpp (fun () ->
   *)
   !! Loop.collapse [nbMulti; cMark "w"; cFor "i"];
 
-  (* TODO: infer code below *)
-  let matrix_s = trm_find_var "s" [cMark "anyw"] in
-  let n = trm_find_var "n" [cMark "anyw"] in
-  let w = trm_find_var "w" [cMark "anyw"] in
-  let cn = trm_find_var "cn" [cMark "anyw"] in
-  let matrix_s_dims = [trm_sub_int (trm_add_int n w) (trm_int 1); cn] in
-  let c = trm_find_var "c" [cMark "anyw"; cPlusEq ()] in
-  let k_compute_f_elem k con =
-    let open Resource_formula in
-    let open Resource_trm in
-
-    let in_range_ghosts = List.map2 (fun i d ->
-      Resource_trm.to_prove (formula_in_range i (formula_range (trm_int 0) d (trm_int 1)))
-    ) [k; c] matrix_s_dims in
-    let (_, focus, unfocus) = ghost_pair (ghost_ro_matrix2_focus ~matrix:matrix_s k c) in
-    in_range_ghosts @ [focus] @ con(Matrix_trm.get matrix_s matrix_s_dims [k; c]) @ [unfocus]
-  in
-
   !! Loop.swap [nbMulti; cMark "anyw"; cFor "i"];
   (* TODO: would need to make slide less syntax-driven to enable simpl again *)
   !! Loop.unroll_first_iteration ~simpl:no_simpl [nbMulti; cMark "anyw"; cFor "i"];
-  !! Reduce_models.slide ~mark_alloc:"acc" k_compute_f_elem [nbMulti; cMark "anyw"; cFor "i"];
+  !! Reduce_models.slide ~mark_alloc:"acc" [nbMulti; cMark "anyw"; cFor "i"];
   (* TODO: do that in slide combi *)
   !! Resources.make_strict_loop_contracts [nbMulti; cMark "anyw"; cFor "i"];
 

@@ -230,14 +230,14 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
           __admitted();
           __with("justif := roll");
         });
-        __ghost(to_prove, "P := __is_true(/*@__321*/0/*__321@*/ == 0 + 1 - 1)",
+        __ghost(to_prove, "P := __is_true(/*@__105*/0/*__105@*/ == 0 + 1 - 1)",
                 "H <- H");
         __ghost(to_prove,
-                "P := __is_true(/*@__321*/0/*__321@*/ + w == 0 + 1 + w - 1)",
+                "P := __is_true(/*@__105*/0/*__105@*/ + w == 0 + 1 + w - 1)",
                 "H2 <- H");
         __ghost(rewrite_linear,
                 "inside := [&] (int v) -> HProp  &sum ~~> reduce_int_sum(v, "
-                "/*@__321*/0/*__321@*/ + w, fun k0 -> S(k0, 0)), by := H");
+                "/*@__105*/0/*__105@*/ + w, fun k0 -> S(k0, 0)), by := H");
         __ghost(rewrite_linear,
                 "inside := [&] (int v) -> HProp  &sum ~~> reduce_int_sum(0 + 1 "
                 "- 1, v, fun k0 -> S(k0, 0)), by := H2");
@@ -253,11 +253,11 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
           __ghost(to_prove, "P := in_range(0, 0..1)");
           const __ghost_fn __ghost_pair_1 = __ghost_begin(
               ro_matrix2_focus, "matrix := s, i := i - 1, j := 0");
-          __ghost(to_prove, "P := in_range(i + 1 + w - 1, 0..(n + w - 1))");
+          __ghost(to_prove, "P := in_range(i + w - 1, 0..(n + w - 1))");
           __ghost(to_prove, "P := in_range(0, 0..1)");
           const __ghost_fn __ghost_pair_2 = __ghost_begin(
-              ro_matrix2_focus, "matrix := s, i := i + 1 + w - 1, j := 0");
-          sum += s[MINDEX2(n + w - 1, 1, i + 1 + w - 1, 0)] -
+              ro_matrix2_focus, "matrix := s, i := i + w - 1, j := 0");
+          sum += s[MINDEX2(n + w - 1, 1, i + w - 1, 0)] -
                  s[MINDEX2(n + w - 1, 1, i - 1, 0)];
           __ghost_end(__ghost_pair_2);
           __ghost_end(__ghost_pair_1);
@@ -366,10 +366,10 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
                   "inside := fun v -> &sum ~~> v, by := "
                   "reduce_int_sum_empty(0, fun k -> S(k, 0))");
           __ghost(to_prove,
-                  "P := __is_true(/*@__321*/0/*__321@*/ == 0 + 1 - 1)",
+                  "P := __is_true(/*@__105*/0/*__105@*/ == 0 + 1 - 1)",
                   "H <- H");
           __ghost(to_prove,
-                  "P := __is_true(/*@__321*/0/*__321@*/ + w == 0 + 1 + w - 1)",
+                  "P := __is_true(/*@__105*/0/*__105@*/ + w == 0 + 1 + w - 1)",
                   "H2 <- H");
           __ghost(to_prove, "P := is_subrange(0..(0 + 1), 0..n)");
           __ghost(group_split,
@@ -389,10 +389,10 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
                   "inside := fun v -> &sum7 ~~> v, by := "
                   "reduce_int_sum_empty(0, fun k -> S(k, 1))");
           __ghost(to_prove,
-                  "P := __is_true(/*@__321*/0/*__321@*/ == 0 + 1 - 1)",
+                  "P := __is_true(/*@__105*/0/*__105@*/ == 0 + 1 - 1)",
                   "H8 <- H");
           __ghost(to_prove,
-                  "P := __is_true(/*@__321*/0/*__321@*/ + w == 0 + 1 + w - 1)",
+                  "P := __is_true(/*@__105*/0/*__105@*/ + w == 0 + 1 + w - 1)",
                   "H29 <- H");
           __ghost(to_prove, "P := is_subrange(0..(0 + 1), 0..n)");
           __ghost(group_split,
@@ -468,7 +468,7 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
           });
           __ghost(rewrite_linear,
                   "inside := [&] (int v) -> HProp  &sum ~~> reduce_int_sum(v, "
-                  "/*@__321*/0/*__321@*/ + w, fun k0 -> S(k0, 0)), by := H");
+                  "/*@__105*/0/*__105@*/ + w, fun k0 -> S(k0, 0)), by := H");
           __ghost(rewrite_linear,
                   "inside := [&] (int v) -> HProp  &sum ~~> reduce_int_sum(0 + "
                   "1 - 1, v, fun k0 -> S(k0, 0)), by := H2");
@@ -485,7 +485,7 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
           });
           __ghost(rewrite_linear,
                   "inside := [&] (int v) -> HProp  &sum7 ~~> reduce_int_sum(v, "
-                  "/*@__321*/0/*__321@*/ + w, fun k0 -> S(k0, 1)), by := H8");
+                  "/*@__105*/0/*__105@*/ + w, fun k0 -> S(k0, 1)), by := H8");
           __ghost(rewrite_linear,
                   "inside := [&] (int v) -> HProp  &sum7 ~~> reduce_int_sum(0 "
                   "+ 1 - 1, v, fun k0 -> S(k0, 1)), by := H29");
@@ -501,15 +501,15 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
             __with("justif := roll");
           });
           __ghost(to_prove,
-                  "P := __is_true(/*@__321*/0/*__321@*/ == 0 + 1 - 1)",
+                  "P := __is_true(/*@__105*/0/*__105@*/ == 0 + 1 - 1)",
                   "H11 <- H");
           __ghost(to_prove,
-                  "P := __is_true(/*@__321*/0/*__321@*/ + w == 0 + 1 + w - 1)",
+                  "P := __is_true(/*@__105*/0/*__105@*/ + w == 0 + 1 + w - 1)",
                   "H212 <- H");
           __ghost(
               rewrite_linear,
               "inside := [&] (int v) -> HProp  &sum10 ~~> reduce_int_sum(v, "
-              "/*@__321*/0/*__321@*/ + w, fun k0 -> S(k0, 2)), by := H11");
+              "/*@__105*/0/*__105@*/ + w, fun k0 -> S(k0, 2)), by := H11");
           __ghost(rewrite_linear,
                   "inside := [&] (int v) -> HProp  &sum10 ~~> reduce_int_sum(0 "
                   "+ 1 - 1, v, fun k0 -> S(k0, 2)), by := H212");
@@ -540,11 +540,11 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
             __ghost(to_prove, "P := in_range(0, 0..3)");
             const __ghost_fn __ghost_pair_1 = __ghost_begin(
                 ro_matrix2_focus, "matrix := s, i := i - 1, j := 0");
-            __ghost(to_prove, "P := in_range(i + 1 + w - 1, 0..(n + w - 1))");
+            __ghost(to_prove, "P := in_range(i + w - 1, 0..(n + w - 1))");
             __ghost(to_prove, "P := in_range(0, 0..3)");
             const __ghost_fn __ghost_pair_2 = __ghost_begin(
-                ro_matrix2_focus, "matrix := s, i := i + 1 + w - 1, j := 0");
-            sum += s[MINDEX2(n + w - 1, 3, i + 1 + w - 1, 0)] -
+                ro_matrix2_focus, "matrix := s, i := i + w - 1, j := 0");
+            sum += s[MINDEX2(n + w - 1, 3, i + w - 1, 0)] -
                    s[MINDEX2(n + w - 1, 3, i - 1, 0)];
             __ghost_end(__ghost_pair_2);
             __ghost_end(__ghost_pair_1);
@@ -564,11 +564,11 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
             __ghost(to_prove, "P := in_range(1, 0..3)");
             const __ghost_fn __ghost_pair_129 = __ghost_begin(
                 ro_matrix2_focus, "matrix := s, i := i - 1, j := 1");
-            __ghost(to_prove, "P := in_range(i + 1 + w - 1, 0..(n + w - 1))");
+            __ghost(to_prove, "P := in_range(i + w - 1, 0..(n + w - 1))");
             __ghost(to_prove, "P := in_range(1, 0..3)");
             const __ghost_fn __ghost_pair_230 = __ghost_begin(
-                ro_matrix2_focus, "matrix := s, i := i + 1 + w - 1, j := 1");
-            sum7 += s[MINDEX2(n + w - 1, 3, i + 1 + w - 1, 1)] -
+                ro_matrix2_focus, "matrix := s, i := i + w - 1, j := 1");
+            sum7 += s[MINDEX2(n + w - 1, 3, i + w - 1, 1)] -
                     s[MINDEX2(n + w - 1, 3, i - 1, 1)];
             __ghost_end(__ghost_pair_230);
             __ghost_end(__ghost_pair_129);
@@ -588,11 +588,11 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
             __ghost(to_prove, "P := in_range(2, 0..3)");
             const __ghost_fn __ghost_pair_122 = __ghost_begin(
                 ro_matrix2_focus, "matrix := s, i := i - 1, j := 2");
-            __ghost(to_prove, "P := in_range(i + 1 + w - 1, 0..(n + w - 1))");
+            __ghost(to_prove, "P := in_range(i + w - 1, 0..(n + w - 1))");
             __ghost(to_prove, "P := in_range(2, 0..3)");
             const __ghost_fn __ghost_pair_223 = __ghost_begin(
-                ro_matrix2_focus, "matrix := s, i := i + 1 + w - 1, j := 2");
-            sum10 += s[MINDEX2(n + w - 1, 3, i + 1 + w - 1, 2)] -
+                ro_matrix2_focus, "matrix := s, i := i + w - 1, j := 2");
+            sum10 += s[MINDEX2(n + w - 1, 3, i + w - 1, 2)] -
                      s[MINDEX2(n + w - 1, 3, i - 1, 2)];
             __ghost_end(__ghost_pair_223);
             __ghost_end(__ghost_pair_122);
@@ -739,11 +739,11 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
                     "inside := fun v -> &sum ~~> v, by := "
                     "reduce_int_sum_empty(0, fun k -> S(k, 0))");
             __ghost(to_prove,
-                    "P := __is_true(/*@__321*/0/*__321@*/ == 0 + 1 - 1)",
+                    "P := __is_true(/*@__105*/0/*__105@*/ == 0 + 1 - 1)",
                     "H <- H");
             __ghost(
                 to_prove,
-                "P := __is_true(/*@__321*/0/*__321@*/ + w == 0 + 1 + w - 1)",
+                "P := __is_true(/*@__105*/0/*__105@*/ + w == 0 + 1 + w - 1)",
                 "H2 <- H");
             __ghost(to_prove, "P := is_subrange(0..(0 + 1), 0..n)");
             __ghost(group_split,
@@ -764,11 +764,11 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
                     "inside := fun v -> &sum13 ~~> v, by := "
                     "reduce_int_sum_empty(0, fun k -> S(k, 1))");
             __ghost(to_prove,
-                    "P := __is_true(/*@__321*/0/*__321@*/ == 0 + 1 - 1)",
+                    "P := __is_true(/*@__105*/0/*__105@*/ == 0 + 1 - 1)",
                     "H14 <- H");
             __ghost(
                 to_prove,
-                "P := __is_true(/*@__321*/0/*__321@*/ + w == 0 + 1 + w - 1)",
+                "P := __is_true(/*@__105*/0/*__105@*/ + w == 0 + 1 + w - 1)",
                 "H215 <- H");
             __ghost(to_prove, "P := is_subrange(0..(0 + 1), 0..n)");
             __ghost(group_split,
@@ -789,11 +789,11 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
                     "inside := fun v -> &sum16 ~~> v, by := "
                     "reduce_int_sum_empty(0, fun k -> S(k, 2))");
             __ghost(to_prove,
-                    "P := __is_true(/*@__321*/0/*__321@*/ == 0 + 1 - 1)",
+                    "P := __is_true(/*@__105*/0/*__105@*/ == 0 + 1 - 1)",
                     "H17 <- H");
             __ghost(
                 to_prove,
-                "P := __is_true(/*@__321*/0/*__321@*/ + w == 0 + 1 + w - 1)",
+                "P := __is_true(/*@__105*/0/*__105@*/ + w == 0 + 1 + w - 1)",
                 "H218 <- H");
             __ghost(to_prove, "P := is_subrange(0..(0 + 1), 0..n)");
             __ghost(group_split,
@@ -889,7 +889,7 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
             __ghost(
                 rewrite_linear,
                 "inside := [&] (int v) -> HProp  &sum ~~> reduce_int_sum(v, "
-                "/*@__321*/0/*__321@*/ + w, fun k0 -> S(k0, 0)), by := H");
+                "/*@__105*/0/*__105@*/ + w, fun k0 -> S(k0, 0)), by := H");
             __ghost(rewrite_linear,
                     "inside := [&] (int v) -> HProp  &sum ~~> reduce_int_sum(0 "
                     "+ 1 - 1, v, fun k0 -> S(k0, 0)), by := H2");
@@ -907,7 +907,7 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
             __ghost(
                 rewrite_linear,
                 "inside := [&] (int v) -> HProp  &sum13 ~~> reduce_int_sum(v, "
-                "/*@__321*/0/*__321@*/ + w, fun k0 -> S(k0, 1)), by := H14");
+                "/*@__105*/0/*__105@*/ + w, fun k0 -> S(k0, 1)), by := H14");
             __ghost(
                 rewrite_linear,
                 "inside := [&] (int v) -> HProp  &sum13 ~~> reduce_int_sum(0 + "
@@ -926,7 +926,7 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
             __ghost(
                 rewrite_linear,
                 "inside := [&] (int v) -> HProp  &sum16 ~~> reduce_int_sum(v, "
-                "/*@__321*/0/*__321@*/ + w, fun k0 -> S(k0, 2)), by := H17");
+                "/*@__105*/0/*__105@*/ + w, fun k0 -> S(k0, 2)), by := H17");
             __ghost(
                 rewrite_linear,
                 "inside := [&] (int v) -> HProp  &sum16 ~~> reduce_int_sum(0 + "
@@ -943,16 +943,16 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
               __with("justif := roll");
             });
             __ghost(to_prove,
-                    "P := __is_true(/*@__321*/0/*__321@*/ == 0 + 1 - 1)",
+                    "P := __is_true(/*@__105*/0/*__105@*/ == 0 + 1 - 1)",
                     "H20 <- H");
             __ghost(
                 to_prove,
-                "P := __is_true(/*@__321*/0/*__321@*/ + w == 0 + 1 + w - 1)",
+                "P := __is_true(/*@__105*/0/*__105@*/ + w == 0 + 1 + w - 1)",
                 "H221 <- H");
             __ghost(
                 rewrite_linear,
                 "inside := [&] (int v) -> HProp  &sum19 ~~> reduce_int_sum(v, "
-                "/*@__321*/0/*__321@*/ + w, fun k0 -> S(k0, 3)), by := H20");
+                "/*@__105*/0/*__105@*/ + w, fun k0 -> S(k0, 3)), by := H20");
             __ghost(
                 rewrite_linear,
                 "inside := [&] (int v) -> HProp  &sum19 ~~> reduce_int_sum(0 + "
@@ -991,11 +991,11 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
               __ghost(to_prove, "P := in_range(0, 0..4)");
               const __ghost_fn __ghost_pair_1 = __ghost_begin(
                   ro_matrix2_focus, "matrix := s, i := i - 1, j := 0");
-              __ghost(to_prove, "P := in_range(i + 1 + w - 1, 0..(n + w - 1))");
+              __ghost(to_prove, "P := in_range(i + w - 1, 0..(n + w - 1))");
               __ghost(to_prove, "P := in_range(0, 0..4)");
               const __ghost_fn __ghost_pair_2 = __ghost_begin(
-                  ro_matrix2_focus, "matrix := s, i := i + 1 + w - 1, j := 0");
-              sum += s[MINDEX2(n + w - 1, 4, i + 1 + w - 1, 0)] -
+                  ro_matrix2_focus, "matrix := s, i := i + w - 1, j := 0");
+              sum += s[MINDEX2(n + w - 1, 4, i + w - 1, 0)] -
                      s[MINDEX2(n + w - 1, 4, i - 1, 0)];
               __ghost_end(__ghost_pair_2);
               __ghost_end(__ghost_pair_1);
@@ -1016,11 +1016,11 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
               __ghost(to_prove, "P := in_range(1, 0..4)");
               const __ghost_fn __ghost_pair_156 = __ghost_begin(
                   ro_matrix2_focus, "matrix := s, i := i - 1, j := 1");
-              __ghost(to_prove, "P := in_range(i + 1 + w - 1, 0..(n + w - 1))");
+              __ghost(to_prove, "P := in_range(i + w - 1, 0..(n + w - 1))");
               __ghost(to_prove, "P := in_range(1, 0..4)");
               const __ghost_fn __ghost_pair_257 = __ghost_begin(
-                  ro_matrix2_focus, "matrix := s, i := i + 1 + w - 1, j := 1");
-              sum13 += s[MINDEX2(n + w - 1, 4, i + 1 + w - 1, 1)] -
+                  ro_matrix2_focus, "matrix := s, i := i + w - 1, j := 1");
+              sum13 += s[MINDEX2(n + w - 1, 4, i + w - 1, 1)] -
                        s[MINDEX2(n + w - 1, 4, i - 1, 1)];
               __ghost_end(__ghost_pair_257);
               __ghost_end(__ghost_pair_156);
@@ -1042,11 +1042,11 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
               __ghost(to_prove, "P := in_range(2, 0..4)");
               const __ghost_fn __ghost_pair_149 = __ghost_begin(
                   ro_matrix2_focus, "matrix := s, i := i - 1, j := 2");
-              __ghost(to_prove, "P := in_range(i + 1 + w - 1, 0..(n + w - 1))");
+              __ghost(to_prove, "P := in_range(i + w - 1, 0..(n + w - 1))");
               __ghost(to_prove, "P := in_range(2, 0..4)");
               const __ghost_fn __ghost_pair_250 = __ghost_begin(
-                  ro_matrix2_focus, "matrix := s, i := i + 1 + w - 1, j := 2");
-              sum16 += s[MINDEX2(n + w - 1, 4, i + 1 + w - 1, 2)] -
+                  ro_matrix2_focus, "matrix := s, i := i + w - 1, j := 2");
+              sum16 += s[MINDEX2(n + w - 1, 4, i + w - 1, 2)] -
                        s[MINDEX2(n + w - 1, 4, i - 1, 2)];
               __ghost_end(__ghost_pair_250);
               __ghost_end(__ghost_pair_149);
@@ -1068,11 +1068,11 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
               __ghost(to_prove, "P := in_range(3, 0..4)");
               const __ghost_fn __ghost_pair_142 = __ghost_begin(
                   ro_matrix2_focus, "matrix := s, i := i - 1, j := 3");
-              __ghost(to_prove, "P := in_range(i + 1 + w - 1, 0..(n + w - 1))");
+              __ghost(to_prove, "P := in_range(i + w - 1, 0..(n + w - 1))");
               __ghost(to_prove, "P := in_range(3, 0..4)");
               const __ghost_fn __ghost_pair_243 = __ghost_begin(
-                  ro_matrix2_focus, "matrix := s, i := i + 1 + w - 1, j := 3");
-              sum19 += s[MINDEX2(n + w - 1, 4, i + 1 + w - 1, 3)] -
+                  ro_matrix2_focus, "matrix := s, i := i + w - 1, j := 3");
+              sum19 += s[MINDEX2(n + w - 1, 4, i + w - 1, 3)] -
                        s[MINDEX2(n + w - 1, 4, i - 1, 3)];
               __ghost_end(__ghost_pair_243);
               __ghost_end(__ghost_pair_142);
@@ -1237,16 +1237,16 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
                 __with("justif := roll");
               });
               __ghost(to_prove,
-                      "P := __is_true(/*@__321*/0/*__321@*/ == 0 + 1 - 1)",
+                      "P := __is_true(/*@__105*/0/*__105@*/ == 0 + 1 - 1)",
                       "H <- H");
               __ghost(
                   to_prove,
-                  "P := __is_true(/*@__321*/0/*__321@*/ + w == 0 + 1 + w - 1)",
+                  "P := __is_true(/*@__105*/0/*__105@*/ + w == 0 + 1 + w - 1)",
                   "H2 <- H");
               __ghost(
                   rewrite_linear,
                   "inside := [&] (int v) -> HProp  &sum ~~> reduce_int_sum(v, "
-                  "/*@__321*/0/*__321@*/ + w, fun k0 -> S(k0, c)), by := H");
+                  "/*@__105*/0/*__105@*/ + w, fun k0 -> S(k0, c)), by := H");
               __ghost(
                   rewrite_linear,
                   "inside := [&] (int v) -> HProp  &sum ~~> reduce_int_sum(0 + "
@@ -1264,13 +1264,11 @@ void rowSum(int w, int* s, int* d, int n, int cn) {
                 __ghost(to_prove, "P := in_range(c, 0..cn)");
                 const __ghost_fn __ghost_pair_1 = __ghost_begin(
                     ro_matrix2_focus, "matrix := s, i := i - 1, j := c");
-                __ghost(to_prove,
-                        "P := in_range(i + 1 + w - 1, 0..(n + w - 1))");
+                __ghost(to_prove, "P := in_range(i + w - 1, 0..(n + w - 1))");
                 __ghost(to_prove, "P := in_range(c, 0..cn)");
-                const __ghost_fn __ghost_pair_2 =
-                    __ghost_begin(ro_matrix2_focus,
-                                  "matrix := s, i := i + 1 + w - 1, j := c");
-                sum += s[MINDEX2(n + w - 1, cn, i + 1 + w - 1, c)] -
+                const __ghost_fn __ghost_pair_2 = __ghost_begin(
+                    ro_matrix2_focus, "matrix := s, i := i + w - 1, j := c");
+                sum += s[MINDEX2(n + w - 1, cn, i + w - 1, c)] -
                        s[MINDEX2(n + w - 1, cn, i - 1, c)];
                 __ghost_end(__ghost_pair_2);
                 __ghost_end(__ghost_pair_1);

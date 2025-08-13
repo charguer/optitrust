@@ -90,7 +90,7 @@ let slide_on (available_sum: trm) (a: trm) (b: trm) (w: trm) (f_elem: trm)
       Trm (trm_for loop_range ~contract (trm_seq_helper [
         TrmList (
         k_compute_f_elem ai (fun prev_f_elem ->
-        k_compute_f_elem bi_next_inv (fun next_f_elem ->
+        k_compute_f_elem bi (fun next_f_elem ->
         [trm_compound_assign ~typ Binop_add (trm_var sum) (trm_sub ~typ next_f_elem prev_f_elem)]
         )));
         TrmList (reduce_int_sum_slide_ghost ai bi ai_next_inv bi_next_inv f_elem sum_res);
@@ -127,60 +127,119 @@ let%transfo slide_basic
     Target.apply_at_path (slide_on available_sum a b w f_elem ap1 p_of_i k_compute_f_elem mark_alloc mark_simpl span) p_seq
   ) tg)
 
-(** [slide tg]: when targeting a span with [tg], identifies the following pattern:
+(** [slide tg]: when targeting a loop with [tg], identifies the following pattern:
 
   {@cpp[
-  __consumes("sum ~~> reduce_int_sum(a, a + w, f)");
+  __modifies("sum ~~> reduce_int_sum(a, a + w, f)");
   __produces("for i in ap1..b -> &p(i) ~~> reduce_int_sum(i, i + w, f)");
+
+  for i /* in ap1..b */ {
+    [ ... ]
+    for k /* in i..i + w */ {
+      __spreserves("&s ~~> reduce_int_sum(i, k, f_elem)");
+      [ ... ]
+      s += compute_f_elem(s, k);
+      [ ... ]
+    }
+    [ ... ]
+  }
+
   ]}
 
   assuming [ap1 = a + 1], to call [slide_basic] with relevant arguments.
+  in particular, autofocuses may be generated to provide resources for [compute_f_elem].
   *)
-let%transfo slide ?(mark_alloc: mark = no_mark)
-  (k_compute_f_elem : (trm -> (trm -> trms) -> trms)) (tg : target) : unit =
-  Target.iter (fun p ->
-    let p_seq, span = Path.extract_last_dir_span p in
-    ignore (update_span_helper span (Target.resolve_path p_seq) (fun instrs ->
-      let open Resource_trm in
-      let open Resource_formula in
-      let (res_before, res_after) = Resources.around_instrs instrs in
+let%transfo slide ?(mark_alloc: mark = no_mark) (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
+    let open Resource_trm in
+    let open Resource_formula in
+    let for_i = Target.resolve_path p in
+    let res_before = Resources.before_trm for_i in
+    let res_after = Resources.after_trm for_i in
+    let usage = Resources.usage_of_trm for_i in
+    let produced_res = List.filter (Resource_set.(linear_usage_filter usage keep_produced)) res_after.linear in
 
-      (* 1. find consumed reduction pattern: sum ~~> reduce_int_sum(a, a + w, f_elem) *)
-      let error = "could not find consumed reduction part of slide pattern" in
-      let (sum, a, w, f_elem) = Option.unsome ~error (List.find_map (fun (_, r) ->
-        Pattern.pattern_match_opt r [
-          Pattern.(
-            (formula_points_to !__ (reduce_pat !__ (trm_add !__ !__) !__))
-          ) (fun sum a a2 w f_elem () ->
-            Pattern.when_ (are_same_trm a a2);
+    (* 1. find available reduction pattern: sum ~~> reduce_int_sum(a, a + w, f_elem) *)
+    let error = "could not find consumed reduction part of slide pattern" in
+    let (sum, a, w, f_elem) = Option.unsome ~error (List.find_map (fun (_, r) ->
+      Pattern.pattern_match_opt r [
+        Pattern.(
+          (formula_points_to !__ (reduce_pat !__ (trm_add !__ !__) !__))
+        ) (fun sum a a2 w f_elem () ->
+          Pattern.when_ (are_same_trm a a2);
 
-            (* DEBUG: Show.trm_internal ~msg:"consumed" r; *)
-            (sum, a, w, f_elem)
-          );
-        ]
-      ) res_before.linear) in
+          (* DEBUG: Show.trm_internal ~msg:"available" r; *)
+          (sum, a, w, f_elem)
+        );
+      ]
+    ) res_before.linear) in
+    let available_sum = trm_get sum in
 
-      (* 2. find produced reduction pattern: for i in ap1..b -> &p ~~> reduce_int_sum(i, i + w, f_elem) *)
-      let error = "could not find produced reduction part of slide pattern" in
-      let (i, ap1, b, pi) = Option.unsome ~error (List.find_map (fun (_, r) ->
-        Pattern.pattern_match_opt r [
-          Pattern.(formula_group !__ (formula_range !__ !__ (trm_int (eq 1)))
-            (formula_points_to !__ (reduce_pat (trm_var !__) (trm_add (trm_var !__) !__) !__))
-          ) (fun i ap1 b p i2 i3 w2 f_elem2 () ->
-            Pattern.when_ ((var_eq i i2) && (var_eq i i3));
-            Pattern.when_ ((are_same_trm w w2) && (are_same_trm f_elem f_elem2));
+    (* 2. find produced reduction pattern: for i in ap1..b -> &p ~~> reduce_int_sum(i, i + w, f_elem) *)
+    let error = "could not find produced reduction part of slide pattern" in
+    let (i, ap1, b, pi) = Option.unsome ~error (List.find_map (fun (_, r) ->
+      Pattern.pattern_match_opt r [
+        Pattern.(formula_group !__ (formula_range !__ !__ (trm_int (eq 1)))
+          (formula_points_to !__ (reduce_pat (trm_var !__) (trm_add (trm_var !__) !__) !__))
+        ) (fun i ap1 b p i2 i3 w2 f_elem2 () ->
+          Pattern.when_ ((var_eq i i2) && (var_eq i i3));
+          Pattern.when_ ((are_same_trm w w2) && (are_same_trm f_elem f_elem2));
 
-            (* DEBUG : Show.trm_internal ~msg:"produced" r; *)
-            (i, ap1, b, p)
-          );
-        ]
-      ) res_after.linear) in
+          (* DEBUG : Show.trm_internal ~msg:"produced" r; *)
+          (i, ap1, b, p)
+        );
+      ]
+    ) produced_res) in
+    let p_of_i i' = trm_subst_var i i' pi in
 
-      (* 3. call [slide_basic] *)
-      let available_sum = trm_get sum in
-      let p_of_i i' = trm_subst_var i i' pi in
-      slide_basic ~mark_alloc available_sum a b w f_elem ap1 p_of_i k_compute_f_elem (target_of_path p);
+    (* 3. find loops with [__spreserves("&s ~~> reduce_int_sum(i, k, f_elem)");] contract. *)
+    let error = "expected for loop instrs" in
+    let (i_range, for_i_instrs, _) = trm_inv ~error trm_for_inv_instrs for_i in
+    let (k_range, for_k_instrs, for_k_contract) = begin
+      Option.unsome ~error:"expected inner for loop instrs" (Mlist.find_map trm_for_inv_instrs for_i_instrs)
+    end in
+    let s = Option.unsome ~error:"could not find contract on reduction" (List.find_map (fun (_, r) ->
+      Pattern.pattern_match_opt r [
+        Pattern.(formula_points_to (trm_var !__)
+          (reduce_pat (trm_var (var_eq i_range.index)) (trm_var (var_eq k_range.index)) !__)
+        ) (fun s f_elem2 () ->
+          Pattern.when_ (are_same_trm f_elem f_elem2);
 
-      []
-    ))
-  ) tg
+          s
+        );
+      ]
+    ) for_k_contract.invariant.linear) in
+
+    (* 4. find [compute_f_elem] code and generate autofocuses. *)
+    let compute_f_elem_k = Option.unsome ~error:"could not find code to compute elements" (Mlist.find_map (fun t ->
+      Pattern.pattern_match_opt t [
+        Pattern.(trm_compound_assign Binop_add (trm_var (var_eq s)) !__) (fun compute_f_elem () ->
+          compute_f_elem
+        )
+      ]
+    ) for_k_instrs) in
+    let ret_compute_f_elem : (trm -> (trm -> trms) -> trms) ref = ref (fun new_k ret ->
+      let compute_f_elem_new_k = trm_subst_var k_range.index new_k compute_f_elem_k in
+      ret compute_f_elem_new_k) in
+    let rec gen_focuses_for expr =
+      match Matrix_trm.get_inv expr with
+      | Some (matrix, dims, indices) ->
+        let f = !ret_compute_f_elem in
+        ret_compute_f_elem := (fun new_k ret ->
+          let matrix = trm_subst_var k_range.index new_k matrix in
+          let dims = List.map (trm_subst_var k_range.index new_k) dims in
+          let indices = List.map (trm_subst_var k_range.index new_k) indices in
+          let in_range_ghosts = List.map2 (fun i d ->
+            Resource_trm.to_prove (formula_in_range i (formula_range (trm_int 0) d (trm_int 1)))
+          ) indices dims in
+          let (_, beg_focus, end_focus) = Resource_trm.(ghost_pair (
+            Matrix_core.ghost_ro_matrix_focus ~matrix indices)) in
+          in_range_ghosts @ [beg_focus] @ (f new_k ret) @ [end_focus])
+      | _ -> trm_iter gen_focuses_for expr
+    in
+    gen_focuses_for compute_f_elem_k;
+
+    (* 5. call [slide_basic] *)
+    slide_basic ~mark_alloc available_sum a b w f_elem ap1 p_of_i (!ret_compute_f_elem) (target_of_path p);
+    Resources.make_strict_loop_contract (target_of_path p);
+  ) tg)

@@ -185,10 +185,6 @@ let var_ghost_group_focus_ro = toplevel_var "group_focus_ro"
 let ghost_group_focus_ro ?(bound_check: trm option) ?(range: trm option) ?(items: trm option) ?(frac: trm option) (i: trm) =
   ghost_call_opt_args var_ghost_group_focus_ro ["i", Some i; "range", range; "items", items; "bound_check", bound_check; "f", frac]
 
-let var_ghost_ro_matrix2_focus = toplevel_var "ro_matrix2_focus"
-let ghost_ro_matrix2_focus ?typ ?matrix ?m ?n ?frac ?bound_check_i ?bound_check_j i j =
-  ghost_call_opt_args var_ghost_ro_matrix2_focus ["T", typ; "matrix", matrix; "i", Some i; "j", Some j; "m", m; "n", n; "f", frac]
-
 let var_ghost_in_range_extend = toplevel_var "in_range_extend"
 let ghost_in_range_extend x r1 r2 =
   ghost_call var_ghost_in_range_extend ["x", x; "r1", r1; "r2", r2]
