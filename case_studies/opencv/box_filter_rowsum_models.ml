@@ -24,8 +24,9 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_effectful
 
 let int = trm_int
 module Reduce = Reduce_models
+
+let custom_specialize_simpl tg = Arith.do_nothing tg
 (*
-let custom_specialize_simpl tg =
   Trace.without_resource_computation_between_steps (fun () ->
     Arith.default_simpl tg;
     Loop.simplify_all_ghosts_group_scale [];
@@ -35,22 +36,20 @@ let custom_specialize_simpl tg =
 let _ = Run.script_cpp (fun () ->
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anyw"
     ["w", int 3; "w", int 5] [cFunBody "rowSum"; cFor "i"];
-  (* see #end for unroll + fold adds
-  !! Loop.unroll [nbMulti; cMark "w"; cFor "k"];
-  *)
+  !! Loop.unroll ~simpl:Arith.do_nothing [nbMulti; cMark "w"; cFor "k"];
+  (* TODO: Instr.accumulate / Variable.accumulate *)
   !! Loop.collapse [nbMulti; cMark "w"; cFor "i"];
 
   !! Loop.swap [nbMulti; cMark "anyw"; cFor "i"];
   !! Reduce.first_then_slide ~mark_alloc:"acc" [nbMulti; cMark "anyw"; cFor "i"];
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
+  !! Loop.shift_range (StartAtZero) ~simpl:Arith.do_nothing [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
+  !! Loop.scale_range ~factor:(trm_find_var "cn" []) ~simpl:Arith.do_nothing [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
 
-  (* see #end
-  !! Loop.shift_range (StartAtZero) [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
-  !! Loop.scale_range ~factor:(trm_find_var "cn" []) [nbMulti; cMark "anyw"; cFors ["k"; "i"]]; (* *)
-*)
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anycn" ~simpl:custom_specialize_simpl
     ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "anyw"; cFor "c"];
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
+
   !! Target.foreach [nbMulti; cMark "cn"] (fun c ->
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i"];
     Instr.gather_targets [c; cStrict; cArrayWrite "d"];
@@ -58,8 +57,8 @@ let _ = Run.script_cpp (fun () ->
     Instr.gather_targets [c; cFor "i"; cArrayWrite "d"];
   );
 
-  (* see #end
-  !! Loop.shift_range (ShiftBy (trm_find_var "c" [cMark "anycn"])) [cMark "anycn"; cFor "i"];
-*)
+  !! Loop.shift_range ~simpl:Arith.do_nothing (ShiftBy (trm_find_var "c" [cMark "anycn"])) [cMark "anycn"; cFor "i"];
+
+  !! Cleanup.std ();
 )
 

@@ -24,5 +24,6 @@ let _ = Run.script_cpp(fun _ ->
     in_range_ghosts @ [focus] @ con(Matrix_trm.get matrix_s matrix_s_dims [k; c]) @ [unfocus]
   in
 *)
+
   !! Reduce_models.slide [cFunBody "rowSum"; cFor "i"];
 )

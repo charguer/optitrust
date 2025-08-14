@@ -1009,9 +1009,14 @@ let scale_range_on (factor : trm) =
     )
   in
   let pre_res_trans = scale_ghosts ghost_group_scale ghost_ro_group_scale in
-  let post_res_trans = scale_ghosts ghost_group_unscale ghost_ro_group_scale in  let next_inv_trans r r' () inv mark_contract_occs =
-    (* TODO *)
-    []
+  let post_res_trans = scale_ghosts ghost_group_unscale ghost_ro_group_scale in
+  let next_inv_trans r r' () inv mark_contract_occs =
+    let inv_with_index = Resource_set.filter_with_var r.index inv in
+    if Resource_set.is_empty inv_with_index then [] else [
+      Resource_trm.ghost_admitted {
+        pre = Resource_set.subst_var r.index (trm_add_mark mark_contract_occs (trm_add_int (trm_exact_div_int (trm_var r'.index) factor) r.step)) inv_with_index;
+        post = Resource_set.subst_var r.index (trm_exact_div_int (trm_add_int (trm_var r'.index) r'.step) factor) inv_with_index;
+      }]
   in
   transform_range_on new_range to_prove pre_res_trans post_res_trans next_inv_trans
 

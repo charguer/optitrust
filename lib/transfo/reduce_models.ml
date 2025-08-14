@@ -256,6 +256,6 @@ let%transfo first_then_slide ?(mark_alloc: mark = no_mark) (tg : target) : unit 
     Marks.with_marks (fun next_mark -> Target.iter (fun p ->
       let mark_loop = Marks.add_next_mark_on next_mark p in
       (* TODO: would need to make slide less syntax-driven to enable simpl here again *)
-      Loop.unroll_first_iteration ~simpl:(Marks.clean ~indepth:false) ~mark_loop (target_of_path p);
+      Loop.unroll_first_iteration ~simpl:Arith.do_nothing ~mark_loop (target_of_path p);
       slide ~mark_alloc [cMark mark_loop];
     ) tg)

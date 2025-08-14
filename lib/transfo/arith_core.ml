@@ -1382,10 +1382,18 @@ let check_int_compare (cmp: int -> int -> bool) (t1: trm) (t2: trm) : bool =
   let t = simplify true (fun e -> gather (compute e)) (trm_sub_int t1 t2) in
   match trm_int_inv t with
   | Some i when cmp i 0 -> true
-  | _ -> false
+  | _ ->
+    (* if are_same_trm t1 t2 then begin
+      (* FIXME: should code below always pass in this case? *)
+      Tools.warn "same terms are not considered equal after simplify";
+      Show.trm ~msg:"t = t = " t1;
+      Show.trm ~msg:"t - t = " t;
+      true
+    end else *)
+    false
 
-let check_eq = check_int_compare (==)
-let check_neq = check_int_compare (!=)
+let check_eq = check_int_compare (=)
+let check_neq = check_int_compare (fun a b -> not (a = b))
 let check_gt = check_int_compare (>)
 let check_geq = check_int_compare (>=)
 let check_lt = check_int_compare (<)
