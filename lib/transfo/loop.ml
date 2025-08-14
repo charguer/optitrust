@@ -1205,17 +1205,19 @@ let%transfo split_range ?(nb: int = 0) ?(cut: trm = trm_unit ())
 (** [unroll_first_iterations nb tg]: expects the target [tg] to be pointing at a simple loop;
    it extracts the sequences associated with the [nb] first iterations before loop.
    . *)
-let%transfo unroll_first_iterations (nb:int) ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
+let%transfo unroll_first_iterations (nb:int) ?(mark_loop: mark = no_mark)
+  ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
   Marks.with_marks (fun next_mark -> Target.iter (fun p ->
     let mark_loop1 = next_mark () in
-    split_range ~simpl ~nb ~mark_loop1 (target_of_path p);
+    split_range ~simpl ~nb ~mark_loop1 ~mark_loop2:mark_loop (target_of_path p);
     unroll ~simpl [cMark mark_loop1]
   ) tg)
 
 (** [unroll_first_iteration tg]: expects the target [tg] to be pointing at a simple loop, it
    extracts the sequence associated with the first iteration before the loop. *)
-let%transfo unroll_first_iteration ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
-  unroll_first_iterations 1 ~simpl tg
+let%transfo unroll_first_iteration ?(mark_loop: mark = no_mark)
+  ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
+  unroll_first_iterations 1 ~mark_loop ~simpl tg
 
 (** [unfold_bound tg]: inlines the bound of the targeted loop if that loop is a simple for loop and if that bound
     is a variable and not a complex expression. *)

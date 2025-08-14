@@ -23,43 +23,33 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_effectful
    *)
 
 let int = trm_int
-
+module Reduce = Reduce_models
+(*
 let custom_specialize_simpl tg =
   Trace.without_resource_computation_between_steps (fun () ->
     Arith.default_simpl tg;
     Loop.simplify_all_ghosts_group_scale [];
   )
-
-let no_simpl (tg : target) : unit = ()
-
+*)
+(* #end : see [box_filter_rowsum_models_end] for the transformations applied after model erasure. *)
 let _ = Run.script_cpp (fun () ->
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anyw"
     ["w", int 3; "w", int 5] [cFunBody "rowSum"; cFor "i"];
-  (* TODO:
-    !! Reduce.elim ~inline:true [nbMulti; cMark "w"; cCall "reduce_spe1"];
-
-    MAYBE DO AT VERY END AFTER ERASING ANNOTATIONS ?
-
-    is following unroll + fold adds
+  (* see #end for unroll + fold adds
   !! Loop.unroll [nbMulti; cMark "w"; cFor "k"];
   *)
   !! Loop.collapse [nbMulti; cMark "w"; cFor "i"];
 
   !! Loop.swap [nbMulti; cMark "anyw"; cFor "i"];
-  (* TODO: would need to make slide less syntax-driven to enable simpl again *)
-  !! Loop.unroll_first_iteration ~simpl:no_simpl [nbMulti; cMark "anyw"; cFor "i"];
-  !! Reduce_models.slide ~mark_alloc:"acc" [nbMulti; cMark "anyw"; cFor "i"];
-  (* TODO: do that in slide combi *)
-  !! Resources.make_strict_loop_contracts [nbMulti; cMark "anyw"; cFor "i"];
-
+  !! Reduce.first_then_slide ~mark_alloc:"acc" [nbMulti; cMark "anyw"; cFor "i"];
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
-  (* TODO: MAYBE DO AT VERY END AFTER ERASING ANNOTATIONS ?
 
-  !! Loop.shift_range (StartAtZero) [nbMulti; cMark "anyw"; cFor "i"];
-  !! Loop.scale_range ~factor:(trm_find_var "cn" []) [nbMulti; cMark "anyw"; cFor "i"]; *)
+  (* see #end
+  !! Loop.shift_range (StartAtZero) [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
+  !! Loop.scale_range ~factor:(trm_find_var "cn" []) [nbMulti; cMark "anyw"; cFors ["k"; "i"]]; (* *)
+*)
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anycn" ~simpl:custom_specialize_simpl
     ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "anyw"; cFor "c"];
-
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
   !! Target.foreach [nbMulti; cMark "cn"] (fun c ->
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i"];
@@ -68,8 +58,8 @@ let _ = Run.script_cpp (fun () ->
     Instr.gather_targets [c; cFor "i"; cArrayWrite "d"];
   );
 
-  (* TODO: MAYBE DO AT VERY END AFTER ERASING ANNOTATIONS ?
-  !! Loop.shift_range (ShiftBy (trm_find_var "c" [cMark "anycn"])) [cMark "anycn"; cFor ~body:[cArrayWrite "D"] "i"];
+  (* see #end
+  !! Loop.shift_range (ShiftBy (trm_find_var "c" [cMark "anycn"])) [cMark "anycn"; cFor "i"];
 *)
 )
 

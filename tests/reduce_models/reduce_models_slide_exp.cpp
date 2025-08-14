@@ -28,8 +28,10 @@ void rowSum(int w, int* s, int* d, int n, int cn, int c, int* sum) {
           "inside := [&] (int v) -> HProp  &sum ~~> reduce_int_sum(1 - 1, v, "
           "fun k0 -> S(k0, c)), by := H1");
   for (int i = 1; i < n; i += 1) {
+    __strict();
     __spreserves(
         "&sum ~~> reduce_int_sum(i - 1, i + w - 1, fun k0 -> S(k0, c))");
+    __sreads("s ~> Matrix2(n + w - 1, cn, S)");
     __xwrites(
         "&d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i + w, fun k0 -> S(k0, "
         "c))");

@@ -60,7 +60,8 @@ let reduce_rw_a_b a b a' b' f_elem inside =
 let slide_on (available_sum: trm) (a: trm) (b: trm) (w: trm) (f_elem: trm)
   (ap1: trm) (p_of_i: trm -> trm)
   (k_compute_f_elem: (trm -> (trm -> trms) -> trms))
-  (mark_alloc: mark) (mark_simpl: mark) (span: Dir.span) (t: trm) : trm =
+  (mark_alloc: mark) (mark_loop: mark)
+  (mark_simpl: mark) (span: Dir.span) (t: trm) : trm =
   update_span_helper span t (fun instrs ->
     let sum = new_var "sum" in
     let typ = Option.unsome ~error:"expected pointer type" available_sum.typ in
@@ -87,7 +88,7 @@ let slide_on (available_sum: trm) (a: trm) (b: trm) (w: trm) (f_elem: trm)
         a (trm_add_int a w)
         (trm_sub_int ap1 (trm_int 1)) (trm_sub_int (trm_add_int ap1 w) (trm_int 1))
         f_elem sum_res);
-      Trm (trm_for loop_range ~contract (trm_seq_helper [
+      Trm (trm_add_mark mark_loop (trm_for loop_range ~contract (trm_seq_helper [
         TrmList (
         k_compute_f_elem ai (fun prev_f_elem ->
         k_compute_f_elem bi (fun next_f_elem ->
@@ -96,7 +97,7 @@ let slide_on (available_sum: trm) (a: trm) (b: trm) (w: trm) (f_elem: trm)
         TrmList (reduce_int_sum_slide_ghost ai bi ai_next_inv bi_next_inv f_elem sum_res);
         Trm (trm_set pi (trm_var_get sum));
         TrmList (reduce_rw_a_b ai_next_inv bi_next_inv ai' bi' f_elem pi_res);
-      ]))
+      ])))
     ]
   )
 
@@ -120,11 +121,12 @@ let%transfo slide_basic
   (available_sum: trm) (a: trm) (b: trm) (w: trm) (f_elem: trm)
   (ap1: trm) (p_of_i: trm -> trm)
   (k_compute_f_elem: (trm -> (trm -> trms) -> trms))
-  ?(mark_alloc: mark = no_mark) ?(mark_simpl: mark = no_mark)
+  ?(mark_alloc: mark = no_mark)  ?(mark_loop: mark = no_mark)
+  ?(mark_simpl: mark = no_mark)
   (tg: target) : unit =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let p_seq, span = Path.extract_last_dir_span p in
-    Target.apply_at_path (slide_on available_sum a b w f_elem ap1 p_of_i k_compute_f_elem mark_alloc mark_simpl span) p_seq
+    Target.apply_at_path (slide_on available_sum a b w f_elem ap1 p_of_i k_compute_f_elem mark_alloc mark_loop mark_simpl span) p_seq
   ) tg)
 
 (** [slide tg]: when targeting a loop with [tg], identifies the following pattern:
@@ -149,8 +151,12 @@ let%transfo slide_basic
   assuming [ap1 = a + 1], to call [slide_basic] with relevant arguments.
   in particular, autofocuses may be generated to provide resources for [compute_f_elem].
   *)
-let%transfo slide ?(mark_alloc: mark = no_mark) (tg : target) : unit =
-  Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
+let%transfo slide
+  ?(mark_alloc: mark = no_mark) (* ?(mark_loop: mark = no_mark) *)
+  (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun () ->
+  Marks.with_marks (fun next_mark ->
+  Target.iter (fun p ->
     let open Resource_trm in
     let open Resource_formula in
     let for_i = Target.resolve_path p in
@@ -240,6 +246,16 @@ let%transfo slide ?(mark_alloc: mark = no_mark) (tg : target) : unit =
     gen_focuses_for compute_f_elem_k;
 
     (* 5. call [slide_basic] *)
-    slide_basic ~mark_alloc available_sum a b w f_elem ap1 p_of_i (!ret_compute_f_elem) (target_of_path p);
-    Resources.make_strict_loop_contract (target_of_path p);
-  ) tg)
+    let mark_loop = next_mark () in
+    slide_basic ~mark_alloc ~mark_loop available_sum a b w f_elem ap1 p_of_i (!ret_compute_f_elem) (target_of_path p);
+    Resources.make_strict_loop_contracts [cMark mark_loop];
+  ) tg))
+
+(** [first_then_slide]: like [slide], but calls [unroll_first_iteration] first. *)
+let%transfo first_then_slide ?(mark_alloc: mark = no_mark) (tg : target) : unit =
+    Marks.with_marks (fun next_mark -> Target.iter (fun p ->
+      let mark_loop = Marks.add_next_mark_on next_mark p in
+      (* TODO: would need to make slide less syntax-driven to enable simpl here again *)
+      Loop.unroll_first_iteration ~simpl:(Marks.clean ~indepth:false) ~mark_loop (target_of_path p);
+      slide ~mark_alloc [cMark mark_loop];
+    ) tg)
