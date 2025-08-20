@@ -103,5 +103,4 @@ int main() {
   float * const x = MALLOC1(float,n);
   float * const xout = MALLOC1(float,n);
   matvec(xout, x, w, n, d);
-  test_f_before(xout,x);
 }
