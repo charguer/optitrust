@@ -160,7 +160,7 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
 
              float *embedding_weight, float *mha_norm_weight,
              float *mha_q_weight, float *mha_k_weight, float *mha_v_weight,
-             float *mha_out_weight, float *ffn_norm_weight,
+             float* *mha_out_weight, float *ffn_norm_weight,
              float *ffn_fc_weight, float *ffn_up_weight, float *ffn_out_weight,
              float *out_norm_weight, float *out_weight,
 
@@ -221,11 +221,26 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
           mindex2_unfold_b, "H := fun access -> for i1 in 0..head_dim -> "
                                "access(q, i1) ~> UninitCell, matrix:= mha_q, "
                                "n1 := q_head_count, n2 := head_dim");
+      const __ghost_fn __ghost_pair_3 = __ghost_begin(
+          ro_mindex4_unfold, "H := fun access -> for i1 in 0..head_dim -> for i2 in 0..embedding_dim -> "
+                               "access(l,q, i1,i2) ~> Cell, matrix:= mha_q_weight, "
+                               "n1 := layer_count, n2 := q_head_count, n3 := head_dim, n4 := embedding_dim ");
+
       matvec(head_dim, embedding_dim,
              &mha_q[MINDEX2(q_head_count, head_dim, q, 0)], mha_norm,
              &mha_q_weight[MINDEX4(layer_count, q_head_count, head_dim,
                                    embedding_dim, l, q, 0, 0)]);
       __ghost_end(__ghost_pair_2);
+      __ghost_end(__ghost_pair_3);
+    }
+    for (int h = 0; h < kv_head_count; h++) {
+
+      matvec(head_dim, embedding_dim,
+             &k_cache[MINDEX4(layer_count, kv_head_count, context_len, head_dim,
+                              l, h, pos, 0)],
+             mha_norm,
+             &mha_k_weight[MINDEX4(layer_count, kv_head_count, head_dim,
+                                   embedding_dim, l, h, 0, 0)]);
     }
   }
 

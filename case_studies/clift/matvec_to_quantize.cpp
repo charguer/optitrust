@@ -29,7 +29,7 @@ void quantize(int8_t *qx, float *s, int n, float *x) {
     }
   }
 }
-void matvec_quantized(float *xout, int8_t *qx, float *s_x, int8_t *w,
+void matvec_quantized(float *xout, int8_t *q_x, float *s_x, int8_t *w,
                       float *s_w, int n, int d) {
   // W (d,n) @ x (n,) -> xout (d,)
   // by far the most amount of time is spent inside this little function
@@ -47,7 +47,7 @@ void matvec_quantized(float *xout, int8_t *qx, float *s_x, int8_t *w,
     int j;
     for (j = 0; j <= n - GS; j += GS) {
       for (int k = 0; k < GS; k++) {
-        ival += ((int32_t)qx[j + k]) * ((int32_t)w[in + j + k]);
+        ival += ((int32_t)q_x[j + k]) * ((int32_t)w[in + j + k]);
       }
       val += ((float)ival) * s_w[(in + j) / GS] * s_x[j / GS];
       ival = 0;
@@ -56,7 +56,8 @@ void matvec_quantized(float *xout, int8_t *qx, float *s_x, int8_t *w,
     xout[i] = val;
   }
 }
-
+int8_t*  const q_x = MALLOC1(int8_t, 100);
+int8_t*  const q_w = MALLOC2(int8_t, 100,10);
 void matvec(float *xout, float *x, float *w, int n, int d) {
   for (int i = 0; i < d; i++) {
     xout[i] = 0;
@@ -66,6 +67,8 @@ void matvec(float *xout, float *x, float *w, int n, int d) {
     }
   }
 }
+
+
 // // ACCUMULATOR
 // void matvec1(float *xout, float *x, float *w, int n, int d) {
 //   for (int i = 0; i < d; i++) {
