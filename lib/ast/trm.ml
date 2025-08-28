@@ -168,7 +168,7 @@ let trm_apps ?(annot = trm_annot_default) ?(loc) ?(typ)
 
   (* Ajouter Trm_apps_var pour factoriser *)
 let trm_min (op1 : trm) (op2 : trm) : trm =
-  trm_apps (trm_var (toplevel_var "min")) [ op1; op2 ]
+  trm_apps (trm_var (toplevel_var "min")) [op1; op2 ]
 
 let trm_max (op1 : trm) (op2 : trm) : trm =
   trm_apps (trm_var (toplevel_var "max")) [ op1; op2 ]

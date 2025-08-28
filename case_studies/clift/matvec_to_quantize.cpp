@@ -56,8 +56,8 @@ void matvec_quantized(float *xout, int8_t *q_x, float *s_x, int8_t *w,
     xout[i] = val;
   }
 }
-int8_t*  const q_x = MALLOC1(int8_t, 100);
-int8_t*  const q_w = MALLOC2(int8_t, 100,10);
+// int8_t*  const q_x = MALLOC1(int8_t, 100);
+// int8_t*  const q_w = MALLOC2(int8_t, 100,10);
 void matvec(float *xout, float *x, float *w, int n, int d) {
   for (int i = 0; i < d; i++) {
     xout[i] = 0;

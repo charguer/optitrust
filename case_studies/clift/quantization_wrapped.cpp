@@ -2,7 +2,7 @@
 #include <math.h>
 #include <optitrust.h>
 static int GS = 32;
-void quantize(int8_t *qx, float *s,  int n, float *x) {
+void quantize(int8_t *qx, float *s, int n, float *x) {
   int num_groups = n / GS;
   float Q_MAX = 127.0f;
 
@@ -30,7 +30,8 @@ void quantize(int8_t *qx, float *s,  int n, float *x) {
   }
 }
 
-void matvec_quantized(float *xout, int8_t *qx,float *s_x, int8_t *w, float *s_w, int n, int d) {
+void matvec_quantized(float *xout, int8_t *qx, float *s_x, int8_t *w,
+                      float *s_w, int n, int d) {
   // W (d,n) @ x (n,) -> xout (d,)
   // by far the most amount of time is spent inside this little function
   // inputs to this function are both quantized
@@ -40,17 +41,16 @@ void matvec_quantized(float *xout, int8_t *qx,float *s_x, int8_t *w, float *s_w,
   for (i = 0; i < d; i++) {
 
     float val = 0.0f;
-    int32_t ival = 0;
     int in = i * n;
 
     // do the matmul in groups of GS
-    int j;
-    for (j = 0; j <= n - GS; j += GS) {
+
+    for (int j = 0; j <= n - GS; j += GS) {
+      int32_t ival = 0;
       for (int k = 0; k < GS; k++) {
         ival += ((int32_t)qx[j + k]) * ((int32_t)w[in + j + k]);
       }
       val += ((float)ival) * s_w[(in + j) / GS] * s_x[j / GS];
-      ival = 0;
     }
 
     xout[i] = val;
@@ -71,12 +71,12 @@ void matvec_quantized_wrapper(float *xout, float *x, int8_t *w, float *s_w,
   int8_t *qx = (int8_t *)calloc(n, sizeof(int8_t));
   float *s_x = (float *)calloc(n, sizeof(float));
   quantize(qx, s_x, n, x);
-  matvec_quantized(xout, qx, s_x,w, s_w, n, d);
+  matvec_quantized(xout, qx, s_x, w, s_w, n, d);
   free(qx);
   free(s_x);
 }
 
-void test_f_in(int * const x_int, float *x) {
+void test_f_in(int *const x_int, float *x) {
   for (int i = 0; i < 5; i++) {
     x_int[i] = (int)x[i];
   }
@@ -100,7 +100,7 @@ int main() {
   float *w = (float *)calloc(n * d, sizeof(float));
   int8_t *const qw = (int8_t *)calloc(n * d, sizeof(int8_t));
   float *const s_w = (float *)calloc(n * d / GS, sizeof(float));
-  float * const x = MALLOC1(float,n);
-  float * const xout = MALLOC1(float,n);
+  float *const x = MALLOC1(float, n);
+  float *const xout = MALLOC1(float, n);
   matvec(xout, x, w, n, d);
 }
