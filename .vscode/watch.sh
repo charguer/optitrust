@@ -6,17 +6,18 @@
 # you must run it, to be able to triggers tasks like view diff
 # Assumes it is called from the .vscode folder
 
-
-
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-echo "Start watching in folder:"
-echo ${SCRIPT_DIR}
 
-
-cd ${SCRIPT_DIR}
 ACTION_FILE="./action.sh"
 ACTION_OUT_TEMP="./action_out_temp.txt"
 ACTION_OUT="./action_out.txt"
+
+cd ${SCRIPT_DIR}
+
+echo "Will be watching for commands produced by run_action.sh into the file:"
+echo "   ${SCRIPT_DIR}/${ACTION_FILE}"
+echo "Type CTRL+C or close current window to terminate the watcher."
+echo "Now waiting for next command..."
 
 while true; do
     rm -f ${ACTION_FILE} # optional

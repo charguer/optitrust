@@ -5,14 +5,18 @@
 # echo "in run_action"
 # echo "with args $*"
 
-ACTION_OUT="./action_out.txt"
-ACTION_FILE="./action.sh"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+ACTION_OUT="${SCRIPT_DIR}/action_out.txt"
+ACTION_FILE="${SCRIPT_DIR}/action.sh"
 
 # Clear the output log file
 rm -f ${ACTION_OUT}
 touch ${ACTION_OUT}
 
 # Request watch.sh to execute the command by writing the command in action.sh
+echo "Request in ${ACTION_FILE} execution of the command:"
+echo "  $*"
 echo "$*" > ${ACTION_FILE}
 
 # Watch for a change in the output file
