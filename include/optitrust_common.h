@@ -78,6 +78,14 @@ __GHOST(rewrite_float_linear) {
   __admitted();
 }
 
+__GHOST(eq_refl_float) {
+  __requires("x:float");
+  __ensures("x =. x");
+  __admitted();
+}
+
+
+
 // FIXME: Explain here why this is useful and can it be used in formulas ?
 // assumes a formula with no need to prove it later
 __GHOST(assume) {
