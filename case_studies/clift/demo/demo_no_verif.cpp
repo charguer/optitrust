@@ -167,38 +167,22 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
 
              float *k_cache, float *v_cache, float *logits, int pos,
              int logits_count) {
-  __reads("embedding_weight ~> Matrix2(vocabulary_len,embedding_dim)");
-  __reads("mha_norm_weight ~> Matrix2(layer_count,embedding_dim)");
   float *const embedding = MALLOC1(float, embedding_dim);
   float *const mha_norm = MALLOC1(float, embedding_dim);
 
   // Get embedding representation of each token in the token sequence
-  __ghost(assume, " P := in_range(token, 0..vocabulary_len)");
 
   for (int e = 0; e < embedding_dim; e++) {
-    __xwrites("&embedding[MINDEX1(embedding_dim,e)] ~> Cell");
-    __GHOST_BEGIN(focus_embedding_weight, ro_matrix2_focus,
-                  "embedding_weight,token,e");
-
     embedding[MINDEX1(embedding_dim, e)] =
         embedding_weight[MINDEX2(vocabulary_len, embedding_dim, token, e)];
-    __GHOST_END(focus_embedding_weight);
   }
 
   // attention rmsnorm
   for (int l = 0; l < layer_count; l++) {
-    __xreads(
-        "for i1 in 0..embedding_dim -> &mha_norm_weight[MINDEX2(layer_count, "
-        "embedding_dim, l,i1)] ~> Cell");
 
-    const __ghost_fn __ghost_pair_1 = __ghost_begin(
-        ro_mindex2_unfold_b, "H := fun access -> for i1 in 0..embedding_dim -> "
-                             "access(l, i1) ~> Cell, matrix:= mha_norm_weight, "
-                             "n1 := layer_count, n2 := embedding_dim");
-    rmsnorm(embedding_dim, mha_norm, embedding,
+    rmsnorm(embedding_dim, &mha_norm[MINDEX0()], &embedding[MINDEX0()],
             &mha_norm_weight[MINDEX2(layer_count, embedding_dim, l, 0)],
             epsilon);
-    __ghost_end(__ghost_pair_1);
   }
   free(embedding);
   free(mha_norm);
@@ -216,56 +200,15 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
                           float *ffn_out_weight, float *out_norm_weight,
                           float *out_weight, float *k_cache, float *v_cache,
                           float *logits, int *sequence, int sequence_len) {
-  __reads("embedding_weight ~> Matrix2(vocabulary_len,embedding_dim)");
-  __reads("mha_norm_weight ~> Matrix2(layer_count,embedding_dim)");
-  __reads("sequence ~> Matrix1(sequence_len) ");
+
   for (int i = 0; i < sequence_len; i++) {
-    __xreads("&sequence[MINDEX1(sequence_len,i)] ~> Cell");
-    float *const embedding = MALLOC1(float, embedding_dim);
-    float *const mha_norm = MALLOC1(float, embedding_dim);
-    int token = sequence[MINDEX1(sequence_len,i)];
-    // Get embedding representation of each token in the token sequence
-    //  __ghost(assume, " P := in_range(token, 0..vocabulary_len)");
-    for (int e = 0; e < embedding_dim; e++) {
-      __xwrites("&embedding[MINDEX1(embedding_dim,e)] ~> Cell");
-      __GHOST_BEGIN(focus_embedding_weight, ro_matrix2_focus,
-                    "embedding_weight,token,e");
 
-      embedding[MINDEX1(embedding_dim, e)] =
-          embedding_weight[MINDEX2(vocabulary_len, embedding_dim,
-                                   token, e)];
-      __GHOST_END(focus_embedding_weight);
-    }
-
-    // attention rmsnorm
-    for (int l = 0; l < layer_count; l++) {
-      __xreads(
-          "for i1 in 0..embedding_dim -> &mha_norm_weight[MINDEX2(layer_count, "
-          "embedding_dim, l,i1)] ~> Cell");
-
-      // const __ghost_fn __ghost_pair_1 =
-      //     __ghost_begin(ro_mindex2_unfold_b,
-      //                   "H := fun access -> for i1 in 0..embedding_dim -> "
-      //                   "access(l, i1) ~> Cell, matrix:= mha_norm_weight, "
-      //                   "n1 := layer_count, n2 := embedding_dim");
-      // const __ghost_fn __ghost_pair_2 = __ghost_begin(mindex1_unfold,
-      //                   "H := fun access -> for i1 in 0..embedding_dim -> "
-      //                   "access(i1) ~> UninitCell, matrix:= mha_norm, "
-      //                   "n1 := embedding_dim");
-      // const __ghost_fn __ghost_pair_3 = __ghost_begin(mindex1_unfold,
-      //                   "H := fun access -> for i1 in 0..embedding_dim -> "
-      //                   "access(i1) ~> Cell, matrix:= embedding, "
-      //                   "n1 := embedding_dim");
-      rmsnorm(embedding_dim, &mha_norm[MINDEX0()], &embedding[MINDEX0()],
-              &mha_norm_weight[MINDEX2(layer_count, embedding_dim, l, 0)],
-              epsilon);
-      // __ghost_end(__ghost_pair_1);
-      // __ghost_end(__ghost_pair_2);
-      // __ghost_end(__ghost_pair_3);
-
-
-    }
-    free(embedding);
-    free(mha_norm);
+    forward(sequence[i], vocabulary_len, context_len, layer_count, q_head_count,
+            kv_head_count, q_head_per_kv_head_count, embedding_dim, head_dim,
+            q_dim, kv_dim, hidden_dim, epsilon, embedding_weight,
+            mha_norm_weight, mha_q_weight, mha_k_weight, mha_v_weight,
+            mha_out_weight, ffn_norm_weight, ffn_fc_weight, ffn_up_weight,
+            ffn_out_weight, out_norm_weight, out_weight, k_cache, v_cache,
+            logits, i, (i == (sequence_len - 1) ? 1 : 0));
   }
 }

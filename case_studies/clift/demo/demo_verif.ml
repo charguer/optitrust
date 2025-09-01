@@ -6,6 +6,7 @@ let _ =
   Flags.detailed_resources_in_trace := true;
   Flags.save_ast_for_steps := Some Steps_all
 
+
 let chunk_len = 512
 let f = cFunDef "generate_prompt_proc"
 
@@ -14,7 +15,7 @@ let _ =
 
     !!! ();
 
-      (* !!(Function.inline [ f; cCall "forward" ]); *)
+      !!(Function.inline [ f; cCall "forward" ]);
       !!(Loop.tile ~bound:TileBoundMin (trm_int chunk_len) [ f; cFor "i" ]);
        !!Loop.hoist
         [
@@ -24,7 +25,7 @@ let _ =
             [
               "embedding";
               "mha_norm";
-              "token";
+
             ];
         ];
       !!Loop.fission [ f; cForBody "i"; tBetweenAll ];

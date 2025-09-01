@@ -7,10 +7,12 @@ void accesses(float *v, int n) {
   float b = 0.f;
   float a = 0.f;
   for (int i = 0; i < n; i++) {
-    __GHOST_BEGIN(f, ro_matrix1_focus,"v,i");
+    __xreads("&v[MINDEX1(n,i)] ~> Cell");
     a = a + v[MINDEX1(n,i)];
-    __GHOST_END(f);
   }
+  // todo : essayer le troupe focus
+
+  // TODO : Parler avec Arthur
   b = b + a;
 }
 
