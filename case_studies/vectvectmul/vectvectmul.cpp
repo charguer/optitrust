@@ -9,7 +9,7 @@ __DEF(matmul, "fun (A B: int * int -> float) (p: int) -> fun (i j: int) -> reduc
 /* Multiplies the vect A (dim n) by the vector B (dim n),
  * and returns the result of the scalar product.
 */
-float vect_vect_mul(float* a, float* b, int n) {
+float vect_vect_mul(float* a, float* b, int n) { // todo: requires divides
   __requires("A: int -> float, B: int -> float");
   __reads("a ~> Matrix1(n, A), b ~> Matrix1(n, B)");
   __ensures("_Res =. reduce_sum(n, fun j -> A(j) *. B(j))");

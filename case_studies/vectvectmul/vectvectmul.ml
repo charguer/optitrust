@@ -10,9 +10,76 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
 let int = trm_int
 
 let _ = Run.script_cpp (fun () ->
-  !!();
+  !! Loop.tile (int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
+  !! Variable.local_name ~var:"s" ~local_var:"t" [cFor "bi"];
+  !! Loop.hoist [cVarDef "t"];
 );
-  (* !! Loop.tile ~index:"bi" [cFor "i"]; (* ~bound:TileDivides *)
-  !! Loop.hoist [cVarDef "s"]; *)
+  (*  (*  *)
+   *)
   (* !! Variable.shift *)
   (* !! Openmp.parallel *)
+
+
+(*
+
+
+
+s = 0
+for i
+  s += a[i] * b[i]
+
+--- tile
+
+s = 0
+for b
+  for i in block b
+    s += a[i] * b[i]
+
+--- local name
+
+s = 0
+for b
+  t = s
+  for i in block b
+    t += a[i] * b[i]
+  s = t
+
+--- shift de t par s
+
+s = 0
+for b
+  t = s
+  for i in block b
+    t += a[i] * b[i] // pareil que t = t + a[i] * b[i]
+  s = t
+
+--- shift de t par s
+
+s = 0
+for b
+  t = 0  // en fait s-s
+  for i in block b
+    t += a[i] * b[i]  // en fait t = ((t + s) + a[i]*b[i]) - s
+  s += t  // en fait s = t+s
+
+--- hoist de t
+
+s = 0
+alloc t
+for b
+  t[b] = 0
+  for i in block b
+    t[b] += a[i] * b[i]
+  s += t[b]
+
+--- fission
+
+s = 0
+for b
+  t[b] = 0
+  for i in block b
+    t[b] += a[i] * b[i]
+for b
+  s += t[b]
+
+*)
