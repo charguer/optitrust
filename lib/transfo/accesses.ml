@@ -26,15 +26,15 @@ Marks.with_marks (fun next_mark ->
   ) tg
 )
 
-(** Like [scale], but targeting a variable declaration instead of a scope. *)
-let%transfo scale_var ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
-  transform_var (scale ~inv ~factor ~mark) tg
+(** Like [transform_arith], but targeting a variable declaration instead of a scope. *)
+let%transfo transform_arith_var ~(op:transform_arith_op) ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
+  transform_var (transform_arith ~op ~inv ~factor ~mark) tg
 
-(** Like [shift], but targeting a variable declaration instead of a scope. *)
-let%transfo shift_var ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
-  transform_var (shift ~inv ~factor ~mark) tg
+(* TODO %transfo *)
+let scale_var = transform_arith_var ~op:Transform_arith_mul
+let shift_var = transform_arith_var ~op:Transform_arith_add
 
-let%transfo scale ?(inv : bool = false) ~(factor : trm)
+let%transfo transform_arith ?(inv : bool = false) ~(op:transform_arith_op) ~(factor : trm)
  ~(address_pattern : pattern)
  ?(mark : mark = no_mark)
  ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
@@ -47,9 +47,13 @@ let%transfo scale ?(inv : bool = false) ~(factor : trm)
     let mark_preprocess = next_mark () in
     let mark_postprocess = next_mark () in
     let address_pattern = pattern_compile address_pattern in
-    Accesses_basic.scale ~inv ~factor ~address_pattern ~mark ~mark_preprocess ~mark_postprocess tg;
+    Accesses_basic.transform_arith ~inv ~op ~factor ~address_pattern ~mark ~mark_preprocess ~mark_postprocess tg;
     if uninit_pre then Instr.delete [nbAny; cMarkSpan mark_preprocess];
     if uninit_post then Instr.delete [nbAny; cMarkSpan mark_postprocess];
     Marks.add_on_all_span user_mark_pre [nbAny; cMarkSpan mark_preprocess];
     Marks.add_on_all_span user_mark_post [nbAny; cMarkSpan mark_postprocess];
   )
+
+(* TODO %transfo *)
+let scale = transform_arith ~op:Transform_arith_mul
+let shift = transform_arith ~op:Transform_arith_add

@@ -15,6 +15,18 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.tile (int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
   !! Variable.local_name ~var:"s" ~local_var:"t" [cFor "i"];
   !! Loop.hoist [cVarDef "t"];
+  !! Function.elim_infix_ops ~indepth:true [];
+  Trace.without_resource_computation_between_steps (fun () ->
+    let address_pattern = Trm.(array_access (trm_find_var "t" []) (pattern_var "i")) in
+      !! Accesses.shift ~address_pattern ~inv:true ~factor:(trm_get (trm_find_var "s" [])) [cFor "i"];
+    (* needs to simplify the successive write to get the desired form *)
+
+    (* !! Accesses.shift_var ~inv:true ~factor:(trm_get (trm_find_var "s" [])) [cVarDef "t"];
+       ==> ideally would work for arrays *)
+    !! Arith.(simpl_rec gather_rec) []; (* LATER: will simplify s-s into 0 *)
+    !! Function.use_infix_ops ~indepth:true [];
+    Flags.recompute_resources_between_steps := false;
+  )
 );
   (*  (*  *)
    *)
