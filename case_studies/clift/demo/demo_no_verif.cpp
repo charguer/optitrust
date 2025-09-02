@@ -169,6 +169,8 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
              int logits_count) {
   float *const embedding = MALLOC1(float, embedding_dim);
   float *const mha_norm = MALLOC1(float, embedding_dim);
+  float *const mha_q = MALLOC2(float, q_head_count, head_dim);
+
 
   // Get embedding representation of each token in the token sequence
 
@@ -183,9 +185,16 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
     rmsnorm(embedding_dim, &mha_norm[MINDEX0()], &embedding[MINDEX0()],
             &mha_norm_weight[MINDEX2(layer_count, embedding_dim, l, 0)],
             epsilon);
+    for (int q = 0; q < q_head_count; q++) {
+      matvec(head_dim, embedding_dim,
+             &mha_q[MINDEX2(q_head_count, head_dim, q, 0)], &mha_norm[MINDEX0()],
+             &mha_q_weight[MINDEX4(layer_count, q_head_count, head_dim,
+                                   embedding_dim, l, q, 0, 0)]);
+    }
   }
   free(embedding);
   free(mha_norm);
+  free(mha_q);
 }
 
 void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
@@ -202,13 +211,14 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
                           float *logits, int *sequence, int sequence_len) {
 
   for (int i = 0; i < sequence_len; i++) {
-
-    forward(sequence[i], vocabulary_len, context_len, layer_count, q_head_count,
+    const int logits_count = 1;
+    const int token = sequence[MINDEX1(sequence_len, i)];
+    forward(token, vocabulary_len, context_len, layer_count, q_head_count,
             kv_head_count, q_head_per_kv_head_count, embedding_dim, head_dim,
             q_dim, kv_dim, hidden_dim, epsilon, embedding_weight,
             mha_norm_weight, mha_q_weight, mha_k_weight, mha_v_weight,
             mha_out_weight, ffn_norm_weight, ffn_fc_weight, ffn_up_weight,
             ffn_out_weight, out_norm_weight, out_weight, k_cache, v_cache,
-            logits, i, (i == (sequence_len - 1) ? 1 : 0));
+            logits, i,logits_count);
   }
 }

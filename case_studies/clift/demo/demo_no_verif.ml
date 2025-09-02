@@ -24,9 +24,14 @@ let _ =
             [
               "embedding";
               "mha_norm";
-              "token";
+              "mha_q";
             ];
         ];
-      !!Loop.fission [ f; cForBody "i"; tBetweenAll ];
-      !!Loop.reorder_at ~order:[ "l"; "i" ] [ f; cForBody "l"; dSeqNth 0 ])
+      !!Loop.fission [ f; cForBody "i"; cFor "l" ; tBefore];
+
+
+      !!Loop.reorder_at ~order:[ "l"; "i" ] [ f; cForBody "l"; dSeqNth 0 ];
+      !!Loop.fission [ f; cFor"l"; cForBody "i"; tBetweenAll];
+       !!Loop.reorder_at ~order:[ "q"; "i" ] [ nbMulti; f; cForBody "q"; dSeqNth 0 ];
+      )
 
