@@ -117,6 +117,10 @@ let resource_typing_enabled = ref true
 (** [check_validity]: perform validation of transformations *)
 let check_validity = ref false
 
+(** [preserve_specs_only]: allow code transformation that preserve the specification without necessarily preserving the semantics
+    TODO: update code which was also using check_validity for this purpose *)
+let preserve_specs_only = ref false
+
 (** [disable_resource_typing ()] should be called when using OptiTrust without resources. *)
 let disable_resource_typing () =
   resource_typing_enabled := false;
@@ -345,6 +349,7 @@ let reset_flags_to_default () : unit =
   stop_on_first_resource_error := true;
   resource_typing_enabled := true;
   check_validity := false;
+  preserve_specs_only := false;
   reparse_between_steps := false;
   recompute_resources_between_steps := false;
   save_steps := None;

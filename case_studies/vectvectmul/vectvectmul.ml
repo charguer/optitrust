@@ -2,16 +2,18 @@ open Optitrust
 open Prelude
 
 let _ = Flags.check_validity := true
+let _ = Flags.preserve_specs_only := true
 let _ = Flags.pretty_matrix_notation := true
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
+(* let _ = Flags.save_ast_for_steps := Some Steps_all *)
 
 let int = trm_int
 
 let _ = Run.script_cpp (fun () ->
   !! Loop.tile (int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
-  !! Variable.local_name ~var:"s" ~local_var:"t" [cFor "bi"];
+  !! Variable.local_name ~var:"s" ~local_var:"t" [cFor "i"];
   !! Loop.hoist [cVarDef "t"];
 );
   (*  (*  *)
@@ -40,9 +42,12 @@ for b
 s = 0
 for b
   t = s
+  // ghost(hide_cell, consume s~>v, produces "hidden(s,t)")
   for i in block b
     t += a[i] * b[i]
   s = t
+  // ghost(hide_rev_cell, consume hidden(s,t), consume(t->w), produces "s~>w")
+
 
 --- shift de t par s
 

@@ -5,6 +5,8 @@
 
 extern __ghost_unit __OPTITRUST_ENABLE_MODELS;
 
+
+
 /* ---- Matrix Ghosts ---- */
 
 /*__GHOST(matrix2_focus)  {

@@ -5,7 +5,6 @@ __AXIOM(reduce_sum_empty, "forall (f: int -> float) -> 0.f =. reduce_sum(0, f)")
 __AXIOM(reduce_sum_add_right, "forall (n: int) (f: int -> float) (_: n >= 0) -> reduce_sum(n, f) +. f(n) =. reduce_sum(n + 1, f)");
 __DEF(matmul, "fun (A B: int * int -> float) (p: int) -> fun (i j: int) -> reduce_sum(p, fun k -> A(i, k) *. B(k, j))");
 
-
 /* Multiplies the vect A (dim n) by the vector B (dim n),
  * and returns the result of the scalar product.
 */

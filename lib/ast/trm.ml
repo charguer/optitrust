@@ -681,6 +681,16 @@ let trm_cast_inv (t : trm) : (typ * trm) option =
     end
   | _ -> None
 
+(** [trm_compound_assign_any_inv t]: deconstructs t1 =# t2 and returns the operation *)
+let trm_compound_assign_any_inv (t : trm) : (typ * binary_op * trm * trm) option =
+  match trm_apps_inv t with
+  | Some (f, args) -> begin
+    match (trm_prim_inv f, args) with
+    | Some (typ, Prim_compound_assign_op op), [a; b] -> Some (typ, op, a, b)
+    | _ -> None
+    end
+  | _ -> None
+
 (** [trm_compound_assign_inv t]: deconstructs t1 =# t2 *)
 let trm_compound_assign_inv (op : binary_op) (t : trm) : (trm * trm) option =
   match trm_apps_inv t with

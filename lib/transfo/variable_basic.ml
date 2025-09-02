@@ -155,7 +155,7 @@ let%transfo local_name ~(var : var) (var_typ : typ)
     Nobrace_transfo.remove_after (fun () ->
       Target.apply_at_path (local_name_on var var_typ ~uninit_pre ~uninit_post local_var) p
     );
-    if !Flags.check_validity then begin
+    if !Flags.check_validity && not !Flags.preserve_specs_only then begin
       step_backtrack ~discard_after:true (fun () ->
         let p = resolve_mark_exactly_one m in
         Nobrace_transfo.remove_after (fun () ->
