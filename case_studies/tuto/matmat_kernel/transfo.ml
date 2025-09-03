@@ -24,7 +24,7 @@ let memset_apply_on ~(depth: int) ?(typ:typ option) (t : trm) :trm =
     let { index; start; direction; stop; step } = range in
     if not (direction = DirUp) then  trm_fail t  "Matrix_basic.memset_apply: expect up direction";
     if not (trm_is_zero start && trm_is_one step) then trm_fail t "Matrix_basic.memset_apply: expect start =0 and step = 1";
-    if not (are_same_trm stop dim) then  trm_fail t "Matrix_basic.memset_apply: expect stop to match matrix dimension";
+    if not (Trm_unify.are_same_trm stop dim) then  trm_fail t "Matrix_basic.memset_apply: expect stop to match matrix dimension";
     in
   List.iter check (List.combine ranges (List.combine dims indices));
   Matrix_core.matrix_set ~typ:array_typ rhs array dims

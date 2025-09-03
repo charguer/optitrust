@@ -152,25 +152,35 @@ void matvec(int col_count, int red_count, float *x, float *y, float *w) {
     }
   }
 }
+void matmul(int row_count, int col_count, int red_count, float *const x,
+            float *const y, float *const w) {
+  __writes("x ~> Matrix2(col_count)");
+  __reads("y ~> Matrix2(red_count)");
+  __reads("w ~> Matrix2(col_count,red_count)");
+
+  for (int i = 0; i < row_count; i++) {
+    for (int j = 0; j < col_count; j++) {
+      x[MINDEX2(row_count, col_count, i, j)] = 0.f;
+      for (int k = 0; k < red_count; k++) {
+        x[MINDEX2(row_count, col_count, i, j)] +=
+            y[MINDEX2(row_count, red_count, i, k)] *
+            w[MINDEX2(col_count, red_count, j, k)];
+      }
+    }
+  }
+}
 void forward(int token, int vocabulary_len, int context_len, int layer_count,
              int q_head_count, int kv_head_count, int q_head_per_kv_head_count,
              int embedding_dim, int head_dim, int q_dim, int kv_dim,
-             int hidden_dim,
-
-             float epsilon,
-
-             float *embedding_weight, float *mha_norm_weight,
-             float *mha_q_weight, float *mha_k_weight, float *mha_v_weight,
-             float *mha_out_weight, float *ffn_norm_weight,
+             int hidden_dim, float epsilon, float *embedding_weight,
+             float *mha_norm_weight, float *mha_q_weight, float *mha_k_weight,
+             float *mha_v_weight, float *mha_out_weight, float *ffn_norm_weight,
              float *ffn_fc_weight, float *ffn_up_weight, float *ffn_out_weight,
-             float *out_norm_weight, float *out_weight,
-
-             float *k_cache, float *v_cache, float *logits, int pos,
-             int logits_count) {
+             float *out_norm_weight, float *out_weight, float *k_cache,
+             float *v_cache, float *logits, int pos, int logits_count) {
   float *const embedding = MALLOC1(float, embedding_dim);
   float *const mha_norm = MALLOC1(float, embedding_dim);
   float *const mha_q = MALLOC2(float, q_head_count, head_dim);
-
 
   // Get embedding representation of each token in the token sequence
 
@@ -187,7 +197,8 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
             epsilon);
     for (int q = 0; q < q_head_count; q++) {
       matvec(head_dim, embedding_dim,
-             &mha_q[MINDEX2(q_head_count, head_dim, q, 0)], &mha_norm[MINDEX0()],
+             &(&mha_q[MINDEX0()])[MINDEX2(q_head_count, head_dim, q, 0)],
+             &mha_norm[MINDEX0()],
              &mha_q_weight[MINDEX4(layer_count, q_head_count, head_dim,
                                    embedding_dim, l, q, 0, 0)]);
     }
@@ -219,6 +230,6 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
             mha_norm_weight, mha_q_weight, mha_k_weight, mha_v_weight,
             mha_out_weight, ffn_norm_weight, ffn_fc_weight, ffn_up_weight,
             ffn_out_weight, out_norm_weight, out_weight, k_cache, v_cache,
-            logits, i,logits_count);
+            logits, i, logits_count);
   }
 }

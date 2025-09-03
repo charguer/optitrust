@@ -35,3 +35,4 @@ let _  = Run.script_cpp ( fun _ ->
   !!Accesses.scale_var ~factor:(trm_find_var "sum" [f])  [cVarDef "a"];
 (* TODO  : Function.inline [cCall "get_max"]; *)
   );
+
