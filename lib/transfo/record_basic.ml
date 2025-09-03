@@ -1,5 +1,6 @@
 open Prelude
 open Target
+open Trm_unify
 include Record_core
 include Record_core.Rename
 
@@ -47,7 +48,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
         in
         let base_pattern = erase_types (to_base_pattern base) in
         let matches_base t =
-          Option.is_some (trm_unify t base_pattern !evars (fun _ _ ctx -> Some ctx))
+          Option.is_some (Trm_unify.trm_unify t base_pattern !evars (fun _ _ ctx -> Some ctx))
         in
         let exception TypeFound of typ in
         begin try (

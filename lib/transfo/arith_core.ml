@@ -639,7 +639,7 @@ let create_or_reuse_atom_for_trm (atoms : atom_map ref) (purity : purity) (t : t
   let no_id = -1 in
   let id_found = ref no_id in
   Atom_map.iter (fun id (tid,_purity) ->
-    if !id_found = no_id && are_same_trm t tid then id_found := id) !atoms;
+    if !id_found = no_id && Trm_unify.are_same_trm t tid then id_found := id) !atoms;
       (* LATER: ideally we should check that the purity computed for tid is the same as that of t *)
   (* If no existing id was found, create a new id, and extends the [atoms] table. *)
   if !id_found = no_id

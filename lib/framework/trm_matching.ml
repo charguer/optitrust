@@ -123,7 +123,7 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
       if debug_trm_matching then Tools.debug "Instantiating variable %s for the first time." (var_to_string x);
       inst := Var_map.add x (ty, Some u) !inst
     | Some (ty, Some t0) ->
-      if not (are_same_trm t0 u) then begin
+      if not (Trm_unify.are_same_trm t0 u) then begin
         if error_msg then begin (* TODO: if + raise helper *)
           Tools.debug "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'." (var_to_string x)
             (Ast_to_c.ast_to_string ~optitrust_syntax:true t0) (Ast_to_c.ast_to_string ~optitrust_syntax:true u);
@@ -174,7 +174,7 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
       | [], [] -> ()
       | ({ desc = Trm_let ((x1,t1), init1); _ } as dt1) :: tr1,
         ({ desc = Trm_let ((x2,t2), init2); _ } as dt2) :: tr2 ->
-           if not (are_same_trm (get_inner_ptr_type t1) (get_inner_ptr_type t2)) then begin
+           if not (Trm_unify.are_same_trm (get_inner_ptr_type t1) (get_inner_ptr_type t2)) then begin
             Tools.debug "Type mismatch on trm_let";
             mismatch ~t1:dt1 ~t2:dt2 ()
           end;
@@ -234,7 +234,7 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
 
     | Trm_var x1, Trm_var x2 when var_eq x1 x2 -> ()
 
-    | (Trm_prim _, Trm_prim _ | Trm_lit _, Trm_lit _) when are_same_trm t1 t2 -> ()
+    | (Trm_prim _, Trm_prim _ | Trm_lit _, Trm_lit _) when Trm_unify.are_same_trm t1 t2 -> ()
 
     | Trm_if (cond1, then1, else1),
       Trm_if (cond2, then2, else2) ->

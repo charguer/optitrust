@@ -439,10 +439,10 @@ let normalize_loop_step (step : trm) : trm =
 let same_loop_range
   (range1 : loop_range)
   (range2 : loop_range) : bool =
-  are_same_trm range1.start range2.start &&
+  Trm_unify.are_same_trm range1.start range2.start &&
   (range1.direction = range2.direction) &&
-  are_same_trm range1.stop range2.stop &&
-  are_same_trm range1.step range2.step
+  Trm_unify.are_same_trm range1.stop range2.stop &&
+  Trm_unify.are_same_trm range1.step range2.step
 
 let same_loop_index (a : loop_range) (b : loop_range) : bool =
   assert (a.index.namespaces = [] && b.index.namespaces = []);
@@ -1005,7 +1005,7 @@ let simplify_ghost_group_scale_on_opt (t : trm) : trm option =
     let* (_, new_stop) = List.find_opt (arg_is "new_stop") ghost_call.ghost_args in
     let* (_, new_step) = List.find_opt (arg_is "new_step") ghost_call.ghost_args in
     if is_trm_int 1 factor then Some (trm_seq_nobrace_nomarks []) else begin
-      if are_same_trm stop new_stop && are_same_trm step new_step
+      if Trm_unify.are_same_trm stop new_stop && Trm_unify.are_same_trm step new_step
       then Some (trm_seq_nobrace_nomarks [])
       else None
     end
@@ -1235,9 +1235,9 @@ let elim_loop_single_on (t : trm) : trm =
   let l_range, body, _contract = trm_inv ~error trm_for_inv_instrs t in
   if l_range.direction <> DirUp then
     trm_fail t "elim_loop_single_on: Expect the direction to be DirUp";
-  if not (are_same_trm l_range.step (trm_step_one ())) then
+  if not (Trm_unify.are_same_trm l_range.step (trm_step_one ())) then
     trm_fail t "elim_loop_single_on: Expect a step of one for the loop";
-  if not (are_same_trm (trm_add_int l_range.start (trm_int 1)) l_range.stop)
+  if not (Trm_unify.are_same_trm (trm_add_int l_range.start (trm_int 1)) l_range.stop)
   then trm_fail t "elim_loop_single_on: Expected a loop with a unique step";
   let index_start = trm_let (l_range.index, typ_int) l_range.start in
   trm_seq_nobrace_nomarks
@@ -1319,8 +1319,8 @@ let%transfo if_loop_switch (tg : target) = apply_at_target_paths if_loop_switch_
     returns the comparison in the form (side with [t], op, other side), flipping
     the operator if needed. Fails if [t] matches neither. *)
 let reverse_comp ~(lhs : trm) ~(binop : binary_op) ~(rhs : trm) t : trm * binary_op * trm =
-  if are_same_trm lhs t then (lhs, binop, rhs)
-  else if are_same_trm rhs t then (rhs, reverse_comp_binop binop, lhs)
+  if Trm_unify.are_same_trm lhs t then (lhs, binop, rhs)
+  else if Trm_unify.are_same_trm rhs t then (rhs, reverse_comp_binop binop, lhs)
   else
     trm_fail t
       "reverse_comp: Did not find the trm t as a trm of the comparaison"

@@ -1,4 +1,5 @@
 open Prelude
+open Trm_unify
 open Path
 open Target
 include Arith_basic

@@ -1239,7 +1239,7 @@ let rec encode_contract (style: style) (t: trm): trm =
     in
     let t, pre_linear, post_linear = match writes_clause with
       | Some writes_prim ->
-        let writes_res, pre_linear, post_linear = Resource_formula.filter_common_resources ~compare:(fun tpre tpost -> if try are_same_trm tpre (raw_formula_uninit tpost) with CannotTransformIntoUninit _ -> false then Some tpost else None) pre_linear post_linear in
+        let writes_res, pre_linear, post_linear = Resource_formula.filter_common_resources ~compare:(fun tpre tpost -> if try Trm_unify.are_same_trm tpre (raw_formula_uninit tpost) with CannotTransformIntoUninit _ -> false then Some tpost else None) pre_linear post_linear in
         push_named_formulas writes_prim writes_res t, pre_linear, post_linear
       | _ -> t, pre_linear, post_linear
     in
@@ -1347,7 +1347,7 @@ let rec decode_alloc (t: trm): trm =
     Pattern.(trm_cast !__ !__) (fun typto t () ->
       let t_in = decode_alloc t in
       match t_in.typ with
-      | Some ty when are_same_trm ty typto -> t_in
+      | Some ty when Trm_unify.are_same_trm ty typto -> t_in
       | _ -> trm_cast ~annot ?loc typto t_in
     );
     Pattern.(trm_apps1 (trm_specific_var var_malloc) !__) (fun alloc_size () ->
