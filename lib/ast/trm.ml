@@ -1998,8 +1998,7 @@ let trm_vars_subst (subst_map: var varmap) (t: trm) =
     | Some y -> y
     | None -> x) () t
 
-(* The value associated with an existential variable (evar).
-   It is generic over the type of information stored when the value is unknown. *)
+
 
 let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =
   (* TODO: Use a real trm_fold later to avoid reconstructing trm *)
