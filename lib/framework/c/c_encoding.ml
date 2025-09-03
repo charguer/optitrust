@@ -1340,12 +1340,14 @@ let var_malloc = toplevel_var "malloc"
 let var_calloc = toplevel_var "calloc"
 let var_free = toplevel_var "free"
 
-let rec decode_alloc (t: trm): trm =
+(* recognize C-style malloc operation with a cast,
+   recognize IDX, IDX1, IDX2, .. operations *)
+let rec decode_alloc_and_mops (t: trm): trm =
   let annot = t.annot in
   let loc = t.loc in
   Pattern.pattern_match t [
     Pattern.(trm_cast !__ !__) (fun typto t () ->
-      let t_in = decode_alloc t in
+      let t_in = decode_alloc_and_mops t in
       match t_in.typ with
       | Some ty when Trm_unify.are_same_trm ty typto -> t_in
       | _ -> trm_cast ~annot ?loc typto t_in
@@ -1360,7 +1362,7 @@ let rec decode_alloc (t: trm): trm =
     Pattern.(trm_apps1 (trm_specific_var var_free) !__) (fun t () ->
       trm_delete ~annot ?loc t
     );
-    Pattern.__ (fun () -> trm_map decode_alloc t)
+    Pattern.__ (fun () -> trm_map decode_alloc_and_mops t)
   ]
 
 let encode_alloc (style: style) (t: trm): trm =
@@ -1434,7 +1436,7 @@ let decode_from_c: trm -> trm =
   decode_return |>
   decode_expr_in_seq |>
   decode_formula_sugar |>
-  decode_alloc |>
+  decode_alloc_and_mops |>
   Scope_computation.infer_var_ids)
 
 (** [encode_to_c t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)

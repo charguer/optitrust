@@ -18,13 +18,19 @@
     "*.json": "jsonc",
     "*.tex": "latex",
     "*.js": "javascript",
+    "*.html": "html",
     ".html": "html",
     "*.Makefile": "makefile",
     "array": "cpp",
     "string_view": "cpp",
     "initializer_list": "cpp",
     "utility": "cpp",
-    "compare": "cpp"
+    "compare": "cpp",
+    "chrono": "cpp",
+    "functional": "cpp",
+    "ratio": "cpp",
+    "tuple": "cpp",
+    "type_traits": "cpp"
   },
   "swapf.patterns": [
     {

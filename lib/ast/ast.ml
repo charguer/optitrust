@@ -547,6 +547,7 @@ and prim =
   | Prim_delete (* "delete t", heap deallocation *)
   | Prim_array (* "{ 0, 3, 5 }" as an array *)
   | Prim_record (* "{ 4, 5.3 }" as a record *)
+  | Prim_to_elaborate (* [trm_prim Prim_to_elaborate] denotes as hole to be filed by elaboration *)
 
 (** [lit]: literals *)
 and lit =

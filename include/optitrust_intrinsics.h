@@ -76,4 +76,11 @@ inline void __with(__ghost_args) {}
 inline void __bind(__ghost_bind) {}
 template<typename T> T __call_with(T ret_val, __ghost_args = "", __ghost_bind = "") { return ret_val; }
 
+/* ---- Elaboration holes ---- */
+
+// "__to_elaborate<T>"  or  "__TO_ELABORATE" denotes a hole to be filled
+// during elaboration, which happens just after a first (permissive) typechecking phase
+template<typename T> T __to_elaborate() { __builtin_unreachable(); }
+#define __TO_ELABORATE __to_elaborate<auto>
+
 #endif

@@ -1395,6 +1395,10 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
     | None -> failwith "'%s' is not a record type" (Ast_to_c.typ_to_string typ)
     end
 
+  | Prim_to_elaborate ->
+      failwith "No specification available for Prim_to_elaborate"
+
+
 (** [compute_resources ?expected_res res t] computes resources within [t], knowing that [res]
     resources are available before [t].
     Returns [(usage, res')].

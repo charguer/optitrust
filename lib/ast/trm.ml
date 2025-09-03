@@ -273,6 +273,11 @@ let trm_sizeof ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (ty: typ)
 let trm_prim ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (typ: typ) (p : prim) : trm =
   trm_make ~annot:annot ?loc ?ctx (Trm_prim (typ, p))
 
+(** [trm_to_elaborate ~annot ?loc ?ctx p]: hole to elaborate;
+    should only be produced during the parsing phase, for resolution with the initial typechecking *)
+let trm_to_elaborate ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (): trm =
+  trm_make ~annot:annot ?loc ?ctx (Trm_prim (typ_auto, Prim_to_elaborate))
+
 (** [trm_array ~annot ?loc ?typ ?ctx tl]: array initialization list *)
 let trm_array ?(annot = trm_annot_default) ?(loc) ~(elem_typ) ?(ctx : ctx option)
   (tl : trm list) : trm =
@@ -478,6 +483,12 @@ let trm_prim_inv (t : trm) : (typ * prim) option =
   match t.desc with
   | Trm_prim (typ, p) -> Some (typ, p)
   | _ -> None
+
+(** [is_trm_to_elaborate t]: tests if a term is an elaboration hole *)
+let is_trm_to_elaborate (t : trm) : bool =
+  match t.desc with
+  | Trm_prim (_typ, Prim_to_elaborate) -> true
+  | _ -> false
 
 (** [trm_lit_inv t]: gets the literal from a literal trm *)
 let trm_lit_inv (t : trm) : lit option =

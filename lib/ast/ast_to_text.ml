@@ -132,6 +132,7 @@ and print_prim style (p : prim) : document =
   | Prim_delete -> print_node "Prim_delete"
   | Prim_array -> print_node "Prim_array"
   | Prim_record -> print_node "Prim_record"
+  | Prim_to_elaborate -> print_node "Prim_to_elaborate"
 
 (** [print_lit l]: converts literals to pprint document *)
 and print_lit (l : lit) : document =
