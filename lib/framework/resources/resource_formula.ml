@@ -457,7 +457,7 @@ let formula_matrix_inv (f: formula): (trm * trm list * trm option) option =
   ] in
   let* matrix, mindex_dims, mindex_indices = Matrix_trm.access_inv location in
   let* () = if List.length mindex_dims = List.length dims then Some () else None in
-  let* () = if List.for_all2 are_same_trm mindex_dims dims then Some () else None in
+  let* () = if List.for_all2 Trm_unify.are_same_trm mindex_dims dims then Some () else None in
   if has_matching_indices mindex_indices indices
     then Some (matrix, dims, model)
     else None
@@ -476,7 +476,7 @@ let formula_arith_checked = trm_var var_arith_checked
   - if [filter_map_left r] returns [Some r'], use [r'] in the comparison with resources in [res2], in case of a match put [r'] in [comm], else leave [r] in [res1].
   - if it returns [None], keep the resource separated from the one in [res2].
 *)
-let filter_common_resources ?(filter_map_left = fun x -> Some x) ?(compare = fun fl fr -> if are_same_trm fl fr then Some fl else None) (res1: resource_item list) (res2: resource_item list): resource_item list * resource_item list * resource_item list =
+let filter_common_resources ?(filter_map_left = fun x -> Some x) ?(compare = fun fl fr -> if Trm_unify.are_same_trm fl fr then Some fl else None) (res1: resource_item list) (res2: resource_item list): resource_item list * resource_item list * resource_item list =
   let res2 = ref res2 in
   let rec try_remove_same_formula formula l =
     match l with
