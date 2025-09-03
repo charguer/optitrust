@@ -75,7 +75,6 @@ let rec normalize_trm ?(on_failure = fun a b -> ()) (t : trm)
       let base_out, evar_ctx = aux base_out evar_ctx in
       match Matrix_trm.access_inv base_out with
       | Some (base_in, dims_in, inds_in) ->
-          let base_in, evar_ctx = aux base_in evar_ctx in
           let n_dims_out = List.length dims_out in
           if List.length dims_in >= n_dims_out then
             let last_dims_in = List.take_last n_dims_out dims_in in
@@ -111,14 +110,10 @@ and trm_unify ?(on_failure = fun a b -> ()) (t_left : trm) (t_right : trm)
     (validate_inst :
       trm -> 'a -> 'a unification_ctx -> 'a unification_ctx option) :
     'a unification_ctx option =
-  (* let aux t1 t2 evar_ctx = trm_unify ~on_failure t1 t2 evar_ctx validate_inst in
-  let auxs t1s t2s evar_ctx =
-    List.fold_left2 (fun evar_ctxi t1i t2i -> let* evar_ctx in trm_unify ~on_failure t1i t2i evar_ctxi validate_inst) (Some evar_ctx) t1s t2s in *)
-  (* todo: use these functions everywhere *)
   let open Option.Monad in
   (* Pattern match on one component to get a warning if there is a missing one *)
   let check cond = if cond then Some evar_ctx else None in
-  (* on-the-fly normalisation  *)
+  (* on-the-fly normalisation, unfold_if_resolved_vars is now included in normalize  *)
   let t_left, evar_ctx = normalize_trm t_left evar_ctx validate_inst in
   let t_right, evar_ctx = normalize_trm t_right evar_ctx validate_inst in
   let validate_and_subst evar t_subst evar_ctx =
