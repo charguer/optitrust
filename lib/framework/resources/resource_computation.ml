@@ -196,6 +196,11 @@ let pure_env (res: resource_set) =
 
 let missing_types_in_contracts = ref false
 
+let performing_elaboration = ref false (* perhaps needs to be in Trm_unify *)
+
+let check_performing_elaboration () =
+  if not !performing_elaboration then failwith "AST contains Prim_to_elaborate yet the flag ~elaboration was not passed to resource_computation"
+
 (** [compute_pure_typ env t] computes the type by recursively filling .typ fields of the pure / formula-convertible term [t] in a pure environment [env].
   Returns the type of [t] *)
 let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
@@ -279,8 +284,10 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
 
         | _ -> failwith "Binary operator %s is not a pure operator" (Ast_to_c.ast_to_string (trm_prim typ prim))
       end
-
-      | _ -> failwith "Primitive operator %s is not a pure operator" (Ast_to_c.ast_to_string (trm_prim typ prim))
+    | Prim_to_elaborate _r -> (* TODO: would it help to do something when r is Some? *)
+        check_performing_elaboration();
+        typ (* return the [typ] provided when building the Prim_to_elaborate *)
+    | _ -> failwith "Primitive operator %s is not a pure operator" (Ast_to_c.ast_to_string (trm_prim typ prim))
     end
 
   | Trm_apps (f, args, gargs, gbind) ->
@@ -1395,7 +1402,7 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
     | None -> failwith "'%s' is not a record type" (Ast_to_c.typ_to_string typ)
     end
 
-  | Prim_to_elaborate ->
+  | Prim_to_elaborate _r ->
       failwith "No specification available for Prim_to_elaborate"
 
 
@@ -1466,6 +1473,12 @@ let rec compute_resources
       let typ = compute_pure_typ (pure_env res) t in
       let res = Resource_set.add_alias var_result t res in
       with_result typ (Some (Var_map.empty)) res
+
+    (* Elaboration holes are assumed to be pure *)
+    | Trm_prim (typ, Prim_to_elaborate _r) ->
+      check_performing_elaboration();
+      t.typ <- Some typ;
+      Some Var_map.empty, Some res
 
     | Trm_prim (typ, prim) ->
       let func_typ, spec = find_prim_spec typ prim res.struct_fields in
@@ -2081,12 +2094,13 @@ let trm_compute_resources_inplace (t: trm): unit =
   first error is encountered, else it tries to report as many as possible.
 
   Hypothesis: needs var_ids to be calculated. *)
-let trm_recompute_resources ?(missing_types = false) (t: trm): trm =
+let trm_recompute_resources ?(missing_types = false) ?(elaboration = false) (t: trm): trm =
   (* TODO: should we avoid deep copy by maintaining invariant that there is no sharing?
      makes sense with unique var ids and trm_copy mechanisms.
      Otherwise avoid mutable asts. Could also have unique node ids and maps from ids to metadata. *)
   (* Make a copy of [t] *)
   let t = trm_deep_copy t in
   missing_types_in_contracts := missing_types;
+  performing_elaboration := elaboration;
   trm_compute_resources_inplace t;
   t

@@ -1124,18 +1124,18 @@ and typing_step ~name (f : unit -> unit) : unit =
 and reparse ?(update_cur_ast = true) ?(info : string option) ?(parser: parser option) () : unit =
   parsing_step (reparse_ast ~update_cur_ast ?info)
 
-and recompute_resources ?(missing_types = false) (): unit =
+and recompute_resources ?(missing_types = false) ?(elaboration = false) (): unit =
   if not the_trace.cur_ast_typed then
-    typing_step ~name:"Resource recomputation" (recompute_resources_on_ast ~missing_types)
+    typing_step ~name:"Resource recomputation" (recompute_resources_on_ast ~missing_types ~elaboration)
 
-and recompute_resources_on_ast ?(missing_types = false) () : unit =
+and recompute_resources_on_ast ?(missing_types = false) ?(elaboration = false) () : unit =
   if not !Flags.resource_typing_enabled then failwith "Cannot compute resources when resource typing is disabled";
   let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
   (* Compute a typed AST *)
 
   (* Printf.printf "%s\n" (AstC_to_c.ast_to_string ~style (Ast_fromto_AstC.(encode_meta ~skip_var_ids:true (style_of_custom_style custom_style)) t)); *)
   try
-    the_trace.cur_ast <- Resource_computation.trm_recompute_resources ~missing_types t;
+    the_trace.cur_ast <- Resource_computation.trm_recompute_resources ~missing_types ~elaboration t;
     the_trace.cur_ast_typed <- true;
   with (Resource_computation.ResourceError (t_with_error, _phase, _exn)) as e ->
     (* TODO: Resources computation warning when failing in non critical contexts:

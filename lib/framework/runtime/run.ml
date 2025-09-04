@@ -3,6 +3,8 @@
 (******************************************************************************)
 include Tools
 
+let elaboration_activated = ref true
+
 (** [set_exn_backtrace b]: based on [b] enable or disable backtracing in case an exception was thrown *)
 let set_exn_backtrace (b : bool) : unit =
   Printexc.record_backtrace b
@@ -152,6 +154,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
         Trace.init ~program:program_basename ~prefix filename;
         if !Flags.check_validity || !Flags.recompute_resources_between_steps then
           Trace.step ~kind:Step_small ~tags:["pre-post-processing"] ~name:"Preprocessing contracts" (fun () ->
+            if !elaboration_activated then begin
+              Resources.perform_elaboration ();
+            end;
             Resources.fix_types_in_contracts ();
             Resources.make_strict_loop_contracts [];
           );

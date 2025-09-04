@@ -275,8 +275,8 @@ let trm_prim ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (typ: typ) 
 
 (** [trm_to_elaborate ~annot ?loc ?ctx p]: hole to elaborate;
     should only be produced during the parsing phase, for resolution with the initial typechecking *)
-let trm_to_elaborate ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (): trm =
-  trm_make ~annot:annot ?loc ?ctx (Trm_prim (typ_auto, Prim_to_elaborate))
+let trm_to_elaborate ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (typ:typ) : trm =
+  trm_make ~annot:annot ?loc ?ctx (Trm_prim (typ, Prim_to_elaborate (ref None)))
 
 (** [trm_array ~annot ?loc ?typ ?ctx tl]: array initialization list *)
 let trm_array ?(annot = trm_annot_default) ?(loc) ~(elem_typ) ?(ctx : ctx option)
@@ -484,11 +484,11 @@ let trm_prim_inv (t : trm) : (typ * prim) option =
   | Trm_prim (typ, p) -> Some (typ, p)
   | _ -> None
 
-(** [is_trm_to_elaborate t]: tests if a term is an elaboration hole *)
-let is_trm_to_elaborate (t : trm) : bool =
+(** [trm_to_elaborate_inv t]: tests if a term is an elaboration hole *)
+let trm_to_elaborate_inv (t : trm) : trm option ref option =
   match t.desc with
-  | Trm_prim (_typ, Prim_to_elaborate) -> true
-  | _ -> false
+  | Trm_prim (_typ, Prim_to_elaborate r) -> Some r
+  | _ -> None
 
 (** [trm_lit_inv t]: gets the literal from a literal trm *)
 let trm_lit_inv (t : trm) : lit option =

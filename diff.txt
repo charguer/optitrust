@@ -1,0 +1,215 @@
+diff --git a/include/Makefile b/include/Makefile
+index 3ce2c417..5bd42afd 100644
+--- a/include/Makefile
++++ b/include/Makefile
+@@ -1,5 +1,9 @@
+ 
+ .PHONY: precompiled_stdlib.pch
+ 
++# Forcing use of Clang's stdlib
+ precompiled_stdlib.pch: precompiled_stdlib.h
+-	clang -x c++-header $^ -o $@
++	clang -x c++-header $^ -o $@ -stdlib=libc++
++
++# -stdlib=libc++
++#  -stdlib=libc++
+diff --git a/include/optitrust_common.h b/include/optitrust_common.h
+index 7270d797..a2438c0c 100644
+--- a/include/optitrust_common.h
++++ b/include/optitrust_common.h
+@@ -152,10 +152,19 @@ inline size_t MSIZE4(int N1, int N2, int N3, int N4) {
+ 
+ /* ---- Mindex with elaboration of the size ---- */
+ 
+-// These functions are not meant to be executed.
++/* if variadic arguments where supported
++int IDX(...) {
++    //va_list args;
++    __builtin_unreachable();
++    return 0;
++}
++*/
++
++// These functions are not meant to be written or executed.
++// Input code should use IDX() exclusively.
+ 
+ inline int IDX0() {
+-   __builtin_unreachable();
++  __builtin_unreachable();
+ }
+ 
+ inline int IDX1(int i1) {
+@@ -174,7 +183,9 @@ inline int IDX4(int i1, int i2, int i3, int i4) {
+   __builtin_unreachable();
+ }
+ 
+-/* ---- Macro names without need to explicitly specify the arity ---- */
++// inline int IDX5(int i1, int i2, int i3, int i4, int i5) {
++//   __builtin_unreachable();
++// }
+ 
+ // Get the number of arguments with __NARG__
+ #define __NARG__(...)  __NARG_I_(__VA_ARGS__,__RSEQ_N())
+@@ -195,7 +206,6 @@ inline int IDX4(int i1, int i2, int i3, int i4) {
+ //    int FOO4(int a, int b, int c, int d) { return a + b + c + d; }
+ 
+ // Definition of the implicit versions of the dimension-generic functions
+-#define MSIZE(...) VFUNC(MSIZE, __VA_ARGS__)
+ #define IDX(...) VFUNC(IDX, __VA_ARGS__)
+ // TODO: adapt the macros for MALLOC -> remove 1 argument and MINDEX -> half the arguments.
+ 
+diff --git a/lib/ast/matrix_trm.ml b/lib/ast/matrix_trm.ml
+index ecad55fa..b90f286a 100644
+--- a/lib/ast/matrix_trm.ml
++++ b/lib/ast/matrix_trm.ml
+@@ -41,7 +41,7 @@ Guarranted that [dims] and [indices] have the same length*)
+ 
+ let mindex_inv (t : trm) : (trms * trms) option =
+   match t.desc with
+-  | Trm_apps (f, dims_and_indices, _, _) ->
++  | Trm_apps (f, dims_and_indices, _, _) -> (* LATER: check _ are []? *)
+     let n = List.length dims_and_indices in
+     if (n mod 2 = 0 && n/2 <= max_nb_dims) then
+       begin match f.desc with
+@@ -217,3 +217,17 @@ let ghost_ro_mindex_unfold matrix dims res_pattern =
+ 
+ let ghost_ro_mindex_fold matrix dims res_pattern =
+   ghost_call (toplevel_var (sprintf "ro_mindex%d_fold" (List.length dims))) (("H", res_pattern) :: ("matrix", matrix) :: List.mapi (fun i dim -> sprintf "n%d" (i+1), dim) dims)
++
++module Pattern = struct
++  include Pattern
++
++  (* support for [Matrix_trm.Pattern.(mindex !__ !__) (fun dims indices -> ..)] *)
++  let mindex fd fi k t =
++    match mindex_inv t with
++    | Some (d, i) ->
++      let k = fd k d in
++      let k = fi k i in
++      k
++    | None -> raise Next
++
++end
+diff --git a/lib/framework/c/c_encoding.ml b/lib/framework/c/c_encoding.ml
+index 0ae808f9..93717b6a 100644
+--- a/lib/framework/c/c_encoding.ml
++++ b/lib/framework/c/c_encoding.ml
+@@ -1339,15 +1339,37 @@ let typ_from_size (size: trm): typ =
+ let var_malloc = toplevel_var "malloc"
+ let var_calloc = toplevel_var "calloc"
+ let var_free = toplevel_var "free"
++let var_idx = Matrix_trm.toplevel_var_with_dim "IDX%d"
++
++let idx_inv (t : trm) : trms option =
++  match t.desc with
++  | Trm_apps (f, indices, _, _) -> (* LATER: check _ are []? *)
++    let n = List.length indices in
++    if n <= Matrix_trm.max_nb_dims then begin
++      match f.desc with
++      | Trm_var fv when var_eq (var_idx n) fv -> Some indices
++      | _ -> None
++    end else None
++  | _ -> None
++
++module Pattern = struct
++  include Pattern
++
++  let idx fi k t =
++    match idx_inv t with
++    | Some i -> fi k i
++    | None -> raise Next
++
++end
+ 
+ (* recognize C-style malloc operation with a cast,
+-   recognize IDX, IDX1, IDX2, .. operations *)
+-let rec decode_alloc_and_mops (t: trm): trm =
++   recognize IDX operation *)
++let rec decode_alloc_and_idx (t: trm): trm =
+   let annot = t.annot in
+   let loc = t.loc in
+   Pattern.pattern_match t [
+     Pattern.(trm_cast !__ !__) (fun typto t () ->
+-      let t_in = decode_alloc_and_mops t in
++      let t_in = decode_alloc_and_idx t in
+       match t_in.typ with
+       | Some ty when Trm_unify.are_same_trm ty typto -> t_in
+       | _ -> trm_cast ~annot ?loc typto t_in
+@@ -1362,7 +1384,13 @@ let rec decode_alloc_and_mops (t: trm): trm =
+     Pattern.(trm_apps1 (trm_specific_var var_free) !__) (fun t () ->
+       trm_delete ~annot ?loc t
+     );
+-    Pattern.__ (fun () -> trm_map decode_alloc_and_mops t)
++    Pattern.(idx !__) (fun indices () ->
++      let indices = List.map decode_alloc_and_idx indices in
++      let nb = List.length indices in
++      let dims = List.init nb (fun i -> trm_to_elaborate()) in
++      trm_like ~old:t (Matrix_trm.mindex dims indices)
++    );
++    Pattern.__ (fun () -> trm_map decode_alloc_and_idx t)
+   ]
+ 
+ let encode_alloc (style: style) (t: trm): trm =
+@@ -1436,7 +1464,7 @@ let decode_from_c: trm -> trm =
+   decode_return |>
+   decode_expr_in_seq |>
+   decode_formula_sugar |>
+-  decode_alloc_and_mops |>
++  decode_alloc_and_idx |>
+   Scope_computation.infer_var_ids)
+ 
+ (** [encode_to_c t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
+diff --git a/lib/transfo/matrix_core.ml b/lib/transfo/matrix_core.ml
+index b9dfd6b3..700be02f 100644
+--- a/lib/transfo/matrix_core.ml
++++ b/lib/transfo/matrix_core.ml
+@@ -104,7 +104,7 @@ let matrix_copy_at ~(typ: typ) ~(matrix_res_pattern: var * formula)
+     Nobrace.trm_seq_nomarks ((List.rev ghosts_before) @ matrix_copy ~typ dest src d_dims :: ghosts_after)
+ 
+ (** [map_all_accesses v dims map_indices mark t] maps all accesses to [v] in [t],
+-    using the [map_access] function.
++    using the [c] function.
+ 
+     Fails if [v] occurs in a sub-term that is not an access to [v], as this could mean some
+     accesses are hidden (e.g. behind a function call).
+diff --git a/tools/c_parser/c_parser.ml b/tools/c_parser/c_parser.ml
+index 872489ef..4e291b72 100644
+--- a/tools/c_parser/c_parser.ml
++++ b/tools/c_parser/c_parser.ml
+@@ -60,13 +60,15 @@ let raw_parser (filename: string): trm =
+       (Filename.concat optitrust_root "include" :: Clang.default_include_directories ()) in
+   let command_line_warnings = ["-Wno-parentheses-equality"; "-Wno-c++11-extensions"] in
+   let precompiled_stdlib_filename = Filename.concat optitrust_root "include/precompiled_stdlib.pch" in
+-  let command_line_pch = if Sys.file_exists precompiled_stdlib_filename then
+-    ["-include-pch"; precompiled_stdlib_filename]
+-  else begin
+-    Tools.warn "Could not find the precompiled stdlib: parsing may be very slow; did you do 'make precompile' (%s)" precompiled_stdlib_filename;
+-    []
+-  end in
+-  let command_line_args = command_line_warnings @ command_line_include @ command_line_pch in
++  let command_line_pch =
++    if Sys.file_exists precompiled_stdlib_filename then
++      ["-include-pch"; precompiled_stdlib_filename]
++    else begin
++      Tools.warn "Could not find the precompiled stdlib: parsing may be very slow; did you do 'make precompile' (%s)" precompiled_stdlib_filename;
++      []
++    end in
++  let command_line_stdlib = ["-stdlib=libc++"] in (* force use of Clang's stdlib, not GCC's *)
++  let command_line_args = command_line_warnings @ command_line_include @ command_line_pch @ command_line_stdlib in
+   Clang_to_ast.tr_ast (Clang.Ast.parse_file ~command_line_args ~options:clangml_options filename)
+ 
+ let parse (filename: string) : unit =
+diff --git a/tools/view_result.sh b/tools/view_result.sh
+index 3a39af99..39992dd0 100755
+--- a/tools/view_result.sh
++++ b/tools/view_result.sh
+@@ -213,8 +213,8 @@ TIMER6=`date +%s%3N`
+ 
+ echo "View ${FILEPATH} with options ${OPTIONS}"
+ 
+-# LATER: only do this if error is raised
+-make -C ${OPTITRUST_FOLDER} precompile
++# LATER: automate only if we are sure that clang versions are compatible
++# make -C ${OPTITRUST_FOLDER} precompile
+ 
+ # TODO: --no-build
+ OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS} || [[ "${MODE}" == *"trace"* ]]

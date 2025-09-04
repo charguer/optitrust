@@ -420,8 +420,10 @@ and prim_to_doc style (ty: typ) (p : prim) : document =
     if is_typ_array ty then string "delete[]" else string "delete"
   | Prim_array | Prim_record ->
     typ_to_doc style ty
-  | Prim_to_elaborate ->
+  | Prim_to_elaborate { contents = None } ->
     string "<ToElaborate>"
+  | Prim_to_elaborate { contents = Some t } ->
+    string "<ToElaborate(" ^^ trm_to_doc style t ^^ string ")>"
 
 (** [attr_to_doc a]: converts attributes to pprint documents. *)
 and attr_to_doc style (a : attribute) : document =
@@ -1072,7 +1074,7 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_
         else parens (typ_to_doc style ty)
       in
       init_type ^^ blank 1 ^^ braces (separate (comma ^^ blank 1) dl)
-    | Prim_to_elaborate ->
+    | Prim_to_elaborate _r ->
       Tools.warn "Ast_to_c.apps_to_doc: printing Prim_to_elaborate cannot lead to valid C code";
       string "/*! ToElaborate !*/"
     end

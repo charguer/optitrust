@@ -1401,7 +1401,7 @@ let rec decode_alloc_and_idx (t: trm): trm =
     Pattern.(idx !__) (fun indices () ->
       let indices = List.map decode_alloc_and_idx indices in
       let nb = List.length indices in
-      let dims = List.init nb (fun i -> trm_to_elaborate()) in
+      let dims = List.init nb (fun i -> trm_to_elaborate typ_int) in
       trm_like ~old:t (Matrix_trm.mindex dims indices)
     );
     Pattern.__ (fun () -> trm_map decode_alloc_and_idx t)

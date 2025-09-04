@@ -138,7 +138,43 @@ and trm_unify ?(on_failure = fun a b -> ()) (t_left: trm) (t_right: trm) (evar_c
     let inst = trm_fun new_fun_args (typ_or_auto t_other.typ) new_body in
     validate_and_subst xf inst !evar_ctx
   in
+
+  let unify_elaborate evar_ctx t_elab t_other =
+    let r_elab =
+      match t_elab.desc with
+      | (Trm_prim (_typ, Prim_to_elaborate r_elab )) -> r_elab
+      | _ -> failwith "unify_elaborate expects first argument to be a to_elaborate" in
+    match !r_elab with
+    | Some t_elabs_to ->
+        (* If [t_elab] is already elaborated to some [t], then unify [t] with [t_other] *)
+        trm_unify ~on_failure t_other t_elabs_to evar_ctx validate_inst
+    | None ->
+        (* Else [t_elab] is a hole to fill *)
+        begin match t_other.desc with
+        | (Trm_prim (_typ_other, Prim_to_elaborate r_other )) ->
+          (* Case [t_other] is also a [To_elaborate] * *)
+          begin match !r_other with
+          | None ->
+              (* Case where [t_other] is also a hole to fill *)
+              () (* TODO: we would like both holes to share what they will learn in the future;
+                    we need set both prim to a same evar; alternatively, we should start by filling
+                    all [To_elaborate] with a fresh [evar] as sound as we encounter them;
+                    this could be done as a prepass on the AST before typechecking *)
+          | Some t_elabs_to ->
+              (* Case where [t_other] is already filled: use the contents for [t_elab] *)
+              r_elab := Some t_elabs_to
+          end
+        | _ ->
+          (* Case [t_other] is not a [To_elaborate]: use [t_other] as contents for [t_elab] *)
+          r_elab := Some t_other
+            (* TODO: make sure to avoid cycles? what if t_other contains in depth an occurence of the same hole?
+              can it happen? let's be careful during the translation that expands the [To_elaborate]. *)
+        end;
+        Some evar_ctx
+      in
+
   let res = match t_left.desc, t_right.desc with
+
   | Trm_var x_left, Trm_var x_right when var_eq x_left x_right ->
     Some evar_ctx
 
@@ -146,6 +182,11 @@ and trm_unify ?(on_failure = fun a b -> ()) (t_left: trm) (t_right: trm) (evar_c
     validate_and_subst x_left t_right evar_ctx
   | _, Trm_var x_right when Var_map.mem x_right evar_ctx ->
     validate_and_subst x_right t_left evar_ctx
+
+  | (Trm_prim (_typ, Prim_to_elaborate r_elab)), t_other ->
+    unify_elaborate evar_ctx t_left t_right
+  | t_other, (Trm_prim (_typ, Prim_to_elaborate r_elab)) ->
+    unify_elaborate evar_ctx t_right t_left
 
   | Trm_apps (f, args, [], []), Trm_apps (fe, argse, [], []) ->
     let res_opt =

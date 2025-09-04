@@ -547,7 +547,7 @@ and prim =
   | Prim_delete (* "delete t", heap deallocation *)
   | Prim_array (* "{ 0, 3, 5 }" as an array *)
   | Prim_record (* "{ 4, 5.3 }" as a record *)
-  | Prim_to_elaborate (* [trm_prim Prim_to_elaborate] denotes as hole to be filed by elaboration *)
+  | Prim_to_elaborate of trm option ref (* [trm_prim Prim_to_elaborate] denotes as hole to be filed by elaboration. The reference is mutated during the first typechecking pass. Then [Prim_to_elaborate] are all eliminated during the [elaboration] transformation. *)
 
 (** [lit]: literals *)
 and lit =

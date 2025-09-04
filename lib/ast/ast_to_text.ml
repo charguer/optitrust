@@ -132,7 +132,8 @@ and print_prim style (p : prim) : document =
   | Prim_delete -> print_node "Prim_delete"
   | Prim_array -> print_node "Prim_array"
   | Prim_record -> print_node "Prim_record"
-  | Prim_to_elaborate -> print_node "Prim_to_elaborate"
+  | Prim_to_elaborate { contents = None } -> print_node "Prim_to_elaborate(None)"
+  | Prim_to_elaborate { contents = Some _topt } -> print_node "Prim_to_elaborate(Some _)"
 
 (** [print_lit l]: converts literals to pprint document *)
 and print_lit (l : lit) : document =
