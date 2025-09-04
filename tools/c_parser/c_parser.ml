@@ -60,13 +60,15 @@ let raw_parser (filename: string): trm =
       (Filename.concat optitrust_root "include" :: Clang.default_include_directories ()) in
   let command_line_warnings = ["-Wno-parentheses-equality"; "-Wno-c++11-extensions"] in
   let precompiled_stdlib_filename = Filename.concat optitrust_root "include/precompiled_stdlib.pch" in
-  let command_line_pch = if Sys.file_exists precompiled_stdlib_filename then
-    ["-include-pch"; precompiled_stdlib_filename]
-  else begin
-    Tools.warn "Could not find the precompiled stdlib: parsing may be very slow; did you do 'make precompile' (%s)" precompiled_stdlib_filename;
-    []
-  end in
-  let command_line_args = command_line_warnings @ command_line_include @ command_line_pch in
+  let command_line_pch =
+    if Sys.file_exists precompiled_stdlib_filename then
+      ["-include-pch"; precompiled_stdlib_filename]
+    else begin
+      Tools.warn "Could not find the precompiled stdlib: parsing may be very slow; did you do 'make precompile' (%s)" precompiled_stdlib_filename;
+      []
+    end in
+  let command_line_stdlib = ["-stdlib=libc++"] in (* force use of Clang's stdlib, not GCC's *)
+  let command_line_args = command_line_warnings @ command_line_include @ command_line_pch @ command_line_stdlib in
   Clang_to_ast.tr_ast (Clang.Ast.parse_file ~command_line_args ~options:clangml_options filename)
 
 let parse (filename: string) : unit =
