@@ -41,7 +41,7 @@ Guarranted that [dims] and [indices] have the same length*)
 
 let mindex_inv (t : trm) : (trms * trms) option =
   match t.desc with
-  | Trm_apps (f, dims_and_indices, _, _) ->
+  | Trm_apps (f, dims_and_indices, _, _) -> (* LATER: check _ are []? *)
     let n = List.length dims_and_indices in
     if (n mod 2 = 0 && n/2 <= max_nb_dims) then
       begin match f.desc with
@@ -217,3 +217,17 @@ let ghost_ro_mindex_unfold matrix dims res_pattern =
 
 let ghost_ro_mindex_fold matrix dims res_pattern =
   ghost_call (toplevel_var (sprintf "ro_mindex%d_fold" (List.length dims))) (("H", res_pattern) :: ("matrix", matrix) :: List.mapi (fun i dim -> sprintf "n%d" (i+1), dim) dims)
+
+module Pattern = struct
+  include Pattern
+
+  (* support for [Matrix_trm.Pattern.(mindex !__ !__) (fun dims indices -> ..)] *)
+  let mindex fd fi k t =
+    match mindex_inv t with
+    | Some (d, i) ->
+      let k = fd k d in
+      let k = fi k i in
+      k
+    | None -> raise Next
+
+end

@@ -1340,14 +1340,50 @@ let var_malloc = toplevel_var "malloc"
 let var_calloc = toplevel_var "calloc"
 let var_free = toplevel_var "free"
 
+(**
+let var_idx = Matrix_trm.toplevel_var_with_dim "IDX%d"
+
+let idx_inv (t : trm) : trms option =
+  match t.desc with
+  | Trm_apps (f, indices, _, _) -> (* LATER: check _ are []? *)
+    let n = List.length indices in
+    if n <= Matrix_trm.max_nb_dims then begin
+      match f.desc with
+      | Trm_var fv when var_eq (var_idx n) fv -> Some indices
+      | _ -> None
+    end else None
+  | _ -> None
+*)
+
+let var_idx = toplevel_var "IDX"
+
+let idx_inv (t : trm) : trms option =
+  match t.desc with
+  | Trm_apps (f, indices, _, _) -> (* LATER: check _ are []? *)
+      begin match f.desc with
+      | Trm_var fv when var_eq var_idx fv -> Some indices
+      | _ -> None
+      end
+  | _ -> None
+
+module Pattern = struct
+  include Pattern
+
+  let idx fi k t =
+    match idx_inv t with
+    | Some i -> fi k i
+    | None -> raise Next
+
+end
+
 (* recognize C-style malloc operation with a cast,
-   recognize IDX, IDX1, IDX2, .. operations *)
-let rec decode_alloc_and_mops (t: trm): trm =
+   recognize IDX operation *)
+let rec decode_alloc_and_idx (t: trm): trm =
   let annot = t.annot in
   let loc = t.loc in
   Pattern.pattern_match t [
     Pattern.(trm_cast !__ !__) (fun typto t () ->
-      let t_in = decode_alloc_and_mops t in
+      let t_in = decode_alloc_and_idx t in
       match t_in.typ with
       | Some ty when Trm_unify.are_same_trm ty typto -> t_in
       | _ -> trm_cast ~annot ?loc typto t_in
@@ -1362,7 +1398,13 @@ let rec decode_alloc_and_mops (t: trm): trm =
     Pattern.(trm_apps1 (trm_specific_var var_free) !__) (fun t () ->
       trm_delete ~annot ?loc t
     );
-    Pattern.__ (fun () -> trm_map decode_alloc_and_mops t)
+    Pattern.(idx !__) (fun indices () ->
+      let indices = List.map decode_alloc_and_idx indices in
+      let nb = List.length indices in
+      let dims = List.init nb (fun i -> trm_to_elaborate()) in
+      trm_like ~old:t (Matrix_trm.mindex dims indices)
+    );
+    Pattern.__ (fun () -> trm_map decode_alloc_and_idx t)
   ]
 
 let encode_alloc (style: style) (t: trm): trm =
@@ -1436,7 +1478,7 @@ let decode_from_c: trm -> trm =
   decode_return |>
   decode_expr_in_seq |>
   decode_formula_sugar |>
-  decode_alloc_and_mops |>
+  decode_alloc_and_idx |>
   Scope_computation.infer_var_ids)
 
 (** [encode_to_c t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)

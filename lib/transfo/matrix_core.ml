@@ -104,7 +104,7 @@ let matrix_copy_at ~(typ: typ) ~(matrix_res_pattern: var * formula)
     Nobrace.trm_seq_nomarks ((List.rev ghosts_before) @ matrix_copy ~typ dest src d_dims :: ghosts_after)
 
 (** [map_all_accesses v dims map_indices mark t] maps all accesses to [v] in [t],
-    using the [map_access] function.
+    using the [c] function.
 
     Fails if [v] occurs in a sub-term that is not an access to [v], as this could mean some
     accesses are hidden (e.g. behind a function call).

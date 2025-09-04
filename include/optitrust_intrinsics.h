@@ -83,4 +83,12 @@ template<typename T> T __call_with(T ret_val, __ghost_args = "", __ghost_bind = 
 template<typename T> T __to_elaborate() { __builtin_unreachable(); }
 #define __TO_ELABORATE __to_elaborate<auto>
 
+/* if variadic arguments where supported */
+int IDX(...) {
+    //va_list args;
+    __builtin_unreachable();
+    return 0;
+}
+
+
 #endif

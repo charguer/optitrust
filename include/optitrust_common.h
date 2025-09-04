@@ -149,57 +149,6 @@ inline size_t MSIZE4(int N1, int N2, int N3, int N4) {
 #define CALLOC3(T, N1, N2, N3) (T*) calloc(MSIZE3(N1, N2, N3), sizeof(T))
 #define CALLOC4(T, N1, N2, N3, N4) (T*) calloc(MSIZE4(N1, N2, N3, N4), sizeof(T))
 
-
-/* ---- Mindex with elaboration of the size ---- */
-
-// These functions are not meant to be executed.
-
-inline int IDX0() {
-   __builtin_unreachable();
-}
-
-inline int IDX1(int i1) {
-  __builtin_unreachable();
-}
-
-inline int IDX2(int i1, int i2) {
-  __builtin_unreachable();
-}
-
-inline int IDX3(int i1, int i2, int i3) {
-  __builtin_unreachable();
-}
-
-inline int IDX4(int i1, int i2, int i3, int i4) {
-  __builtin_unreachable();
-}
-
-/* ---- Macro names without need to explicitly specify the arity ---- */
-
-// Get the number of arguments with __NARG__
-#define __NARG__(...)  __NARG_I_(__VA_ARGS__,__RSEQ_N())
-#define __NARG_I_(...) __ARG_N(__VA_ARGS__)
-#define __ARG_N(_1, _2, _3, _4, _5, _6, _7, _8, _9,_10, N,...) N
-#define __RSEQ_N() 10,9,8,7,6,5,4,3,2,1,0
-
-// General definition for any function name
-#define _VFUNC_(name, n) name##n
-#define _VFUNC(name, n) _VFUNC_(name, n)
-#define VFUNC(func, ...) _VFUNC(func, __NARG__(__VA_ARGS__)) (__VA_ARGS__)
-
-// Example definition for FOO
-//   #define FOO(...) VFUNC(FOO, __VA_ARGS__)
-//   #define FOO2(x, y) ((x) + (y))
-//   #define FOO3(x, y, z) ((x) + (y) + (z))
-// Note it also works with C functions:
-//    int FOO4(int a, int b, int c, int d) { return a + b + c + d; }
-
-// Definition of the implicit versions of the dimension-generic functions
-#define MSIZE(...) VFUNC(MSIZE, __VA_ARGS__)
-#define IDX(...) VFUNC(IDX, __VA_ARGS__)
-// TODO: adapt the macros for MALLOC -> remove 1 argument and MINDEX -> half the arguments.
-
-
 /* ---- Arithmetic Functions ---- */
 
 inline int exact_div(int n, int b) {
