@@ -197,7 +197,7 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
             epsilon);
     for (int q = 0; q < q_head_count; q++) {
       matvec(head_dim, embedding_dim,
-             &(&mha_q[MINDEX0()])[MINDEX2(q_head_count, head_dim, q, 0)],
+             &mha_q[MINDEX2(q_head_count, head_dim, q, 0)],
              &mha_norm[MINDEX0()],
              &mha_q_weight[MINDEX4(layer_count, q_head_count, head_dim,
                                    embedding_dim, l, q, 0, 0)]);

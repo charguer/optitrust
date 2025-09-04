@@ -69,10 +69,8 @@ let rec normalize_trm ?(on_failure = fun a b -> ()) (t:trm) (evar_ctx: 'a unific
           let zeros = List.init n_dims_out (fun i -> trm_int 0 ) in
           let left_list = last_dims_in @  (List.take_last n_dims_out inds_in) in
           let right_list = dims_out @ zeros in
-          let unify_result = begin
-            try
+          let unify_result =
               List.fold_left2 (fun evar_ctx arg arge -> let* evar_ctx in trm_unify ~on_failure arg arge evar_ctx validate_inst) (Some evar_ctx) left_list right_list
-            with Invalid_argument _ -> None end
           in
           begin match unify_result with
           | None -> nochange

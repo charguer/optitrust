@@ -89,7 +89,7 @@ let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg :
     let (x, _, _) = trm_inv ~error trm_let_inv tg_trm in
     Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr
     [[cVarInit x.name];
-     [cCellAccess ~base:[cVarId x] (); cCall ~regexp:true "MINDEX."]
+     [cCellAccess ~base:[cVarId x] (); cCall ~regexp:true "MINDEX."];
     ]])
   ) tg
 

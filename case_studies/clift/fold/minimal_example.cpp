@@ -33,3 +33,11 @@ void test(float * x, int n, int m) {
     sum_1(&x[MINDEX2(n,m,i,0)], m );
   }
 }
+
+void f2(float* x, int n, int m ){
+  __modifies("for i in 0..n -> for j in 0..m -> &x[MINDEX2(n,m,i,j)] ~> Cell");
+}
+void g2(float* x, int n, int m ){
+  __modifies("for j in 0..m -> for i in 0..n -> &x[MINDEX2(m,n,j,i)] ~> Cell");
+  f2(x,n,m);
+}
