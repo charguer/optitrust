@@ -211,8 +211,8 @@ TIMER6=`date +%s%3N`
 
 echo "View ${FILEPATH} with options ${OPTIONS}"
 
-# LATER: only do this if error is raised
-make -C ${OPTITRUST_FOLDER} precompile
+# LATER: automate only if we are sure that clang versions are compatible
+# make -C ${OPTITRUST_FOLDER} precompile
 
 
 # TODO: --no-build
