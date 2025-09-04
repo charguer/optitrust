@@ -83,14 +83,15 @@ let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(ac
 let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg : target) : unit =
   let rotate_n = match rotate_n with Some n -> n | None -> 0  in
   Target.iter (fun p ->
+    Printf.printf "\In iter reorder_dims \n " ;
     let path_to_seq,_ = Internal.isolate_last_dir_in_seq p in
     let tg_trm = Target.resolve_path p in
     let error = "Matrix.reorder_dims: expected a target to a variable declaration." in
     let (x, _, _) = trm_inv ~error trm_let_inv tg_trm in
-    Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr
+    Trace.without_resource_computation_between_steps (fun _ -> Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr
     [[cVarInit x.name];
      [cCellAccess ~base:[cVarId x] (); cCall ~regexp:true "MINDEX."];
-    ]])
+    ]]))
   ) tg
 
 (* FIXME:
