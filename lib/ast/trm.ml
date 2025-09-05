@@ -1389,6 +1389,14 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
   | Trm_prim (ty, prim) ->
     let ty' = f ty in
     let prim' = match prim with
+      | Prim_to_elaborate r ->
+        (* Recall that [r] is a write-once reference, meant to be updated during the initial typechecking.
+           The calls to [trm_map] involved during typechecking happen via calls to [trm_subst].
+           For those, we want to propagate the substitution inside the reference.
+           We wish to avoid unintended sharing during this phase, so for now we follow the safe
+           route of always allocating a fresh reference when [trm_map] encounters a [Prim_to_elaborate]. *)
+        let r' = ref (Option.map f !r) in
+        Prim_to_elaborate r'
       | Prim_unop (Unop_cast ty_to) ->
         let ty_to' = f ty_to in
         if ty_to == ty_to' then prim else Prim_unop (Unop_cast ty_to')
