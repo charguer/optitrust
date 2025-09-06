@@ -47,7 +47,7 @@ void softmax(int col_count, int col_stride, float *x) {
   }
 }
 
-void matmul(int col_count, int red_count, float *y, float *x, float *w) {
+void matvec(int col_count, int red_count, float *y, float *x, float *w) {
   for (int j = 0; j < col_count; j++) {
     y[MINDEX1(col_count, j)] = 0.0f;
     for (int k = 0; k < red_count; k++) {
@@ -70,6 +70,23 @@ void rope(int col_count, float *x, int pos) {
     float v1 = x[MINDEX1(col_count, j + 1)];
     x[MINDEX1(col_count, j)] = v0 * fcr - v1 * fci;
     x[MINDEX1(col_count, j + 1)] = v0 * fci + v1 * fcr;
+  }
+}
+void matmul(int row_count, int col_count, int red_count, float *const x,
+            float *const y, float *const w) {
+  __writes("x ~> Matrix2(col_count)");
+  __reads("y ~> Matrix2(red_count)");
+  __reads("w ~> Matrix2(col_count,red_count)");
+
+  for (int i = 0; i < row_count; i++) {
+    for (int j = 0; j < col_count; j++) {
+      x[MINDEX2(row_count, col_count, i, j)] = 0.f;
+      for (int k = 0; k < red_count; k++) {
+        x[MINDEX2(row_count, col_count, i, j)] +=
+            y[MINDEX2(row_count, red_count, i, k)] *
+            w[MINDEX2(col_count, red_count, j, k)];
+      }
+    }
   }
 }
 void forward(int token, int vocabulary_len, int context_len, int layer_count,
@@ -112,9 +129,9 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
     rmsnorm(embedding_dim, &mha_norm[MINDEX0()], &embedding[MINDEX0()],
             &(mha_norm_weight[MINDEX2(layer_count, embedding_dim, l, 0)]),
             epsilon);
-    // qkv matmuls for this position
+    // qkv matvecs for this position
     for (int q = 0; q < q_head_count; q++) {
-      matmul(head_dim, embedding_dim,
+      matvec(head_dim, embedding_dim,
              &mha_q[MINDEX2(q_head_count, head_dim, q, 0)],
              &mha_norm[MINDEX0()],
              &mha_q_weight[MINDEX4(layer_count, q_head_count, head_dim,
@@ -122,7 +139,7 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
     }
 
     for (int h = 0; h < kv_head_count; h++) {
-      matmul(head_dim, embedding_dim,
+      matvec(head_dim, embedding_dim,
              &k_cache[MINDEX4(layer_count, kv_head_count, context_len, head_dim,
                               l, h, pos, 0)],
              &mha_norm[MINDEX0()],
@@ -131,7 +148,7 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
     }
 
     for (int h = 0; h < kv_head_count; h++) {
-      matmul(head_dim, embedding_dim,
+      matvec(head_dim, embedding_dim,
              &v_cache[MINDEX4(layer_count, kv_head_count, context_len, head_dim,
                               l, h, pos, 0)],
              &mha_norm[MINDEX0()],
@@ -189,8 +206,8 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
             mha_blend[MINDEX2(q_head_count, head_dim, q, e)];
       }
     }
-    // final matmul to get the output of the attention
-    matmul(embedding_dim, embedding_dim, &mha_out[MINDEX0()],
+    // final matvec to get the output of the attention
+    matvec(embedding_dim, embedding_dim, &mha_out[MINDEX0()],
            &mha_att[MINDEX0()],
            &mha_out_weight[MINDEX3(layer_count, embedding_dim, embedding_dim, l,
                                    0, 0)]);
@@ -205,10 +222,10 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
     rmsnorm(embedding_dim, &ffn_norm[MINDEX0()], &embedding[MINDEX0()],
             &ffn_norm_weight[MINDEX2(layer_count, embedding_dim, l, 0)],
             epsilon);
-    matmul(hidden_dim, embedding_dim, &ffn_fc[MINDEX0()], &ffn_norm[MINDEX0()],
+    matvec(hidden_dim, embedding_dim, &ffn_fc[MINDEX0()], &ffn_norm[MINDEX0()],
            &ffn_fc_weight[MINDEX3(layer_count, hidden_dim, embedding_dim, l, 0,
                                   0)]);
-    matmul(hidden_dim, embedding_dim, &ffn_up[MINDEX0()], &ffn_norm[MINDEX0()],
+    matvec(hidden_dim, embedding_dim, &ffn_up[MINDEX0()], &ffn_norm[MINDEX0()],
            &ffn_up_weight[MINDEX3(layer_count, hidden_dim, embedding_dim, l, 0,
                                   0)]);
     // SwiGLU non-linearity
@@ -217,8 +234,8 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
           (1.0f / (1.0f + expf(-ffn_fc[MINDEX1(hidden_dim, e)])));
       ffn_fc[MINDEX1(hidden_dim, e)] *= ffn_up[MINDEX1(hidden_dim, e)];
     }
-    // final matmul to get the output of the ffn
-    matmul(embedding_dim, hidden_dim, &ffn_out[MINDEX0()], &ffn_fc[MINDEX0()],
+    // final matvec to get the output of the ffn
+    matvec(embedding_dim, hidden_dim, &ffn_out[MINDEX0()], &ffn_fc[MINDEX0()],
            &ffn_out_weight[MINDEX3(layer_count, embedding_dim, hidden_dim, l, 0,
                                    0)]);
     // residual connection
@@ -232,7 +249,7 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
           out_norm_weight, epsilon);
   // classifier into logits
   if(logits_count) {
-  matmul(vocabulary_len, embedding_dim, &logits[MINDEX0()],
+  matvec(vocabulary_len, embedding_dim, &logits[MINDEX0()],
          &embedding[MINDEX0()], out_weight);
   }
   free(embedding);

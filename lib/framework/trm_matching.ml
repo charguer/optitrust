@@ -186,9 +186,27 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
           aux_with_bindings tr1 tr2
       | _ -> mismatch() (* note: in general, this should have been tested earlier on by comparing lengths *)
       in
-    match t1.desc, t2.desc with
+    let t1, t2 =
+    match (Matrix_trm.access_inv t1, Matrix_trm.access_inv t2) with
+    | Some (base1, dims1, inds1), Some (base2, dims2, inds2)
+      when List.length dims1 < List.length dims2 ->
+        let length1 = List.length dims1 in
+        let inds_in = List.drop_last length1 inds2 in
+        let zeros = List.init length1 (fun i -> trm_int 0) in
+        let access_in = Matrix_trm.access base2 dims2 (List.append inds_in zeros) in
+        let access_out =
+          Matrix_trm.access access_in (List.take_last length1 dims2) (List.take_last length1 inds2)
+        in
+        (t1, access_out)
+    | _ -> (t1, t2) in
 
-    (* Case for treating a match against a pattern variable *)
+    match t1.desc, t2.desc with
+      (* // when t1 is  mindex and t2 is mindex  t2 : t[+]MINDEX2(n1,n2,i1,i2) t1: t'[+]MINDEX1(n,i)
+      t2 -> (t[+](MINDEX2(n1,n2,i1,0))(MINDEX1(n2,i2))
+      Only works when mindex  is smaller  *)
+    (* Case for treating a match against a pattern variable
+     try_mindex let t2 = trm_access trm_access
+     aux t1 t2'*)
     | Trm_var x, _ when is_var x -> find_var x t2
 
     (* Case for treating a match against a pattern such as [body(i)],
@@ -255,6 +273,7 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
     | Trm_seq (tl1, None), Trm_seq (tl2, None) ->
         (* TODO: manage sequence with results *)
         if Mlist.length tl1 <> Mlist.length tl2 then mismatch ();
+        (* enlever les ghosts dans tl1,tl2 *)
         aux_with_bindings (Mlist.to_list tl1) (Mlist.to_list tl2)
 
     | Trm_apps (f1, ts1, _, _), Trm_apps (f2, ts2, _, _) ->

@@ -15,6 +15,6 @@ let _ =
       !!Matrix.simpl_index_add [ nbMulti; f; cCellAccess ~base:[ cVar "x" ] (); cBinop Binop_add ];
       !!Matrix.simpl_index_add [ nbMulti; f; cCellAccess ~base:[ cVar "y" ] (); cBinop Binop_add ];
 
-      !!Rewrite.equiv_at "int j; ==> 0 + j == j" [ nbMulti; cFunDef "iter_matvec" ] ~indepth:true;
+      !!Rewrite.equiv_at "int j; ==> 0 + j == j" [ nbMulti; cFunDef " iter_matvec" ] ~indepth:true;
       !!Function.uninline ~f:[ cFunDef "matmul" ] [ cFunBody "iter_matvec"; dSeqNth 0 ]
     )

@@ -237,12 +237,13 @@ let formula_custom_repr_matrix repr (m: trm) (dims: trm list) : formula =
     trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula])
     indices dims inner_trm
 
-let formula_matrix (m: trm) ?(model: formula option) (dims: trm list) : formula =
+let formula_matrix (m: trm) ?(model: formula option) ?(init=true) (dims: trm list) : formula =
   if !Flags.use_resources_with_models then
     let model = Option.unsome_or_else model (fun () -> failwith "Providing a model to formula_matrix is mandatory when models are enabled") in
     formula_custom_repr_matrix (fun indices -> trm_apps trm_cell [trm_apps model (List.map trm_var indices)]) m dims
   else
-    formula_custom_repr_matrix (fun _ -> trm_cell) m dims
+    let cell = if init then fun _ -> trm_cell else fun _  -> trm_uninit_cell in
+    formula_custom_repr_matrix cell m dims
 
 let formula_uninit_matrix (m: trm) (dims: trm list) : formula =
   formula_custom_repr_matrix (fun _ -> trm_uninit_cell) m dims

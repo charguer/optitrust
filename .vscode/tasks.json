@@ -139,7 +139,7 @@
           "full_trace",
           "${relativeFile}",
           "${lineNumber}",
-          "-substeps-including-ast",
+          "-save-steps",
           "small"
         ]
       },
@@ -179,7 +179,7 @@
           "standalone_full_trace",
           "${relativeFile}",
           "${lineNumber}",
-          "-substeps-including-ast",
+          "-save-steps",
           "small",
           "-trace-as-text"
         ]
@@ -201,7 +201,7 @@
           "standalone_full_trace",
           "${relativeFile}",
           "${lineNumber}",
-          "-substeps-including-ast",
+          "-save-steps",
           "all-important",
         ]
       },

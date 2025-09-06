@@ -8,7 +8,7 @@ let chunk_len = 512
 let _ =
   Run.script_cpp (fun () ->
       !!(Function.inline [ f; cCall "forward" ]);
-      !!(Loop.tile ~bound:TileBoundMin (trm_int chunk_len) [ f; cFor "i" ]);
+      (* !!(Loop.tile ~bound:TileBoundMin (trm_int chunk_len) [ f; cFor "i" ]); *)
       !!Loop.hoist
         [
           nbMulti;
@@ -48,4 +48,21 @@ let _ =
       !!Variable.inline [ nbMulti; f; cVarDef "q" ];
       !!Rewrite.equiv_at "int i; int j ; int k; ==> (i*j +k) /j == i" ~indepth:true [ f ];
       !!Rewrite.equiv_at "int i; int j ; int k; ==> (i*j +k) %j == k" ~indepth:true [ f ];
-      )
+      !!Function.inline [ nbMulti; f; cCall "matvec" ];
+      !!Matrix.simpl_access_of_access ~indepth:true [ f ];
+      !!Matrix.simpl_index_add
+        [
+          nbMulti;
+          f;
+          cCellAccess ~base:[ cVar ~substr:true "" ] ();
+          cBinop ~lhs:[ cCall ~regexp:true "MINDEX." ] Binop_add;
+        ];
+      !!Rewrite.equiv_at "int j; ==> 0 + j == j" [ nbMulti; f ] ~indepth:true;
+      !!Function.uninline
+        ~f:[ cFunDef "matmul" ]
+        [
+          nbMulti;
+          f;
+          cCellWrite ~base:[ cVar ~substr:true "" ] ~rhs:[ cDouble 0. ] () ;
+          tBefore
+        ])
