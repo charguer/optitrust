@@ -22,4 +22,3 @@ let _ =
       !!Loop.reorder_at ~order:[ "l"; "i" ] [ f; cForBody "l"; dSeqNth 0 ];
       )
 
-(* En 3 mois  *)

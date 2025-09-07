@@ -5,7 +5,7 @@
 # in brought to the front and its contents is refreshed.
 
 # If you want to use a specific browser, include a line in your ~/.bashrc such as:
-#    export OPTITRUST_BROWSER=firefox
+export OPTITRUST_BROWSER=firefox
 
 
 URL=$1
