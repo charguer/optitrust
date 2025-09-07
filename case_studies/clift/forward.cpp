@@ -74,9 +74,6 @@ void rope(int col_count, float *x, int pos) {
 }
 void matmul(int row_count, int col_count, int red_count, float *const x,
             float *const y, float *const w) {
-  __writes("x ~> Matrix2(col_count)");
-  __reads("y ~> Matrix2(red_count)");
-  __reads("w ~> Matrix2(col_count,red_count)");
 
   for (int i = 0; i < row_count; i++) {
     for (int j = 0; j < col_count; j++) {

@@ -146,9 +146,9 @@
       {
         "label": "View standalone trace",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": "./run_action.sh",
         "options": {
-          "cwd": "${workspaceFolder}",
+          "cwd": "${workspaceFolder}/.vscode",
           "shell": {
             "args": ["-i"]
           }
@@ -157,6 +157,7 @@
           "clear": true
         },
         "args": [
+          "./tools/view_result.sh",
           "standalone_full_trace",
           "${relativeFile}",
           "${lineNumber}"
