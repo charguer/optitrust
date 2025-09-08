@@ -1,3 +1,5 @@
+#/bin/bash
+
 # This script opens ${URL} in a fresh browser, unless a windows
 # with title ${WINDOWTITLE} already exists, in which case this window
 # in brought to the front and its contents is refreshed.
@@ -16,7 +18,8 @@ msg() {
 if [ -z "${OPTITRUST_BROWSER}" ]; then
 
   if [ -n "${BROWSER}" ]; then
-    OPTITRUST_BROWSER="${BROWSER}"
+    OPTITRUST_BROWenv | grep XAUTHORITY
+    SER="${BROWSER}"
   else
     OPTITRUST_BROWSER="xdg-open"
     # apparently xdg-open does not work on Ubuntu due issues with snap
@@ -39,7 +42,10 @@ if [ -z "${WINDOWTITLE}" ]; then
 else
   msg "Searching for an existing brower session."
 
-  WID=`xdotool search --name "${WINDOWTITLE}" | head -1`
+  # WID=`{ xdotool search -all --name "${WINDOWTITLE}" --class "firefox|chromium";
+
+  WID=`xdotool search --limit 1 --name "${WINDOWTITLE}"`
+  echo "xdotool search --limit 1 --name \"${WINDOWTITLE}\""
 
   if [ -n "${WID}" ]; then
     msg "Existing brower session found, using xdotool to bring it up."

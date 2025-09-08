@@ -530,7 +530,7 @@
           "doc/open_doc_for.sh"
         ]
       },
-      // Test shortcuts
+      // Test shortcuts --> via runaction
       {
         "label": "Test OptiTrust Shortcuts",
         "type": "shell",
@@ -545,6 +545,22 @@
           }
         }
       },
+      // Test shortcuts --> direct
+      /*{
+        "label": "Test OptiTrust Shortcuts",
+        "type": "shell",
+        "command": "tools/test_shortcuts.sh",
+        "args": [ "${file}",
+                  "${lineNumber}" ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        }
+      },*/
+
+      // "command": "env -i DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY PATH=$PATH snap run tools/test_shortcuts.sh"
       // Run script (currently not using run_action.sh)
       {
         "label": "Execute doc/add_tests_into_doc/run.sh",

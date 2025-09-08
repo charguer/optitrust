@@ -50,14 +50,14 @@ elif [ "${LINE}" = "5" ]; then
 
   echo "LINE=5, thus trying to open test page using open_in_browser.sh specifying chromium as browser"
   export OPTITRUST_BROWSER="chromium"
-  echo "Command is 'OPTITRUST_BROWSER=\"chromium\" tools/open_in_browser.sh ${URL} test'"
-  tools/open_in_browser.sh ${URL} test
+  echo "Command is 'OPTITRUST_BROWSER=\"chromium\" tools/open_in_browser.sh ${URL} __optitrust_test'"
+  tools/open_in_browser.sh ${URL} __optitrust_test
 
 else
 
   echo "LINE>5, thus trying to execute script open_in_browser.sh"
-  echo "Command is 'tools/open_in_browser.sh ${URL} test'"
-  tools/open_in_browser.sh ${URL} test
+  echo "Command is 'tools/open_in_browser.sh ${URL} __optitrust_test'"
+  tools/open_in_browser.sh ${URL} __optitrust_test
 
 fi
 
