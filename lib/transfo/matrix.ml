@@ -84,7 +84,7 @@ let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg :
 (* Trace.justif_always_correct (); *)
   let rotate_n = match rotate_n with Some n -> n | None -> 0  in
   Target.iter (fun p ->
-    Printf.printf "\In iter reorder_dims \n " ;
+    Printf.printf "iter reorder_dims \n " ;
     let path_to_seq,_ = Internal.isolate_last_dir_in_seq p in
     let tg_trm = Target.resolve_path p in
     let error = "Matrix.reorder_dims: expected a target to a variable declaration." in

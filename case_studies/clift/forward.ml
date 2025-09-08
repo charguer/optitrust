@@ -13,8 +13,8 @@ let _ =
       !!(Loop.tile ~bound:TileBoundMin (trm_int chunk_len) [ f; cFor "i" ]);
       !!Loop.hoist
         [nbMulti;cFunDef "generate_prompt_proc";
-          cVarDefs [ "embedding"; "mha_norm"; "mha_q"; "mha_score"; "mha_att"; "mha_blend"; "mha_out"; "ffn_norm"; "ffn_up"; "ffn_fc"; "ffn_out" ];
-        ];
+          cVarDefs [ "embedding"; "mha_norm"; "mha_q"; "mha_score"; "mha_att";
+          "mha_blend"; "mha_out"; "ffn_norm"; "ffn_up"; "ffn_fc"; "ffn_out" ]; ];
       !!Loop.fission [ f; cForBody "i"; tBetweenAll ];
       !!Loop.reorder_at ~order:[ "l"; "i" ] [ f; cForBody "l"; dSeqNth 0 ];
       !!Loop.fission [ f; cForBody "l"; cForBody "i"; tBetweenAll ];
