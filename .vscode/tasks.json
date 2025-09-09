@@ -203,7 +203,7 @@
           "${relativeFile}",
           "${lineNumber}",
           "-save-steps",
-          "all-important",
+          "important",
         ]
       },
       {
