@@ -96,7 +96,9 @@ when the flag `Flags.request_serialized_trace` is set, as is the case in mode "f
 
 The script `tools/open_in_browser.sh` takes as argument the path to an html page, and a windows title. It aims at opening the page in a given browser, by either launching a fresh browser, or by reusing an existing browser window in case one can be found. Reusing a window is much faster, and avoids the creation of numerous tabs.
 
-The mechanism for reusing windows is based on "xdotools", which requires an X server ---Wayland won't work.
+The mechanism for reusing windows is based on "xdotools", which requires an X server ---Wayland won't work. To disable Wayland: `sudo sh -c 'echo "WaylandEnable=false" >> /etc/gdm3/custom.conf'`, then reboot.
+
+The choice of the browser is, by default, "firefox" on Ubuntu, and "xdg-open" on other OS. If desired, add can customize the choice by adding to your `~/.bashrc`, e.g., `export OPTITRUST_BROWSER="chromium"`.
 
 ## Troubleshooting
 

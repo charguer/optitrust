@@ -18,12 +18,16 @@ msg() {
 if [ -z "${OPTITRUST_BROWSER}" ]; then
 
   if [ -n "${BROWSER}" ]; then
-    OPTITRUST_BROWenv | grep XAUTHORITY
-    SER="${BROWSER}"
+    OPTITRUST_BROWSER="${BROWSER}"
   else
-    OPTITRUST_BROWSER="xdg-open"
     # apparently xdg-open does not work on Ubuntu due issues with snap
-    # FIX: ask Ubuntu users to define OPTITRUST_BROWSER or BROWSER in their environment
+    if grep -qi "ubuntu" /etc/os-release; then
+        # Thus, on ubuntu, we assume firefox to be installed.
+        # If desired, add to your ~/.bashrc: export OPTITRUST_BROWSER="chromium"
+        OPTITRUST_BROWSER="firefox"
+    else
+        OPTITRUST_BROWSER="xdg-open"
+    fi
   fi
 fi
 
