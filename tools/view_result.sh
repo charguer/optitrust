@@ -70,11 +70,9 @@ fi
 echo "${TOOLS_FOLDER}/view_result.sh $*" > "${TOOLS_FOLDER}/_last_view_result.sh"
 chmod +x "${TOOLS_FOLDER}/_last_view_result.sh"
 
+
 #==========================================================================
 # Setting up the environment, and read additional settings
-
-# Limit the amount of memory that can be allocated
-ulimit -v $((16 * 1024 * 1024)) # Never exceed 16 GiB of memory
 
 # Make sure we work in the directory that contains the file
 cd ${DIRNAME}
@@ -218,8 +216,13 @@ make -C ${OPTITRUST_FOLDER} precompile
 
 
 # TODO: --no-build
-echo "Execution of OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS}"
-OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS} || [[ "${MODE}" == *"trace"* ]]
+
+# Using a subshell to limit the amount of memory that can be allocated
+(
+  ulimit -v $((16 * 1024 * 1024)) # Never exceed 16 GiB of memory
+  echo "Execution of OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS}"
+  OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS} || [[ "${MODE}" == *"trace"* ]]
+)
 
 
 #==========================================================================

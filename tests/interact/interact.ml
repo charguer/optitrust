@@ -2,7 +2,8 @@
 (* Usage:
       make optitrust && make interact.out
    or
-      F6 on a given line, or shift+F6 to recompile optitrust
+      F6 on a given line to view a diff
+      shift+F5 for compiling a full trace
 *)
 
 open Optitrust

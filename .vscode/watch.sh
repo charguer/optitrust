@@ -3,37 +3,41 @@
 # This script watches over for any modification of ACTION_FILE
 # and executes the file when it gets modified.
 # Requires the `inotify-tools` package.
+
 # Assumes it is called from the .vscode folder
 
-
-
+# Compute paths
+OPTITRUST_DIR=`pwd`
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-echo "Start watching in folder:"
-echo ${SCRIPT_DIR}
+ACTION_FILE="${SCRIPT_DIR}/action.sh"
+ACTION_OUT_TEMP="${SCRIPT_DIR}/action_out_temp.txt"
+ACTION_OUT="${SCRIPT_DIR}/action_out.txt"
 
-
-cd ${SCRIPT_DIR}
-ACTION_FILE="./action.sh"
-ACTION_OUT_TEMP="./action_out_temp.txt"
-ACTION_OUT="./action_out.txt"
+echo "Will be watching for commands produced by run_action.sh into the file:"
+echo "   ${ACTION_FILE}"
+echo "Type CTRL+C or close current window to terminate the watcher."
+echo "Now waiting for next command..."
 
 while true; do
+    # Create the file "action.sh" used to receive the commands to execute
     rm -f ${ACTION_FILE} # optional
     touch ${ACTION_FILE}
     chmod +x ${ACTION_FILE}
+    # Watch for changes to this file
     inotifywait -q -e modify ${ACTION_FILE}
     sleep 0.01
     OUT=$?
     if [ $OUT -eq 0 ];then
+       # Print the command to execute
        echo "Action to perform:"
        cat ${ACTION_FILE}
+       # Clear the temporary file in which to capture the output of the command
        rm -f ${ACTION_OUT_TEMP}
-       # Execute the action, and save the output
-       # TODO ARthur : remove this when fix run action
-       cd ..
-       ./.vscode/${ACTION_FILE} > ./.vscode/${ACTION_OUT_TEMP} 2>&1
-       mv ./.vscode/${ACTION_OUT_TEMP} ./.vscode/${ACTION_OUT} -f
-      cd .vscode
+       # Execute the action
+       ${ACTION_FILE} > ${ACTION_OUT_TEMP} 2>&1
+       # Copy the output of the command into the "action_out.txt" file.
+       mv ${ACTION_OUT_TEMP} ${ACTION_OUT} -f
+       echo "Action complete"
     else
        exit
     fi

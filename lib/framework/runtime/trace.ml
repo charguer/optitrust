@@ -1798,7 +1798,6 @@ let produce_output_and_exit () : unit =
   let step = get_last_substep () in
   if !Flags.only_big_steps && step.step_kind <> Step_big
     then raise (TraceFailure "produce_output_and_exit: cannot show a diff for a big-step, no call to bigstep was made");
-  (* Output the step description *)
   begin match !Flags.execution_mode with
   | Execution_mode_step_diff -> produce_diff_output step
   | Execution_mode_step_trace -> produce_trace_output step
