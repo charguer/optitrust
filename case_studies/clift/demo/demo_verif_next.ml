@@ -9,7 +9,17 @@ let _ =
 let _ = Flags.recompute_resources_between_steps := true
 let chunk_len = 512
 let f = cFunDef "generate_prompt_proc"
-let _ = Run.script_cpp (fun _ -> Matrix.reorder_dims ~order:[ 1; 0; 2 ] [ f; cVarDef "mha_q" ])
+
+let _ =
+  Run.script_cpp (fun _ ->
+      !!Loop.fission [ f; cFor "l"; cForBody "i"; cCall "rmsnorm"; tAfter ];
+      !!Loop.swap  [ nbMulti; f; cFor "i" ~body:[cFor "q"]];
+      !!Matrix.reorder_dims ~order:[ 1; 0; 2 ] [ f; cVarDef "mha_q" ];
+      !!Function.inline [ f; cCall "matvec" ];
+      (* !!Matrix.simpl_access_of_access ~indepth:true [ f ];
+      !!Matrix.simpl_index_add [ nbMulti; f; cCellAccess ~base:[ cVar ~substr:true "mha_" ] (); cBinop Binop_add ]; *)
+      !!Function.uninline ~f:[ cFunDef "matmul" ] [ f; cFor "j" ];
+      !!())
 
 (*  - génerer ghost après alloc
 - voir loop_swap / embedded_on
@@ -22,4 +32,3 @@ Some fun _ -> trm_fail "Can't drop to prove "  t
 remove_
 Dans rule match, l260 rajouter le cas des access
 export standalone trace dans run task  *)
-
