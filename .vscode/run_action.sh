@@ -16,8 +16,9 @@ ACTION="$*"
 # Check that the watcher is running.
 # Else, issue a warning and attempt to execute the command directly.
 if ! pgrep -f "watch.sh" > /dev/null; then
-  echo "WARNING: the watcher is not running. Open a separate terminal and in the optitrust folder execute 'watcher.sh."
-  echo "  As a fallback, trying to run the command directly."
+  echo "WARNING: the watcher is not running."
+  echo "  Open a separate terminal and in the optitrust folder execute 'watcher.sh'."
+  echo "  As a fallback, now trying to run the command directly."
   echo "  However, due to sandboxing, the command may not work fully as expected".
   echo "  Running command: ${ACTION}"
   ${ACTION}

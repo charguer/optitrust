@@ -15,7 +15,7 @@ let _ =
         [nbMulti;cFunDef "generate_prompt_proc";
           cVarDefs [ "embedding"; "mha_norm"; "mha_q"; "mha_score"; "mha_att";
           "mha_blend"; "mha_out"; "ffn_norm"; "ffn_up"; "ffn_fc"; "ffn_out" ]; ];
-      !!Loop.fission [ f; cForBody "i"; tBetweenAll ];
+      (* !!Loop.fission [ f; cForBody "i"; tBetweenAll ];
       !!Loop.reorder_at ~order:[ "l"; "i" ] [ f; cForBody "l"; dSeqNth 0 ];
       !!Loop.fission [ f; cForBody "l"; cForBody "i"; tBetweenAll ];
       !!Loop.reorder_at ~order:[ "q"; "i" ] [ nbMulti; f; cForBody "q"; dSeqNth 0 ];
@@ -36,4 +36,5 @@ let _ =
       !!Rewrite.equiv_at "int j; ==> 0 + j == j" [ nbMulti; f ] ~indepth:true;
       !!Function.uninline
         ~f:[ cFunDef "matmul" ]
-        [ occIndices [ 0; 3; 4; 5 ]; f; cFor "i" ~body:[ cSeq ~instrs_pred:(target_list_one_st [ cFor "j" ]) () ] ])
+        [ occIndices [ 0; 3; 4; 5 ]; f; cFor "i" ~body:[ cSeq ~instrs_pred:(target_list_one_st [ cFor "j" ]) () ] ] *)
+    )

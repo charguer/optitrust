@@ -1542,7 +1542,9 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
     || s.step_kind = Step_small *)
   let should_compute_diff =
       (not (Flags.request_serialized_trace ()))
-      && ((not is_targetting_line) || is_substep_of_targeted_line)
+      (* && ((not is_targetting_line) || is_substep_of_targeted_line) *)
+      && not (is_trm_dummy s.step_ast_before)
+      && not (is_trm_dummy s.step_ast_after)
     in
   (* Recursive calls *)
   let aux = dump_step_tree_to_js ~is_substep_of_targeted_line root_id out in
@@ -1606,6 +1608,35 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
   (* Process sub-steps recursively *)
   List.iter aux s.step_sub
 
+(** [epurate_tree_before_dump tree] modifies in place the steps in the [tree]
+    to remove the [ast_before] and [ast_after] for which details should
+    not be kept in the trace, according to the function [ast_should_be_kept_in_trace], whose behavior is controlled by
+    [Flags.get_save_ast_for_steps].   *)
+let epurate_tree_before_dump (tree : step_tree) : unit =
+  (* LATER: Perform [erase_some_asts] on the fly to save a lot of memory without needing to completely drop the substeps. *)
+  let rec erase_some_asts parent_erases s =
+    (* FIXME: duplicated code with iter_step_tree *)
+    let erase = (parent_erases || not (ast_should_be_kept_in_trace s)) && not (s.step_kind = Step_error) in
+    if erase then begin
+      s.step_ast_before <- trm_dummy;
+      s.step_ast_after <- trm_dummy;
+    end;
+    (* TODO: else clear all t.loc and t.annot.trm_annot_stringrepr *)
+    List.iter (erase_some_asts erase) s.step_sub
+  in
+  if Flags.get_save_ast_for_steps () <> Steps_all
+    then erase_some_asts false tree
+
+(** [serialize_full_trace_and_get_timestamp] serializes the current trace object
+    into a file named "prefix.trace", and return the timestamp of that file
+    as a string. *)
+let serialize_full_trace_and_get_timestamp ~(prefix : string) (tree : step_tree) : string =
+  let ser_filename = prefix ^ ".trace" in
+  let out_file = open_out_bin ser_filename in
+  Marshal.to_channel out_file tree [];
+  close_out out_file;
+  let timestamp = string_of_float ((Unix.stat ser_filename).st_mtime) in
+  timestamp
 
 (** [dump_trace_to_js step]: writes into a file called [`prefix`_trace.js] the
    contents of the step tree [step]. The JS file is structured as follows
@@ -1628,8 +1659,19 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
       sub: [ j1, j2, ... jK ]  // ids of the sub-steps
       }
 ]}
+In case of serialization, the JS file contains additional lines of the form:
+{@js[
+   var serialized_trace = "${prefix}.trace"; // name of the file storing the trace
+   var serialized_trace_timestamp = "1757578506.92"; // unix filestamp of that file
+]}
    *)
-let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : string option) (step:step_tree) : unit =
+let dump_trace_to_js ?(prefix : string = "") (step:step_tree) : unit =
+  epurate_tree_before_dump step;
+  let serialized_trace_timestamp =
+    if Flags.request_serialized_trace ()
+      then Some (serialize_full_trace_and_get_timestamp ~prefix step)
+      else None
+    in
   let prefix =
     if prefix = "" then step.step_context.prefix else prefix in
   let filename = prefix ^ "_trace.js" in
@@ -1657,44 +1699,11 @@ let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : stri
   dump_step_tree_to_js ~is_substep_of_targeted_line:false root_id out step;
   close_out out_js
 
-(** [serialize_full_trace_and_get_timestamp] serializes the current trace object
-    into a file named "prefix.trace", and return the timestamp of that file
-    as a string. *)
-let serialize_full_trace_and_get_timestamp ~(prefix : string) (tree : step_tree) : string =
-  let ser_filename = prefix ^ ".trace" in
-  let out_file = open_out_bin ser_filename in
-  Marshal.to_channel out_file tree [];
-  close_out out_file;
-  let timestamp = string_of_float ((Unix.stat ser_filename).st_mtime) in
-  timestamp
-
-(** [dump_full_trace_to_js ()] invokes [dump_trace_to_js] on the root step,
-     and serialize the trace object into "prefix.trace" if the flag
-     [serialized_trace] is set.
-     In case of serialization, the JS file contains an additional line of the form:
-     [var serialized_trace_timestamp = "...";] storing the timestamp of the
-     serialized trace (as a string). *)
+(** [dump_full_trace_to_js ()] invokes [dump_trace_to_js] on the root step.
+    LATER: we may want to inline this function  *)
 let dump_full_trace_to_js ~(prefix : string) : unit =
-  let tree = get_root_step () in
-  (* LATER: Perform [erase_some_asts] on the fly to save a lot of memory without needing to completely drop the substeps. *)
-  let rec erase_some_asts parent_erases s =
-    (* FIXME: duplicated code with iter_step_tree *)
-    let erase = (parent_erases || not (ast_should_be_kept_in_trace s)) && not (s.step_kind = Step_error) in
-    if erase then begin
-      s.step_ast_before <- trm_dummy;
-      s.step_ast_after <- trm_dummy;
-    end;
-    (* TODO: else clear all t.loc and t.annot.trm_annot_stringrepr *)
-    List.iter (erase_some_asts erase) s.step_sub
-  in
-  if Flags.get_save_ast_for_steps () <> Steps_all
-    then erase_some_asts false tree;
-  let serialized_trace_timestamp =
-    if Flags.request_serialized_trace ()
-      then Some (serialize_full_trace_and_get_timestamp ~prefix tree)
-      else None
-    in
-  dump_trace_to_js ~prefix ?serialized_trace_timestamp tree
+  let step = get_root_step () in
+  dump_trace_to_js ~prefix step
 
 (** [step_tree_to_doc step_tree] takes a step tree and gives a string
    representation of it, using indentation to represent substeps *)

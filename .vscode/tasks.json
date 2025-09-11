@@ -126,7 +126,7 @@
         ]
       },
       {
-        "label": "View trace light",
+        "label": "View trace -save-steps script",
         "type": "shell",
         "command": ".vscode/run_action.sh",
         "options": {
@@ -144,7 +144,7 @@
           "${relativeFile}",
           "${lineNumber}",
           "-save-steps",
-          "small"
+          "script"
         ]
       },
       {
@@ -168,7 +168,7 @@
         ]
       },
       {
-        "label": "View standalone trace light",
+        "label": "View standalone trace -save-steps script",
         "type": "shell",
         "command": ".vscode/run_action.sh",
         "options": {
@@ -186,12 +186,12 @@
           "${relativeFile}",
           "${lineNumber}",
           "-save-steps",
-          "small",
+          "script",
           "-trace-as-text"
         ]
       },
       {
-        "label": "View standalone trace all-important",
+        "label": "View standalone trace -save-steps important",
         "type": "shell",
         "command": ".vscode/run_action.sh",
         "options": {
@@ -209,7 +209,7 @@
           "${relativeFile}",
           "${lineNumber}",
           "-save-steps",
-          "all-important",
+          "important",
         ]
       },
       {

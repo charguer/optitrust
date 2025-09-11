@@ -234,11 +234,11 @@ if [ "${MODE}" = "step_diff" ] || [ "${MODE}" = "step_diff_from_inter" ]; then
 
   ${TOOLS_FOLDER}/open_diff.sh ${SRCBASE} cpp
 
-elif [ "${MODE}" = "step_trace" ] || [ "${MODE}" = "standalone_full_trace" ]; then
+elif [ "${MODE}" = "standalone_full_trace" ]; then
 
   ${TOOLS_FOLDER}/open_standalone_trace.sh ${SRCBASE}
 
-elif [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
+elif [ "${MODE}" = "step_trace" ] || [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
 
   ${TOOLS_FOLDER}/open_trace.sh ${SRCBASE}
 
