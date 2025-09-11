@@ -38,7 +38,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
           | _, None -> ()
           | None, _ -> ret.typedvar := Some (v, addr.typ)
           | Some t1, Some t2 ->
-            if are_same_trm t1 t2
+            if Trm_unify.are_same_trm t1 t2
             then ()
             else trm_fail addr (sprintf "addresses are on same inner pointer variable `%s`, but types vary: %s != %s" (var_to_string v) (Ast_to_c.typ_to_string t1) (Ast_to_c.typ_to_string t2))
       );
@@ -203,7 +203,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
             let post = Resource_set.make (*~pure:(List.filter (fun (h, f) -> f <> Resource_formula.typ_frac) !(ret.pure_post))*) ~linear:(isolated_post @ others_post) () in
             let post = { post with linear = snd (Resource_computation.delete_stack_allocs (Mlist.to_list instrs) post) } in
             let contract = FunSpecContract { pre; post } in
-            let f_body = trm_add_mark f_body_mark (trm_seq instrs) in
+            let f_body = trm_add_mark f_body_mark (trm_copy (trm_seq instrs)) in
             let f_def = trm_let_fun ~contract f typ_unit [(v_tr, typ)] f_body in
             (* TODO: instead of duplicating code, call f, but deactivate stack deallocation in the body of f ? *)
             (* let f_call = trm_apps (trm_var f) [trm_var v] in *)

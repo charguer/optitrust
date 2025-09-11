@@ -156,4 +156,16 @@ inline uint16_t reduce_spe1(int start, int stop, uint8_t* input, int n, int m, i
   return s;
 }
 
+float get_max(float * x, int n){
+  __reads("x ~> Matrix1(n)");
+  float max_value = 0.f;
+  for (int i = 0 ; i <n ; i++) {
+    __GHOST_BEGIN(f, ro_matrix1_focus,"x,i");
+
+    max_value = maxf(x[MINDEX1(n,i)], max_value) ;
+    __GHOST_END(f);
+  }
+  return max_value;
+}
+
 #endif

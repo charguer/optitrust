@@ -38,4 +38,10 @@ open_sec:
 	mkdir -p .chromium
 	chromium-browser --new-window --user-data-dir=../.chromium --disable-web-security doc_transfo.html
 
+#-------------------------------------------------------
 
+# produces shortcut_cheatlist.txt by extracting information from ../INSTALL.md
+doc_shortcut:
+	./make_shortcuts_cheatlist.sh
+	@echo ""
+	@cat shortcut_cheatlist.txt

@@ -2,11 +2,11 @@ open Prelude
 open Target
 open Matrix_trm
 
-(** [reorder_dims order tg]: expects the target [tg] to point at a call to MSIZE or MINDEX functions,
+(** [reorder_dims order tg]: expects the target [tg] to point at a call to MALLOC or MINDEX functions,
       then it will reorder their args based on [order], where [order] is a list of indices which the
       current args should follow. *)
-let%transfo reorder_dims ?(rotate_n : int = 0) ?(order : int list = []) (tg : target) : unit =
-  Target.apply_at_target_paths (Matrix_core.reorder_dims_aux rotate_n order) tg
+let%transfo reorder_dims ~(base:trm) ?(rotate_n : int = 0) ?(order : int list = []) (tg : target) : unit =
+  Target.apply_at_target_paths (Matrix_core.reorder_dims_aux ~base rotate_n order) tg
 
 (** [insert_alloc_dim new_dim]: expects the target [tg] to point at call to ALLOC functions, then it will
       add a new arg at the begining of the list of args in the targeted call. *)
@@ -144,7 +144,7 @@ let local_name_tile_on (mark_dims : mark)
   ) nd_range indices_list in
   let needs_to_replace_accesses = ref false in
   List.iter2 (fun (a, b) dim ->
-    if not (is_trm_int 0 a) || not (are_same_trm b dim)
+    if not (is_trm_int 0 a) || not (Trm_unify.are_same_trm b dim)
     then needs_to_replace_accesses := true;
   ) nd_range dims;
   let tile_dims =
@@ -519,7 +519,7 @@ let%transfo delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false
     Target.apply_at_target_paths (delocalize_aux dim init_zero acc_in_place acc any_mark labels index dl_o) tg
 
 let assert_same_dims (a : trms) (b : trms) : unit =
-  if not (List.for_all2 are_same_trm a b) then begin
+  if not (List.for_all2 Trm_unify.are_same_trm a b) then begin
     Tools.warn "Matrix_basic: potential dimensions mismatch";
     (* DEBUG: Show.trms ~msg:"a" a;
     Show.trms ~msg:"b" b; *)
@@ -584,10 +584,11 @@ let simpl_access_of_access_on (t : trm) : trm =
 
    TODO: should this be in another file?
    *)
-let%transfo simpl_access_of_access (tg : target) : unit =
+let%transfo simpl_access_of_access ?(indepth:bool =false )(tg : target) : unit =
   Trace.justif_always_correct ();
   Trace.tag_simpl_access ();
-  Target.apply_at_target_paths simpl_access_of_access_on tg
+
+  Target.apply_at_target_paths (maybe_trm_bottom_up_try indepth simpl_access_of_access_on) tg
 
 (* internal *)
 let find_occurences_and_add_mindex0 (x : var) (t : trm) : (bool * trm) =
@@ -687,7 +688,7 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
   let new_t = Matrix_core.map_all_accesses var ~ret_dims_and_typ (fun dims indices ->
     let (common_indices, new_indices) = List.split_at ((List.length indices) - copy_dims) indices in
     begin match !common_indices_opt with
-    | Some ci -> assert (List.for_all2 are_same_trm ci common_indices);
+    | Some ci -> assert (List.for_all2 Trm_unify.are_same_trm ci common_indices);
     | None -> common_indices_opt := Some common_indices
     end;
     let new_dims = List.take_last copy_dims dims in
@@ -707,7 +708,7 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
           Pattern.pattern_match formula [
             Pattern.(formula_repr !__ !__) (fun ptr repr () ->
               match access_inv ptr with
-              | Some ({ desc = Trm_var v }, res_dims, idxs) when var_eq v var && List.for_all2 are_same_trm dims res_dims ->
+              | Some ({ desc = Trm_var v }, res_dims, idxs) when var_eq v var && List.for_all2 Trm_unify.are_same_trm dims res_dims ->
                 Some (formula_repr (trm_apps (trm_var var_access_fn) idxs) repr)
               | _ -> None
             );
@@ -796,7 +797,7 @@ let memset_apply_on ~(depth: int) ?(typ:typ option) (t : trm) :trm =
     let { index; start; direction; stop; step } = range in
     if not (direction = DirUp) then  trm_fail t  "Matrix_basic.memset_apply: expect up direction";
     if not (trm_is_zero start && trm_is_one step) then trm_fail t "Matrix_basic.memset_apply: expect start =0 and step = 1";
-    if not (are_same_trm stop dim) then  trm_fail t "Matrix_basic.memset_apply: expect stop to match matrix dimension";
+    if not (Trm_unify.are_same_trm stop dim) then  trm_fail t "Matrix_basic.memset_apply: expect stop to match matrix dimension";
     in
   List.iter check (List.combine ranges (List.combine dims indices));
   Matrix_core.matrix_set ~typ:array_typ rhs array dims
@@ -965,7 +966,7 @@ let%transfo read_last_write ~(write : target) (tg : target) : unit =
       Matrix_trm.get_inv t
     in
     assert_same_dims wr_dims rd_dims;
-    if not (are_same_trm wr_base rd_base) then
+    if not (Trm_unify.are_same_trm wr_base rd_base) then
       trm_fail t "Matrix_basic.read_last_write: array base mistmach";
     let rd_value = List.fold_left (fun value (wr_i, rd_i) ->
       begin match trm_var_inv wr_i with
@@ -973,7 +974,7 @@ let%transfo read_last_write ~(write : target) (tg : target) : unit =
         trm_subst_var wr_i_var rd_i value
       | None ->
         let error = "Matrix_basic.read_last_write: expected write index to be a variable, or to be the same as the read index" in
-        if (are_same_trm wr_i rd_i) then value
+        if (Trm_unify.are_same_trm wr_i rd_i) then value
         else trm_fail wr_i error
       end
     ) wr_value (List.combine wr_indices rd_indices)

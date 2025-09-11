@@ -146,7 +146,7 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
       (* Let's define the check that a given subterm is a [get(ls)] *)
       let is_get_of_ls (ti:trm) : bool =
         Option.value ~default:false (
-          Option.map (are_same_trm ls) (trm_get_inv ti)
+          Option.map (Trm_unify.are_same_trm ls) (trm_get_inv ti)
         ) in
       (* Let's reify the right-hand side as a arith-core AST *)
       let expr, atoms = trm_to_expr ~normalized:true rs in

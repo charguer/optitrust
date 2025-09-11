@@ -248,7 +248,7 @@ let remove_useless_fracs (usage: resource_usage_map) (res: resource_set): resour
   let usage = ref usage in
   let res = { res with
     pure = List.filter (fun (hyp, hyp_type) ->
-      if (are_same_trm hyp_type typ_frac) && not (Var_set.mem hyp used) then begin
+      if (Trm_unify.are_same_trm hyp_type typ_frac) && not (Var_set.mem hyp used) then begin
         usage := Var_map.remove hyp !usage;
         false
       end else

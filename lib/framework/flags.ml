@@ -171,7 +171,7 @@ let trace_as_text : bool ref = ref false
 let detailed_resources_in_trace : bool ref = ref false
 
 (** [target_line]: indicate which line to target in execution mode
-   [Execution_mode_step_trace] or [Execution_mode_step_trace]. *)
+   [Execution_mode_step_diff] or [Execution_mode_step_trace]. *)
 let target_line : int ref = ref (-1)
 
 (** [get_target_line ()]: gets the targeted line, cannot be [-1]. *)
@@ -239,7 +239,7 @@ let get_save_steps (): steps_selector =
   match !save_steps with
   | Some save_steps -> save_steps
   | None when request_trace () -> Steps_all
-  | None when is_targetting_line () -> Steps_script
+  | None when is_targetting_line () ->Steps_all (*  steps_script *)
   | None -> Steps_none
 
 let process_save_steps (s: string) =
@@ -255,7 +255,7 @@ let get_save_ast_for_steps (): steps_selector =
     match !execution_mode with
     | Execution_mode_exec | Execution_mode_step_diff -> Steps_none
     | Execution_mode_standalone_full_trace -> Steps_important
-    | Execution_mode_full_trace | Execution_mode_step_trace -> Steps_effectful
+    | Execution_mode_step_trace | Execution_mode_full_trace -> Steps_effectful
 
 let process_save_ast_in_steps (s: string) =
   save_ast_for_steps := Some (string_to_steps_selector s)

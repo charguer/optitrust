@@ -237,12 +237,13 @@ let formula_custom_repr_matrix repr (m: trm) (dims: trm list) : formula =
     trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula])
     indices dims inner_trm
 
-let formula_matrix (m: trm) ?(model: formula option) (dims: trm list) : formula =
+let formula_matrix (m: trm) ?(model: formula option) ?(init=true) (dims: trm list) : formula =
   if !Flags.use_resources_with_models then
     let model = Option.unsome_or_else model (fun () -> failwith "Providing a model to formula_matrix is mandatory when models are enabled") in
     formula_custom_repr_matrix (fun indices -> trm_apps trm_cell [trm_apps model (List.map trm_var indices)]) m dims
   else
-    formula_custom_repr_matrix (fun _ -> trm_cell) m dims
+    let cell = if init then fun _ -> trm_cell else fun _  -> trm_uninit_cell in
+    formula_custom_repr_matrix cell m dims
 
 let formula_uninit_matrix (m: trm) (dims: trm list) : formula =
   formula_custom_repr_matrix (fun _ -> trm_uninit_cell) m dims
@@ -457,7 +458,7 @@ let formula_matrix_inv (f: formula): (trm * trm list * trm option) option =
   ] in
   let* matrix, mindex_dims, mindex_indices = Matrix_trm.access_inv location in
   let* () = if List.length mindex_dims = List.length dims then Some () else None in
-  let* () = if List.for_all2 are_same_trm mindex_dims dims then Some () else None in
+  let* () = if List.for_all2 Trm_unify.are_same_trm mindex_dims dims then Some () else None in
   if has_matching_indices mindex_indices indices
     then Some (matrix, dims, model)
     else None
@@ -476,7 +477,7 @@ let formula_arith_checked = trm_var var_arith_checked
   - if [filter_map_left r] returns [Some r'], use [r'] in the comparison with resources in [res2], in case of a match put [r'] in [comm], else leave [r] in [res1].
   - if it returns [None], keep the resource separated from the one in [res2].
 *)
-let filter_common_resources ?(filter_map_left = fun x -> Some x) ?(compare = fun fl fr -> if are_same_trm fl fr then Some fl else None) (res1: resource_item list) (res2: resource_item list): resource_item list * resource_item list * resource_item list =
+let filter_common_resources ?(filter_map_left = fun x -> Some x) ?(compare = fun fl fr -> if Trm_unify.are_same_trm fl fr then Some fl else None) (res1: resource_item list) (res2: resource_item list): resource_item list * resource_item list * resource_item list =
   let res2 = ref res2 in
   let rec try_remove_same_formula formula l =
     match l with

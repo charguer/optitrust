@@ -208,6 +208,8 @@ let%transfo use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = tr
     Now the stage is ready for applying the basic version of uninline.
     *)
 let%transfo uninline ~(f : target) (tg : target) : unit =
+  Resources.delete_annots  f;
+  Resources.delete_annots tg;
   let tg_fun_def = match get_trm_at f with
   | Some td -> td
   | None -> failwith "Function.uninline: fct target does point to any node" in

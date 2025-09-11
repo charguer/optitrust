@@ -48,7 +48,7 @@ let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(ac
     Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops ~labels [cMark middle_mark];
 
     let tg_decl_access = cOr [[cVarDef into];[cWriteVar into]; [cCellAccess ~base:[cVar into] ()]] in
-    if last then Matrix_basic.reorder_dims ~rotate_n:1 [nbAny; tg_decl_access; cCall ~regexp:true "M\\(.NDEX\\|ALLOC\\)."] ;
+    if last then Matrix_basic.reorder_dims ~base:(trm_var var) ~rotate_n:1 [nbAny; tg_decl_access; cCall ~regexp:true "M\\(.NDEX\\|ALLOC\\)."] ;
     begin match use with
       | Some e ->   Specialize.any e [nbAny; cMark any_mark]
       | None -> ()
@@ -81,13 +81,18 @@ let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(ac
       and apply the reordering of the dimensions. *)
 (* TODO :Can be done with access_map to improve efficiency and to avoid confusion with other variables named x.name   *)
 let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg : target) : unit =
+(* Trace.justif_always_correct (); *)
   let rotate_n = match rotate_n with Some n -> n | None -> 0  in
   Target.iter (fun p ->
+    Printf.printf "iter reorder_dims \n " ;
     let path_to_seq,_ = Internal.isolate_last_dir_in_seq p in
     let tg_trm = Target.resolve_path p in
     let error = "Matrix.reorder_dims: expected a target to a variable declaration." in
     let (x, _, _) = trm_inv ~error trm_let_inv tg_trm in
-    Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr [[cVarDef x.name; cCall ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVarId x] (); cCall ~regexp:true "MINDEX."]]])
+    Trace.without_resource_computation_between_steps (fun _ -> Nobrace_transfo.remove_after (fun _ -> Matrix_basic.reorder_dims ~base:(trm_var x) ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr
+    [[cVarDef x.name];
+     [cCellAccess ~base:[cVarId x] (); cCall ~regexp:true "MINDEX."];
+    ]])))
   ) tg
 
 (* FIXME:

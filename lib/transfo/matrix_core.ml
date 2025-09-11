@@ -100,7 +100,7 @@ let matrix_copy_at ~(typ: typ) ~(matrix_res_pattern: var * formula)
         (new_src, next_dims, new_ghost_before :: ghosts_before, new_ghost_after :: ghosts_after, remove_res_pattern_dim access_var res_pattern)
     ) (src, s_dims, ghosts_before, ghosts_after, matrix_res_pattern) s_indices in
 
-    if not (List.equal are_same_trm d_dims s_dims) then failwith "matrix_copy: different sizes for dest and src after accesses: %s != %s" (Tools.list_to_string (List.map Ast_to_c.ast_to_string d_dims)) (Tools.list_to_string (List.map Ast_to_c.ast_to_string s_dims));
+    if not (List.equal Trm_unify.are_same_trm d_dims s_dims) then failwith "matrix_copy: different sizes for dest and src after accesses: %s != %s" (Tools.list_to_string (List.map Ast_to_c.ast_to_string d_dims)) (Tools.list_to_string (List.map Ast_to_c.ast_to_string s_dims));
     Nobrace.trm_seq_nomarks ((List.rev ghosts_before) @ matrix_copy ~typ dest src d_dims :: ghosts_after)
 
 (** [map_all_accesses v dims map_indices mark t] maps all accesses to [v] in [t],
@@ -187,17 +187,23 @@ let pointwise_fors
 (*                        Core transformations on C matrices                                        *)
 (****************************************************************************************************)
 
+
+
 (** [reorder_dims_aux order t]: reorders the dimensions in a call to MSIZE or MINDEX,
       [order] - a list of indices based on which the elements in dims should be ordered,
-      [t] - ast of the call to MSIZE or MINDEX. *)
-let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
-  let dims, indices =
+      [t] - ast of the call to let_alloc or MINDEX.
+      TODO : ghost_pair au lieu de deux ghosts ghost pair var must be generated in matrix_basic*)
+let reorder_dims_aux ~(base:trm) (rotate_n : int) (order : int list) (t : trm) : trm =
+  let typ_alloc = ref (trm_int 1) in
+  let init_alloc = ref false in
+
+  let var,dims, indices =
     match mindex_inv t with
-    | Some (dims, indices) -> dims, Some indices
-    | None -> match msize_inv t with
-      | Some dims -> dims, None
+    | Some (dims, indices) -> None,dims, Some indices
+    | None -> match let_alloc_inv t with
+      | Some (var,typ,dims, init) -> typ_alloc := typ; init_alloc := init; Some(var) ,dims,None
       | None -> trm_fail t "Matrix_core.reorder_dims_aux: expected a function call to MSIZE or MINDEX"
-  in
+    in
   let nb = List.length dims in
   let order = if rotate_n <> 0
     then let id_perm = List.range 0 (nb - 1) in
@@ -213,9 +219,19 @@ let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
   | Some indices ->
     let reordered_indices = List.reorder order indices in
     mindex reordered_dims reordered_indices
-  | None ->
-    msize reordered_dims
+  | None -> let before = Resource_formula.formula_matrix ~init:(!init_alloc) base reordered_dims in
+          let after = Resource_formula.formula_matrix ~init:(!init_alloc) base dims in
+  Nobrace.trm_seq_nomarks
+  [
+  let_alloc (Option.get var) !typ_alloc reordered_dims ~zero_init:!init_alloc;
+  Resource_trm.ghost_admitted_rewrite before after (trm_var (toplevel_var "reorder_groups")) ]
 
+(* et ghost_admitted_rewrite (before: formula) (after: formula) (justif: formula): trm =
+  let contract = {
+    pre = Resource_set.make ~linear:[new_anon_hyp (), before] ();
+    post = Resource_set.make ~linear:[new_anon_hyp (), after] ()
+  } in
+  ghost_admitted contract ~justif *)
 
 (** [insert_alloc_dim_aux new_dim t]: adds a new dimension at the beginning of the list of dimension,
      [new_dim]: the new dimension which is going to be inserted into the list of dims in an allocation,

@@ -427,7 +427,7 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
             if i >= index then ()
             else
               begin match t1.desc with
-              | Trm_let ((y, _), init_y) when are_same_trm init_x init_y ->
+              | Trm_let ((y, _), init_y) when Trm_unify.are_same_trm init_x init_y ->
                 source_var := y
               | _ -> ()
               end
@@ -441,7 +441,7 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
           | Some p -> Target.resolve_path p
           | None -> trm_fail tg_trm "Variable.elim_redundant: the number of source targets  should be equal to the number of the main targets" in
         match source_decl_trm.desc with
-        | Trm_let ((y, _), init_y) when are_same_trm init_x init_y ->
+        | Trm_let ((y, _), init_y) when Trm_unify.are_same_trm init_x init_y ->
           source_var := y
         | _ -> trm_fail source_decl_trm "Variable.elim_redundant: the soource target should point to a variable declaration"
       end;
@@ -527,7 +527,7 @@ let%transfo bind_syntactic ?(dest : target = []) ?(fresh_name : string = "x${occ
   (* TODO: use hashmap *)
   let bound = ref [] in
   let bind_or_reuse t p =
-    match List.find_opt (fun (t2, _) -> are_same_trm t t2) !bound with
+    match List.find_opt (fun (t2, _) -> Trm_unify.are_same_trm t t2) !bound with
     | None -> begin
       let x = Tools.string_subst "${occ}" (string_of_int (List.length !bound)) fresh_name in
       let mark_let = next_mark () in

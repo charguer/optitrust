@@ -4,7 +4,7 @@
     // The -i option is necessary for launching GUI programs from tasks
     "version": "2.0.0",
     "tasks": [
-      // Build using make
+      // Build using make (currently not using run_action.sh)
       {
         "label": "Build everything",
         "type": "shell",
@@ -26,7 +26,7 @@
       {
         "label": "View diff",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -37,6 +37,7 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "step_diff",
           "${relativeFile}",
           "${lineNumber}"
@@ -45,7 +46,7 @@
       {
         "label": "View diff only code",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -56,6 +57,7 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "step_diff",
           "${relativeFile}",
           "${lineNumber}",
@@ -65,7 +67,7 @@
       {
         "label": "View diff using internal syntax",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -76,6 +78,7 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "step_diff",
           "${relativeFile}",
           "${lineNumber}",
@@ -85,7 +88,7 @@
       {
         "label": "View step result",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -96,6 +99,7 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "step_result",
           "${relativeFile}",
           "${lineNumber}"
@@ -104,7 +108,7 @@
       {
         "label": "View trace",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -115,15 +119,16 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "full_trace",
           "${relativeFile}",
           "${lineNumber}",
         ]
       },
       {
-        "label": "View trace light",
+        "label": "View trace -save-steps script",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -134,17 +139,18 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "full_trace",
           "${relativeFile}",
           "${lineNumber}",
-          "-substeps-including-ast",
-          "small"
+          "-save-steps",
+          "script"
         ]
       },
       {
         "label": "View standalone trace",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -155,15 +161,16 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "standalone_full_trace",
           "${relativeFile}",
           "${lineNumber}"
         ]
       },
       {
-        "label": "View standalone trace light",
+        "label": "View standalone trace -save-steps script",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -174,18 +181,19 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "standalone_full_trace",
           "${relativeFile}",
           "${lineNumber}",
-          "-substeps-including-ast",
-          "small",
+          "-save-steps",
+          "script",
           "-trace-as-text"
         ]
       },
       {
-        "label": "View standalone trace all-important",
+        "label": "View standalone trace -save-steps important",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -196,17 +204,18 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "standalone_full_trace",
           "${relativeFile}",
           "${lineNumber}",
-          "-substeps-including-ast",
-          "all-important",
+          "-save-steps",
+          "important",
         ]
       },
       {
         "label": "View trace from intermediate state",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -217,6 +226,7 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "full_trace_from_inter",
           "${relativeFile}",
           "${lineNumber}",
@@ -225,7 +235,7 @@
       {
         "label": "View trace for one step",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -236,6 +246,7 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "step_trace",
           "${relativeFile}",
           "${lineNumber}"
@@ -244,7 +255,7 @@
       {
         "label": "View big step diff",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -255,6 +266,7 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "step_diff",
           "${relativeFile}",
           "${lineNumber}",
@@ -264,7 +276,7 @@
       {
         "label": "View diff from intermediate state",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -275,6 +287,7 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "step_diff_from_inter",
           "${relativeFile}",
           "${lineNumber}",
@@ -283,7 +296,7 @@
       {
         "label": "View big step diff from intermediate state",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -294,6 +307,7 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "step_diff_from_inter",
           "${relativeFile}",
           "${lineNumber}",
@@ -303,7 +317,7 @@
       {
         "label": "Save intermediate state",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -314,6 +328,7 @@
           "clear": true
         },
         "args": [
+          "tools/view_result.sh",
           "save_inter",
           "${relativeFile}",
           "${lineNumber}"
@@ -322,7 +337,7 @@
       {
         "label": "Redo last view command",
         "type": "shell",
-        "command": "tools/_last_view_result.sh",
+        "command": ".vscode/run_action.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -331,10 +346,13 @@
         },
         "presentation": {
           "clear": true
-        }
+        },
+        "args" : [
+          "tools/_last_view_result.sh"
+        ]
       },
 
-      // Run unit tests
+      // Run unit tests (currently not using run_action.sh)
       {
         "label": "Run the current test",
         "type": "shell",
@@ -500,7 +518,7 @@
       {
         "label": "Open doc for current source file in browser",
         "type": "shell",
-        "command": "doc/open_doc_for.sh",
+        "command": ".vscode/run_action.sh",
         "args": [ "${file}" ],
         "options": {
           "cwd": "${workspaceFolder}",
@@ -508,9 +526,27 @@
             "args": ["-i"]
           }
         },
+        "args": [
+          "doc/open_doc_for.sh"
+        ]
       },
-      // Test shortcuts
+      // Test shortcuts --> via runaction
       {
+        "label": "Test OptiTrust Shortcuts",
+        "type": "shell",
+        "command": ".vscode/run_action.sh",
+        "args": [ "tools/test_shortcuts.sh",
+                  "${file}",
+                  "${lineNumber}" ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        }
+      },
+      // Test shortcuts --> direct
+      /*{
         "label": "Test OptiTrust Shortcuts",
         "type": "shell",
         "command": "tools/test_shortcuts.sh",
@@ -523,8 +559,33 @@
           }
         },
       },
-
-
+      */
+      // Build pview
+      /*
+      {
+        "label": "Execute Pview Makefile",
+        "type": "shell",
+        "command": "make -C tools/pview",
+        "args": [ ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+      },
+      {
+        "label": "Execute Pview Demo",
+        "type": "shell",
+        "command": "make -C tools/demo_pview",
+        "args": [ ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+      },*/
       // Run script
       {
         "label": "Execute doc/add_tests_into_doc/run.sh",

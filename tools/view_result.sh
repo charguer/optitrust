@@ -26,7 +26,6 @@
 # FIXME: the "dune exec" command used by this script will not work if
 # the script file is located outside of the optitrust buildtree
 
-
 #==========================================================================
 # Processing script arguments
 
@@ -52,7 +51,8 @@ FILEBASE=${FILEBASE%.*}
 
 # Additional environment variables.
 ${FLAGS:=""}
-${CODE_VIEWER:="code -r"}
+CODE_VIEWER="code -r"
+ # TODO: ${CODE_VIEWER:="code -r"}
 
 # Path to the tools and optitrust folder
 TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0")")
@@ -70,11 +70,9 @@ fi
 echo "${TOOLS_FOLDER}/view_result.sh $*" > "${TOOLS_FOLDER}/_last_view_result.sh"
 chmod +x "${TOOLS_FOLDER}/_last_view_result.sh"
 
+
 #==========================================================================
 # Setting up the environment, and read additional settings
-
-# Limit the amount of memory that can be allocated
-ulimit -v $((16 * 1024 * 1024)) # Never exceed 16 GiB of memory
 
 # Make sure we work in the directory that contains the file
 cd ${DIRNAME}
@@ -216,8 +214,16 @@ echo "View ${FILEPATH} with options ${OPTIONS}"
 # LATER: only do this if error is raised
 make -C ${OPTITRUST_FOLDER} precompile
 
+
 # TODO: --no-build
-OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS} || [[ "${MODE}" == *"trace"* ]]
+
+# Using a subshell to limit the amount of memory that can be allocated
+(
+  ulimit -v $((16 * 1024 * 1024)) # Never exceed 16 GiB of memory
+  echo "Execution of OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS}"
+  OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS} || [[ "${MODE}" == *"trace"* ]]
+)
+
 
 #==========================================================================
 # Open the output
@@ -228,11 +234,11 @@ if [ "${MODE}" = "step_diff" ] || [ "${MODE}" = "step_diff_from_inter" ]; then
 
   ${TOOLS_FOLDER}/open_diff.sh ${SRCBASE} cpp
 
-elif [ "${MODE}" = "step_trace" ] || [ "${MODE}" = "standalone_full_trace" ]; then
+elif [ "${MODE}" = "standalone_full_trace" ]; then
 
   ${TOOLS_FOLDER}/open_standalone_trace.sh ${SRCBASE}
 
-elif [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
+elif [ "${MODE}" = "step_trace" ] || [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
 
   ${TOOLS_FOLDER}/open_trace.sh ${SRCBASE}
 
