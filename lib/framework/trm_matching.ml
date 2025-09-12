@@ -104,6 +104,10 @@ let parse_rule ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : strin
 (** [Rule_mismatch]: exception raised by [rule_match] *)
 exception Rule_mismatch
 
+(** [normalize_trm]: Aims to reduce terms, especially matrix access, resulting in easier matching
+Rules implemented:
+- MINDEX reduction : reduct accesses of accesses into normalized form
+Example : t[MINDEX2(m,n,i,0)][MINDEX1(n,j)] --> t[MINDEX2(m,n,i,j)]  *)
 let normalize_trm (t : trm) : trm =
 
   match Matrix_trm.access_inv t with
@@ -206,10 +210,11 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
           aux_with_bindings tr1 tr2
       | _ -> mismatch() (* note: in general, this should have been tested earlier on by comparing lengths *)
       in
-      (* // when t1 is  mindex and t2 is mindex  t2 : t[+]MINDEX2(n1,n2,i1,i2) t1: t'[+]MINDEX1(n,i)
-      t2 -> (t[+](MINDEX2(n1,n2,i1,0))(MINDEX1(n2,i2))
-      Only works when mindex  is smaller  *)
+    (* Here we add some specific rules for matching when matrix accesses occurs *)
     let t2 = normalize_trm t2 in
+    (* if t2 : t[+]MINDEX2(n1,n2,i1,i2)  and t1: t'[+]MINDEX1(n,i)
+      then t2 -> (t[+](MINDEX2(n1,n2,i1,0))(MINDEX1(n2,i2))
+      Only works when mindex  is smaller  *)
     let t1, t2 =
     match (Matrix_trm.access_inv t1, Matrix_trm.access_inv t2) with
     | Some (base1, dims1, inds1), Some (base2, dims2, inds2)
