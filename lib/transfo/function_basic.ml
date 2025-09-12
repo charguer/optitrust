@@ -87,16 +87,17 @@ let%transfo use_infix_ops_at ?(allow_identity : bool = true) (tg : target) : uni
   apply_at_target_paths (Function_core.use_infix_ops_on allow_identity) tg
 
 (** [uninline ~f tg] expects [tg] to target a span of instructions.
-    Then it will replace that span with a call to the fuction with declaration targeted by [f]. *)
+    Then it will replace that span with a call to the fuction with declaration targeted by [f].
+    The annotations are deleted both in the span and in the function declaration for matching *)
 let%transfo uninline ~(f : target) (tg : target) : unit =
   Trace.call (fun t ->
   let f_path = resolve_target_exactly_one_with_stringreprs_available f t in
   let f_decl = Path.resolve_path f_path t in
+  let f_decl = Nobrace.remove_after_trm_op Resource_trm.delete_annots_on f_decl in
   Target.iter (fun p ->
     let (p_seq, span) = Path.extract_last_dir_span p in
     let to_type_ret_t = ref None in
     Target.apply_at_path (Function_core.uninline_on f_decl to_type_ret_t span) p_seq;
-    Printf.printf "unline on suceeded \n";
     Option.iter (fun to_type_t ->
       (* DEPRECATED: is it really a problem to alias arguments with return address? *)
       step_backtrack ~discard_after:false (fun () ->
