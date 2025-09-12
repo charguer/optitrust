@@ -237,6 +237,17 @@ let formula_custom_repr_matrix repr (m: trm) (dims: trm list) : formula =
     trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula])
     indices dims inner_trm
 
+let formula_reorder_dims_patch ?(init=true) (m:trm) (dims : trm list) (order: int list) : formula =
+
+  let indices = List.mapi (fun i _ -> new_var (sprintf "i%d" (i+1))) dims in
+  let reordered_indices = List.reorder order indices in
+  let reordered_dims = List.reorder order dims in
+  let cell = if init then fun _ -> trm_cell else fun _  ->  trm_uninit_cell in
+  let inner_trm = formula_repr (Matrix_trm.access m reordered_dims (List.map trm_var reordered_indices)) (cell reordered_indices) in
+  List.fold_right2 (fun idx dim formula ->
+    trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula])
+    indices dims inner_trm
+
 let formula_matrix (m: trm) ?(model: formula option) ?(init=true) (dims: trm list) : formula =
   if !Flags.use_resources_with_models then
     let model = Option.unsome_or_else model (fun () -> failwith "Providing a model to formula_matrix is mandatory when models are enabled") in

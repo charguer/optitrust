@@ -33,7 +33,28 @@ let%transfo elim_mops ?(simpl : trm -> trm = Arith_basic.(Arith_core.simplify fa
     ) tg
   )
 
-(** [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg]: this is a combi
+
+
+(** [reorder_dims ~rotate_n ~order tg] expects the target [tg] to point at at a matrix declaration, then it will find the occurrences of ALLOC and INDEX functions
+      and apply the reordering of the dimensions. *)
+(* TODO :Can be done with access_map to improve efficiency and to avoid confusion with other variables named x.name   *)
+let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg : target) : unit =
+Trace.justif_always_correct ();
+  let rotate_n = match rotate_n with Some n -> n | None -> 0  in
+  Target.iter (fun p ->
+    let path_to_seq,_ = Internal.isolate_last_dir_in_seq p in
+    let tg_trm = Target.resolve_path p in
+    let error = "Matrix.reorder_dims: expected a target to a variable declaration." in
+    let (x, _typ_array, typ_alloc, dims,init) = trm_inv ~error Matrix_trm.let_alloc_inv tg_trm in
+    Trace.without_resource_computation_between_steps (fun _ -> Nobrace_transfo.remove_after (fun _ -> Matrix_basic.reorder_dims ~base:(trm_var x) ~rotate_n ~order ~dims ((target_of_path path_to_seq) @ [cOr
+    [[cVarDef x.name];
+     [cCellAccess ~base:[cVarId x] (); cCall ~regexp:true "MINDEX."];
+     [cDelete ~arg:[cVar x.name] ()];
+    ]])))
+  ) tg
+
+
+  (** [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg]: this is a combi
    varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basic.local_name to create the isolated
     environment where the delocalizing transformatino is going to be performed *)
 let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
@@ -47,8 +68,8 @@ let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(ac
     let any_mark = begin match use with | Some _ -> "any_mark_deloc" | _ -> "" end in
     Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops ~labels [cMark middle_mark];
 
-    let tg_decl_access = cOr [[cVarDef into];[cWriteVar into]; [cCellAccess ~base:[cVar into] ()]] in
-    if last then Matrix_basic.reorder_dims ~base:(trm_var var) ~rotate_n:1 [nbAny; tg_decl_access; cCall ~regexp:true "M\\(.NDEX\\|ALLOC\\)."] ;
+    (* let tg_decl_access = cOr [[cVarDef into];[cWriteVar into]; [cCellAccess ~base:[cVar into] ()]] in *)
+    if last then reorder_dims  ~rotate_n:1  [cVarDef into] ;
     begin match use with
       | Some e ->   Specialize.any e [nbAny; cMark any_mark]
       | None -> ()
@@ -75,25 +96,6 @@ let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(ac
     end
     );
     Scope.infer_var_ids ()
-
-
-(** [reorder_dims ~rotate_n ~order tg] expects the target [tg] to point at at a matrix declaration, then it will find the occurrences of ALLOC and INDEX functions
-      and apply the reordering of the dimensions. *)
-(* TODO :Can be done with access_map to improve efficiency and to avoid confusion with other variables named x.name   *)
-let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg : target) : unit =
-(* Trace.justif_always_correct (); *)
-  let rotate_n = match rotate_n with Some n -> n | None -> 0  in
-  Target.iter (fun p ->
-    Printf.printf "iter reorder_dims \n " ;
-    let path_to_seq,_ = Internal.isolate_last_dir_in_seq p in
-    let tg_trm = Target.resolve_path p in
-    let error = "Matrix.reorder_dims: expected a target to a variable declaration." in
-    let (x, _, _) = trm_inv ~error trm_let_inv tg_trm in
-    Trace.without_resource_computation_between_steps (fun _ -> Nobrace_transfo.remove_after (fun _ -> Matrix_basic.reorder_dims ~base:(trm_var x) ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr
-    [[cVarDef x.name];
-     [cCellAccess ~base:[cVarId x] (); cCall ~regexp:true "MINDEX."];
-    ]])))
-  ) tg
 
 (* FIXME:
   - (1) should be defined elsewhere;
@@ -168,6 +170,7 @@ let iter_on_var_defs (f : (var * typ * trm) -> (int * path) -> unit) (tg : targe
    *)
 let%transfo delete (tg : target) : unit =
   Trace.tag_valid_by_composition ();
+
   iter_on_var_defs (fun (var, _, _) (_, p_seq) ->
     Matrix_basic.delete ~var (target_of_path p_seq)
   ) tg

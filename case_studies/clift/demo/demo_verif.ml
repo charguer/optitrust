@@ -17,4 +17,7 @@ let _ =
       !!(Function.inline [ f; cCall "forward" ]);
       !!Loop.hoist [ nbMulti; cFunDef "generate_prompt_proc"; cVarDefs [ "embedding"; "mha_norm"; "mha_q" ] ];
       !!Loop.fission [ f; cForBody "i"; cFor "l"; tBefore ];
-      !!Loop.reorder_at ~order:[ "l"; "i" ] [ f; cForBody "l"; dSeqNth 0 ])
+      !!Loop.reorder_at ~order:[ "l"; "i" ] [ f; cForBody "l"; dSeqNth 0 ];
+      (* !!Loop.fission [ f; cFor "l"; cForBody "i"; cCall "rmsnorm"; tAfter ]; *)
+      (* !!Loop.reorder_at ~order:[ "q"; "i" ] [ nbMulti; f; cForBody "q"; dSeqNth 0 ]; *)
+  )

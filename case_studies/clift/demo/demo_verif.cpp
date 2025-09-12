@@ -187,17 +187,7 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
         embedding_weight[MINDEX2(vocabulary_len, embedding_dim, token, e)];
     __GHOST_END(focus_embedding_weight);
   }
-  __ghost([&]() {
-    __consumes("for e in 0..embedding_dim -> &embedding[MINDEX1(embedding_dim, "
-               "e)] ~> Cell");
-    __consumes("for e in 0..embedding_dim -> &mha_norm[MINDEX1(embedding_dim, "
-               "e)] ~> UninitCell");
-    __produces("for e in 0..embedding_dim -> "
-               "&(&embedding[MINDEX0()])[MINDEX1(embedding_dim, e)] ~> Cell");
-    __produces("for e in 0..embedding_dim -> "
-               "&(&mha_norm[MINDEX0()])[MINDEX1(embedding_dim, e)] ~> Cell");
-    __admitted();
-  });
+
   // attention rmsnorm
   for (int l = 0; l < layer_count; l++) {
     __xreads(
@@ -223,17 +213,7 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
                                    embedding_dim, l, q, 0, 0)]);
     }
   }
-  __ghost([&]() {
-    __consumes("for e in 0..embedding_dim -> "
-               "&(&embedding[MINDEX0()])[MINDEX1(embedding_dim, e)] ~> Cell");
-    __consumes("for e in 0..embedding_dim -> "
-               "&(&mha_norm[MINDEX0()])[MINDEX1(embedding_dim, e)] ~> Cell");
-    __produces("for e in 0..embedding_dim -> &embedding[MINDEX1(embedding_dim, "
-               "e)] ~> Cell");
-    __produces("for e in 0..embedding_dim -> &mha_norm[MINDEX1(embedding_dim, "
-               "e)] ~> UninitCell");
-    __admitted();
-  });
+
   free(embedding);
   free(mha_norm);
   free(mha_q);

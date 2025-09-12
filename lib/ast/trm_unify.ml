@@ -79,7 +79,11 @@ let rec normalize_trm ?(on_failure = fun a b -> ()) (t:trm) (evar_ctx: 'a unific
           Matrix_trm.access base_in dims_in indices
           ,evar_ctx
           end
-        end else nochange
+        end
+      else if List.length dims_in = 0 then begin
+          Matrix_trm.access base_in dims_out inds_out, evar_ctx
+      end
+    else nochange
     | _ -> nochange
     end
   | _ -> nochange

@@ -8,7 +8,6 @@ let _ =
 
 let _ = Flags.recompute_resources_between_steps := true
 
-let _ =
-  Run.script_cpp (fun _ ->
-    !!  Matrix.reorder_dims ~order:[1;0] [cVarDef "x"];
-    )
+let _ = Run.script_cpp (fun _ ->
+  !! Loop.swap [cFunDef "ghost_pairs";cFor "i"];
+  !! (); )

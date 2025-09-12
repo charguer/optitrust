@@ -5,8 +5,9 @@ open Matrix_trm
 (** [reorder_dims order tg]: expects the target [tg] to point at a call to MALLOC or MINDEX functions,
       then it will reorder their args based on [order], where [order] is a list of indices which the
       current args should follow. *)
-let%transfo reorder_dims ~(base:trm) ?(rotate_n : int = 0) ?(order : int list = []) (tg : target) : unit =
-  Target.apply_at_target_paths (Matrix_core.reorder_dims_aux ~base rotate_n order) tg
+let%transfo reorder_dims ~(base:trm) ?(rotate_n : int = 0) ?(order : int list = []) ~(dims:trms) (tg : target) : unit =
+  Target.apply_at_target_paths (Matrix_core.reorder_dims_aux ~base ~dims rotate_n order) tg
+
 
 (** [insert_alloc_dim new_dim]: expects the target [tg] to point at call to ALLOC functions, then it will
       add a new arg at the begining of the list of args in the targeted call. *)

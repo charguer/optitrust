@@ -196,7 +196,7 @@ let%transfo use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = tr
     Now the stage is ready for applying the basic version of uninline.
     *)
 let%transfo uninline ~(f : target) (tg : target) : unit =
-  Resources.delete_annots  f;
+Trace.without_resource_computation_between_steps (fun _ ->
   Resources.delete_annots tg;
   let tg_fun_def = match get_trm_at f with
   | Some td -> td
@@ -217,7 +217,7 @@ let%transfo uninline ~(f : target) (tg : target) : unit =
       | _ -> trm_fail tg_fun_def "Function.uninline: weird function declaration "
       end
     | _ -> trm_fail tg_fun_def "Function.uinline: fct arg should point to a a function declaration"
-  ) tg
+  ) tg)
 
 (** [insert ~reparse decl tg]: expects the relative target [t] to point before or after an instruction,
      then it will insert the function declaration [decl] on that location.
