@@ -19,8 +19,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Variable_basic.inline [nbMulti; cVarDef "r_pure"];
 
   !! Function_basic.uninline ~f:[cFunDef "loop_with_ret"] [tLabelSpan "loop_with_ret"];
-
-    (* FIXME: validation for higher-order functions
+  (* FIXME: validation for higher-order functions
     Flags.check_validity := false;
     Flags.recompute_resources_between_steps := false;
     !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabel "hobody"];
