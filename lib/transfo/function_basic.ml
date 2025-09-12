@@ -96,6 +96,7 @@ let%transfo uninline ~(f : target) (tg : target) : unit =
     let (p_seq, span) = Path.extract_last_dir_span p in
     let to_type_ret_t = ref None in
     Target.apply_at_path (Function_core.uninline_on f_decl to_type_ret_t span) p_seq;
+    Printf.printf "unline on suceeded \n";
     Option.iter (fun to_type_t ->
       (* DEPRECATED: is it really a problem to alias arguments with return address? *)
       step_backtrack ~discard_after:false (fun () ->

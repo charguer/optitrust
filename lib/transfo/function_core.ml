@@ -211,6 +211,8 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
 let uninline_on (fct_decl : trm)
  (to_type_ret_t : seq_component list option ref)
  (span : Dir.span) (t_seq : trm) : trm =
+    Printf.printf "unline on  \n";
+
   update_span_helper span t_seq (fun instrs ->
   let (f, ret_typ, targs, body, spec) = Pattern.pattern_match fct_decl [
     Pattern.(trm_let_fun !__ !__ !__ !__ !__) (fun f ret_typ targs body spec () ->

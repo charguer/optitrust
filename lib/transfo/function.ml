@@ -202,6 +202,7 @@ Trace.without_resource_computation_between_steps (fun _ ->
   | Some td -> td
   | None -> failwith "Function.uninline: fct target does point to any node" in
   let tg_fun_def = Resource_trm.delete_annots_on tg_fun_def in
+  Printf.printf "annot deleteion went well\n";
   Target.iter (fun p ->
     match trm_let_fun_inv tg_fun_def with
     | Some (_, _, _, body, _) ->
