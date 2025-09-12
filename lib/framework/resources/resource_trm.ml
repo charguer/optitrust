@@ -297,7 +297,7 @@ let delete_annots_on
         ((test_is_ghost t) ||
         (Option.is_some (ghost_begin_inv t)) ||
         (Option.is_some (ghost_end_inv t)))
-      then  Nobrace.trm_seq_nomarks []
+      then Nobrace.trm_seq_nomarks []
       else t
     in
     let t =
