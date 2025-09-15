@@ -30,7 +30,7 @@ rm -f ${ACTION_OUT}
 touch ${ACTION_OUT}
 
 # Request watch.sh to execute the command by writing the command in action.sh
-echo "Run_action executes the command written in ${ACTION_FILE}:"
+echo "Run_action executes:"
 echo "  ${ACTION}"
 # echo "  and wait for the output in file ${ACTION_OUT}"
 echo "${ACTION}" > ${ACTION_FILE}

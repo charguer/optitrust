@@ -453,15 +453,17 @@
           "clear": true
         }
       },
+      // Tasks to open related files.
+      // For GUI operations, open_test.sh itself calls exec_with_noup_and_runaction.
       {
         "label": "Open unit test ML and CPP files",
         "type": "shell",
         "command": "${workspaceFolder}/.vscode/open_test.sh",
         "args": [
-          "${fileBasename}"
+          "${file}"
         ],
         "options": {
-          "cwd": "${fileDirname}"
+          "cwd": "${workspaceFolder}"
         },
         "problemMatcher": [],
         "presentation": {
@@ -473,11 +475,11 @@
         "type": "shell",
         "command": "${workspaceFolder}/.vscode/open_test.sh",
         "args": [
-          "${fileBasename}",
+          "${file}",
           "withdoc"
         ],
         "options": {
-          "cwd": "${fileDirname}"
+          "cwd": "${workspaceFolder}"
         },
         "problemMatcher": [],
         "presentation": {
@@ -503,7 +505,7 @@
         }
       },
       {
-        "label": "Diff wrong tests output",
+        "label": "Diff wrong tests output", // deprecated?
         "type": "shell",
         "command": ".vscode/diff_wrong_tests_output.sh",
         "options": {
