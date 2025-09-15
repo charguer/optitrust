@@ -556,12 +556,10 @@ let simpl_index_add_on (t : trm) : trm =
 
 (** [simpl_index_add]: simplifies an MINDEX(..) + MINDEX(..) expression,
    into a single MINDEX(..) expression, if the dimensions are compatible:
-
    MINDEX{N}  (            n1, .., nN,                 i1, .., iN) +
    MINDEX{N+M}(m1, .., mM,     .., m{N+M}, j1, .., jM,     .., j{N+M})
     = [if n{i} = m{i+M}]
    MINDEX{N+M}(m1, .., mM,     .., m{N+M}, j1, .., jM, i1 + j{M+1}, .., iN + j{N+M})
-
    For correctness, size and index expressions must be pure.
    *)
 let%transfo simpl_index_add (tg : target) : unit =

@@ -61,13 +61,13 @@ let rec unfold_if_resolved_evar (t : trm) (evar_ctx : 'a unification_ctx) :
       &(&x[MINDEX_(dims_in,inds_in,0,..,0)])[MINDEX_(dims_out,inds_out)] -->
       &x[MINDEX_(dims_in,inds_in,inds_out)] If normalization is not possible,
       return the same [t] *)
-let rec normalize_trm ?(on_failure = fun a b -> ()) (t : trm)
+let rec normalize_trm (t : trm)
     (evar_ctx : 'a unification_ctx)
     (validate_inst :
       trm -> 'a -> 'a unification_ctx -> 'a unification_ctx option) :
     trm * 'a unification_ctx =
   let open Option.Monad in
-  let aux t evar_ctx = normalize_trm ~on_failure t evar_ctx validate_inst in
+  let aux t evar_ctx = normalize_trm  t evar_ctx validate_inst in
   let t, evar_ctx = unfold_if_resolved_evar t evar_ctx in
   let nochange = (t, evar_ctx) in
   match Matrix_trm.access_inv t with
@@ -81,19 +81,16 @@ let rec normalize_trm ?(on_failure = fun a b -> ()) (t : trm)
             let zeros = List.init n_dims_out (fun i -> trm_int 0) in
             let left_list = last_dims_in @ List.take_last n_dims_out inds_in in
             let right_list = dims_out @ zeros in
-            let unify_result =
+            let same_trms =
                 List.fold_left2
-                  (fun evar_ctx arg arge ->
-                    let* evar_ctx = evar_ctx in
-                    trm_unify ~on_failure arg arge evar_ctx validate_inst)
-                  (Some evar_ctx) left_list right_list
+                  (fun b arg arge ->
+                     Option.is_some (trm_unify arg arge Var_map.empty (fun _ _ ctx -> Some ctx)) )
+                  true left_list right_list
 
             in
-            match unify_result with
-            | None -> nochange
-            | Some evar_ctx ->
-                let indices = List.drop_last n_dims_out inds_in @ inds_out in
+            if same_trms then let indices = List.drop_last n_dims_out inds_in @ inds_out in
                 (Matrix_trm.access base_in dims_in indices, evar_ctx)
+              else nochange
           else nochange
       | _ -> nochange)
   | _ -> nochange
@@ -104,7 +101,7 @@ let rec normalize_trm ?(on_failure = fun a b -> ()) (t : trm)
     newly resolved evars. If it fails, returns None. For each potential
     unification, this function calls [validate_inst t info evar_ctx] that can
     itself perform chained unifications. *)
-and trm_unify ?(on_failure = fun a b -> ()) (t_left : trm) (t_right : trm)
+and trm_unify (t_left : trm) (t_right : trm)
     (evar_ctx : 'a unification_ctx)
     (validate_inst :
       trm -> 'a -> 'a unification_ctx -> 'a unification_ctx option) :
@@ -167,12 +164,12 @@ and trm_unify ?(on_failure = fun a b -> ()) (t_left : trm) (t_right : trm)
     | Trm_apps (f, args, [], []), Trm_apps (fe, argse, [], []) ->
         let res_opt =
           (* LATER: Manage functions with ghost_args and ghost_bind *)
-          let* evar_ctx = trm_unify ~on_failure f fe evar_ctx validate_inst in
+          let* evar_ctx = trm_unify  f fe evar_ctx validate_inst in
           try
             List.fold_left2
               (fun evar_ctx arg arge ->
                 let* evar_ctx = evar_ctx in
-                trm_unify ~on_failure arg arge evar_ctx validate_inst)
+                trm_unify arg arge evar_ctx validate_inst)
               (Some evar_ctx) args argse
           with Invalid_argument _ -> None
           (* todo: better to check lengths first *)
@@ -200,20 +197,20 @@ and trm_unify ?(on_failure = fun a b -> ()) (t_left : trm) (t_right : trm)
               match l with Lit_int (t, v) -> Some (t, v) | _ -> None
             in
             let* _ = check (v = ve) in
-            trm_unify ~on_failure t te evar_ctx validate_inst
+            trm_unify  t te evar_ctx validate_inst
         | Lit_float (te, ve) ->
             let* t, v =
               match l with Lit_float (t, v) -> Some (t, v) | _ -> None
             in
             let* _ = check (v = ve) in
-            trm_unify ~on_failure t te evar_ctx validate_inst
+            trm_unify  t te evar_ctx validate_inst
         | Lit_null te ->
             let* t = match l with Lit_null t -> Some t | _ -> None in
-            trm_unify ~on_failure t te evar_ctx validate_inst)
+            trm_unify  t te evar_ctx validate_inst)
     | _, Trm_prim (tye, pe) ->
         let* ty, p = trm_prim_inv t_left in
         (* FIXME: This can fail because primitives may recursively contain types and terms *)
-        if pe = p then trm_unify ~on_failure ty tye evar_ctx validate_inst
+        if pe = p then trm_unify  ty tye evar_ctx validate_inst
         else None
     | _, Trm_fun (argse, _, bodye, _) ->
         let* args, _, body, _ = trm_fun_inv t_left in
@@ -239,7 +236,7 @@ and trm_unify ?(on_failure = fun a b -> ()) (t_left : trm) (t_right : trm)
           with Invalid_argument _ -> None
         in
         let* evar_ctx =
-          trm_unify ~on_failure body bodye evar_ctx validate_inst
+          trm_unify  body bodye evar_ctx validate_inst
         in
         Some
           (List.fold_left
@@ -257,7 +254,7 @@ and trm_unify ?(on_failure = fun a b -> ()) (t_left : trm) (t_right : trm)
           (Ast_to_text.ast_to_string t_right)
     (* TODO: Implement the rest of constructors *)
   in
-  if Option.is_none res then on_failure t_left t_right;
+  if Option.is_none res then ();
   res
 
 (** [are_same_trm t1 t2] checks that [t1] and [t2] are alpha-equivalent (same
