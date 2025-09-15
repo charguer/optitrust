@@ -319,12 +319,24 @@ If you have a nonempty file, copy the bindings into your file.
     "args": "Save intermediate state",
     "when": "config.optitrust.enableKeybindings"
   },
-  // To open documentation (might not be maintained)
+  // For viewing documentation
   {
     "key": "f11",
     "command": "workbench.action.tasks.runTask",
     "args": "Open doc for current source file in browser",
-    "when": "config.optitrust.enableKeybindings && resourceExtname == .ml"
+    "when": "config.optitrust.enableKeybindings && (resourceExtname == .ml || resourceExtname == .cpp)"
+  },
+  {
+    "key": "ctrl+f11",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Execute make viewdoc",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
+    "key": "ctrl+shift+f11",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Execute make doc viewdoc",
+    "when": "config.optitrust.enableKeybindings"
   },
   // For testing OptiTrust shortcuts
   {

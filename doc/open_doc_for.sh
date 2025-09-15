@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
-# Usage: ./open_doc_for.sh filepath
+# Usage (from OptiTrust root folder):
+#   doc/open_doc_for.sh tests/label/add/label_add_doc.ml
 #
 # This script opens in a browser the documentation page associated
 # with a given file from the /src folder.
 #
 # Eg. if filepath is "src/transfo/function.ml", then the page
-# "_doc/optitrust/Optitrust/Function/index.html"
+# "_doc/optitrust/Optitrust/Optitrust_transfo/Function/index.html"
 # is loaded in a browser.
 
 OPTITRUST_PATH=$(dirname $0)/..
@@ -20,20 +21,24 @@ if [ -z ${FILEPATH} ]; then
   exit 1
 fi
 
-BASENAME=$(basename ${FILEPATH})
-MODULE_LOWERCASE="${BASENAME%.*}"
+# Get the grand-parent folder path
+BASE=$(dirname ${FILEPATH})
+BASE=$(dirname ${BASE})
+BASE=$(basename ${BASE})
 
-MODULE="${MODULE_LOWERCASE^}"
+# Obtain the module name by capitalizing
+MODULE="${BASE^}"
 
-TARGET="_doc/optitrust/Optitrust/${MODULE}/index.html"
+TARGET="_doc/optitrust/Optitrust_transfo/${MODULE}/index.html"
 
-TITLESTR="${MODULE} (optitrust.Optitrust.${MODULE})"
+# LATER: TITLESTR="${MODULE} (optitrust.Optitrust.${MODULE})"
 
 if [ -f ${TARGET} ]; then
   echo "${TOOLS_FOLDER}/open_in_browser.sh ${TARGET}"
   ${TOOLS_FOLDER}/open_in_browser.sh ${TARGET}
-  # LATER: "${TITLESTR}"
 else
   echo "open_doc_for_sh: target file does not exist (try 'make doc' first)"
   echo ${TARGET}
 fi
+
+

@@ -521,7 +521,6 @@
         "label": "Open doc for current source file in browser",
         "type": "shell",
         "command": ".vscode/run_action.sh",
-        "args": [ "${file}" ],
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -529,8 +528,31 @@
           }
         },
         "args": [
-          "doc/open_doc_for.sh"
+          "doc/open_doc_for.sh",
+          "${relativeFile}"
         ]
+      },
+      {
+        "label": "Execute make viewdoc",
+        "type": "shell",
+        "command": "make viewdoc",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+      },
+      {
+        "label": "Execute make doc viewdoc",
+        "type": "shell",
+        "command": "make doc viewdoc",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
       },
       // Test shortcuts --> via runaction
       {

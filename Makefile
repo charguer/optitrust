@@ -63,11 +63,9 @@ doc:
 test_into_doc:
 	@ ./doc/add_tests_into_doc.sh
 
-# TODO: avoid rebuilding entire doc every time?
 .PHONY: viewdoc
-viewdoc: doc
-	@ echo Attempting to open $(DOC)...
-	@ nohup $(OPTITRUST_BROWSER) $(DOC) >/dev/null 2>&1 &
+viewdoc:
+	.vscode/run_action.sh tools/open_in_browser.sh $(DOC)
 
 # Also for testing:
 #   in terminal, execute utop-full
