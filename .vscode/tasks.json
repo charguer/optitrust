@@ -351,8 +351,8 @@
           "tools/_last_view_result.sh"
         ]
       },
-
-      // Run unit tests (currently not using run_action.sh)
+      // Run unit tests using tester. Run_action is not used here.
+      // For GUI operations, tester itself calls exec_with_noup_and_runaction.
       {
         "label": "Run the current test",
         "type": "shell",

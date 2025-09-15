@@ -57,6 +57,7 @@ OPTITRUST_BROWSER="setsid ${OPTITRUST_BROWSER}"
 # WINDOWTITLE=""
 
 # TODO: refactor code to factorize the default action.
+# TODO: consider using 'exec_with_nohup.sh'
 
 if [ -z "${WINDOWTITLE}" ]; then
 

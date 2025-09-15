@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-
+#
+# This script is for opening a diff between '${FILEBASE}_before.${FILEEXT}'
+# and '${FILEBASE}_after.${FILEEXT}' in a browser. Used by task 'View diff'.
+#
 # Usage:
 #   ./tools/open_diff.sh ${FILEBASE} ${FILEEXT}
 #

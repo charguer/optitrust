@@ -294,6 +294,12 @@ If you have a nonempty file, copy the bindings into your file.
     "args": "Open unit test ML and CPP files and documentation",
     "when": "config.optitrust.enableKeybindings"
   },
+  {
+    "key": "alt+ctrl+shift+f10",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Compile with gcc", // LATER: might want to use clang instead
+    "when": "config.optitrust.enableKeybindings"
+  },  
   // For working with long transformation scripts (might not be maintained)
   {
     "key": "f7",

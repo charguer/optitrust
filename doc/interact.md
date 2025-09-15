@@ -45,6 +45,22 @@ line are passed to the script.
 Note: the option "-i" is to allow launching GUI tasks, it might not be stricly
 necessary if the "run_action" wrapper uses a auxiliary "watcher" process.
 
+Remark: the tasks associated with the 'tester' do not go through `run_action.sh`.
+Most of the tasks of 'tester' do not launch a GUI output. But for those that do
+need a GUI, e.g. `./tester diff`, the script `.vscode/exec_with_nohup_and_runaction.sh`
+is used.
+
+LATER: perhaps for the tester we may want to find a way to test if we are in the 
+sandbox or not, to avoid going through run_action.sh if we not inside VScode.
+
+LATER: perhaps for the tasks such as `view_results.sh` we may want to start
+executing the script inside the sandbox, without invoking `run_action.sh`, 
+and only at the last moment `open_in_browser.sh` would go through
+`.vscode/exec_with_nohup_and_runaction.sh`. It might make the codebase slightly
+cleaner, but it is not clear that we would gain anything---probably just suffer
+from other unexpected restrictions associated with the sandbox.
+
+
 ## Purpose and working of run_action
 
 The `run_action.sh` script implements tooling to work around limitations of VScode, which executes tasks in a sandbox, hence is not able to properly execute features such as launching an external browser or running "xdotool" for giving the focus to a given window.

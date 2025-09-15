@@ -211,9 +211,12 @@ TIMER6=`date +%s%3N`
 
 echo "View ${FILEPATH} with options ${OPTIONS}"
 
-# LATER: only do this if error is raised
-make -C ${OPTITRUST_FOLDER} precompile
-
+# Note: the test is to allow bypassing 'make precompile' on machines where it does not work
+if [ ! -f "${OPTITRUST_FOLDER}/disable_precompile.txt" ]; then
+    make -C ${OPTITRUST_FOLDER} precompile
+else
+    echo "File disable_precompile.txt detected, skipping 'make precompile'."
+fi
 
 # TODO: --no-build
 
