@@ -1,4 +1,4 @@
-#/bin/bash
+#!/usr/bin/env bash
 
 # This script opens ${URL} in a fresh browser, unless a windows
 # with title ${WINDOWTITLE} already exists, in which case this window
@@ -6,6 +6,9 @@
 
 # If you want to use a specific browser, include a line in your ~/.bashrc such as:
 # export OPTITRUST_BROWSER=firefox
+
+TOOLS_FOLDER=$(dirname -- "$( readlink -f -- "$0"; )")
+OPTITRUST_FOLDER="${TOOLS_FOLDER}/.."
 
 URL=$1
 WINDOWTITLE=$2
@@ -48,37 +51,37 @@ if [ -z "${OPTITRUST_BROWSER}" ]; then
 
 fi
 
-msg "Using OPTITRUST_BROWSER=${OPTITRUST_BROWSER}"
+msg "Executing open_in_browser.sh on: ${URL}"
+msg "  Using OPTITRUST_BROWSER=${OPTITRUST_BROWSER}"
 
+# Not sure if the 'setsid' is useful, but it helps detaching the subtask even more than just nohup
 OPTITRUST_BROWSER="setsid ${OPTITRUST_BROWSER}"
 
 # Open the browser
+EXEC="${OPTITRUST_FOLDER}/.vscode/exec_with_nohup_and_runaction.sh"
 
 # WINDOWTITLE=""
 
-# TODO: refactor code to factorize the default action.
-# TODO: consider using 'exec_with_nohup.sh'
-
 if [ -z "${WINDOWTITLE}" ]; then
 
-    msg "No title provided. Launching a fresh browser."
+    msg "  No title provided. Launching a fresh browser."
     ## Launch fresh browser
-    msg "Command is: cd `pwd`; nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1 &"
-    nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1 &
+    msg "  Command is: ${EXEC} ${OPTITRUST_BROWSER} ${URL}"
+    ${EXEC} ${OPTITRUST_BROWSER} ${URL}
 
 elif [ "$XDG_SESSION_TYPE" = "x11" ] && command -v xdotool >/dev/null; then
 
-  msg "Searching for an existing brower session with name '${WINDOWTITLE}' using xdotool on x11."
+  msg "  Searching for an existing brower session with name '${WINDOWTITLE}' using xdotool on x11."
 
   # deprecated: WID=`xdotool search --name "${WINDOWTITLE}" | head -1`
 
   # Note: we currently don't check that the existing browser window is a process named ${OPTITRUST_BROWSER}; it could be another browser; that's not a big deal.
 
   WID=`xdotool search --limit 1 --name "${WINDOWTITLE}"`
-  echo "xdotool search --limit 1 --name \"${WINDOWTITLE}\""
+  echo "  xdotool search --limit 1 --name \"${WINDOWTITLE}\""
 
   if [ -n "${WID}" ]; then
-    msg "Existing brower session found (wid=${WID}), using xdotool to bring it up."
+    msg "  Existing brower session found (wid=${WID}), using xdotool to bring it up."
 
     # Immediately brings the window to the front
     # echo ${WID}
@@ -89,10 +92,10 @@ elif [ "$XDG_SESSION_TYPE" = "x11" ] && command -v xdotool >/dev/null; then
 
   else
 
-    msg "No existing browser session found. Lauching fresh browser."
+    msg "  No existing browser session found. Lauching fresh browser."
     ## Launch fresh browser
-    msg "Command is: cd `pwd`; nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1 &"
-    nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1 &
+    msg "  Command is: ${EXEC} ${OPTITRUST_BROWSER} ${URL}"
+    ${EXEC} ${OPTITRUST_BROWSER} ${URL}
 
   fi
 
@@ -100,7 +103,7 @@ else
 
   msg "Launching a fresh browser. (xdotool is not available, or wayland is not deactivated)."
   ## Launch fresh browser
-  msg "Command is: cd `pwd`; nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1 &"
-  nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1 &
+  msg "Command is: ${EXEC} ${OPTITRUST_BROWSER} ${URL}"
+  ${EXEC} ${OPTITRUST_BROWSER} ${URL}
 
 fi

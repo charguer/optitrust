@@ -1,10 +1,18 @@
 #!/bin/bash
-
-# This script watches over for any modification of ACTION_FILE
+#
+# This script plays the role of a 'server' for executing queries issued
+# by the script `run_action.sh`. This script executes until interrupted.
+# It must be launched in OptiTrust's root folder.
+#
+# Usage: (from OptiTrust's root folder)
+#      .vscode/watch.sh
+#
+# Or simply use the shorthand:
+#      ./watcher.sh
+#
+# Concretely, this script watches over for any modification of ACTION_FILE
 # and executes the file when it gets modified.
-# Requires the `inotify-tools` package.
-
-# Assumes it is called from the .vscode folder
+# Using this file requires the `inotify-tools` package to be installed.
 
 # Compute paths
 OPTITRUST_DIR=`pwd`

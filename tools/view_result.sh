@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Usage:
+# Usage (to be called from OptiTrust root folder):
 #   ./tools/view_result.sh ${MODE} ${FILEPATH} ${LINENUMBER} ${OPTIONS}
 #
 # where MODE is one of:
@@ -231,6 +231,8 @@ fi
 #==========================================================================
 # Open the output
 
+# At this stage, `pwd` is the folder containing the script.
+
 TIMER7=`date +%s%3N`
 
 if [ "${MODE}" = "step_diff" ] || [ "${MODE}" = "step_diff_from_inter" ]; then
@@ -250,6 +252,7 @@ elif [ "${MODE}" = "save_inter" ]; then
   echo "Produced ${SRCBASE}_out.cpp as checkpoint for line ${LINE}"
 
 elif [ "${MODE}" = "step_result" ]; then
+  # not tested, no keybinding advertized for it
 
   ${CODE_VIEWER} ${SRCBASE}_after.cpp
 

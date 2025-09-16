@@ -1,16 +1,29 @@
 #!/usr/bin/env bash
 
+# This script  a '_trace.html' file for a given a '.ml' script.
+# Unlike `open_standalone_trace.sh`, here the trace produced depends on an interactive server,
+# which is launched by the present script.
+#
+# The script then opens the trace in a browser using `open_in_browser.sh`.
+# If the script is called from VScode, you might need `watch.sh` to get the browser to show up.
+
+# Usage: (This script must be executed with a `pwd` matching the folder that contains the script)
+#   ${OPTITRUST_FOLDER}/tools/open_trace.sh ${FILEBASE}
+# where ${FILEBASE} is the script name without extension, e.g., label_add.
+# The output is named, e.g. `label_add_trace.html`, and the server depends
+# on the serialized trace, e.g. `label_add.trace`.
+
 TOOLS_FOLDER=$(dirname -- "$( readlink -f -- "$0"; )")
 OPTITRUST_FOLDER=$(dirname "${TOOLS_FOLDER}")
 
 FILEBASE=$1
 
-# Build the html file
-# TODO: Remove this step and directly make the file in the webserver
-TARGET="${FILEBASE}_trace.html"
-${TOOLS_FOLDER}/build_trace.sh ${FILEBASE}
+# Name of the trace output file
+FILENAME="${FILEBASE}_trace.html"
+TARGET=$(realpath --relative-to=${OPTITRUST_FOLDER} ${FILENAME})
 
-TARGET=$(realpath --relative-to=${OPTITRUST_FOLDER} ${TARGET})
+# LATER: we may want to remove this step and directly make the file in the webserver
+${TOOLS_FOLDER}/build_trace.sh ${FILEBASE}
 
 cd ${OPTITRUST_FOLDER}
 # The next line tests if we need to rebuild the trace server, in that case, it kills any potentially running trace server.
@@ -26,5 +39,4 @@ done
 
 # Open the browser with the target file
 URL="http://localhost:6775/${TARGET}"
-echo "Opening browser on ${URL}"
 ${TOOLS_FOLDER}/open_in_browser.sh "${URL}" "${FILEBASE} - OptiTrust Trace"

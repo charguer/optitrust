@@ -37,8 +37,7 @@ if [ -f ${TARGET} ]; then
   echo "${TOOLS_FOLDER}/open_in_browser.sh ${TARGET}"
   ${TOOLS_FOLDER}/open_in_browser.sh ${TARGET}
 else
-  echo "open_doc_for_sh: target file does not exist (try 'make doc' first)"
-  echo ${TARGET}
+  echo "open_doc_for_sh: file not found ${TARGET}."
+  echo "  Did you do 'make doc' first? or perhaps there is no documentation for '${BASE}'."
 fi
-
 

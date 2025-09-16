@@ -15,6 +15,7 @@
 DOTVSCODEFOLDER=$(dirname -- "$( readlink -f -- "$0"; )")
 CMD="$*"
 
+echo "${DOTVSCODEFOLDER}/run_action.sh ${DOTVSCODEFOLDER}/exec_with_nohup.sh ${CMD}"
 ${DOTVSCODEFOLDER}/run_action.sh ${DOTVSCODEFOLDER}/exec_with_nohup.sh ${CMD}
 
 

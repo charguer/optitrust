@@ -1,5 +1,15 @@
 #!/bin/bash
-# Assumes the current path to be .vscode
+#
+# This script issues 'queries' to be executed by the 'server' script `watch.sh`.
+# Each query consists of a command line to execute.
+#
+# Usage:
+#    ./run_action.sh ${CMD}
+#
+# where ${CMD} denotes the command to run.
+# The command must makes sense when executed in the root folder of OptiTrust.
+# Indeed, the `watch.sh` script, which launches the actions, is executed in that folder.
+
 
 # -- for debug:
 # echo `pwd`
