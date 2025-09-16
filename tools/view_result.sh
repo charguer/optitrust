@@ -246,6 +246,7 @@ elif [ "${MODE}" = "standalone_full_trace" ]; then
 elif [ "${MODE}" = "step_trace" ] || [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
 
   ${TOOLS_FOLDER}/open_trace.sh ${SRCBASE}
+  # LATER: might want to pass the ${MODE} argument in order to open_trace
 
 elif [ "${MODE}" = "save_inter" ]; then
 

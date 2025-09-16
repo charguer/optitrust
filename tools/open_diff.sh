@@ -16,10 +16,13 @@
 # FIXME: to do this we'd need to change the computation of sDiffcode
 # set -euo pipefail
 
-# Path to the tools and optitrust folder
+# TOOLS_FOLDER_RELATIVE denotes the path to the tools folder relative to the current script
 TOOLS_FOLDER=$(dirname -- "$( readlink -f -- "$0"; )")
+TOOLS_FOLDER_RELATIVE=$(realpath --relative-to=. ${TOOLS_FOLDER})
 OPTITRUST_FOLDER="${TOOLS_FOLDER}/.."
-WEB_VIEW_FOLDER="${TOOLS_FOLDER}/web_view"
+
+# WEB_VIEW_FOLDER denotes the path to the web_view folder relative to the script folder
+WEB_VIEW_FOLDER="${TOOLS_FOLDER_RELATIVE}/web_view"
 
 # Parsing arguments
 FILEBASE=$1

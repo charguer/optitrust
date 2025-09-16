@@ -65,7 +65,7 @@ test_into_doc:
 
 .PHONY: viewdoc
 viewdoc:
-	.vscode/run_action.sh tools/open_in_browser.sh $(DOC)
+	tools/open_in_browser.sh $(DOC)
 
 # Also for testing:
 #   in terminal, execute utop-full

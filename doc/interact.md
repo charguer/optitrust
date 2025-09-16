@@ -13,17 +13,16 @@ in the instructions from `INSTALL.md`. For example, `F6` runs the task named
 ## Description of a task
 
 The project file `.vscode/tasks.json` describes the tasks. Consider e.g. 
-"view diff". This task essentially executes a script `tools/view_results.sh`, 
-but by means of a wrapper named `.vscode/run_action.sh`. The argument
-provided to the script is "step_diff" to indicate what result we want
-to visualize, and the path of the current script as well as the cursor
+"view diff". This task executes a script `tools/view_results.sh`.
+The argument provided to the script is "step_diff" to indicate what result 
+we want to visualize, and the path of the current script as well as the cursor
 line are passed to the script. 
 
 ```json
       {
         "label": "View diff",
         "type": "shell",
-        "command": ".vscode/run_action.sh",
+        "command": "tools/view_result.sh",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -34,7 +33,6 @@ line are passed to the script.
           "clear": true
         },
         "args": [
-          "tools/view_result.sh",
           "step_diff",
           "${relativeFile}",
           "${lineNumber}"
@@ -44,33 +42,6 @@ line are passed to the script.
 
 Note: the option "-i" is to allow launching GUI tasks, it might not be stricly
 necessary if the "run_action" wrapper uses a auxiliary "watcher" process.
-
-Remark: the tasks associated with the 'tester' do not go through `run_action.sh`.
-Most of the tasks of 'tester' do not launch a GUI output. But for those that do
-need a GUI, e.g. `./tester diff`, the script `.vscode/exec_with_nohup_and_runaction.sh`
-is used.
-
-LATER: perhaps for the tester we may want to find a way to test if we are in the 
-sandbox or not, to avoid going through run_action.sh if we not inside VScode.
-
-LATER: perhaps for the tasks such as `view_results.sh` we may want to start
-executing the script inside the sandbox, without invoking `run_action.sh`, 
-and only at the last moment `open_in_browser.sh` would go through
-`.vscode/exec_with_nohup_and_runaction.sh`. It might make the codebase slightly
-cleaner, but it is not clear that we would gain anything---probably just suffer
-from other unexpected restrictions associated with the sandbox.
-
-
-## Purpose and working of run_action
-
-The `run_action.sh` script implements tooling to work around limitations of VScode, which executes tasks in a sandbox, hence is not able to properly execute features such as launching an external browser or running "xdotool" for giving the focus to a given window.
-This limitations are especially visible when VScode and/or the brower is installed using Snap, but even with a direct binary installation, VScode performs some form of sandboxing.
-
-`run_action.sh` takes as argument a command line to execute, and writes this command line into a temporary file named `action.sh`. 
-
-Independently, the OptiTrust user needs to execute a script named `watch.sh` that runs in the background. It is launched by means of the command `./watcher.sh`, which is just a shorthand for `./.vscode/watch.sh`. This script waits to observe modifications to the file `action.sh` (using "inotify"). When it detects a change, it executes the script `action.sh`. 
-
-The output of that script is captured in a file named `action_out.txt`, whose contents is then reported as output of `action.sh`. This way, the user obtains the feedback of the requested command in the integrated terminal of VScode.
 
 ## Purpose and working of view_results
 
@@ -115,6 +86,19 @@ The script `tools/open_in_browser.sh` takes as argument the path to an html page
 The mechanism for reusing windows is based on "xdotools", which requires an X server ---Wayland won't work. To disable Wayland: `sudo sh -c 'echo "WaylandEnable=false" >> /etc/gdm3/custom.conf'`, then reboot.
 
 The choice of the browser is, by default, "firefox" on Ubuntu, and "xdg-open" on other OS. If desired, add can customize the choice by adding to your `~/.bashrc`, e.g., `export OPTITRUST_BROWSER="chromium"`.
+
+Due to VScode sandboxing, in most set-ups, the VScode tasks are generally unable to launch a GUI application. To work around the problem, we use the script `run_action.sh` described below to execute arbitrary commands outside the sandbox.
+
+
+## Purpose and working of run_action
+
+The `run_action.sh` script implements tooling to work around limitations of VScode, which executes tasks in a sandbox, hence is not able to properly execute features such as launching an external browser or running "xdotool" for giving the focus to a given window. This limitations are especially visible when VScode and/or the brower is installed using Snap, but even with a direct binary installation, VScode performs some form of sandboxing.
+
+The script `run_action.sh` takes as argument a command line to execute, and writes this command line into a temporary file named `action.sh`. 
+
+Independently, the OptiTrust user needs to execute a script named `watch.sh` that runs in the background. It is launched by means of the command `./watcher.sh`, which is just a shorthand for `./.vscode/watch.sh`. This script waits to observe modifications to the file `action.sh` (using the "inotify" tooling). When the script detects a change, it executes the command line found in `action.sh`. 
+
+The output of that script is captured in a file named `action_out.txt`, whose contents is then reported as output of `action.sh`. This way, the user obtains the feedback of the requested command in the integrated terminal of VScode.
 
 ## Troubleshooting
 

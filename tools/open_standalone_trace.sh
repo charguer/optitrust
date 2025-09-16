@@ -14,17 +14,18 @@
 
 TOOLS_FOLDER=$(dirname -- "$( readlink -f -- "$0"; )")
 OPTITRUST_FOLDER=$(dirname "${TOOLS_FOLDER}")
+SCRIPT_FOLDER=`pwd`
 
 FILEBASE=$1
 
 # Name of the trace output file
-FILENAME="${FILEBASE}_standalone_trace.html"
-TARGET=$(realpath --relative-to=${OPTITRUST_FOLDER} ${FILENAME})
+TRACE_FILENAME="${FILEBASE}_standalone_trace.html"
+TARGET=$(realpath --relative-to=${OPTITRUST_FOLDER} ${TRACE_FILENAME})
 
 # Build the standalone html file
-${TOOLS_FOLDER}/build_trace.sh ${FILEBASE}
+${TOOLS_FOLDER}/build_trace.sh ${FILEBASE} ${TRACE_FILENAME}
 echo "Generated ${TARGET}"
 
 # Open the browser with the target file
-URL="${TARGET}"
+URL="${OPTITRUST_FOLDER}/${TARGET}"
 ${TOOLS_FOLDER}/open_in_browser.sh ${URL} "${FILEBASE} - OptiTrust Standalone Trace"

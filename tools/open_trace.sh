@@ -19,11 +19,11 @@ OPTITRUST_FOLDER=$(dirname "${TOOLS_FOLDER}")
 FILEBASE=$1
 
 # Name of the trace output file
-FILENAME="${FILEBASE}_trace.html"
-TARGET=$(realpath --relative-to=${OPTITRUST_FOLDER} ${FILENAME})
+TRACE_FILENAME="${FILEBASE}_trace.html"
+TARGET=$(realpath --relative-to=${OPTITRUST_FOLDER} ${TRACE_FILENAME})
 
 # LATER: we may want to remove this step and directly make the file in the webserver
-${TOOLS_FOLDER}/build_trace.sh ${FILEBASE}
+${TOOLS_FOLDER}/build_trace.sh ${FILEBASE} ${TRACE_FILENAME}
 
 cd ${OPTITRUST_FOLDER}
 # The next line tests if we need to rebuild the trace server, in that case, it kills any potentially running trace server.
