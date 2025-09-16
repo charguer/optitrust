@@ -30,10 +30,6 @@ let _ =
       !!Rewrite.equiv_at "int i; int j ; int k; ==> (i*j +k) /j == i" ~indepth:true [ f ];
       !!Rewrite.equiv_at "int i; int j ; int k; ==> (i*j +k) %j == k" ~indepth:true [ f ];
       !!Function.inline [ nbMulti; f; cCall "matvec" ];
-      !!Matrix.simpl_access_of_access ~indepth:true [ f ];
-      !!Matrix.simpl_index_add
-        [ nbMulti; f; cCellAccess ~base:[ cVar ~substr:true "" ] (); cBinop ~lhs:[ cCall ~regexp:true "MINDEX." ] Binop_add ];
-      !!Rewrite.equiv_at "int j; ==> 0 + j == j" [ nbMulti; f ] ~indepth:true;
       !!Function.uninline
         ~f:[ cFunDef "matmul" ]
         [ occIndices [ 0; 3; 4; 5 ]; f; cFor "i" ~body:[ cSeq ~instrs_pred:(target_list_one_st [ cFor "j" ]) () ] ])

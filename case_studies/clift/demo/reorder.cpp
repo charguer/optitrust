@@ -18,9 +18,9 @@ void ghost_pairs(int *x) {
 void ghost_pairs2(int *x) {
   __reads("x ~> Matrix1(1)");
 
-  for (int j = 0; j < 5; j++) {
+  for (int i = 0; i < 5; i++) {
     __sreads("x ~> Matrix1(1)");
-    for (int i = 0; i < 5; i++) {
+    for (int j = 0; j < 5; j++) {
       __GHOST_BEGIN(focus_x, ro_matrix1_focus, "x, 0");
 
       x[MINDEX1(1, 0)] + 1;

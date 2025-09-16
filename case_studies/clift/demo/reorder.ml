@@ -9,5 +9,6 @@ let _ =
 let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp (fun _ ->
-  !! Loop.swap [cFunDef "ghost_pairs";cFor "i"];
+  !! Loop.swap [cFunDef "ghost_pairs2";cFor "i"];
+  (* !! Loop.swap [cFunDef "ghost_pairs";cFor "j"]; *)
   !! (); )
