@@ -1,0 +1,7 @@
+
+
+(executable
+ (name pview)
+ (libraries str unix graphics)
+ (flags ((:standard \ -short-paths) -warn-error -69 -w -9-26-27-32-33-35-39))
+)

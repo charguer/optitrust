@@ -1,9 +1,9 @@
 #include <optitrust.h>
 // Testing mallocs
 int main() {
-  float * const a = MALLOC1(float, 10);
-  float * const b = MALLOC2(float, 10, 10);
-  float * const c = MALLOC3(float, 10, 10, 10);
+  float *const a = MALLOC1(float, 10);
+  float *const b = MALLOC2(float, 10, 10);
+  float *const c = MALLOC3(float, 10, 10, 10);
 
   for (int i = 0; i < 10; i++) {
     a[MINDEX1(10, i)] = i + 1;
@@ -13,9 +13,9 @@ int main() {
 }
 // Testing callocs
 int main2() {
-  float * const a = CALLOC1(float, 10);
-  float * const b = CALLOC2(float, 10, 10);
-  float * const c = CALLOC3(float, 10, 10, 10);
+  float *const a = CALLOC1(float, 10);
+  float *const b = CALLOC2(float, 10, 10);
+  float *const c = CALLOC3(float, 10, 10, 10);
 
   for (int i = 0; i < 10; i++) {
     a[MINDEX1(10, i)] = i + 1;
@@ -26,8 +26,8 @@ int main2() {
 
 // Read and Write
 int main3() {
-  float * const a = MALLOC2(float, 10, 10);
-  float * const b = MALLOC2(float, 10, 10);
+  float *const a = MALLOC2(float, 10, 10);
+  float *const b = MALLOC2(float, 10, 10);
   for (int i = 0; i < 10; i++) {
     a[MINDEX2(10, 10, 2, i)] = i + 1;
     b[MINDEX2(10, 10, 2, i)] = a[MINDEX2(10, 10, 2, i)];
@@ -39,7 +39,7 @@ int main4() {
   int N1 = 10;
   int const block_size = 5;
   int const nb_blocks = 2;
-  float * const a = MALLOC1(float, N1);
+  float *const a = MALLOC1(float, N1);
 
   a[MINDEX1(N1, 4)] = 42;
 }
@@ -48,14 +48,25 @@ int main4() {
 int main5() {
   int N1 = 10;
   int const block_size = 5;
-  float * const a = MALLOC1(float, N1);
+  float *const a = MALLOC1(float, N1);
 
   a[MINDEX1(N1, 4)] = 42;
 }
+// block size and nb_blocks are arguments
+
+int main6(int const N1, int const nb_blocks, int const block_size) {
+
+  float *const a = MALLOC1(float, N1);
+  for (int i = 0; i < nb_blocks; i++) {
+    for (int j = 0; j < block_size; j++) {
+
+      a[MINDEX1(N1, i * block_size + j)] = 42;
+    }
+  }
+}
 int test() {
 
-  float * const a = CALLOC1(float, 10);
-  a[MINDEX1(10,2)] = 10;
+  float *const a = CALLOC1(float, 10);
+  a[MINDEX1(10, 2)] = 10;
   return 1;
-
 }

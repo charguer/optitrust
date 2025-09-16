@@ -55,6 +55,17 @@ int main5() {
   a[MINDEX2(a_blocks, block_size, 4 / block_size, 4 % block_size)] = 42;
 }
 
+int main6(int N1, int nb_blocks, int block_size) {
+  float* const a =
+      (float*)malloc(MSIZE2(nb_blocks, block_size) * sizeof(float));
+  for (int i = 0; i < nb_blocks; i++) {
+    for (int j = 0; j < block_size; j++) {
+      a[MINDEX2(nb_blocks, block_size, (i * block_size + j) / block_size,
+                (i * block_size + j) % block_size)] = 42;
+    }
+  }
+}
+
 int test() {
   const int a_blocks = (10 + (2 - 1)) / 2;
   float* const a = (float*)calloc(MSIZE2(a_blocks, 2), sizeof(float));

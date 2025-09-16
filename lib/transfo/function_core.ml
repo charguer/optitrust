@@ -135,7 +135,7 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
       (* Let's define the check that a given subterm is a [get(ls)] *)
       let is_get_of_ls (ti:trm) : bool =
         Option.value ~default:false (
-          Option.map (are_same_trm ls) (trm_get_inv ti)
+          Option.map (Trm_unify.are_same_trm ls) (trm_get_inv ti)
         ) in
       (* Let's reify the right-hand side as a arith-core AST *)
       let expr, atoms = trm_to_expr ~normalized:true rs in
@@ -211,6 +211,7 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
 let uninline_on (fct_decl : trm)
  (to_type_ret_t : seq_component list option ref)
  (span : Dir.span) (t_seq : trm) : trm =
+
   update_span_helper span t_seq (fun instrs ->
   let (f, ret_typ, targs, body, spec) = Pattern.pattern_match fct_decl [
     Pattern.(trm_let_fun !__ !__ !__ !__ !__) (fun f ret_typ targs body spec () ->
@@ -268,10 +269,11 @@ let uninline_on (fct_decl : trm)
   (* 4. check validity: instantiated arguments must be pure,
         and a separate resource must be owned on the eventual return variable  *)
   if !Flags.check_validity then begin
-    let _f_contract = match spec with
+    (* POUR ARTHUR : Since we delte contract in f_decl do we need this anymore ? *)
+    (* let _f_contract = match spec with
     | FunSpecUnknown | FunSpecReverts _ -> failwith "expected function contract"
     | FunSpecContract c -> c
-    in
+    in *)
     Var_map.iter (fun _ arg_val ->
       if not (Resources.trm_is_pure arg_val) then
         trm_fail arg_val "basic function uninlining does not support non-pure arguments, combine with variable binding and inline"

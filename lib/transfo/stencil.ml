@@ -10,7 +10,7 @@ let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : 
     let loop_t = Target.resolve_path p in
     let error = "Stencil.loop_align_stop_extend_start: expected simple loop" in
     let ({ start = start'; stop = stop' }, _body, _contract) = trm_inv ~error trm_for_inv loop_t in
-    if (are_same_trm start start') && (are_same_trm stop stop') then
+    if (Trm_unify.are_same_trm start start') && (Trm_unify.are_same_trm stop stop') then
       ()
     else begin
       Loop.shift_range ~simpl (StopAt stop) (target_of_path p);

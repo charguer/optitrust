@@ -55,7 +55,7 @@ let trm_map_at ?(change_at : target list option) (f_map: trm -> trm) (t: trm) : 
 let change_trm ?(change_at : target list option) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   let rec apply_change (t' : trm) : trm=
-    if are_same_trm t' t_before then
+    if Trm_unify.are_same_trm t' t_before then
       trm_copy t_after
     else trm_map apply_change t'
   in

@@ -174,12 +174,12 @@ let%transfo local_name ~(var : var) (var_typ : typ)
     a block of code of the following form
       T a
 
-   { T x = a; // mendatory format for first instruction
+   { T x = a; // mandatory format for first instruction
 
       for (int i = ...)
          x++;
 
-      a = x;  // mendatory format for last instruction
+      a = x;  // mandatory format for last instruction
    }@nobrace then
    Then it will transform it into:
        T a

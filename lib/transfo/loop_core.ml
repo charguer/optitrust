@@ -50,7 +50,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
   (* TODO: enable other styles for TileDivides *)
   if bound = TileDivides then begin
     (* TODO: other cases *)
-    assert (are_same_trm start (trm_int 0));
+    assert (Trm_unify.are_same_trm start (trm_int 0));
     assert (direction = DirUp);
     let (count, iteration_to_index) =
       if trm_is_one step
@@ -312,7 +312,7 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
   let nb_iter =
     Pattern.pattern_match stop [
       Pattern.(trm_add !__ (trm_int !__)) (fun start' max_incr () ->
-        if are_same_trm start start' then (max_incr + step - 1) / step
+        if Trm_unify.are_same_trm start start' then (max_incr + step - 1) / step
         else trm_fail t error
       );
       Pattern.(trm_int !__) (fun stop () ->
@@ -416,7 +416,7 @@ let fold_at (index : string) (start : int) (step : int) (t : trm) : trm =
   let loop_body = Internal.change_trm (trm_int start) (trm_var index) first_instr in
   List.iteri( fun i t1 ->
     let local_body = Internal.change_trm (trm_int (i+1)) (trm_var index) t1 in
-    if not (are_same_trm loop_body local_body)
+    if not (Trm_unify.are_same_trm loop_body local_body)
       then trm_fail t1 "Loop_core.fold_aux: all the instructions should have the same shape but differ by the index";
   ) other_instr;
   trm_pass_labels t (trm_for { index; start = trm_int start; direction = DirUp; stop = trm_int nb; step = (if step = 1 then trm_step_one () else (trm_int step)) } (trm_seq_nomarks [loop_body]))

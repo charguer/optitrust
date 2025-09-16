@@ -1,3 +1,4 @@
+
 (** Loop transformations.
     *)
 
@@ -102,92 +103,95 @@ let%transfo hoist_alloc_loop_list
   =
   Trace.justif "always correct: per-iteration storage is allocated outside the loop";
   (*Trace.tag_valid_by_composition ();*)
-  Marks.with_marks (fun next_m ->
-  let mark_alloc = next_m () in
-  let mark_free = next_m () in
-  let mark_tmp_var = next_m () in
-  let may_detach_init (x : var) (init : trm) (p : path) =
-    let dim_count = ref 0 in
-    let is_alloc = match Matrix_trm.alloc_inv init with
-    | Some (_, dims, _) ->
-      dim_count := List.length dims;
-      true
-    | None -> false
-    in
-    if not is_alloc then begin
-      Variable_basic.init_detach (target_of_path p);
-      let (_, seq_path) = Path.index_in_seq p in
-      Matrix_basic.intro_malloc0 ~mark_alloc ~mark_free x (target_of_path seq_path);
-    end else begin
-      Marks.add mark_alloc (target_of_path p);
-      Marks.add mark_free [cDelete ~arg:[cVarId x] ()];
-    end
-  in
-  let simpl_hoist_tmp_var () : unit =
-    let mark = next_m () in
-    Variable_basic.inline ~mark [cMark mark_tmp_var];
-    Target.iter (fun p_nested ->
-      let p = p_nested |> Path.parent in
-      (* Transfo_debug.path "p_nested" p_nested;
-      Transfo_debug.path "p" p; *)
-      Matrix_basic.simpl_access_of_access (target_of_path p);
-      (* ShowAt.trm ~msg:"t@p" (target_of_path p);
-      ShowAt.trm ~msg:"t@p" (target_of_path (p @ [Dir_arg_nth 1])); *)
-      Matrix_basic.simpl_index_add (target_of_path (p @ [Dir_arg_nth 1]));
-      Arith.(simpl_rec gather_rec (target_of_path (p @ [Dir_arg_nth 1])));
-    ) [nbAny; cMark mark]
-  in
-  let rec hoist_aux name_template (i : int) =
-    let more_hoists = i + 1 <= (List.length loops) in
-    let varies_in_current_loop = List.nth loops ((List.length loops) - i) in
-    begin match varies_in_current_loop with
-    | 0 -> begin
-      Trace.step ~kind:Step_group ~name:(sprintf "%d. move out" i) (fun () ->
-      (* 1. move allocation at the top of the sequence. *)
-      let alloc_p = Target.resolve_target_exactly_one [cMark mark_alloc] in
-      let (alloc_i, seq_p) = Path.index_in_seq alloc_p in
-      Instr_basic.move ~dest:[tFirst] (target_of_path alloc_p);
-      (* 2. move free at the bottom of the sequence. *)
-      Instr_basic.move ~dest:[tLast] ((target_of_path seq_p) @ [cMark mark_free]);
-      (* 3. move both out of the surrounding loop at once. *)
-      Loop_basic.move_out_alloc ((target_of_path seq_p) @ [cMark mark_alloc])
-      );
-    end
-    | 1 -> begin
-      Trace.step ~kind:Step_group ~name:(sprintf "%d. hoist" i) (fun () ->
-      let next_name = Tools.string_subst "${i}" (string_of_int i) name_template in
-      Trace.without_resource_computation_between_steps (fun () ->
-        Loop_basic.hoist ~name:next_name ~mark_alloc ~mark_free ~mark_tmp_var [cMark mark_alloc];
-        if inline then Trace.without_substep_validity_checks simpl_hoist_tmp_var;
-      )
-      );
-    end
-    | _ -> failwith "expected list of 0 and 1s"
-    end;
-    if more_hoists then hoist_aux name_template (i + 1);
-  in
   Target.iter (fun p ->
-    let tg_trm = Target.resolve_path p in
-    match Resource_trm.ghost_begin_inv tg_trm with
-    | Some _ -> Tools.warn "Loop.hoist_alloc: not hoisting ghost begin"
-    | _ -> begin
-    match tg_trm.desc with
-    | Trm_let ((x, _), init) ->
-      if 1 <= (List.length loops) then begin
-        let name_template = Tools.string_subst "${var}" x.name tmp_names in
-        let alloc_name =
-          if inline && (name = "")
-          then x.name
-          else Tools.string_subst "${var}" x.name name
-        in
-        may_detach_init x init p;
-        hoist_aux name_template 1;
-        if alloc_name <> "" then
-          Variable_basic.rename ~into:alloc_name [cMark mark_alloc];
+
+    Marks.with_marks (fun next_m ->
+    let mark_alloc = next_m () in
+    let mark_free = next_m () in
+    let mark_tmp_var = next_m () in
+    let may_detach_init (x : var) (init : trm) (p : path) =
+      let dim_count = ref 0 in
+      let is_alloc = match Matrix_trm.alloc_inv init with
+      | Some (_, dims, _) ->
+        dim_count := List.length dims;
+        true
+      | None -> false
+      in
+      if not is_alloc then begin
+        Variable_basic.init_detach (target_of_path p);
+        let (_, seq_path) = Path.index_in_seq p in
+        Matrix_basic.intro_malloc0 ~mark_alloc ~mark_free x (target_of_path seq_path);
+      end else begin
+        Marks.add mark_alloc (target_of_path p);
+        (* TODO : Catch free error ? *)
+        Marks.add mark_free [cDelete ~arg:[cVarId x] ()];
       end
-    | _ -> trm_fail tg_trm "Loop.hoist_alloc: expected a variable declaration"
-    end
-  ) tg)
+    in
+    let simpl_hoist_tmp_var () : unit =
+      let mark = next_m () in
+      Variable_basic.inline ~mark [cMark mark_tmp_var];
+      Target.iter (fun p_nested ->
+        let p = p_nested |> Path.parent in
+        (* Transfo_debug.path "p_nested" p_nested;
+        Transfo_debug.path "p" p; *)
+        Matrix_basic.simpl_access_of_access (target_of_path p);
+        (* ShowAt.trm ~msg:"t@p" (target_of_path p);
+        ShowAt.trm ~msg:"t@p" (target_of_path (p @ [Dir_arg_nth 1])); *)
+        Matrix_basic.simpl_index_add (target_of_path (p @ [Dir_arg_nth 1]));
+        Arith.(simpl_rec gather_rec (target_of_path (p @ [Dir_arg_nth 1])));
+      ) [nbAny; cMark mark]
+    in
+    let rec hoist_aux name_template (i : int) =
+      let more_hoists = i + 1 <= (List.length loops) in
+      let varies_in_current_loop = List.nth loops ((List.length loops) - i) in
+      begin match varies_in_current_loop with
+      | 0 -> begin
+        Trace.step ~kind:Step_group ~name:(sprintf "%d. move out" i) (fun () ->
+        (* 1. move allocation at the top of the sequence. *)
+        let alloc_p = Target.resolve_target_exactly_one [cMark mark_alloc] in
+        let (alloc_i, seq_p) = Path.index_in_seq alloc_p in
+        Instr_basic.move ~dest:[tFirst] (target_of_path alloc_p);
+        (* 2. move free at the bottom of the sequence. *)
+        Instr_basic.move ~dest:[tLast] ((target_of_path seq_p) @ [cMark mark_free]);
+        (* 3. move both out of the surrounding loop at once. *)
+        Loop_basic.move_out_alloc ((target_of_path seq_p) @ [cMark mark_alloc])
+        );
+      end
+      | 1 -> begin
+        Trace.step ~kind:Step_group ~name:(sprintf "%d. hoist" i) (fun () ->
+        let next_name = Tools.string_subst "${i}" (string_of_int i) name_template in
+        Trace.without_resource_computation_between_steps (fun () ->
+          Loop_basic.hoist ~name:next_name ~mark_alloc ~mark_free ~mark_tmp_var [cMark mark_alloc];
+          if inline then Trace.without_substep_validity_checks simpl_hoist_tmp_var;
+        )
+        );
+      end
+      | _ -> failwith "expected list of 0 and 1s"
+      end;
+      if more_hoists then hoist_aux name_template (i + 1);
+    in
+
+      let tg_trm = Target.resolve_path p in
+      match Resource_trm.ghost_begin_inv tg_trm with
+      | Some _ -> Tools.warn "Loop.hoist_alloc: not hoisting ghost begin"
+      | _ -> begin
+      match tg_trm.desc with
+      | Trm_let ((x, _), init) ->
+        if 1 <= (List.length loops) then begin
+          let name_template = Tools.string_subst "${var}" x.name tmp_names in
+          let alloc_name =
+            if inline && (name = "")
+            then x.name
+            else Tools.string_subst "${var}" x.name name
+          in
+          may_detach_init x init p;
+          hoist_aux name_template 1;
+          if alloc_name <> "" then
+            Variable_basic.rename ~into:alloc_name [cMark mark_alloc];
+        end
+      | _ -> trm_fail tg_trm "Loop.hoist_alloc: expected a variable declaration"
+      end
+  )) tg
 
 (** [hoist ~name ~array_size ~inline tg]: this transformation is similar to [Loop_basic.hoist] (see loop_basic.ml) except that this
     transformation supports also undetached declarations as well as hoisting through multiple loops.

@@ -636,7 +636,6 @@ let update_fields_type_on (pattern : string) (typ_update : typ -> typ) (t : trm)
     (* LATER: FIX ME! *)
     (* let update_type ty = typ_map typ_update ty in *)
     let update_type (ty_to_update : typ) : typ = ty_to_update in
-
     (* let replace_type (s : string) (ty1 : typ) : typ =
       if Tools.pattern_matches pattern s then (update_type ty1)  else ty1 in
      *)

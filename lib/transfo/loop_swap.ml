@@ -276,6 +276,7 @@ let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = 
         Ghost_pure.fission ~mark_between:split_begin_m [cPath seq_p; cMark begin_m; tAfter];
         Loop_basic.fission_basic [cPath seq_p; cMark split_begin_m];
         let split_end_m = next_m () in
+
         Ghost_pure.fission ~mark_between:split_end_m [cPath seq_p; cMark end_m; tBefore];
         Loop_basic.fission_basic [cPath seq_p; cMark split_end_m];
         let loop_begin_m = next_m () in
