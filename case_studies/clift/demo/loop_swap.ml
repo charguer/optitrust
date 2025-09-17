@@ -12,7 +12,7 @@ let f = cFunDef "generate_prompt_proc"
 
 let _ =
   Run.script_cpp (fun _ ->
-      !!Loop.reorder_at  [ nbMulti; f; cFor "i" ~body:[cFor "q"]];
+      !!Loop.reorder_at ~order:[ "q"; "i" ] [ nbMulti; f; cForBody "q"; dSeqNth 0 ];
       !!Matrix.reorder_dims ~order:[ 1; 0; 2 ] [ f; cVarDef "mha_q" ];
       !!Function.inline [ f; cCall "matvec" ];
       (* !!Matrix.simpl_access_of_access ~indepth:true [ f ];
