@@ -7,15 +7,6 @@ void simple_ghost_in(float *x) {
   }
   __GHOST_END(focus);
 }
-void f_prime(float *x) {
-  __reads("x~>Matrix1(10)");
-  for (int i = 0; i < 10; i++) {
-    __GHOST_BEGIN(focus, ro_matrix1_focus, "i:=1, n :=10, matrix := x");
-
-    float a = x[MINDEX1(10, 1)];
-    __GHOST_END(focus);
-  }
-}
 
 void delete_sreads(float *x) {
   __reads("x~> Matrix2(2,1)");
