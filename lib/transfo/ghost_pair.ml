@@ -342,7 +342,7 @@ let move_in_loop_on (i : int) (t : trm) : trm =
   let new_contract = remove_ressource_in_contract produced contract in
   let new_body = trm_seq_helper [ Trm ghost_begin; TrmMlist body_instrs; Trm ghost_end ] in
   trm_seq_helper
-    [ TrmMlist (Mlist.pop_back lbefore); Trm (trm_for ~contract:new_contract range new_body); TrmMlist (Mlist.pop_front lafter) ]
+    [ TrmMlist (Mlist.pop_back lbefore); Trm ((trm_for ~contract:new_contract range new_body)); TrmMlist (Mlist.pop_front lafter) ]
 
 (** [move_in_loop tg]: Expects the target to point at a loop
 Will try to ove the first ghost pairs inside the loop body :
@@ -361,7 +361,9 @@ Will try to ove the first ghost pairs inside the loop body :
     *)
 let%transfo move_in_loop (tg:target) : unit =
   Trace.justif "Only moving ghost code around";
-  apply_at_target_paths_in_seq move_in_loop_on tg
+  detach_loop_ro_focus tg;
+  apply_at_target_paths_in_seq move_in_loop_on tg;
+  make_strict_loop_contracts tg;
 
 (* DEPRECATED:
       1) Ghost_pair.elim_all_pairs

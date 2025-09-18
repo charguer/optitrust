@@ -19,5 +19,6 @@ let _ =
       !!Loop.fission [ f; cForBody "i"; cFor "l"; tBefore ];
       !!Loop.reorder_at ~order:[ "l"; "i" ] [ f; cForBody "l"; dSeqNth 0 ];
       !!Loop.fission [ f; cFor "l"; cForBody "i"; cCall "rmsnorm"; tAfter ];
-      !!Loop.reorder_at ~order:[ "q"; "i" ] [ nbMulti; f; cForBody "q"; dSeqNth 0 ];
+      (* !!Ghost_pair.move_in_loop [f;cFor "q"];
+      !!Loop.reorder_at ~order:[ "q"; "i" ] [ nbMulti; f; cForBody "q"; dSeqNth 0 ]; *)
   )
