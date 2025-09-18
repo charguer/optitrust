@@ -361,7 +361,9 @@ Will try to ove the first ghost pairs inside the loop body :
     *)
 let%transfo move_in_loop (tg:target) : unit =
   Trace.justif "Only moving ghost code around";
-  apply_at_target_paths_in_seq move_in_loop_on tg
+  detach_loop_ro_focus  tg;
+  apply_at_target_paths_in_seq move_in_loop_on tg;
+  make_strict_loop_contracts tg;
 
 (* DEPRECATED:
       1) Ghost_pair.elim_all_pairs
