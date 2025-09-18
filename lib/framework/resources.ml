@@ -26,7 +26,7 @@ let usage_of_trm (t : trm) =
 let before_trm (t : trm) =
   unsome_or_trm_fail t "expected resources before to be available" t.ctx.ctx_resources_before
 
-(** Returns the resources available before the given term,
+(** Returns the resources available after the given term,
     fails if unavailable. *)
 let after_trm (t : trm) =
   unsome_or_trm_fail t "expected resources after to be available" t.ctx.ctx_resources_after
@@ -482,7 +482,7 @@ let detach_loop_ro_focus_on (t: trm): trm =
   let new_body = trm_like ~old:body new_body in
   trm_like ~old:t (trm_for range ~contract new_body)
 
-(** [detach_loop_ro_focus tg] transforms all the ressources that are in a reads clause into a resource in a par_read clause with a focus around the loop body. *)
+(** [detach_loop_ro_focus tg] transforms all the ressources that are in a reads clause (xreads) into a resource in a par_read (sreads) clause with a focus around the loop body. *)
 let%transfo detach_loop_ro_focus (tg: target): unit =
   Nobrace_transfo.remove_after (fun () ->
     Target.apply_at_target_paths detach_loop_ro_focus_on tg
