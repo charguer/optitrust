@@ -100,7 +100,7 @@ let matrix_copy_at ~(typ: typ) ~(matrix_res_pattern: var * formula)
         (new_src, next_dims, new_ghost_before :: ghosts_before, new_ghost_after :: ghosts_after, remove_res_pattern_dim access_var res_pattern)
     ) (src, s_dims, ghosts_before, ghosts_after, matrix_res_pattern) s_indices in
 
-    if not (List.equal are_same_trm d_dims s_dims) then failwith "matrix_copy: different sizes for dest and src after accesses: %s != %s" (Tools.list_to_string (List.map Ast_to_c.ast_to_string d_dims)) (Tools.list_to_string (List.map Ast_to_c.ast_to_string s_dims));
+    if not (List.equal Trm_unify.are_same_trm d_dims s_dims) then failwith "matrix_copy: different sizes for dest and src after accesses: %s != %s" (Tools.list_to_string (List.map Ast_to_c.ast_to_string d_dims)) (Tools.list_to_string (List.map Ast_to_c.ast_to_string s_dims));
     Nobrace.trm_seq_nomarks ((List.rev ghosts_before) @ matrix_copy ~typ dest src d_dims :: ghosts_after)
 
 (** [map_all_accesses v dims map_indices mark t] maps all accesses to [v] in [t],
@@ -191,6 +191,8 @@ let pointwise_fors
       [order] - a list of indices based on which the elements in dims should be ordered,
       [t] - ast of the call to MSIZE or MINDEX. *)
 let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
+  (* let typ_alloc = ref (trm_int 1) in
+  let init_alloc = ref false in *)
   let dims, indices =
     match mindex_inv t with
     | Some (dims, indices) -> dims, Some indices

@@ -1,5 +1,6 @@
 open Ast
 open Trm
+open Trm_unify
 open Typ
 open Contextualized_error
 open Resource_formula
@@ -226,7 +227,7 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
     (* TODO: Check types of arguments are well typed *)
 
     let rettyp = compute_pure_typ { env with res = env.res @ args } ?typ_hint:rettyp_hint body in
-    if not (is_typ_auto asked_rettyp || are_same_trm rettyp asked_rettyp) then
+    if not (is_typ_auto asked_rettyp || Trm_unify.are_same_trm rettyp asked_rettyp) then
       failwith "The function has a wrong return type (%s instead of %s)" (Ast_to_c.typ_to_string rettyp) (Ast_to_c.typ_to_string asked_rettyp);
     typ_pure_fun args rettyp
 
@@ -300,7 +301,7 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
             Pattern.(typ_ptr (typ_var !__)) (fun struct_typ () -> struct_typ);
             Pattern.(__) (fun () -> failwith "Pure expression '%s' has unexpected type for struct access: %s" (Ast_to_c.ast_to_string base) (Ast_to_c.typ_to_string base_typ))
           ]
-        else if are_same_trm base_typ (typ_ptr prim_typ) then
+        else if Trm_unify.are_same_trm base_typ (typ_ptr prim_typ) then
           typ_inv ~error:"Type of struct access is not a struct name" t typ_var_inv prim_typ
         else
           failwith "Struct access type '%s' does not match the type of the left-hand side '%s' of type '%s'" (Ast_to_c.typ_to_string prim_typ) (Ast_to_c.ast_to_string base) (Ast_to_c.typ_to_string base_typ)
@@ -321,7 +322,7 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
         Pattern.(trm_specific_var var_cell) (fun () -> Pattern.when_ (not !Flags.use_resources_with_models));
         Pattern.(trm_apps1 (trm_specific_var var_cell) !__) (fun model () ->
           let model_typ = compute_pure_typ env model in
-          if not (are_same_trm val_typ model_typ) then failwith "In '%s': pointer '%s' of type '%s' cannot point to a value '%s' of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string ptr) (Ast_to_c.typ_to_string ptr_typ) (Ast_to_c.ast_to_string model) (Ast_to_c.typ_to_string model_typ)
+          if not (Trm_unify.are_same_trm val_typ model_typ) then failwith "In '%s': pointer '%s' of type '%s' cannot point to a value '%s' of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string ptr) (Ast_to_c.typ_to_string ptr_typ) (Ast_to_c.ast_to_string model) (Ast_to_c.typ_to_string model_typ)
         );
         Pattern.__ (fun () -> failwith "Unknown representation predicate '%s'" (Ast_to_c.ast_to_string repr))
       ];
@@ -368,7 +369,7 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
         let subst = List.fold_left2 (fun subst arg (expected_arg, expected_typ) ->
             let expected_typ = trm_subst subst expected_typ in
             let arg_typ = compute_pure_typ env ~typ_hint:expected_typ arg in
-            if not (are_same_trm arg_typ expected_typ) then begin
+            if not (Trm_unify.are_same_trm arg_typ expected_typ) then begin
               (*Printf.printf "%s\n" (resource_list_to_string env);*)
               failwith "In pure expression '%s': argument '%s' has type '%s' where '%s' is expected" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ) (Ast_to_c.typ_to_string expected_typ)
             end;
@@ -515,7 +516,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
         let new_frac, _ = new_frac () in
         let evar_ctx = Var_map.add frac_var (Resolved (trm_var new_frac)) evar_ctx in
         unify_and_split_read_only x ~new_frac ro_formula res evar_ctx ~pure_ctx
-      | Some (Resolved frac) when are_same_trm frac full_frac ->
+      | Some (Resolved frac) when Trm_unify.are_same_trm frac full_frac ->
         (* evar_ctx tells we have RO(1, H): remove the RO wrapper *)
         unify_and_remove_linear (x, ro_formula) ~uninit:false res evar_ctx ~pure_ctx
       | _ ->
@@ -611,7 +612,7 @@ let rec frac_to_quotient (frac: formula) =
     Pattern.(formula_frac_sub !__ !__) (fun base_frac removed_frac () ->
       let base_quot = frac_to_quotient base_frac in
       let removed_quot = frac_to_quotient removed_frac in
-      if not (are_same_trm base_quot.base removed_quot.base) then raise_notrace Pattern.Next;
+      if not (Trm_unify.are_same_trm base_quot.base removed_quot.base) then raise_notrace Pattern.Next;
       let num =
         if base_quot.den = 1 && base_quot.num = 1 then
           removed_quot.den - removed_quot.num
@@ -634,7 +635,7 @@ let check_frac_le subst_ctx (efrac, bigger_frac) =
   let bigger_frac = trm_subst subst_ctx bigger_frac in
   let efrac_quot = frac_to_quotient efrac in
   let bigger_quot = frac_to_quotient bigger_frac in
-  if not (are_same_trm efrac_quot.base bigger_quot.base) then raise (FractionConstraintUnsatisfied (efrac, bigger_frac));
+  if not (Trm_unify.are_same_trm efrac_quot.base bigger_quot.base) then raise (FractionConstraintUnsatisfied (efrac, bigger_frac));
   if not (bigger_quot.den = 1 && bigger_quot.num = 1 && efrac_quot.num <= efrac_quot.den) then begin
     if not (efrac_quot.den = bigger_quot.den) then raise (FractionConstraintUnsatisfied (efrac, bigger_frac));
     if not (efrac_quot.num <= bigger_quot.num) then raise (FractionConstraintUnsatisfied (efrac, bigger_frac));
@@ -792,7 +793,7 @@ let rec simplify_frac_wands (frac_wands: (var * frac_wand) list): frac_simplific
     let open Option.Monad in
     match frac_wands with
     | [] -> None
-    | (hyp, (wand_base_frac, carved_fracs)) :: frac_wands when are_same_trm base_frac wand_base_frac ->
+    | (hyp, (wand_base_frac, carved_fracs)) :: frac_wands when Trm_unify.are_same_trm base_frac wand_base_frac ->
       Some (frac_wands, hyp, carved_fracs)
     | non_matching_wand :: frac_wands ->
       let* frac_wands, hyp, carved_fracs = try_pop_base_frac base_frac frac_wands in
@@ -820,7 +821,7 @@ let rec simplify_frac_wands (frac_wands: (var * frac_wand) list): frac_simplific
       let rec try_push_into carved_fracs =
         match carved_fracs with
         | [] -> None
-        | carved_frac :: other_carved_fracs when are_same_trm base_frac carved_frac ->
+        | carved_frac :: other_carved_fracs when Trm_unify.are_same_trm base_frac carved_frac ->
           Some (new_carved_fracs @ other_carved_fracs)
         | non_matching_carved_frac :: carved_fracs ->
           let* carved_fracs = try_push_into carved_fracs in
@@ -884,7 +885,7 @@ let simplify_read_only_resources ~(aliases: trm varmap) (res: linear_resource_se
   let rec find_bucket_and_add formula hyp frac buckets =
     match buckets with
     | [] -> [formula, [hyp, formula_to_frac_wand frac]]
-    | (other_formula, fracs) :: other_buckets when are_same_trm formula other_formula ->
+    | (other_formula, fracs) :: other_buckets when Trm_unify.are_same_trm formula other_formula ->
       (other_formula, (hyp, formula_to_frac_wand frac) :: fracs) :: other_buckets
     | non_matching_bucket :: other_buckets ->
       non_matching_bucket :: (find_bucket_and_add formula hyp frac other_buckets)
@@ -1041,7 +1042,7 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
   let frac_wand_diff frac_before frac_after =
     let frac_base_before, frac_holes_before = formula_to_frac_wand frac_before in
     let frac_base_after, frac_holes_after = formula_to_frac_wand frac_after in
-    if not (are_same_trm frac_base_before frac_base_after) then failwith "Incompatible base fraction during minimization (%s != %s)" (Ast_to_c.ast_to_string frac_base_before) (Ast_to_c.ast_to_string frac_base_after);
+    if not (Trm_unify.are_same_trm frac_base_before frac_base_after) then failwith "Incompatible base fraction during minimization (%s != %s)" (Ast_to_c.ast_to_string frac_base_before) (Ast_to_c.ast_to_string frac_base_after);
     let frac_holes_only_before = List.diff frac_holes_before frac_holes_after in
     let frac_holes_only_after = List.diff frac_holes_after frac_holes_before in
     (frac_holes_only_before, frac_holes_only_after)
@@ -1324,7 +1325,7 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
   | Prim_binop op -> find_binop_spec op
   | Prim_compound_assign_op op ->
     let pure_binop_typ = compute_pure_typ empty_pure_env (trm_binop typ op) in
-    if not (are_same_trm pure_binop_typ (typ_pure_simple_fun [typ; typ] typ)) then
+    if not (Trm_unify.are_same_trm pure_binop_typ (typ_pure_simple_fun [typ; typ] typ)) then
       failwith "Invalid compound assign operator";
     let dest_var = new_hyp "dest" in
     let model_var = new_hyp "dest_val" in
@@ -1563,7 +1564,7 @@ let rec compute_resources
         | Some res_typ -> res_typ
         | None -> failwith "No result binding inside the body of a let"
       in
-      if not (are_same_trm (trm_subst res.aliases typ) result_typ || is_typ_auto typ) then
+      if not (Trm_unify.are_same_trm (trm_subst res.aliases typ) result_typ || is_typ_auto typ) then
         failwith "Type of the let binding does not match type of the body (%s != %s)" (Ast_to_c.typ_to_string typ) (Ast_to_c.typ_to_string result_typ);
       let usage_map = Option.map (rename_usage var_result var) usage_map in
       let res_after = Resource_set.rename_var var_result var res_after in
@@ -1775,7 +1776,7 @@ let rec compute_resources
         let subst = trm_subst res.aliases (Option.get !subst) in (* Aliases never refer to other aliases *)
         begin match Var_map.find_opt var res.aliases with
         | None -> ()
-        | Some alias when are_same_trm alias subst -> ()
+        | Some alias when Trm_unify.are_same_trm alias subst -> ()
         | _ -> failwith "Cannot add an alias for '%s': this variable already has an alias" (var_to_string var)
         end;
         let res = Resource_set.add_alias var subst res in

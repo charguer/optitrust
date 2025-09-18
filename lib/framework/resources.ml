@@ -91,7 +91,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
   let new_contract_used_vars = fun_contract_used_vars new_contract in
 
   let filter_pure_pre (x, formula) =
-    Var_set.mem x new_contract_used_vars || (not (are_same_trm formula typ_frac) && Var_map.mem x usage)
+    Var_set.mem x new_contract_used_vars || (not (Trm_unify.are_same_trm formula typ_frac) && Var_map.mem x usage)
   in
 
   { new_contract with
@@ -310,7 +310,7 @@ let minimize_loop_contract contract post_inst usage =
   let new_contract_used_vars = loop_contract_used_vars new_contract in
 
   let filter_pure_pre (x, formula) =
-    Var_set.mem x new_contract_used_vars || (not (are_same_trm formula typ_frac) && Var_map.mem x usage)
+    Var_set.mem x new_contract_used_vars || (not (Trm_unify.are_same_trm formula typ_frac) && Var_map.mem x usage)
   in
 
   { new_contract with

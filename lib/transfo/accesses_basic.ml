@@ -38,7 +38,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
           | _, None -> ()
           | None, _ -> ret.typedvar := Some (v, addr.typ)
           | Some t1, Some t2 ->
-            if are_same_trm t1 t2
+            if Trm_unify.are_same_trm t1 t2
             then ()
             else trm_fail addr (sprintf "addresses are on same inner pointer variable `%s`, but types vary: %s != %s" (var_to_string v) (Ast_to_c.typ_to_string t1) (Ast_to_c.typ_to_string t2))
       );

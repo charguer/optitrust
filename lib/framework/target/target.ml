@@ -338,7 +338,7 @@ let cHasTypePred (pred : typ -> bool) : constr =
 
 (** [cHasTypeAst ty]: matches [ty] types. *)
 let cHasTypeAst (ty : typ) : constr =
-  let pred = (fun (ty2 : typ) -> are_same_trm ty ty2) in
+  let pred = (fun (ty2 : typ) -> Trm_unify.are_same_trm ty ty2) in
   cHasTypePred (make_typ_constraint ~typ_pred:pred ())
 
 (** [cHasType typ]: matches all types that have the same string representation as [typ]. *)
@@ -801,7 +801,7 @@ let cBinop ?(lhs : target = [cTrue]) ?(rhs : target = []) (op : binary_op) : con
   cPrimCall ~args:[lhs; rhs] (Prim_binop op)
 
 let cAlloc (prim_init: prim) (prim_uninit: prim) ?(init: bool option) ?(ty: typ option) ?(arg: target = []) () : constr =
-  let ty_pred = Option.map are_same_trm ty in
+  let ty_pred = Option.map Trm_unify.are_same_trm ty in
   let init = match init, arg with
     | _, [] -> init
     | (Some true | None), _ :: _ -> Some true
