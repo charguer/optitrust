@@ -43,9 +43,10 @@ type style = {
   hide_seq: bool; (* hide the content of sequences with {...},  used to avoid weird matches with stringrepr *)
 }
 
+(* Pauline: afficher contrat bas niveau. *)
 (** Default style, depends on the global flags *)
 let default_style () : style = {
-  print_contract_internal_repr = true;
+  print_contract_internal_repr = false; (*ici*)
   print_var_id = !Flags.debug_var_id;
   print_string_repr = !Flags.debug_stringreprs;
   print_mark = true;

@@ -105,7 +105,7 @@ let typ_const ?loc (t : typ) : typ =
 let typ_atomic_var = toplevel_typvar "atomic"
 let typ_atomic_constr = typ_var typ_atomic_var
 (** [typ_atomic ?loc t]: wrapper for making the corresponding const type.
-  After decoding, const types should only appear behind a pointer.
+  After decoding, atomic types should only appear behind a pointer.
   LATER: Think about constness of struct fields, for now we only support structs without const fields.
   LATER: Probably this type constructor should be removed entirely, and only exist temporarily during the C encoding.
   *)

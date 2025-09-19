@@ -1322,7 +1322,7 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
     | Binop_array_get ->
       failwith "Pure arrays are not yet supported, therefore Binop_array_get cannot be typed"
 
-    (* ARTHUR: had to have a model for foumula_pointd_to. *)
+    (* ARTHUR: had to have a model for foumula_points_to. *)
     | Binop_faa ->
       assert (is_typ_auto typ);
       let vartyp = new_hyp "T" in
