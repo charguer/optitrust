@@ -419,6 +419,9 @@ let cFor ?(start : target = []) ?(direction : loop_dir option) ?(stop : target =
   let ro = string_to_rexp_opt ~regexp:false ~substr:false index TrmKind_Instr in
   Constr_for (ro, start, direction, stop, step, body)
 
+let cFors (vars : string list) : constr =
+  cOr (List.map (fun v -> [cFor v]) vars)
+
 let cForBody ?(start : target = []) ?(direction : loop_dir option) ?(stop : target = []) ?(step : target = [])
   ?(body : target = []) (index : string) : constr =
   cTarget [cFor ~start ?direction ~stop ~step ~body index; dBody]

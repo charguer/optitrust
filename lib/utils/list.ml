@@ -246,3 +246,15 @@ let reduce_left f l =
 let reduce_right f l =
   let firsts, last = unlast l in
   fold_right f firsts last
+
+(** [zip la lb] is like [combine la lb], but works on lists of
+    differing sizes by dropping extra elements from the longer list. *)
+let zip la lb =
+  let an = length la in
+  let bn = length lb in
+  if an = bn then
+    combine la lb
+  else if an < bn then
+    combine la (take an lb)
+  else
+    combine (take bn la) lb

@@ -7,7 +7,7 @@ interact
 # BROKEN TRANSFO TO FIX
 specialize/function_defs/specialize_function_defs_doc.ml
 specialize/function_defs/specialize_function_defs.ml
-
+matrix/local_name/matrix_local_name.ml
 
 # DEAL with namespaces
 specialize/function_arg/specialize_function_arg.ml
@@ -43,6 +43,7 @@ record/align_field
 loop/unfold_bound
 matrix/reorder_dims
 matrix/delocalize
+matrix/local_name_obj/matrix_local_name_obj.ml
 apac/heapify
 apac/heapify_nested_seq
 apac/unfold_let_mult_const

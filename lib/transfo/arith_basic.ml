@@ -13,11 +13,9 @@ let%transfo show ?(normalized : bool = true) (tg : target) : unit =
 let%transfo remove_show (tg : target) : unit =
   Target.apply_at_target_paths (fun t ->
     match trm_apps_inv t with
-    | Some (f_arith, [t_arg; s_arg]) ->
-      begin match trm_var_inv f_arith with
-      | Some f_var when var_eq f_var (toplevel_var "__ARITH") -> t_arg
-      | _ -> t (* LATER: alternative would be to fail if no __ARITH found *)
-      end
+    | Some (f_arith, [t_arg; s_arg]) when trm_is_var ~var:(toplevel_var "__ARITH") f_arith ->
+      t_arg
+      (* LATER: alternative would be to fail if no __ARITH found *)
       (* LATER: use trm_apps_var_inv and trm_apps_toplevel_var_inv *)
     | _ -> t
   ) tg

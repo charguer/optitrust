@@ -139,10 +139,17 @@ let () = Printexc.register_printer (function
 let assert_var_id_set v =
   if has_unset_id v then raise (UnsetVarId v)
 
-let var_eq (v1 : var) (v2 : var) : bool =
-  assert_var_id_set v1;
-  assert_var_id_set v2;
-  v1.id = v2.id
+let var_eq ?(false_on_unset_id = false) (v1 : var) (v2 : var) : bool =
+  if false_on_unset_id then begin
+    if has_unset_id v1 || has_unset_id v2 then
+      false
+    else
+      v1.id = v2.id
+  end else begin
+    assert_var_id_set v1;
+    assert_var_id_set v2;
+    v1.id = v2.id
+  end
 
 module Var = struct
   type t = var

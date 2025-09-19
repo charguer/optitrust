@@ -197,6 +197,42 @@ void wrong_ro_rw() {
   }
 }
 
+void inv_on_index(int* t1, int* t2, int n) {
+  __writes("t1 ~> Matrix1(n)");
+  __writes("t2 ~> Matrix1(n)");
+
+  __ghost(group_intro_zero, "items := fun i -> &t1[MINDEX1(n, i)] ~> Cell");
+  __ghost(group_intro_zero, "items := fun i -> &t2[MINDEX1(n, i)] ~> Cell");
+  for (int i = 0; i < n; i++) {
+    __smodifies("for i in 0..i -> &t1[MINDEX1(n, i)] ~> Cell");
+    __smodifies("for i in i..n -> &t1[MINDEX1(n, i)] ~> UninitCell");
+
+    __ghost(assume, "is_subrange(i..(i + 1), i..n)");
+    __ghost(group_split, "split := i + 1, items := fun i -> &t1[MINDEX1(n, i)] ~> UninitCell");
+    for (int j = i; j < i + 1; j++) {
+      __xwrites("&t1[MINDEX1(n, j)] ~> Cell");
+      t1[MINDEX1(n, j)] = j;
+    }
+    __ghost(group_join, "split := i, items := fun i -> &t1[MINDEX1(n, i)] ~> Cell");
+  }
+  for (int i = 0; i < n; i++) {
+    __smodifies("for i in 0..i -> &t2[MINDEX1(n, i)] ~> Cell");
+    __smodifies("for i in i..n -> &t2[MINDEX1(n, i)] ~> UninitCell");
+
+    __ghost(assume, "is_subrange(i..(i + 1), i..n)");
+    __ghost(group_split, "split := i + 1, items := fun i -> &t2[MINDEX1(n, i)] ~> UninitCell");
+    for (int j = i; j < i + 1; j++) {
+      __xwrites("&t2[MINDEX1(n, j)] ~> Cell");
+      t2[MINDEX1(n, j)] = j;
+    }
+    __ghost(group_join, "split := i, items := fun i -> &t2[MINDEX1(n, i)] ~> Cell");
+  }
+  __ghost(group_shift, "start := n, stop := n, shift := -n, new_start := 0, new_stop := 0, items := fun i -> &t1[MINDEX1(n, i)] ~> UninitCell");
+  __ghost(group_elim_zero, "items := fun i -> &t1[MINDEX1(n, i - (-n))] ~> UninitCell");
+  __ghost(group_shift, "start := n, stop := n, shift := -n, new_start := 0, new_stop := 0, items := fun i -> &t2[MINDEX1(n, i)] ~> UninitCell");
+  __ghost(group_elim_zero, "items := fun i -> &t2[MINDEX1(n, i - (-n))] ~> UninitCell");
+}
+
 /* LATER:
 void ghosts() {
   __pure();

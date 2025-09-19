@@ -71,6 +71,27 @@ __GHOST(ro_matrix2_unfocus) {
   __ghost(close_wand);
 }
 
+__GHOST(ro_matrix3_focus) {
+  __requires("T: Type, matrix: ptr(T), i: int, j: int, k: int, m: int, n: int, o: int, f: _Fraction");
+  __requires("bound_check_i: in_range(i, 0..m)");
+  __requires("bound_check_j: in_range(j, 0..n)");
+  __requires("bound_check_k: in_range(k, 0..o)");
+  __consumes("_RO(f, matrix ~> Matrix3(m, n, o))");
+  __produces("Wand(_RO(f, &matrix[MINDEX3(m, n, o, i, j, k)] ~> Cell), _RO(f, matrix ~> Matrix3(m,n,o))), _RO(f, &matrix[MINDEX3(m, n, o, i, j, k)] ~> Cell)");
+
+  __ghost(ro_group_focus, "f := f, i := i, bound_check := bound_check_i");
+  __ghost(ro_group_focus, "f := f, i := j, bound_check := bound_check_j");
+  __ghost(ro_group_focus, "f := f, i := k, bound_check := bound_check_k");
+  __ghost(wand_simplify);
+  __ghost(wand_simplify);
+}
+
+__GHOST(ro_matrix3_unfocus) {
+  __reverts(ro_matrix3_focus);
+  __admitted(); // for efficiency
+  __ghost(close_wand);
+}
+
 /* ---- Definition of matrix memcpy ---- */
 
 #define DEFINE_MATRIX_COPY(T) \

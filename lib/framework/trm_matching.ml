@@ -129,7 +129,7 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
             (Ast_to_c.ast_to_string ~optitrust_syntax:true t0) (Ast_to_c.ast_to_string ~optitrust_syntax:true u);
           Tools.debug "Witout encodings: '%s' is not identical to '%s'." (Ast_to_c.ast_to_string t0) (Ast_to_c.ast_to_string  u);
           (* TODO: debug type *)
-          Tools.debug "Locations: '%s' and '%s.'" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
+          Tools.debug "Locations: '%s' and '%s'." (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
         end;
         raise Rule_mismatch
       end else begin
@@ -157,7 +157,7 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
     let mismatch ?(t1:trm=t1) ?(t2:trm=t2) () : unit =
       if error_msg then begin
         Tools.debug "Mismatch on subterm, comparing '%s' with '%s'." (Ast_to_c.ast_to_string t1) (Ast_to_c.ast_to_string t2);
-        Tools.debug "Locations: '%s' and '%s.'" (Ast.loc_to_string t1.loc) (Ast.loc_to_string t2.loc);
+        Tools.debug "Locations: '%s' and '%s'." (Ast.loc_to_string t1.loc) (Ast.loc_to_string t2.loc);
       end;
       raise Rule_mismatch
       in
