@@ -627,7 +627,8 @@ __GHOST(ro_group_unscale) {
 
 __GHOST(group_split) {
   __requires("start: int, stop: int, step: int, split: int, items: int -> HProp");
-  __requires("bound_check: in_range(split, range(start, stop, step))");
+  // __requires("bound_check: in_range(split, range(start, stop, step))");
+  __requires("range_check: is_subrange(range(start, split, step), range(start, stop, step))");
   __consumes("for i in range(start, stop, step) -> items(i)");
   __produces("for i in range(start, split, step) -> items(i)");
   __produces("for i in range(split, stop, step) -> items(i)");
@@ -665,6 +666,26 @@ __GHOST(pure_group_split) {
 
 __GHOST(pure_group_join) {
   __reverts(pure_group_split);
+  __admitted();
+}
+
+/* --- group intro/elim: */
+
+__GHOST(group_intro_zero) {
+  __requires("items: int -> HProp");
+  __produces("for i in 0..0 -> items(i)");
+  __admitted();
+}
+
+__GHOST(group_elim_zero) {
+  __reverts(group_intro_zero);
+  __admitted();
+}
+
+__GHOST(group_one) {
+  __requires("item: HProp");
+  __consumes("item");
+  __produces("for i in 0..1 -> item");
   __admitted();
 }
 

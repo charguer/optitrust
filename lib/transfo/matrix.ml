@@ -201,7 +201,7 @@ let%transfo local_name_tile
   Marks.with_fresh_mark (fun mark_simpl -> Target.iter (fun p ->
     let v = ref var in
     Matrix_basic.local_name_tile
-      ~mark_dims:mark_simpl ~mark_accesses:mark_simpl
+      ~mark_dims:mark_simpl  ~mark_indices:mark_simpl
       ~mark_alloc ~mark_load ~mark_unload
       ~indices ~uninit_pre ~uninit_post ?alloc_instr ?elem_ty
       ~ret_var:v ~local_var:tmp_var ?tile (target_of_path p);

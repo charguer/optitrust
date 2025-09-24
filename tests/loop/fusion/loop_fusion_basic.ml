@@ -35,4 +35,7 @@ let _ = Run.script_cpp ( fun _ ->
   (* TODO:
   !! Loop_basic.fission_basic [cFunBody "ghosts"; cFor "k"; tBefore];
   *)
+
+  (* 6. loop invariants that use loop index are supported for trivial cases. *)
+  !! Loop_basic.fusion [cFunDef "inv_on_index"; cFor "i"; occFirst];
 )
