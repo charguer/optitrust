@@ -6,7 +6,7 @@ let _ = Flags.preserve_specs_only := true
 let _ = Flags.pretty_matrix_notation := true
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
-let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
+let _ = Flags.save_ast_for_steps := Some Flags.Steps_all (*Steps_important*)
 (* let _ = Flags.save_ast_for_steps := Some Steps_all *)
 
 let int = trm_int
@@ -14,7 +14,11 @@ let int = trm_int
 let _ = Run.script_cpp (fun () ->
   !! Loop.tile (int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
   !! Variable.local_name ~var:"s" ~local_var:"t" [cFor "i"];
+  !! Accesses.shift_var ~inv:true ~factor:(trm_get (trm_find_var "s" [])) [cFor "bi"; cVarDef "t"];
   !! Loop.hoist [cVarDef "t"];
+);
+
+  (**
   !! Marks.add "w0" [cWrite ~rhs:[cVar "s"] ()];
   !! Function.elim_infix_ops ~indepth:true [];
   Trace.without_resource_computation_between_steps (fun () ->
@@ -23,18 +27,36 @@ let _ = Run.script_cpp (fun () ->
       ~array_base:(trm_find_var "t" [])
        ~inv:true
        ~factor:(trm_get (trm_find_var "s" [])) [cMark "w0"];
+       *)
     (* works but does not produce the intended code
        let address_pattern = Trm.(array_access (trm_find_var "t" []) (pattern_var "i")) in
       !! Accesses.shift ~address_pattern ~inv:true ~factor:(trm_get (trm_find_var "s" [])) [cFor "i"]; *)
-    (* needs to simplify the successive write to get the desired form *)
+
+
+  (*
+
+
+  ) *)
+
+  (*
+  !! Function.elim_infix_ops ~indepth:true [];
+
+    let address_pattern = Trm.(array_access (trm_find_var "t" []) (pattern_var "i")) in
+      !! Accesses.shift ~address_pattern ~inv:true ~factor:(trm_get (trm_find_var "s" [])) [cFor "i"];
 
     (* !! Accesses.shift_var ~inv:true ~factor:(trm_get (trm_find_var "s" [])) [cVarDef "t"];
        ==> ideally would work for arrays *)
     !! Arith.(simpl_rec gather_rec) [];
     !! Function.use_infix_ops ~indepth:true [];
+
     !! Flags.recompute_resources_between_steps := false;
   )
-);
+
+    Flags.recompute_resources_between_steps := false;
+
+  )*)
+
+
 
 (*
 > J'arrive maintenant au stade :

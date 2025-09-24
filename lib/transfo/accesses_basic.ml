@@ -147,7 +147,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
   Marks.with_marks (fun next_mark -> Target.iter (fun p ->
     let (p_seq, span) = Path.extract_last_dir_span p in
     let (mark_to_prove, mark_preprocess, mark_postprocess, mark_handled_resources) =
-      if !Flags.check_validity then begin
+      if !Flags.check_validity && not !Flags.preserve_specs_only then begin
         (Mark.reuse_or_next next_mark mark_to_prove,
          Mark.reuse_or_next next_mark mark_preprocess,
          Mark.reuse_or_next next_mark mark_postprocess,
@@ -214,7 +214,8 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
         Target.iter (fun p ->
           Target.apply_at_path (trm_subst_var v (trm_var ~typ v_tr)) p
         ) [nbAny; cMark f_body_mark; cMark mark_handled_resources];
-        Resources.ensure_computed_at p_seq;
+        if not !Flags.preserve_specs_only
+          then Resources.ensure_computed_at p_seq;
       ));
       Trace.justif "all of the transformed gets and sets operate on resources found at the begining of the scope"
     end;
