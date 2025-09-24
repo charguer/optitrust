@@ -894,9 +894,10 @@ let decl_list_to_typed_vars (tl : trms) : typed_vars =
   ) tl
 
 (** [trm_is_var t]: checks if [t] is a variable occurrence. *)
-let trm_is_var (t : trm) : bool =
-  match t.desc with
-  | Trm_var _ -> true
+let trm_is_var ?(var : var option) (t : trm) : bool =
+  match (t.desc, var) with
+  | (Trm_var _, None) -> true
+  | (Trm_var v1, Some v2) -> var_eq v1 v2
   | _ -> false
 
 (** [trm_is_val_or_var t]: checks if [t] is a variable occurrence or a value *)

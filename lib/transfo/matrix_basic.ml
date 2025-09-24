@@ -920,11 +920,7 @@ let delete_on (var : var) (t : trm) : trm =
         trm_fail t "Matrix_basic.delete_on: matrix should not be used anymore"
       | _ ->
         let is_free_var = begin match Matrix_trm.free_inv t with
-        | Some freed ->
-          begin match trm_var_inv freed with
-          | Some n -> var_eq n var
-          | None -> false
-          end
+        | Some freed -> trm_is_var ~var freed
         | None -> false
         end in
         if is_free_var then trm_seq_nobrace_nomarks []
