@@ -25,7 +25,7 @@ let reduce_pat f_start f_stop f_f_elem k t =
 
 let reduce_int_sum_slide_ghost_var = toplevel_var "reduce_int_sum_slide"
 
-let reduce_int_sum_slide_ghost a b ap1 bp1 f_elem inside =
+let reduce_int_sum_slide_ghost (a: formula) (b: formula) (ap1: formula) (bp1: formula) (f_elem: formula) (inside: formula -> formula): trm list =
   let open Resource_trm in
   let open Resource_formula in
   let (b_geq_a, b_geq_a_ghost) = to_prove_bind (formula_geq ~typ:typ_int b a) in
@@ -41,7 +41,7 @@ let reduce_int_sum_slide_ghost a b ap1 bp1 f_elem inside =
       (trm_fun [v, typ_int] typ_hprop (inside (trm_var v)))))
   ]
 
-let reduce_rw_a_b a b a' b' f_elem inside =
+let reduce_rw_a_b (a: formula) (b: formula) (a': formula) (b': formula) (f_elem: formula) (inside: formula -> formula): trm list =
   let open Resource_trm in
   let open Resource_formula in
   let (a_eq, a_eq_ghost) = to_prove_bind (formula_eq ~typ:typ_int a a') in
@@ -76,8 +76,8 @@ let slide_on (available_sum: trm) (a: trm) (b: trm) (w: trm) (f_elem: trm)
     let bi' = trm_add_int i w in
     let ai_next_inv = trm_sub_int (trm_add_int i (trm_int 1)) (trm_int 1) in
     let bi_next_inv = trm_sub_int (trm_add_int (trm_add_int i (trm_int 1)) w) (trm_int 1) in
-    let pi_res r = Resource_formula.formula_points_to pi r in
-    let sum_res r = Resource_formula.formula_points_to (trm_var sum) r in
+    let pi_res r: formula = Resource_formula.formula_points_to pi r in
+    let sum_res r: formula = Resource_formula.formula_points_to (trm_var sum) r in
     let contract = Resource_contract.(Resource_formula.(empty_loop_contract |>
       push_loop_contract_clause (Exclusive Writes) (new_anon_hyp (), pi_res (reduce ai' bi' f_elem)) |>
       push_loop_contract_clause (SharedModifies) (new_anon_hyp (), sum_res (reduce ai bi f_elem))
@@ -196,7 +196,7 @@ let%transfo slide
         );
       ]
     ) produced_res) in
-    let p_of_i i' = trm_subst_var i i' pi in
+    let p_of_i i': formula = trm_subst_var i i' pi in
 
     (* 3. find loops with [__spreserves("&s ~~> reduce_int_sum(i, k, f_elem)");] contract. *)
     let error = "expected for loop instrs" in
@@ -227,7 +227,7 @@ let%transfo slide
     let ret_compute_f_elem : (trm -> (trm -> trms) -> trms) ref = ref (fun new_k ret ->
       let compute_f_elem_new_k = trm_subst_var k_range.index new_k compute_f_elem_k in
       ret compute_f_elem_new_k) in
-    let rec gen_focuses_for expr =
+    let rec gen_focuses_for (expr: trm): unit =
       match Matrix_trm.get_inv expr with
       | Some (matrix, dims, indices) ->
         let f = !ret_compute_f_elem in

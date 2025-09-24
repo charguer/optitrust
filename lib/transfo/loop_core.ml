@@ -326,13 +326,11 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
     | Some n -> (fun i -> trm_add_mark subst_mark (trm_int (n + i * step)))
     | None -> (fun i -> trm_add_mark subst_mark (trm_add_int start (trm_int (i * step))))
   in
-  let new_indices = match nb_iter with
-  | 0 -> []
-  | _ ->
+  let new_indices = if nb_iter = 0 then [] else begin
     let computed = List.init nb_iter index_trm in
     let computed = List.tl computed in
     (trm_add_mark subst_mark range.start) :: computed
-  in
+  end in
 
   let indexed_invariant = Resource_set.filter_with_var index contract.invariant in
   let rewrite_indexed_invariant_ghosts from into =
@@ -444,13 +442,13 @@ let ghost_group_join = toplevel_var "group_join"
 let ghost_ro_group_join = toplevel_var "ro_group_join"
 let ghost_pure_group_join = toplevel_var "pure_group_join"
 
-let dispatch_ghosts ghost ro_ghost formula =
+let dispatch_ghosts (ghost: var) (ro_ghost: var) formula : var * formula =
   (* TODO: move to resource formula module *)
   match Resource_formula.formula_read_only_inv formula with
   | Some { formula } -> ro_ghost, formula
   | None -> ghost, formula
 
-let add_split_or_join_ghost range split ghost_fn =
+let add_split_or_join_ghost (range: loop_range) (split: formula) (ghost_fn: formula -> var * trm): resource_item list -> trm list =
   (* TODO: factorize pattern with tiling ghosts *)
   List.map (fun (_, formula) ->
     let ghost, formula = ghost_fn formula in
@@ -462,10 +460,10 @@ let add_split_or_join_ghost range split ghost_fn =
     ])
   )
 
-let add_split_ghost range split = add_split_or_join_ghost range split (dispatch_ghosts ghost_group_split ghost_ro_group_split)
-let add_join_ghost range split = add_split_or_join_ghost range split (dispatch_ghosts ghost_group_join ghost_ro_group_join)
-let add_split_ghost_pure range split = add_split_or_join_ghost range split (fun f -> ghost_pure_group_split, f)
-let add_join_ghost_pure range split = add_split_or_join_ghost range split (fun f -> ghost_pure_group_join, f)
+let add_split_ghost (range: loop_range) (split: formula): resource_item list -> formula list = add_split_or_join_ghost range split (dispatch_ghosts ghost_group_split ghost_ro_group_split)
+let add_join_ghost (range: loop_range) (split: formula): resource_item list -> formula list = add_split_or_join_ghost range split (dispatch_ghosts ghost_group_join ghost_ro_group_join)
+let add_split_ghost_pure (range: loop_range) (split: formula): resource_item list -> formula list = add_split_or_join_ghost range split (fun f -> ghost_pure_group_split, f)
+let add_join_ghost_pure (range: loop_range) (split: formula): resource_item list -> formula list = add_split_or_join_ghost range split (fun f -> ghost_pure_group_join, f)
 
 (** [split_range_at nb cut]: splits a loop into two loops based on the range,
      [nb] - by default this argument has value 0, if provided it means that it will split the loop at start + nb iteration,

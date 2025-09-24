@@ -290,6 +290,9 @@ let local_name_aux (mark : mark)
 (* TODO:
 let var_ghost_ro_matrix2_focus = toplevel_var_with_dim "ro_matrix%d_focus"
 *)
+
+(* NOTE: these are the names used by convention in the optitrust header definition.
+   a simpler number-based convention could be used instead. *)
 let index_names = ["i"; "j"]
 let dimension_names = ["m"; "n"]
 let ghost_ro_matrix_focus ?typ ?matrix ?frac ?dims indices =

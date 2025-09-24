@@ -436,8 +436,10 @@ let%transfo simpl_scoped ~(simpl : unit -> unit) (tg : target) : unit =
 
     (* rewrites for invariant resources *)
     (* FIXME: duplicated code with Loop_basic.transform_range_on *)
-    let with_index_start range contract = Resource_set.subst_var range.index range.start (Resource_set.filter_with_var range.index contract.invariant) in
-    let with_index_stop range contract = Resource_set.subst_var range.index range.stop (Resource_set.filter_with_var range.index contract.invariant) in
+    let with_index_start (rng: loop_range) (c: loop_contract) : resource_set =
+      Resource_set.subst_var rng.index rng.start (Resource_set.filter_with_var rng.index c.invariant) in
+    let with_index_stop (rng: loop_range) (c: loop_contract) : resource_set =
+      Resource_set.subst_var rng.index rng.stop (Resource_set.filter_with_var rng.index c.invariant) in
     let start_inv_ghost = Resource_trm.ghost_admitted {
       pre = with_index_start range contract;
       post = with_index_start new_range new_contract;

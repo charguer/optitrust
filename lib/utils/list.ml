@@ -249,7 +249,7 @@ let reduce_right f l =
 
 (** [zip la lb] is like [combine la lb], but works on lists of
     differing sizes by dropping extra elements from the longer list. *)
-let zip la lb =
+let zip (la: 'a list) (lb: 'b list) : ('a * 'b) list =
   let an = length la in
   let bn = length lb in
   if an = bn then

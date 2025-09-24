@@ -542,8 +542,8 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
 
         let shared1 = contract1.invariant.linear @ contract1.parallel_reads in
         let shared2 = contract2.invariant.linear @ contract2.parallel_reads in
-        let resources_in_common ra rb =
-          let (used, _, _, _) = Resource_computation.partial_extract_linear_resource_set interference_resources shared1 in
+        let resources_in_common (ra : Resource_computation.linear_resource_set) (rb : Resource_computation.linear_resource_set) : bool =
+          let (used, _, _, _) = Resource_computation.partial_extract_linear_resource_set ra rb in
           used <> []
         in
         (* TODO: instead of filtering, add featrues to collect interference to match paper formula *)
@@ -935,7 +935,7 @@ let shift_range_on (kind : shift_kind) =
   let to_prove = [] in
   let pre_res_trans = shift_ghosts ghost_group_shift ghost_ro_group_shift in
   let post_res_trans = shift_ghosts ghost_group_unshift ghost_ro_group_unshift in
-  let next_inv_trans r r' shift inv mark_contract_occs =
+  let next_inv_trans (r: loop_range) (r': loop_range) (shift: trm) (inv: resource_set) (mark_contract_occs: mark): trm list =
     let inv_with_index = Resource_set.filter_with_var r.index inv in
     if Resource_set.is_empty inv_with_index then [] else [
       Resource_trm.ghost_admitted {
@@ -1010,7 +1010,7 @@ let scale_range_on (factor : trm) =
   in
   let pre_res_trans = scale_ghosts ghost_group_scale ghost_ro_group_scale in
   let post_res_trans = scale_ghosts ghost_group_unscale ghost_ro_group_scale in
-  let next_inv_trans r r' () inv mark_contract_occs =
+  let next_inv_trans (r: loop_range) (r': loop_range) () (inv: resource_set) (mark_contract_occs: mark): trm list =
     let inv_with_index = Resource_set.filter_with_var r.index inv in
     if Resource_set.is_empty inv_with_index then [] else [
       Resource_trm.ghost_admitted {
