@@ -251,7 +251,6 @@ let%transfo swap_basic (tg : target) : unit =
 
    *)
 let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = no_mark) (tg : target) : unit =
-Printf.printf " inside loop swap \n";
   Target.iter (fun outer_loop_p ->
   Marks.with_marks (fun next_m ->
     if not !Flags.check_validity then begin
