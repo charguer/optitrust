@@ -20,6 +20,9 @@ let _ =
       !!Ghost_pair.move_in_loop [ f; cFor "q" ];
       !!Loop.reorder_at ~order:[ "q"; "i" ] [ nbMulti; f; cForBody "q"; dSeqNth 0 ];
       !!Matrix.reorder_dims ~order:[ 1; 0; 2 ] [ f; cVarDef "mha_q" ];
+    (* let _q_head_per_kv_head_count = trm_find_var "q_head_per_kv_head_count" [ cFunDefAndDecl "generate_prompt_proc" ] in
+      let _kv_headcount = trm_find_var "kv_head_count" [ cFunDefAndDecl "generate_prompt_proc" ] in *)
+
       !!Function.inline [ f; cCall "matvec" ];
       !!Function.uninline ~f:[ cFunDef "matmul" ] [  f; cFor "i" ~body:[cFor "j"] ];
      )

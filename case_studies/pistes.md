@@ -2,7 +2,7 @@
 ## 0. Quantization && Valdidation 
 [] Finir la quantization / parallélisation
 [] Valider le script en mode 2 
-  [] Reorder dims ? 
+[] Reorder dims ? 
 [] Sucre syntaxique pour décrire les ressources pour les matrices? 
 
 ## 1. Passer la validation en mode 3
@@ -60,3 +60,30 @@ Diversifier les output à paritr d'un même script afin de démontrer la rapidit
 ### Questions: 
 - Quels transformations sont des bons exemples pour montrer la diversité des outputs et qui démontre des différences ? Y en a t il ? 
 - Voir avec Cédric  
+
+### 5. Elaboration des focus 
+### Cas simple: 
+ Besoin : x[i,j] 
+ Ressource : *_i*_j x [i,j]
+ avec alpha-renommage  : *a*b x[a,b]
+ avec alpha + permut   *b*a x[a,b]
+ avec tiling + alpha + permut *a x[i,a] ou *a x[a,j]
+Besoin : *j x[i,j,k]
+Ressource :  *_i*_j*_k x [i,j,k] ou *j*k x[i,j,k] 
+Iterer sur un ensemble de ressources en généralisant la 
+
+### Cas non géré 
+*i x[i] 
+Besoin : x[a] et x[b] 
+## A faire 
+- [] comprendre alpha renommage 
+- [] Coder la fonction de focus sous ressource avec fonction 
+void test()
+__modifies(  *_i*_j x [i,j]);
+  &[](__modifies()
+  )
+// rajouter un champ auto focus dans le ctx du termes 
+f(x[i]) f(seq(focus;x[i];end_focus))
+## Complication: 
+- x[i] <- v ; pair de ghost on uninit  assymetrique 
+- (x[i] ~> Cell) (Besoin _RO(x[i] ~> ));
