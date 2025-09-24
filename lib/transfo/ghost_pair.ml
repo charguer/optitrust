@@ -303,7 +303,7 @@ let%transfo reintro_pairs_at (pairs: (var * mark * mark) list) (p: path): unit =
   Resources.justif_correct "only changed ghost code"
 
 let move_in_loop_on (i : int) (t : trm) : trm =
-  let remove_ressource_in_contract (to_remove : resource_item list)
+  let remove_resource_in_contract (to_remove : resource_item list)
       (* This function is incomplete. In order to handle more advanced ghosts behavior, invaraint; and iter_contract must be updated *)
         (loop_contract : loop_contract) : loop_contract =
     {
@@ -339,7 +339,7 @@ let move_in_loop_on (i : int) (t : trm) : trm =
   let range, body_instrs, contract =
     trm_inv ~error:"move_in_loop: expeted the target to be pointing at a for loop" trm_for_inv_instrs t_for
   in
-  let new_contract = remove_ressource_in_contract produced contract in
+  let new_contract = remove_resource_in_contract produced contract in
   let new_body = trm_seq_helper [ Trm ghost_begin; TrmMlist body_instrs; Trm ghost_end ] in
   trm_seq_helper
     [ TrmMlist (Mlist.pop_back lbefore); Trm (trm_for ~contract:new_contract range new_body); TrmMlist (Mlist.pop_front lafter) ]
