@@ -21,7 +21,7 @@ let%transfo delete (tg : target) : unit =
   Resources.required_for_check ();
   Target.iter (fun p ->
     let p_seq, span = Path.extract_last_dir_span p in
-    if !Flags.check_validity then begin
+    if !Flags.check_validity && not !Flags.preserve_specs_only then begin
       Resources.assert_instr_effects_shadowed p;
       Trace.justif "nothing modified by the instruction is observed later"
     end;

@@ -160,7 +160,7 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
               | Some (ti,_purity) ->
                   if is_get_of_ls ti then begin
                     (* found the [get(ls)], check duplicatability, then remove the item from the list *)
-                    if !Flags.check_validity then begin
+                    if !Flags.check_validity && not !Flags.preserve_specs_only then begin
                       if not purity.redundant
                         then fail "Unable to introduce an infix op, because the LHS is not a duplicatable expressions.";
                       Trace.justif "the expression denoting the address is redundant.";

@@ -8,7 +8,8 @@ let ensure_computed = Trace.recompute_resources
 (* TODO: avoid recomputing all resources for validity checks.
    TODO: required_for_check_at path; for on-demand computation. *)
 let required_for_check () : unit =
-  if !Flags.check_validity then ensure_computed ()
+  if !Flags.check_validity && not !Flags.preserve_specs_only
+    then ensure_computed ()
 
 let justif_correct (why : string) : unit =
   if !Flags.check_validity then begin

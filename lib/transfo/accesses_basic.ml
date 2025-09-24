@@ -265,8 +265,7 @@ type transform_arith_op = Transform_arith_mul | Transform_arith_add
 (** [transform_arith ~inv ~factor tg]: this transformation just calls the [transform] function with [f_get] and [f_set] args
    defined as a multiplication and a division operation respectively if [op] is [Transform_arith_mul],
    and addition and subtraction if [op] is [Transform_arith_add].
-    If [inv] is set to true then these two
-   operations will be swapped. *)
+   If [inv] is set to true then these two operations will be swapped. *)
 let%transfo transform_arith ~(op:transform_arith_op) ?(inv:bool=false) ~(factor:trm)
   ~(address_pattern : compiled_pattern)
   ?(mark : mark = no_mark)
