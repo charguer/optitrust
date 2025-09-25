@@ -10,7 +10,6 @@ void f() {
     y += 3;
   }
   b++;
-  b++;
 }
 
 void copy_back() {
