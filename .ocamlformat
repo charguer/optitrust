@@ -1,17 +1,20 @@
 version = 0.27.0
 profile = conventional
-margin = 120
+margin = 100
 ## breaks
 break-before-in=auto
 break-infix = fit-or-vertical # try to fit operators on one line else break at the operator
-break-cases=fit-or-vertical # try to fit case on one line else breaks in several
+break-cases=fit # try to fit case on one line else breaks in several
 break-fun-decl=fit-or-vertical #all arguments on one line if they fit else one per line
 cases-exp-indent=2 # indentation for cases
 indicate-multiline-delimiters = closing-on-separate-line # end is on a seperated line
 
-## Fix for comments, else doesn not format
+## if-then-else
+if-then-else=fit-or-vertical
+## Fix for comments, else does not format
 wrap-comments = false
 parse-docstrings = false
 
 let-binding-spacing = compact
-type-decl = compact # One typer per line or "try to fit ?"
+type-decl = sparse # One typer per line or "try to fit ?"
+exp-grouping=preserve
