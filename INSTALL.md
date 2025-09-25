@@ -353,6 +353,12 @@ The result should be the same as with typing `F6`, except that it runs
 faster because the execution proceeds not from the beginning of the script
 but instead from the line of the snapshot taken using `ctrl+F7`.
 
+### Other shortcuts
+If you want to bind other shortcuts you can look at the current binding by typing `ctrl+k ctrl+s` and then type the task you want to bind. 
+For instance if you want to have a shortcut to format your code : 
+- `ctrl+k ctrl+s`
+- type "Format" 
+- Bind your own shortcut
 ### Deactivate possibly conficting bindings
 
 On desktop managers such as Ubuntu's, certain shortcuts such as
