@@ -199,7 +199,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
         (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
 
     (* Dump full trace if option [-dump-trace] as provided *)
-    if !Flags.execution_mode = Execution_mode_full_trace
+    if Flags.request_trace()
       then produce_trace();
 
     (* Dump one file for each big step if option [-dump-big-steps] was provided *)

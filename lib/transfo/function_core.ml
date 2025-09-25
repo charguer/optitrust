@@ -244,23 +244,17 @@ let uninline_on (fct_decl : trm)
     ] end
     | _ -> body_instrs
   in
-  (* 2. check that there is no return in the rest of the function.
-        also delete admitted and ghost instructions.
-        do the same for the target code. *)
+  (* 2. check that there is no return in the rest of the function.*)
   let rec check_body t =
     Pattern.pattern_match t [
       Pattern.(trm_return __) (fun () ->
         trm_fail t "function or code has unsupported return instruction"
       );
-      Pattern.__ (fun () ->
-        Pattern.when_ (Resource_trm.is_any_ghost_code t);
-        trm_seq_nobrace_nomarks []
-      );
       Pattern.__ (fun () -> trm_map check_body t)
     ]
   in
-  let ret_body = Nobrace.remove_after_trm_op check_body (trm_seq ret_body_instrs) in
-  let target_code = Nobrace.remove_after_trm_op check_body (trm_seq span_instrs) in
+  let ret_body = check_body (trm_seq ret_body_instrs) in
+  let target_code = trm_seq span_instrs in
   (* 3. try matching patched function body with target code. *)
   let ret_targs = match !ret_var with
     | None -> targs
@@ -271,10 +265,6 @@ let uninline_on (fct_decl : trm)
   (* 4. check validity: instantiated arguments must be pure,
         and a separate resource must be owned on the eventual return variable  *)
   if !Flags.check_validity then begin
-    let _f_contract = match spec with
-    | FunSpecUnknown | FunSpecReverts _ -> failwith "expected function contract"
-    | FunSpecContract c -> c
-    in
     Var_map.iter (fun _ arg_val ->
       if not (Resources.trm_is_pure arg_val) then
         trm_fail arg_val "basic function uninlining does not support non-pure arguments, combine with variable binding and inline"

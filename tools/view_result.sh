@@ -26,7 +26,6 @@
 # FIXME: the "dune exec" command used by this script will not work if
 # the script file is located outside of the optitrust buildtree
 
-
 #==========================================================================
 # Processing script arguments
 
@@ -52,7 +51,8 @@ FILEBASE=${FILEBASE%.*}
 
 # Additional environment variables.
 ${FLAGS:=""}
-${CODE_VIEWER:="code -r"}
+CODE_VIEWER="code -r"
+ # TODO: ${CODE_VIEWER:="code -r"}
 
 # Path to the tools and optitrust folder
 TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0")")
@@ -216,8 +216,11 @@ echo "View ${FILEPATH} with options ${OPTIONS}"
 # LATER: only do this if error is raised
 make -C ${OPTITRUST_FOLDER} precompile
 
+
 # TODO: --no-build
+echo "Execution of OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS}"
 OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS} || [[ "${MODE}" == *"trace"* ]]
+
 
 #==========================================================================
 # Open the output

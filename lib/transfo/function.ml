@@ -196,40 +196,22 @@ let%transfo use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = tr
     Now the stage is ready for applying the basic version of uninline.
     *)
 let%transfo uninline ~(f : target) (tg : target) : unit =
-  let tg_fun_def = match get_trm_at f with
+Trace.without_resource_computation_between_steps (fun _ ->
+  Resources.delete_annots tg;
+  let f_decl = match get_trm_at f with
   | Some td -> td
   | None -> failwith "could not find target function"
   in
+  let f_decl = Nobrace.remove_after_trm_op Resource_trm.delete_annots_on f_decl in
+
   Target.iter (fun p ->
     let (start, p_seq) = Path.index_in_seq p in
-
-    (* 1. how many non-ghost instructions do we need to match ? *)
-    let to_match = ref 0 in
     let error = "target function should be a function declaration" in
-    let (_, _, _, body, _) = trm_inv ~error trm_let_fun_inv tg_fun_def in
+    let (_, _, _, body, _) = trm_inv ~error trm_let_fun_inv f_decl in
     let (body_instrs, _) = trm_inv ~error trm_seq_inv body in
-    Mlist.iter (fun t ->
-      if not (Resource_trm.is_any_ghost_code t) then incr to_match
-    ) body_instrs;
-
-    (* 2. where should we stop to encompass these many non-ghost instructions ? *)
-    let stop = ref start in
-    let t_seq = Target.resolve_path p_seq in
-    let error = "expected sequence" in
-    let (seq_instrs, _) = trm_inv ~error trm_seq_inv t_seq in
-    let (_, following_instrs) = Mlist.split start seq_instrs in
-
-    ignore (Mlist.find_map (fun t ->
-      if !to_match = 0 then Some(()) else begin
-        if not (Resource_trm.is_any_ghost_code t) then decr to_match;
-        incr stop;
-        None
-      end
-    ) following_instrs);
-
-    let span = { start; stop = !stop } in
-    Function_basic.uninline ~f (target_of_path (p_seq @ [Dir_span span]))
-  ) tg
+    let span = { start; stop = start + (Mlist.length body_instrs) } in
+    Function_basic.uninline ~f_decl (target_of_path (p_seq @ [Dir_span span]))
+  ) tg)
 
 (** [insert ~reparse decl tg]: expects the relative target [t] to point before or after an instruction,
      then it will insert the function declaration [decl] on that location.

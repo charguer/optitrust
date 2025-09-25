@@ -267,7 +267,6 @@ let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = 
 
       let inner_seq_tg = [Constr_paths [seq_p]; cMark outer_loop_m; dBody] in
       let inner_seq_p = resolve_target_exactly_one inner_seq_tg in
-
       let pairs = Ghost_pair.elim_all_pairs_at next_m inner_seq_p in
 
       (* TODO: relax linear *)
@@ -276,6 +275,7 @@ let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = 
         Ghost_pure.fission ~mark_between:split_begin_m [cPath seq_p; cMark begin_m; tAfter];
         Loop_basic.fission_basic [cPath seq_p; cMark split_begin_m];
         let split_end_m = next_m () in
+
         Ghost_pure.fission ~mark_between:split_end_m [cPath seq_p; cMark end_m; tBefore];
         Loop_basic.fission_basic [cPath seq_p; cMark split_end_m];
         let loop_begin_m = next_m () in

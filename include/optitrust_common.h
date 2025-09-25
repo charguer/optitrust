@@ -169,6 +169,12 @@ inline int max(int a, int b) {
   __admitted();
   return a > b ? a : b;
 }
+inline float maxf(float a, float b) {
+  __pure();
+  __admitted();
+  return a > b ? a : b;
+}
+
 
 /* ---- Other Functions ---- */
 
@@ -696,7 +702,6 @@ __GHOST(mindex2_fold) {
   __reverts(mindex2_unfold);
   __admitted();
 }
-
 __GHOST(mindex3_unfold) {
   __requires("T: Type, H: (int * int * int -> ptr(T)) -> HProp, matrix: ptr(T), n1: int, n2: int, n3: int");
   __consumes("H(fun i1 i2 i3 -> &matrix[MINDEX3(n1, n2, n3, i1, i2, i3)])");
@@ -709,6 +714,7 @@ __GHOST(mindex3_fold) {
   __admitted();
 }
 
+
 __GHOST(ro_mindex2_unfold) {
   __requires("T: Type, H: (int * int -> ptr(T)) -> HProp, matrix: ptr(T), n1: int, n2: int, f: _Fraction");
   __consumes("_RO(f, H(fun i1 i2 -> &matrix[MINDEX2(n1, n2, i1, i2)]))");
@@ -720,6 +726,7 @@ __GHOST(ro_mindex2_fold) {
   __reverts(ro_mindex2_unfold);
   __admitted();
 }
+
 
 __GHOST(ro_mindex3_unfold) {
   __requires("T: Type, H: (int * int * int -> ptr(T)) -> HProp, matrix: ptr(T), n1: int, n2: int, n3: int, f: _Fraction");

@@ -27,30 +27,29 @@ void f() {
     __consumes("y_local ~> UninitMatrix3(10, 8, 4)");
     __produces(
         "for i1 in 0..10 -> for i2 in 2..10 -> for i3 in 0..4 -> "
-        "&y_local[MINDEX3(10, 8, 4, i1 - 0, i2 - 2, i3 - 0)] ~> UninitCell");
+        "&y_local[MINDEX3(10, 8, 4, i1, i2 - 2, i3)] ~> UninitCell");
     __admitted();
     __with("justif := shift_groups");
   });
   for (int i1 = 0; i1 < 10; i1++) {
     __strict();
     __xwrites(
-        "for i2 in 2..10 -> for i3 in 0..4 -> &y_local[MINDEX3(10, 8, 4, i1 - "
-        "0, i2 - 2, i3 - 0)] ~> Cell");
+        "for i2 in 2..10 -> for i3 in 0..4 -> &y_local[MINDEX3(10, 8, 4, i1, "
+        "i2 - 2, i3)] ~> Cell");
     __xreads(
         "for i2 in 2..10 -> for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, "
         "i3)] ~> Cell");
     for (int i2 = 2; i2 < 10; i2++) {
       __strict();
       __xwrites(
-          "for i3 in 0..4 -> &y_local[MINDEX3(10, 8, 4, i1 - 0, i2 - 2, i3 - "
-          "0)] ~> Cell");
+          "for i3 in 0..4 -> &y_local[MINDEX3(10, 8, 4, i1, i2 - 2, i3)] ~> "
+          "Cell");
       __xreads("for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell");
       for (int i3 = 0; i3 < 4; i3++) {
         __strict();
-        __xwrites(
-            "&y_local[MINDEX3(10, 8, 4, i1 - 0, i2 - 2, i3 - 0)] ~> Cell");
+        __xwrites("&y_local[MINDEX3(10, 8, 4, i1, i2 - 2, i3)] ~> Cell");
         __xreads("&a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell");
-        y_local[MINDEX3(10, 8, 4, i1 - 0, i2 - 2, i3 - 0)] =
+        y_local[MINDEX3(10, 8, 4, i1, i2 - 2, i3)] =
             a[MINDEX3(10, 10, 4, i1, i2, i3)];
       }
     }
@@ -77,27 +76,27 @@ void f() {
         "for i2 in 2..10 -> for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, "
         "i3)] ~> Cell");
     __xreads(
-        "for i2 in 2..10 -> for i3 in 0..4 -> &y_local[MINDEX3(10, 8, 4, i1 - "
-        "0, i2 - 2, i3 - 0)] ~> Cell");
+        "for i2 in 2..10 -> for i3 in 0..4 -> &y_local[MINDEX3(10, 8, 4, i1, "
+        "i2 - 2, i3)] ~> Cell");
     for (int i2 = 2; i2 < 10; i2++) {
       __strict();
       __xwrites("for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell");
       __xreads(
-          "for i3 in 0..4 -> &y_local[MINDEX3(10, 8, 4, i1 - 0, i2 - 2, i3 - "
-          "0)] ~> Cell");
+          "for i3 in 0..4 -> &y_local[MINDEX3(10, 8, 4, i1, i2 - 2, i3)] ~> "
+          "Cell");
       for (int i3 = 0; i3 < 4; i3++) {
         __strict();
         __xwrites("&a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell");
-        __xreads("&y_local[MINDEX3(10, 8, 4, i1 - 0, i2 - 2, i3 - 0)] ~> Cell");
+        __xreads("&y_local[MINDEX3(10, 8, 4, i1, i2 - 2, i3)] ~> Cell");
         a[MINDEX3(10, 10, 4, i1, i2, i3)] =
-            y_local[MINDEX3(10, 8, 4, i1 - 0, i2 - 2, i3 - 0)];
+            y_local[MINDEX3(10, 8, 4, i1, i2 - 2, i3)];
       }
     }
   }
   __ghost([&]() {
     __consumes(
         "for i1 in 0..10 -> for i2 in 2..10 -> for i3 in 0..4 -> "
-        "&y_local[MINDEX3(10, 8, 4, i1 - 0, i2 - 2, i3 - 0)] ~> UninitCell");
+        "&y_local[MINDEX3(10, 8, 4, i1, i2 - 2, i3)] ~> UninitCell");
     __produces("y_local ~> UninitMatrix3(10, 8, 4)");
     __admitted();
     __with("justif := shift_groups");

@@ -307,7 +307,6 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
         for R' P (I'' * RO(Iro))
           tl2
         *)
-
       let linear_invariant = contract.invariant.linear in (* = I *)
       let linear_invariant_hyps = Var_set.of_list (List.map (fun (h, _) -> h) linear_invariant) in
 
@@ -328,14 +327,15 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       (* let tl1_inv_writes = resource_set_of_hyp_map tl1_inv_writes ctx_res.linear in *)
       let tl1_inv = resource_set_of_hyp_map tl1_inv_usage loop_start_res.linear in
       let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource_set ~split_frac:false linear_invariant tl1_inv in (* = I'' *)
-
       let split_res = if Mlist.is_empty tl2 then Resources.after_trm t_seq else Resources.before_trm (Mlist.nth tl2 0) in (* = R *)
+
       let (_, split_res_comm, _) = (* R' *)
         Resource_computation.subtract_linear_resource_set ~split_frac:false split_res.linear (linear_invariant @ Resource_contract.parallel_reads_inside_loop l_range contract.parallel_reads)
       in
 
       (* Remove resources that refer to local variables in tl1 *)
       (* LATER: Run scope destructors and generalize the rest with pure variables *)
+
       let bound_in_tl1 = Mlist.fold_left (fun acc ti -> (* TODO: gather bound_vars_in_trms *)
           match trm_let_inv ti with
           | Some (v, typ, init) -> Var_set.add v acc
@@ -351,6 +351,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let post_inst_usage = Resource_computation.used_set_to_usage_map (Resources.post_inst t_seq) in
       let usage_after_tl1 = Resource_computation.update_usage_map ~current_usage:tl2_usage ~extra_usage:post_inst_usage in
       let used_in_split_res_comm = Resource_set.used_vars (Resource_set.make ~linear:split_res_comm ()) in
+
       let tl1_ensured = List.filter (fun (x, f) ->
         match Var_map.find_opt x tl1_usage with
         | Some (Ensured | ArbitrarilyChosen) when
@@ -401,6 +402,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
     [t]: ast of the loop
     *)
 let fission_on (mark_loops : mark) (mark_between_loops : mark) (index : int) (t : trm) : trm =
+
   let (ta,tb) = fission_on_as_pair mark_loops index t in
   trm_seq_helper ~braces:false [ Trm ta; Mark mark_between_loops; Trm tb ]
 

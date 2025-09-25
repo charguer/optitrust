@@ -26,9 +26,9 @@
       {
         "label": "View diff",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": "./run_action.sh",
         "options": {
-          "cwd": "${workspaceFolder}",
+          "cwd": "${workspaceFolder}/.vscode",
           "shell": {
             "args": ["-i"]
           }
@@ -37,6 +37,7 @@
           "clear": true
         },
         "args": [
+          "./tools/view_result.sh",
           "step_diff",
           "${relativeFile}",
           "${lineNumber}"
@@ -45,9 +46,9 @@
       {
         "label": "View diff only code",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": "./run_action.sh",
         "options": {
-          "cwd": "${workspaceFolder}",
+          "cwd": "${workspaceFolder}/.vscode",
           "shell": {
             "args": ["-i"]
           }
@@ -104,9 +105,9 @@
       {
         "label": "View trace",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": "./run_action.sh",
         "options": {
-          "cwd": "${workspaceFolder}",
+          "cwd": "${workspaceFolder}/.vscode",
           "shell": {
             "args": ["-i"]
           }
@@ -115,6 +116,7 @@
           "clear": true
         },
         "args": [
+          "./tools/view_result.sh",
           "full_trace",
           "${relativeFile}",
           "${lineNumber}",
@@ -137,16 +139,16 @@
           "full_trace",
           "${relativeFile}",
           "${lineNumber}",
-          "-substeps-including-ast",
+          "-save-steps",
           "small"
         ]
       },
       {
         "label": "View standalone trace",
         "type": "shell",
-        "command": "tools/view_result.sh",
+        "command": "./run_action.sh",
         "options": {
-          "cwd": "${workspaceFolder}",
+          "cwd": "${workspaceFolder}/.vscode",
           "shell": {
             "args": ["-i"]
           }
@@ -155,6 +157,7 @@
           "clear": true
         },
         "args": [
+          "./tools/view_result.sh",
           "standalone_full_trace",
           "${relativeFile}",
           "${lineNumber}"
@@ -177,7 +180,7 @@
           "standalone_full_trace",
           "${relativeFile}",
           "${lineNumber}",
-          "-substeps-including-ast",
+          "-save-steps",
           "small",
           "-trace-as-text"
         ]
@@ -199,8 +202,8 @@
           "standalone_full_trace",
           "${relativeFile}",
           "${lineNumber}",
-          "-substeps-including-ast",
-          "all-important",
+          "-save-steps",
+          "important",
         ]
       },
       {
@@ -322,16 +325,17 @@
       {
         "label": "Redo last view command",
         "type": "shell",
-        "command": "tools/_last_view_result.sh",
+        "command": "./run_action.sh",
         "options": {
-          "cwd": "${workspaceFolder}",
+          "cwd": "${workspaceFolder}/.vscode",
           "shell": {
             "args": ["-i"]
           }
         },
         "presentation": {
           "clear": true
-        }
+        },
+        "args" : ["./tools/_last_view_result.sh"]
       },
 
       // Run unit tests
@@ -523,8 +527,31 @@
           }
         },
       },
-
-
+      // Build pview
+      {
+        "label": "Execute Pview Makefile",
+        "type": "shell",
+        "command": "make -C tools/pview",
+        "args": [ ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+      },
+      {
+        "label": "Execute Pview Demo",
+        "type": "shell",
+        "command": "make -C tools/demo_pview",
+        "args": [ ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+      },
       // Run script
       {
         "label": "Execute doc/add_tests_into_doc/run.sh",

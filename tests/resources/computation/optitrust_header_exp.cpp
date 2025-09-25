@@ -282,3 +282,17 @@ uint16_t reduce_spe1(int start, int stop, uint8_t* input, int n, int m, int j) {
   }
   return s;
 }
+
+float get_max(float* x, int n) {
+  __reads("x ~> Matrix1(n)");
+  float max_value = 0.f;
+  for (int i = 0; i < n; i++) {
+    __strict();
+    __smodifies("&max_value ~> Cell");
+    __sreads("x ~> Matrix1(n)");
+    const __ghost_fn f = __ghost_begin(ro_matrix1_focus, "matrix := x, i := i");
+    max_value = maxf(x[MINDEX1(n, i)], max_value);
+    __ghost_end(f);
+  }
+  return max_value;
+}
