@@ -64,7 +64,7 @@ Installation of the opam switch with relevant packages:
    opam pin add menhirLib 20210419
    opam pin add pprint 20220103
    opam pin add clangml 4.8.0  # -> continueanyway
-   opam install dune refl clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving
+   opam install dune refl clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving ocamlformat
    # next line used only for generating the documentation of OptiTrust:
    opam install odoc lambdasoup
    # fancy traces
