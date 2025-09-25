@@ -6,10 +6,10 @@ let _ = Flags.check_validity := true
 let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp (fun _ ->
-
+(*
   let (a, _) = find_var "a" [] in
-  !! Matrix_basic.local_name a ~into:"x" [cFunBody "main"; cFor "i"];
-
+  !! Matrix_basic.local_name a ~into:"x" [cFunBody "g"; cFor "i"];
+*)
   (*
   let b = find_var "b" in
   !! Matrix_basic.local_name b ~into:"y" ~alloc_instr:[cWriteVar "b"] [cFunBody "main"; cFor "j"]; *)

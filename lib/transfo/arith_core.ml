@@ -1384,8 +1384,8 @@ let check_int_compare (cmp: int -> int -> bool) (t1: trm) (t2: trm) : bool =
   | Some i when cmp i 0 -> true
   | _ -> false
 
-let check_eq = check_int_compare (==)
-let check_neq = check_int_compare (!=)
+let check_eq = check_int_compare (=)
+let check_neq = check_int_compare (<>)
 let check_gt = check_int_compare (>)
 let check_geq = check_int_compare (>=)
 let check_lt = check_int_compare (<)

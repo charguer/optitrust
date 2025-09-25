@@ -18,4 +18,6 @@ let _ = Run.script_cpp(fun _ ->
   !! Loop.shift_range (StartAt (trm_int 8)) [cFunDef "ghost_in_range"; cFor "m"];
 
   !! Loop.shift_range (ShiftBy (trm_int 2)) [cFunDef "arrays"; cFor "i"];
+
+  !! Loop.shift_range (ShiftBy (trm_int 2)) [cFunDef "non_transparent_ghosts"; cFor "i"];
 )
