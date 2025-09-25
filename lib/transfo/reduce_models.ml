@@ -172,7 +172,7 @@ let%transfo slide
         Pattern.(
           (formula_points_to !__ (reduce_pat !__ (trm_add !__ !__) !__))
         ) (fun sum a a2 w f_elem () ->
-          Pattern.when_ (are_same_trm a a2);
+          Pattern.when_ (Trm_unify.are_same_trm a a2);
 
           (* DEBUG: Show.trm_internal ~msg:"available" r; *)
           (sum, a, w, f_elem)
@@ -189,7 +189,7 @@ let%transfo slide
           (formula_points_to !__ (reduce_pat (trm_var !__) (trm_add (trm_var !__) !__) !__))
         ) (fun i ap1 b p i2 i3 w2 f_elem2 () ->
           Pattern.when_ ((var_eq i i2) && (var_eq i i3));
-          Pattern.when_ ((are_same_trm w w2) && (are_same_trm f_elem f_elem2));
+          Pattern.when_ ((Trm_unify.are_same_trm w w2) && (Trm_unify.are_same_trm f_elem f_elem2));
 
           (* DEBUG : Show.trm_internal ~msg:"produced" r; *)
           (i, ap1, b, p)
@@ -209,7 +209,7 @@ let%transfo slide
         Pattern.(formula_points_to (trm_var !__)
           (reduce_pat (trm_var (var_eq i_range.index)) (trm_var (var_eq k_range.index)) !__)
         ) (fun s f_elem2 () ->
-          Pattern.when_ (are_same_trm f_elem f_elem2);
+          Pattern.when_ (Trm_unify.are_same_trm f_elem f_elem2);
 
           s
         );
