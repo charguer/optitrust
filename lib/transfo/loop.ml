@@ -1299,8 +1299,9 @@ let%transfo tile ?(index : string = "b${id}")
     | (TileIterGlobal, _) | (_, TileDivides) ->
       Loop_basic.tile ~index ~bound tile_size (target_of_path p)
     | _ -> begin
-      reparse_after (Loop_basic.tile ~index ~bound tile_size) (target_of_path p);
-      shift_range StartAtZero (target_of_path (Path.to_inner_loop p));
+      (* reparse_after ( *)
+      Loop_basic.tile ~index ~bound tile_size (target_of_path p);
+      (* shift_range StartAtZero (target_of_path (Path.to_inner_loop p)); *)
     end
   ) tg
 

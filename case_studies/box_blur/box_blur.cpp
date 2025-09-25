@@ -4,8 +4,8 @@
 // output: (h-2).(w-8).float
 // input :     h.    w.float
 void blur(float* output, float* input, int w, int h) {
-  int w2 = w - 8;
-  int h2 = h - 2;
+  const int w2 = w - 8;
+  const int h2 = h - 2;
   float* blur_y = MALLOC2(float, h2, w);
 
   // pour toutes les colonnes
