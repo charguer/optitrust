@@ -15,10 +15,11 @@ Installation of system packages:
    sudo apt-get install libomp-dev pkg-config zlib1g-dev coreutils
    # for C++ headers support:
    sudo apt-get install libc++-dev
+   # for interactive task watcher support:
+   sudo apt install inotify-tools
    # optional, only if you prefer using `meld` over `code -d` for viewing diffs:
    sudo apt-get install meld
 ```
-
 
 Install Clang 15. IMPORTANT: versions released after 15.0.x are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang libclang-dev llvm-dev`). You can try this procedure:
 
@@ -299,7 +300,7 @@ If you have a nonempty file, copy the bindings into your file.
     "command": "workbench.action.tasks.runTask",
     "args": "Compile with gcc", // LATER: might want to use clang instead
     "when": "config.optitrust.enableKeybindings"
-  },  
+  },
   // For working with long transformation scripts (might not be maintained)
   {
     "key": "f7",
@@ -344,20 +345,20 @@ If you have a nonempty file, copy the bindings into your file.
     "command": "workbench.action.tasks.runTask",
     "args": "Test OptiTrust Shortcuts",
     "when": "config.optitrust.enableKeybindings"
-  },  
+  },
   // For working with pview (experimental for one case study)
   {
     "key": "shift+f11",
     "command": "workbench.action.tasks.runTask",
     "args": "Execute Pview Makefile",
     "when": "config.optitrust.enableKeybindings && resourceDirname =~ /^.*\/pview\/.*$/"
-  },  
+  },
   {
     "key": "shift+f11",
     "command": "workbench.action.tasks.runTask",
     "args": "Execute Pview Demo",
     "when": "config.optitrust.enableKeybindings && resourceDirname =~ /^.*\/demo_pview\/.*$/"
-  },    
+  },
   // For killing a task, type 'ctrl+k' twice, then 'enter'
   {
      "key": "ctrl+k ctrl+k",
