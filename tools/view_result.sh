@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Usage:
+# Usage (to be called from OptiTrust root folder):
 #   ./tools/view_result.sh ${MODE} ${FILEPATH} ${LINENUMBER} ${OPTIONS}
 #
 # where MODE is one of:
@@ -70,11 +70,9 @@ fi
 echo "${TOOLS_FOLDER}/view_result.sh $*" > "${TOOLS_FOLDER}/_last_view_result.sh"
 chmod +x "${TOOLS_FOLDER}/_last_view_result.sh"
 
+
 #==========================================================================
 # Setting up the environment, and read additional settings
-
-# Limit the amount of memory that can be allocated
-ulimit -v $((16 * 1024 * 1024)) # Never exceed 16 GiB of memory
 
 # Make sure we work in the directory that contains the file
 cd ${DIRNAME}
@@ -213,17 +211,27 @@ TIMER6=`date +%s%3N`
 
 echo "View ${FILEPATH} with options ${OPTIONS}"
 
-# LATER: only do this if error is raised
-make -C ${OPTITRUST_FOLDER} precompile
-
+# Note: the test is to allow bypassing 'make precompile' on machines where it does not work
+if [ ! -f "${OPTITRUST_FOLDER}/disable_precompile.txt" ]; then
+    make -C ${OPTITRUST_FOLDER} precompile
+else
+    echo "File disable_precompile.txt detected, skipping 'make precompile'."
+fi
 
 # TODO: --no-build
-echo "Execution of OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS}"
-OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS} || [[ "${MODE}" == *"trace"* ]]
+
+# Using a subshell to limit the amount of memory that can be allocated
+(
+  ulimit -v $((16 * 1024 * 1024)) # Never exceed 16 GiB of memory
+  echo "Execution of OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS}"
+  OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS} || [[ "${MODE}" == *"trace"* ]]
+)
 
 
 #==========================================================================
 # Open the output
+
+# At this stage, `pwd` is the folder containing the script.
 
 TIMER7=`date +%s%3N`
 
@@ -231,19 +239,21 @@ if [ "${MODE}" = "step_diff" ] || [ "${MODE}" = "step_diff_from_inter" ]; then
 
   ${TOOLS_FOLDER}/open_diff.sh ${SRCBASE} cpp
 
-elif [ "${MODE}" = "step_trace" ] || [ "${MODE}" = "standalone_full_trace" ]; then
+elif [ "${MODE}" = "standalone_full_trace" ]; then
 
   ${TOOLS_FOLDER}/open_standalone_trace.sh ${SRCBASE}
 
-elif [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
+elif [ "${MODE}" = "step_trace" ] || [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
 
   ${TOOLS_FOLDER}/open_trace.sh ${SRCBASE}
+  # LATER: might want to pass the ${MODE} argument in order to open_trace
 
 elif [ "${MODE}" = "save_inter" ]; then
 
   echo "Produced ${SRCBASE}_out.cpp as checkpoint for line ${LINE}"
 
 elif [ "${MODE}" = "step_result" ]; then
+  # not tested, no keybinding advertized for it
 
   ${CODE_VIEWER} ${SRCBASE}_after.cpp
 

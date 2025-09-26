@@ -15,10 +15,11 @@ Installation of system packages:
    sudo apt-get install libomp-dev pkg-config zlib1g-dev coreutils
    # for C++ headers support:
    sudo apt-get install libc++-dev
+   # for interactive task watcher support:
+   sudo apt install inotify-tools
    # optional, only if you prefer using `meld` over `code -d` for viewing diffs:
    sudo apt-get install meld
 ```
-
 
 Install Clang 15. IMPORTANT: versions released after 15.0.x are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang libclang-dev llvm-dev`). You can try this procedure:
 
@@ -216,9 +217,21 @@ If you have a nonempty file, copy the bindings into your file.
     "when": "config.optitrust.enableKeybindings"
   },
   {
+    "key": "ctrl+f5",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View trace -save-steps script",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
     "key": "ctrl+shift+f5",
     "command": "workbench.action.tasks.runTask",
-    "args": "View trace light",
+    "args": "View standalone trace -save-steps script",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
+    "key": "alt+ctrl+shift+f5", // experimental, only for advanced users, heavier trace
+    "command": "workbench.action.tasks.runTask",
+    "args": "View standalone trace -save-steps important",
     "when": "config.optitrust.enableKeybindings"
   },
   {
@@ -282,7 +295,13 @@ If you have a nonempty file, copy the bindings into your file.
     "args": "Open unit test ML and CPP files and documentation",
     "when": "config.optitrust.enableKeybindings"
   },
-  // For working with long transformation scripts
+  {
+    "key": "alt+ctrl+shift+f10",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Compile with gcc", // LATER: might want to use clang instead
+    "when": "config.optitrust.enableKeybindings"
+  },
+  // For working with long transformation scripts (might not be maintained)
   {
     "key": "f7",
     "command": "workbench.action.tasks.runTask",
@@ -301,12 +320,24 @@ If you have a nonempty file, copy the bindings into your file.
     "args": "Save intermediate state",
     "when": "config.optitrust.enableKeybindings"
   },
-  // To open documentation
+  // For viewing documentation
   {
     "key": "f11",
     "command": "workbench.action.tasks.runTask",
     "args": "Open doc for current source file in browser",
-    "when": "config.optitrust.enableKeybindings && resourceExtname == .ml"
+    "when": "config.optitrust.enableKeybindings && (resourceExtname == .ml || resourceExtname == .cpp)"
+  },
+  {
+    "key": "ctrl+f11",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Execute make viewdoc",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
+    "key": "ctrl+shift+f11",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Execute make doc viewdoc",
+    "when": "config.optitrust.enableKeybindings"
   },
   // For testing OptiTrust shortcuts
   {
@@ -314,26 +345,27 @@ If you have a nonempty file, copy the bindings into your file.
     "command": "workbench.action.tasks.runTask",
     "args": "Test OptiTrust Shortcuts",
     "when": "config.optitrust.enableKeybindings"
-  },  
-  // For working with pview
+  },
+  // For working with pview (experimental for one case study)
   {
     "key": "shift+f11",
     "command": "workbench.action.tasks.runTask",
     "args": "Execute Pview Makefile",
     "when": "config.optitrust.enableKeybindings && resourceDirname =~ /^.*\/pview\/.*$/"
-  },  
+  },
   {
     "key": "shift+f11",
     "command": "workbench.action.tasks.runTask",
     "args": "Execute Pview Demo",
     "when": "config.optitrust.enableKeybindings && resourceDirname =~ /^.*\/demo_pview\/.*$/"
-  },    
+  },
   // For killing a task, type 'ctrl+k' twice, then 'enter'
   {
      "key": "ctrl+k ctrl+k",
      "command": "workbench.action.tasks.terminate",
+     // "args": "Kill the current task",
      "when": "config.optitrust.enableKeybindings"
-  },
+  }
   // Unused "alt+f6", "alt+f7", "ctrl+shift+f6",..
   // End of OptiTrust keybindings
 ]

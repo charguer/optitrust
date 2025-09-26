@@ -4,7 +4,7 @@
     // The -i option is necessary for launching GUI programs from tasks
     "version": "2.0.0",
     "tasks": [
-      // Build using make
+      // Build using make (currently not using run_action.sh)
       {
         "label": "Build everything",
         "type": "shell",
@@ -26,9 +26,9 @@
       {
         "label": "View diff",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "tools/view_result.sh",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode",
+          "cwd": "${workspaceFolder}",
           "shell": {
             "args": ["-i"]
           }
@@ -37,7 +37,6 @@
           "clear": true
         },
         "args": [
-          "./tools/view_result.sh",
           "step_diff",
           "${relativeFile}",
           "${lineNumber}"
@@ -46,9 +45,9 @@
       {
         "label": "View diff only code",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "tools/view_result.sh",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode",
+          "cwd": "${workspaceFolder}",
           "shell": {
             "args": ["-i"]
           }
@@ -84,7 +83,7 @@
         ]
       },
       {
-        "label": "View step result",
+        "label": "View step result", // not tested, no keybinding advertized for it
         "type": "shell",
         "command": "tools/view_result.sh",
         "options": {
@@ -105,9 +104,9 @@
       {
         "label": "View trace",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "tools/view_result.sh",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode",
+          "cwd": "${workspaceFolder}",
           "shell": {
             "args": ["-i"]
           }
@@ -116,14 +115,13 @@
           "clear": true
         },
         "args": [
-          "./tools/view_result.sh",
           "full_trace",
           "${relativeFile}",
           "${lineNumber}",
         ]
       },
       {
-        "label": "View trace light",
+        "label": "View trace -save-steps script",
         "type": "shell",
         "command": "tools/view_result.sh",
         "options": {
@@ -140,15 +138,15 @@
           "${relativeFile}",
           "${lineNumber}",
           "-save-steps",
-          "small"
+          "script"
         ]
       },
       {
         "label": "View standalone trace",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "tools/view_result.sh",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode",
+          "cwd": "${workspaceFolder}",
           "shell": {
             "args": ["-i"]
           }
@@ -157,14 +155,13 @@
           "clear": true
         },
         "args": [
-          "./tools/view_result.sh",
           "standalone_full_trace",
           "${relativeFile}",
           "${lineNumber}"
         ]
       },
       {
-        "label": "View standalone trace light",
+        "label": "View standalone trace -save-steps script",
         "type": "shell",
         "command": "tools/view_result.sh",
         "options": {
@@ -181,12 +178,12 @@
           "${relativeFile}",
           "${lineNumber}",
           "-save-steps",
-          "small",
+          "script",
           "-trace-as-text"
         ]
       },
       {
-        "label": "View standalone trace all-important",
+        "label": "View standalone trace -save-steps important",
         "type": "shell",
         "command": "tools/view_result.sh",
         "options": {
@@ -245,7 +242,7 @@
         ]
       },
       {
-        "label": "View big step diff",
+        "label": "View big step diff", // TODO: keybinding
         "type": "shell",
         "command": "tools/view_result.sh",
         "options": {
@@ -325,9 +322,9 @@
       {
         "label": "Redo last view command",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "tools/_last_view_result.sh",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode",
+          "cwd": "${workspaceFolder}",
           "shell": {
             "args": ["-i"]
           }
@@ -335,10 +332,10 @@
         "presentation": {
           "clear": true
         },
-        "args" : ["./tools/_last_view_result.sh"]
+        "args" : [
+        ]
       },
-
-      // Run unit tests
+      // Run unit tests using tester.
       {
         "label": "Run the current test",
         "type": "shell",
@@ -439,15 +436,17 @@
           "clear": true
         }
       },
+      // Tasks to open related files.
+      // For GUI operations, open_test.sh itself calls exec_with_noup_and_runaction.
       {
         "label": "Open unit test ML and CPP files",
         "type": "shell",
         "command": "${workspaceFolder}/.vscode/open_test.sh",
         "args": [
-          "${fileBasename}"
+          "${file}"
         ],
         "options": {
-          "cwd": "${fileDirname}"
+          "cwd": "${workspaceFolder}"
         },
         "problemMatcher": [],
         "presentation": {
@@ -459,11 +458,11 @@
         "type": "shell",
         "command": "${workspaceFolder}/.vscode/open_test.sh",
         "args": [
-          "${fileBasename}",
+          "${file}",
           "withdoc"
         ],
         "options": {
-          "cwd": "${fileDirname}"
+          "cwd": "${workspaceFolder}"
         },
         "problemMatcher": [],
         "presentation": {
@@ -489,7 +488,7 @@
         }
       },
       {
-        "label": "Diff wrong tests output",
+        "label": "Diff wrong tests output", // deprecated?
         "type": "shell",
         "command": ".vscode/diff_wrong_tests_output.sh",
         "options": {
@@ -505,7 +504,20 @@
         "label": "Open doc for current source file in browser",
         "type": "shell",
         "command": "doc/open_doc_for.sh",
-        "args": [ "${file}" ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+        "args": [
+          "${relativeFile}"
+        ]
+      },
+      {
+        "label": "Execute make viewdoc",
+        "type": "shell",
+        "command": "make viewdoc",
         "options": {
           "cwd": "${workspaceFolder}",
           "shell": {
@@ -513,7 +525,33 @@
           }
         },
       },
-      // Test shortcuts
+      {
+        "label": "Execute make doc viewdoc",
+        "type": "shell",
+        "command": "make doc viewdoc",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+      },
+      // Test shortcuts --> via runaction
+      /*{
+        "label": "Test OptiTrust Shortcuts via runaction",
+        "type": "shell",
+        "command": ".vscode/run_action.sh",
+        "args": [ "tools/test_shortcuts.sh",
+                  "${file}",
+                  "${lineNumber}" ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        }
+      },*/
+      // Test shortcuts --> direct
       {
         "label": "Test OptiTrust Shortcuts",
         "type": "shell",
@@ -528,6 +566,7 @@
         },
       },
       // Build pview
+      /*
       {
         "label": "Execute Pview Makefile",
         "type": "shell",
@@ -551,7 +590,7 @@
             "args": ["-i"]
           }
         },
-      },
+      },*/
       // Run script
       {
         "label": "Execute doc/add_tests_into_doc/run.sh",
