@@ -81,15 +81,17 @@ elif [ "$XDG_SESSION_TYPE" = "x11" ] && command -v xdotool >/dev/null; then
   echo "  xdotool search --limit 1 --name \"${WINDOWTITLE}\""
 
   if [ -n "${WID}" ]; then
-    msg "  Existing brower session found (wid=${WID}), using xdotool to bring it up."
+    msg "  Existing browser session found (wid=${WID}), using xdotool to bring it up."
 
     # Immediately brings the window to the front
     # echo ${WID}
     # xdotool windowactivate $WID
-    xdotool windowactivate --sync $WID
+    msg "  activating window"
+    xdotool windowactivate --sync ${WID}
+    # sleep 0.5
     # Refresh the page
-    xdotool key ctrl+r
-
+    msg "  sending ctrl+r to the browser"
+    xdotool key --window ${WID} --clearmodifiers ctrl+r
   else
 
     msg "  No existing browser session found. Lauching fresh browser."

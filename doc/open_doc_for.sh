@@ -6,6 +6,7 @@
 # This script opens in a browser the documentation page associated
 # with a given file from the /src folder.
 #
+# TODO: fix support for /src/lib/transfo/
 # Eg. if filepath is "src/transfo/function.ml", then the page
 # "_doc/optitrust/Optitrust/Optitrust_transfo/Function/index.html"
 # is loaded in a browser.
