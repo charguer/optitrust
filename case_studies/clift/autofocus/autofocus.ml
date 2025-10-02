@@ -3,9 +3,13 @@ open Ast
 open Trm
 open Trm_unify
 
-type starindex = Star of trm * trm * trm | Index of trm
+type range = trm * trm * trm
+type index = trm
+type starindex = Star of range * index | Index of index
 type group_repr = starindex list * trm
 type focus = (group_repr * group_repr) list
+
+let is_focusable star index : bool = true
 
 let build_focus (from_group : group_repr) (to_group : group_repr) : focus option =
   let stars_from, trm1 = from_group in
@@ -16,16 +20,16 @@ let build_focus (from_group : group_repr) (to_group : group_repr) : focus option
       match state_opt with
       | None -> None
       | Some (current_group, acc_focus) -> (
-          match si_from, si_to with
+          match (si_from, si_to) with
           | Index _, Star _ -> None
           | Star _, Star _
           | Index _, Index _ ->
+            (* Add some checks here ? unification ?  *)
               Some (current_group, acc_focus)
-          | Star (_, _, _), Index i2 ->
-              let new_group =
-                List.map (fun si -> if si = si_from then Index i2 else si) current_group
-              in
-              Some (new_group, ((current_group, trm1), (new_group, trm2)) :: acc_focus))
+          | Star (range, i1), Index i2 ->
+              if is_focusable (range,i1) i2 then
+                let new_group = List.map (fun si -> if si = si_from then Index i2 else si) current_group in
+                Some (new_group, ((current_group, trm1), (new_group, trm2)) :: acc_focus)
+              else None)
     in
-    List.fold_left2 folder (Some (stars_from, [])) stars_from stars_to
-    |> Option.map snd
+    List.fold_left2 folder (Some (stars_from, [])) stars_from stars_to |> Option.map snd
