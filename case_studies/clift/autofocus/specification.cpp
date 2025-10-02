@@ -16,11 +16,11 @@ void simple_focus_caller(float *x, int m, int n) {
 
 // General_simple_focus: MINDEX4. The focus can be placed on an inner dimension,
 // which means we should preserve information about both what comes before and
-// what follows.
+// what follows, any dimension can be already focuses
 
 void general_simple_focus(float *x, int n1, int n2, int n3, int n4) {
-  __reads("for i1 in 0..n1 -> for i2 in 0..n2 -> for i4 in 0..n4 -> "
-          "&x[MINDEX4(n1,n2,n3,n4,i1,i2,3, i4)] ~> Cell");
+  __reads("for i1 in 0..n1 -> for i4 in 0..n4 -> "
+          "&x[MINDEX4(n1,n2,n3,n4,i1,2,3,i4)] ~> Cell");
   for (int i1 = 0; i1 < n1; i1++) {
     for (int i2 = 0; i2 < n2; i2++) {
       for (int i4 = 0; i4 < n4; i4++) {
@@ -31,9 +31,9 @@ void general_simple_focus(float *x, int n1, int n2, int n3, int n4) {
 }
 
 void general_simple_focus_caller(float *x, int n1, int n2, int n3, int n4) {
-  __reads("for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> for i4 in "
+  __reads("for i1 in 0..n1 -> for i3 in 0..n3 -> for i4 in "
           "0..n4 -> "
-          "&x[MINDEX4(n1,n2,n3,n4,i1,i2,3, i4)] ~> Cell");
+          "&x[MINDEX4(n1,n2,n3,n4,i1,2,3,i4)] ~> Cell");
   general_simple_focus(x, n1, n2, n3, n4);
 }
 
@@ -47,13 +47,45 @@ void complex_access_ok(float *x, int n1, int n2) {
     float a = x[MINDEX2(n1, n2, n1 - i1, 2)];
   }
 }
-
 void complex_access_ok_caller(float *x, int n1, int n2) {
-  __reads("for i2 in 0..n2 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,n1-i1,n2) ~> "
-          "Cell");
-  complex_access_ok_caller(x, n1, n2);
+  __reads(
+      "for i1 in 0..n2 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,n1-i1,i2)] ~> "
+      "Cell");
+  complex_access_ok(x, n1, n2);
+}
+// Should also work when we can match the * with a specified c
+void complex_access_ok_2(float *x, int n1, int n2, int c) {
+  __reads("for i1 in 0..n1 -> &x[MINDEX2(n1,n2,(c + c) / 2,2)] ~> Cell");
+  for (int i1 = 0; i1 < n1; i1++) {
+    float a = x[MINDEX2(n1, n2, (c + c) / 2, 2)];
+  }
 }
 
+void complex_access_ok_caller_2(float *x, int n1, int n2) {
+  __reads("for i1 in 0..n2 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,(i1+i1) / "
+          "2,i2)] ~> "
+          "Cell");
+  int c = 3;
+  complex_access_ok_2(x, n1, n2, c);
+}
+
+// generic case
+int f(int a, int b) { return (a + b) / 2; }
+
+void complex_access_ok_2(float *x, int n1, int n2, int c) {
+  __reads("for i1 in 0..n1 -> &x[MINDEX2(n1,n2,f(c,c),2)] ~> Cell");
+  for (int i1 = 0; i1 < n1; i1++) {
+    float a = x[MINDEX2(n1, n2, (c + c) / 2, 2)];
+  }
+}
+
+void complex_access_ok_caller_2(float *x, int n1, int n2) {
+  __reads(
+      "for i1 in 0..n2 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,f(i1,i1),i2)] ~> "
+      "Cell");
+  int c = 3;
+  complex_access_ok_2(x, n1, n2, c);
+}
 void complex_access_abort(float *x, int n1, int n2) {
   __reads("for i2 in 0..n2 -> &x[MINDEX2(n1,n2,4,n2)");
   for (int i2 = 0; i2 < n2; i2++) {
@@ -62,15 +94,18 @@ void complex_access_abort(float *x, int n1, int n2) {
 }
 
 void complex_access_abort_caller(float *x, int n1, int n2) {
-  __reads("for i2 in 0..n2 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,n1-i1,n2) ~> "
-          "Cell");
+  __reads(
+      "for i1 in 0..n2 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,n1-i1,i2)] ~> "
+      "Cell");
   complex_access_abort_caller(x, n1, n2);
 }
-
 // Renaming : Iterator might not have the same name
 
 void rename_and_focus(float *x, int n1, int n2) {
-  __reads("for i1 in 0..n2  -> &x[MINDEX2(n1,n2,2,i1) ~> Cell");
+  __reads("for j in 0..n2  -> &x[MINDEX2(n1,n2,2,j) ~> Cell");
+  for (int i2 = 0; i2 < n2; i2++) {
+    float a = x[MINDEX2(n1, n2, 2, i2)];
+  }
 }
 
 void rename_and_focus_caller(float *x, int n1, int n2) {
@@ -93,6 +128,20 @@ void different_order_caller(float *x, int n1, int n2, int n3) {
   different_order(x, n1, n2, n3);
 }
 
+// generic with different order : can be any HProp
+void generic_different_order(float *x, int n1, int n2, int n3) {
+  __requires("items: int * int * int -> HProp");
+  __reads("for i2 in 0..n2 -> for i3 in 0..n3 -> for i1 in 0..n1 -> "
+          " items(i1,i2,i3)");
+}
+void generic_different_order_caller(float *x, int n1, int n2, int n3) {
+  __requires("items: int * int * int -> HProp");
+  __reads("for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> "
+          " items(i1,i2,i3)");
+  generic_different_order(x, n1, n2, n3);
+}
+
+
 void loop_basic(float *x, int n1, int n2) {
   __reads(
       "for i1 in 0..n1 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,i1,i2) ~> Cell");
@@ -104,9 +153,10 @@ void loop_basic(float *x, int n1, int n2) {
 }
 
 void loop_multi_focus(float *x, int n1, int n2, int n3) {
+  __modifies("x ~> Matrix3(n1,n2,n3)");
   for (int i2 = 0; i2 < n2; i2++) {
     for (int i3 = 0; i3 < n3; i3++) {
-      float a = x[MINDEX3(n1, n2, n3, 1, i2, i3)];
+      x[MINDEX3(n1, n2, n3, 1, i2, i3)] = 2;
     }
   }
 }
@@ -114,9 +164,12 @@ void loop_multi_focus(float *x, int n1, int n2, int n3) {
 // void loop_multi_focus(float *x, int n1, int n2, int n3) {
 //   for (int i2 = 0; i2 < n2; i2++) {
 //     for (int i3 = 0; i3 < n3; i3++) {
-// const a = ghost_begin(focus1, "for i in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> &x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~>Cell,   i: 1") ; <-- This ghost can go outside the loops,
-// const b = ghost_begin(focus1, "for i in 0 ..n2 -> for i3 in 0..n3 -> &x[MINDEX3(n1,n2,n3,1,i2,i3)] ~>Cell, i := i2"); <-- This one can go in between
-// const c = ghost_begin(focus1, "for i in 0..n3 -> &x[MINDEX3(n1,n2,n3,1,i2,i3)] ~>Cell, i := i3"); < -- This one must stay here
+// const a = ghost_begin(focus1, "for i in 0..n1 -> for i2 in 0..n2 -> for i3 in
+// 0..n3 -> &x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~>Cell,   i: 1") ; <-- This ghost can
+// go outside the loops, const b = ghost_begin(focus1, "for i in 0 ..n2 -> for
+// i3 in 0..n3 -> &x[MINDEX3(n1,n2,n3,1,i2,i3)] ~>Cell, i := i2"); <-- This one
+// can go in between const c = ghost_begin(focus1, "for i in 0..n3 ->
+// &x[MINDEX3(n1,n2,n3,1,i2,i3)] ~>Cell, i := i3"); < -- This one must stay here
 //       float a = x[MINDEX3(n1, n2, n3, 1, i2, i3)];
 //     }
 //   }
