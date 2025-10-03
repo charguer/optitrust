@@ -1,0 +1,103 @@
+[
+  structure_item
+    Tstr_type Rec
+    [
+      type_declaration li/267
+        ptype_params =
+          [
+            core_type
+              Ttyp_var a
+          ]
+        ptype_cstrs =
+          []
+        ptype_kind =
+          Ttype_variant
+            [
+
+                Nil/268
+                []
+                None
+
+                Cons/269
+                [
+                  core_type
+                    Ttyp_var a
+                  core_type
+                    Ttyp_constr "li/267"
+                    [
+                      core_type
+                        Ttyp_var a
+                    ]
+                ]
+                None
+
+                Cons2/270
+                [
+                  core_type
+                    Ttyp_var a
+                  core_type
+                    Ttyp_var a
+                  core_type
+                    Ttyp_constr "li/267"
+                    [
+                      core_type
+                        Ttyp_var a
+                    ]
+                ]
+                None
+            ]
+        ptype_private = Public
+        ptype_manifest =
+          None
+    ]
+]
+
+
+
+[
+  structure_item
+    Tstr_type Rec
+    [
+      type_declaration li/267
+        ptype_params =
+          []
+        ptype_cstrs =
+          []
+        ptype_kind =
+          Ttype_variant
+            [
+
+                Nil/268
+                []
+                None
+
+                Cons/269
+                [
+                  core_type
+                    Ttyp_constr "int/1!"
+                    []
+                  core_type
+                    Ttyp_constr "li/267"
+                    []
+                ]
+                None
+
+                Cons2/270
+                [
+                  core_type
+                    Ttyp_constr "int/1!"
+                    []
+                  core_type
+                    Ttyp_constr "int/1!"
+                    []
+                  core_type
+                    Ttyp_constr "li/267"
+                    []
+                ]
+                None
+            ]
+        ptype_private = Public
+        ptype_manifest =
+          None
+    ]
+]
