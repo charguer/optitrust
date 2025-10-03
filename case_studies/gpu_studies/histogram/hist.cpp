@@ -7,14 +7,7 @@ __GHOST(array_extract) {
   __requires("i: int, len: int, items: int -> HProp");
   __requires("bounds_check: in_range(i, 0..len)");
   __consumes("for j in 0..len -> items(j)");
-  // TODO: Could I have also done j <> i -> items(j) here?
-  // I was getting an assert error:
-  /*
-    Resource computation error: File "lib/framework/resources/resource_computation.ml", line 355, characters 12-18: Assertion failed
-  */
-  // which I thought made sense because if it's wrong (e.g. i is outside the the range) it would not be using resources linearly.
-  // So i switched it to this, but I got the same error in other parts?
-  // Not sure what it is complaining about exactly?
+  // Split array into disjoint parts: above the index, below the index.
   __produces("for j in 0..i -> items(j), for j in i+1..len -> items(j), items(i)");
   __admitted();
 }
@@ -24,6 +17,7 @@ __GHOST(array_insert) {
   __admitted();
 }
 
+// "countelems(N, A, elem) counts occurences of elem in A up to N"
 __DECL(countelems, "int * (int -> int) * int -> int");
 __AXIOM(countelems_base, "forall (A: int -> int) (x: int) -> 0 = countelems(0, A, x)");
 __AXIOM(countelems_ind_eq, "forall (n: int) (A: int -> int) (x: int) -> n >= 0 -> x = A(n) -> countelems(n, A, x) + 1 = countelems(n + 1, A, x)");
@@ -61,6 +55,7 @@ void hist(int *hist, int *arr, int hist_len, int arr_len) {
     __ghost(rewrite_linear, "inside := fun v -> &hist[MINDEX1(hist_len,A(i))] ~~> v, by := countelems_ind_eq(i, A, A(i))(i_ge_0)(ai_eq_refl)");
 
     // Prove that indices we *didnt* update corresponds to i+1 step (countelems_ind_neq)
+    // TODO: j_neq should be its own axiom (element out of range MUST not be equal to element in range)
 #define HIST_SPLIT_PROOF\
       __xconsumes("&hist[MINDEX1(hist_len,j)] ~~> countelems(i,A,j)");\
       __xproduces("&hist[MINDEX1(hist_len,j)] ~~> countelems(i+1,A,j)"); \
