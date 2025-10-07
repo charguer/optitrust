@@ -91,7 +91,10 @@ let rec normalize_trm (t : trm)
             if same_trms then let indices = List.drop_last n_dims_out inds_in @ inds_out in
                 (Matrix_trm.access base_in dims_in indices, evar_ctx)
               else nochange
-          else nochange
+          else
+            if (List.length dims_in = 0) then
+              Matrix_trm.access base_in dims_out inds_out,evar_ctx
+        else nochange
       | _ -> nochange)
   | _ -> nochange
 
