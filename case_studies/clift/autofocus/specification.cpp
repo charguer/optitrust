@@ -62,7 +62,7 @@ void complex_access_ok_2(float *x, int n1, int n2, int c) {
 }
 
 void complex_access_ok_caller_2(float *x, int n1, int n2) {
-  __reads("for i1 in 0..n2 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,(i1+i1) / "
+  __reads("for i1 in 0..n1 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,(i1+i1) / "
           "2,i2)] ~> "
           "Cell");
   int c = 3;
@@ -72,19 +72,19 @@ void complex_access_ok_caller_2(float *x, int n1, int n2) {
 // generic case
 int f(int a, int b) { return (a + b) / 2; }
 
-void complex_access_ok_2(float *x, int n1, int n2, int c) {
+void complex_access_generic(float *x, int n1, int n2, int c) {
   __reads("for i1 in 0..n1 -> &x[MINDEX2(n1,n2,f(c,c),2)] ~> Cell");
   for (int i1 = 0; i1 < n1; i1++) {
     float a = x[MINDEX2(n1, n2, (c + c) / 2, 2)];
   }
 }
 
-void complex_access_ok_caller_2(float *x, int n1, int n2) {
+void complex_access_generic_caller(float *x, int n1, int n2) {
   __reads(
       "for i1 in 0..n2 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,f(i1,i1),i2)] ~> "
       "Cell");
   int c = 3;
-  complex_access_ok_2(x, n1, n2, c);
+  complex_access_generic(x, n1, n2, c);
 }
 void complex_access_abort(float *x, int n1, int n2) {
   __reads("for i2 in 0..n2 -> &x[MINDEX2(n1,n2,4,n2)");
