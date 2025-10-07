@@ -39,7 +39,7 @@ jobs:
 
       - name: Pin required packages (exact versions)
         run: |
-          opam pin add dune 3.18.0 -y
+          opam pin add dune 3.18.2 -y
           opam pin add menhirLib 20210419 -y
           opam pin add pprint 20220103 -y
           opam pin add clangml 4.8.0 -y --yes || true  # continue anyway if issue
@@ -48,16 +48,6 @@ jobs:
       - name: Install main dependencies
         run: |
           opam install -y dune refl clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving
-          eval $(opam env)
-
-      - name: Install optional documentation dependencies
-        run: |
-          opam install -y odoc lambdasoup
-          eval $(opam env)
-
-      - name: Install fancy traces (Dream)
-        run: |
-          opam install -y dream
           eval $(opam env)
 
       - name: Precompile headers
