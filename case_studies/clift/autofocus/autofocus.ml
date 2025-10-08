@@ -53,33 +53,25 @@ let trm_v (s : string) = trm_toplevel_var s
 (** [LIST OF TESTS] *)
 (* for i in 0..10 -> t[MINDEX1(10,i)] *)
 
-let from_focus1 =
-  ( [ starindex 0 10 (trm_toplevel_var "i") (trm_toplevel_var "i") ],
-    simple_access "t" [ 10 ] [ trm_toplevel_var "i" ]
-  )
+let from_focus1 = ([ starindex 0 10 (trm_toplevel_var "i") (trm_toplevel_var "i") ], trm_v "t")
 
 (* t[MINDEX1(10,2)] *)
-let to_focus1 = ([ Index (trm_int 2) ], simple_access "t" [ 10 ] [ trm_int 2 ])
+let to_focus1 = ([ Index (trm_int 2) ], trm_v "t")
 
 (* direct transformation *)
 let expected1 = [ (from_focus1, to_focus1) ]
-let test1 = ((from_focus1, to_focus1), expected1)
+let test1 = ((from_focus1, to_focus1), Some expected1)
 
 (* for i1 in 0..10 -> for i2 in 0..10 -> t[MINDEX2(10,9,i1,i2)] *)
 let simple_focus_from =
-  ( [ starindex 0 10 (trm_v "i1") (trm_v "i1"); starindex 0 10 (trm_v "i2") (trm_v "i2") ],
-    simple_access "t" [ 10; 9 ] [ trm_v "i1"; trm_v "i2" ]
-  )
+  ([ starindex 0 10 (trm_v "i1") (trm_v "i1"); starindex 0 10 (trm_v "i2") (trm_v "i2") ], trm_v "t")
 
 (* for i2 in 0..10 ->  t[MINDEX2(10,9,2,i2)]*)
-let simple_focus_to =
-  ( [ Index (trm_int 2); starindex 0 10 (trm_v "i2") (trm_v "i2") ],
-    simple_access "t" [ 10; 9 ] [ trm_int 2; trm_v "i2" ]
-  )
+let simple_focus_to = ([ Index (trm_int 2); starindex 0 10 (trm_v "i2") (trm_v "i2") ], trm_v "t")
 
 (* only one transformation *)
 let simple_focus_expected = [ (simple_focus_from, simple_focus_to) ]
-let simple_focus = ((simple_focus_from, simple_focus_to), simple_focus_expected)
+let simple_focus = ((simple_focus_from, simple_focus_to), Some simple_focus_expected)
 
 (* for i1 in 0..10 -> for i3 in 0..10 -> for i4 in 0..10 -> t[MINDEX4(10,10,10,10,i1,2,i3,i4)]  *)
 let general_simple_focus_from =
@@ -89,7 +81,7 @@ let general_simple_focus_from =
       starindex 0 10 (trm_v "i3") (trm_v "i3");
       starindex 0 10 (trm_v "i4") (trm_v "i4");
     ],
-    simple_access "t" [ 10; 10; 10; 10 ] [ trm_v "i1"; trm_int 2; trm_v "i3"; trm_v "i4" ]
+    trm_v "t"
   )
 
 (* for i1 in 0..10  -> for i4 in 0..10 -> t[MINDEX4(10,10,10,10,i1,2,3,i4)]  *)
@@ -101,13 +93,13 @@ let general_simple_focus_to =
       Index (trm_int 3);
       starindex 0 10 (trm_v "i4") (trm_v "i4");
     ],
-    simple_access "t" [ 10; 10; 10; 10 ] [ trm_v "i1"; trm_int 2; trm_int 3; trm_v "i4" ]
+    trm_v "t"
   )
 
 let general_simple_focus_expected = [ (general_simple_focus_from, general_simple_focus_to) ]
 
 let general_simple_focus =
-  ((general_simple_focus_from, general_simple_focus_to), general_simple_focus_expected)
+  ((general_simple_focus_from, general_simple_focus_to), Some general_simple_focus_expected)
 
 (* for i1 in 0..n1 -> for i2 in 0..n2 -> t[MINDEX2(n1,n2,10-i1,i2)]  *)
 let complex_access_from =
@@ -115,7 +107,7 @@ let complex_access_from =
       starindex 0 10 (trm_v "i1") (trm_sub ~typ:typ_int (trm_int 10) (trm_v "i1"));
       starindex 0 10 (trm_v "i2") (trm_v "i2");
     ],
-    simple_access "t" [ 10; 10 ] [ trm_sub ~typ:typ_int (trm_int 10) (trm_v "i1"); trm_v "i2" ]
+    trm_v "t"
   )
 
 (* for i1 in 0..n1 -> t[MINDEX2(n1,n2,10-i1,2)] *)
@@ -123,11 +115,11 @@ let complex_access_to =
   ( [
       starindex 0 10 (trm_v "i1") (trm_sub ~typ:typ_int (trm_int 10) (trm_v "i1")); Index (trm_int 2);
     ],
-    simple_access "t" [ 10; 10 ] [ trm_sub ~typ:typ_int (trm_int 10) (trm_v "i1"); trm_int 2 ]
+    trm_v "t"
   )
 
 let complex_access_expected = [ (complex_access_from, complex_access_to) ]
-let complex_access = ((complex_access_from, complex_access_to), complex_access_expected)
+let complex_access = ((complex_access_from, complex_access_to), Some complex_access_expected)
 
 let identity (ind : string) =
   trm_exact_div_int (trm_add ~typ:typ_int (trm_v "ind") (trm_v "ind")) (trm_int 2)
@@ -136,18 +128,18 @@ let identity (ind : string) =
 
 let complex_access_2_from =
   ( [ starindex 0 10 (trm_v "i1") (identity "i1"); starindex 0 10 (trm_v "i2") (trm_v "i2") ],
-    simple_access "t" [ 10; 10 ] [ identity "i1"; trm_v "i2" ]
+    trm_v "t"
   )
 
 (* for i2 in 0..n2 -> t[MINDEX2(n1,n2,(c+c)/2,i2)]  *)
 
 let complex_access_2_to =
   ( [ starindex 0 10 (trm_v "i1") (identity "c"); starindex 0 10 (trm_v "i2") (trm_v "i2") ],
-    simple_access "t" [ 10; 10 ] [ identity "c"; trm_v "i2" ]
+    trm_v "t"
   )
 
 let complex_access_2_expected = [ (complex_access_2_from, complex_access_2_to) ]
-let complex_access_2 = ((complex_access_2_from, complex_access_2_to), complex_access_2_expected)
+let complex_access_2 = ((complex_access_2_from, complex_access_2_to), Some complex_access_2_expected)
 
 (* for i1 in 0..n1 -> for i2 in 0..10 ->for i3 in 0..10 ->for i4 in 0..10 -> t[MINDEX2(10,10,10,10,i1,i2,i3,i4)]  *)
 
@@ -158,14 +150,12 @@ let several_focus_from =
       starindex 0 10 (trm_v "i3") (trm_v "i3");
       starindex 0 10 (trm_v "i4") (trm_v "i4");
     ],
-    simple_access "t" [ 10; 10; 10; 10 ] [ trm_v "i1"; trm_v "i2"; trm_v "i3"; trm_v "i4" ]
+    trm_v "t"
   )
 (* for i1 in 0..n1  ->for i4 in 0..10 -> t[MINDEX2(10,10,10,10,i1,2,3,i4)]  *)
 
 let several_focus_to =
-  ( [ starindex 0 10 (trm_v "i1") (trm_v "i1"); starindex 0 10 (trm_v "i4") (trm_v "i4") ],
-    simple_access "t" [ 10; 10; 10; 10 ] [ trm_v "i1"; trm_int 2; trm_int 3; trm_v "i4" ]
-  )
+  ([ starindex 0 10 (trm_v "i1") (trm_v "i1"); starindex 0 10 (trm_v "i4") (trm_v "i4") ], trm_v "t")
 
 (* for i1 in 0..n1 -> for i3 in 0..10 ->for i4 in 0..10 -> t[MINDEX2(10,10,10,10,i1,2,i3,i4)]  *)
 
@@ -175,21 +165,45 @@ let several_focus_mid =
       starindex 0 10 (trm_v "i3") (trm_v "i3");
       starindex 0 10 (trm_v "i4") (trm_v "i4");
     ],
-    simple_access "t" [ 10; 10; 10; 10 ] [ trm_v "i1"; trm_int 2; trm_v "i3"; trm_v "i4" ]
+    trm_v "t"
   )
 
 let several_focus_expected =
   [ (several_focus_from, several_focus_mid); (several_focus_mid, several_focus_to) ]
 
-let several_focus = ((several_focus_from, several_focus_to), several_focus_expected)
+let several_focus = ((several_focus_from, several_focus_to), Some several_focus_expected)
+
+(** [TEST THAT SHOULD NOT PASS]  *)
+
+(* t[MINDEX1(10,2)] *)
+let index_to_star_from = ([ Index (trm_int 2) ], trm_v "t")
+
+(* for i in 0..10 -> t[MINDEX1(10,i)] *)
+let index_to_star_to = ([ starindex 0 10 (trm_v "i") (trm_v "i") ], trm_v "t")
+let index_to_star_expected = None
+let index_to_star = ((index_to_star_from, index_to_star_to), index_to_star_expected)
+let not_full_star_from = ([ starindex 0 10 (trm_v "i") (trm_v "i") ], trm_v "t")
+let not_full_star_to = ([ starindex 0 4 (trm_v "i") (trm_v "i") ], trm_v "t")
+let not_full_star = ((not_full_star_from, not_full_star_to), None)
+
+let no_possible_subst_from =
+  ([ starindex 0 10 (trm_v "i") (trm_add_int (trm_v "i") (trm_int 1)) ], trm_v "t")
+
+let no_possible_subst_to = ([ Index (trm_v "c") ], trm_v "t")
+let no_possible_subst = ((no_possible_subst_from, no_possible_subst_to), None)
 
 let tests =
   [
-     (* test1; simple_focus; general_simple_focus;  *)
-  complex_access; complex_access_2;
-   (* several_focus
-    *)
-    ]
+    test1;
+    simple_focus;
+    general_simple_focus;
+    complex_access;
+    complex_access_2;
+    several_focus;
+    index_to_star;
+    not_full_star;
+    no_possible_subst;
+  ]
 
 (** [ALGO]*)
 
@@ -277,23 +291,30 @@ let build_focus (from_group : group_repr) (to_group : group_repr) : focus option
     Option.map snd (List.fold_left2 folder (Some (stars_from, [])) stars_from stars_to)
 
 let run_tests f =
-  Printf.printf "Testing the tests \n";
+  Printf.printf "Testing the tests\n";
   List.iter
     (fun ((x, y), expected) ->
-      match f x y with
-      | None ->
-        Printf.printf "FAIL: result is None for input (%s, %s)\n" (print_group_repr x)
-          (print_group_repr y)
-      | Some result ->
-        if are_same_focus result expected then (
+      match (f x y, expected) with
+      | None, None ->
+        Printf.printf "OK (both None) for input (%s, %s)\n" (print_group_repr x) (print_group_repr y)
+      | None, Some _ ->
+        Printf.printf "FAIL: result is None but expected a value for (%s, %s)\n"
+          (print_group_repr x) (print_group_repr y)
+      | Some result, None ->
+        Printf.printf "FAIL: got a value but expected None for (%s, %s)\n" (print_group_repr x)
+          (print_group_repr y);
+        Printf.printf "Result:\n";
+        print_focus result
+      | Some result, Some expected_val ->
+        if are_same_focus result expected_val then (
           Printf.printf "OK for:\n";
-          print_focus expected
+          print_focus expected_val
         ) else (
           Printf.printf "FAIL for:\n";
           Printf.printf "Result:\n";
           print_focus result;
           Printf.printf "Expected:\n";
-          print_focus expected;
+          print_focus expected_val;
           Printf.printf "\n"
         )
     )
