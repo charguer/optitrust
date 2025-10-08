@@ -47,7 +47,7 @@ jobs:
 
       - name: Install main dependencies
         run: |
-          opam install -y dune refl clangml pprint menhir menhirLib base64 ocamlbuild ppx_deriving dram lambdasoup graphics
+          opam install -y dune refl clangml pprint menhir menhirLib base64 ocamlbuild ppx_deriving dream lambdasoup graphics
           eval $(opam env)
 
       - name: Precompile headers
