@@ -12,6 +12,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install LLVM/Clang 15
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg lsb-release
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 15
+          sudo apt-get install -y clang-15 llvm-15 llvm-15-dev libclang-15-dev
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 150 \
+            --slave /usr/bin/clang++ clang++ /usr/bin/clang++-15
+          clang --version
+          llvm-config-15 --version
+
       - name: Set up OCaml (4.14.1 + flambda)
         uses: ocaml/setup-ocaml@v3
         with:
@@ -42,7 +55,7 @@ jobs:
           opam pin add dune 3.18.2 -y
           opam pin add menhirLib 20210419 -y
           opam pin add pprint 20220103 -y
-          opam pin add clangml 4.8.0 -y --yes || true  # continue anyway if issue
+          opam pin add clangml 4.8.0 -y --yes || true
           eval $(opam env)
 
       - name: Install main dependencies
