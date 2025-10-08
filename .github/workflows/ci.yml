@@ -12,13 +12,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install LLVM/Clang 15
+      - name: Install LLVM/Clang 15 (compatible with Ubuntu 24.04)
         run: |
           sudo apt-get update
           sudo apt-get install -y wget gnupg lsb-release
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 15
+          sudo ./llvm.sh 15 jammy
           sudo apt-get install -y clang-15 llvm-15 llvm-15-dev libclang-15-dev
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 150 \
             --slave /usr/bin/clang++ clang++ /usr/bin/clang++-15
