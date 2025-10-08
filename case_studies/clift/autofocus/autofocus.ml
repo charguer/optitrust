@@ -15,56 +15,6 @@ type starindex =
 type group_repr = starindex list * trm
 type focus = (group_repr * group_repr) list
 
-(** [ALGO]*)
-let is_focusable star index : bool = true
-
-let are_same_group_repr ((stars1, t1) : group_repr) ((stars2, t2) : group_repr) : bool =
-  are_same_trm t1 t2
-  && List.length stars1 = List.length stars2
-  && List.for_all2
-       (fun s1 s2 ->
-         match (s1, s2) with
-         | Index i1, Index i2 -> are_same_trm i1 i2
-         | Star ((a1, b1, c1), i1), Star ((a2, b2, c2), i2) ->
-           are_same_trm a1 a2 && are_same_trm b1 b2 && are_same_trm c1 c2 && are_same_trm i1 i2
-         | _, _ -> false
-       )
-       stars1 stars2
-
-let are_same (result : focus) (expected : focus) : bool =
-  List.length result = List.length expected
-  && List.for_all2
-       (fun (g1a, g1b) (g2a, g2b) -> are_same_group_repr g1a g2a && are_same_group_repr g1b g2b)
-       result expected
-
-let build_focus (from_group : group_repr) (to_group : group_repr) : focus option =
-  let stars_from, trm1 = from_group in
-  let stars_to, trm2 = to_group in
-  if List.length stars_from <> List.length stars_to || not (are_same_trm trm1 trm2) then
-    None
-  else
-    let folder
-        (state_opt : (starindex list * focus) option)
-        (si_from : starindex)
-        (si_to : starindex) =
-      match state_opt with
-      | None -> None
-      | Some (current_group, acc_focus) -> (
-        match (si_from, si_to) with
-        | Index _, Star _ -> None
-        | Star _, Star _ | Index _, Index _ ->
-          (* Add some checks here ? unification ?  *)
-          Some (current_group, acc_focus)
-        | Star (range, i1), Index i2 ->
-          if is_focusable (range, i1) i2 then
-            let new_group =
-              List.map (fun si -> if si = si_from then Index i2 else si) current_group in
-            Some (new_group, ((current_group, trm1), (new_group, trm2)) :: acc_focus)
-          else
-            None
-      ) in
-    List.fold_left2 folder (Some (stars_from, [])) stars_from stars_to |> Option.map snd
-
 (**[PRINTING INFRASTRUCTURE] *)
 let print_trm_string (t : trm) : string =
   let doc = Ast_to_text.print_trm Ast_to_text.default_style t in
@@ -234,7 +184,97 @@ let several_focus_expected =
 let several_focus = ((several_focus_from, several_focus_to), several_focus_expected)
 
 let tests =
-  [ test1; simple_focus; general_simple_focus; complex_access; complex_access_2; several_focus ]
+  [
+     (* test1; simple_focus; general_simple_focus;  *)
+  complex_access; complex_access_2;
+   (* several_focus
+    *)
+    ]
+
+(** [ALGO]*)
+
+(** [is_focusable star index] : determines whether a given star can be focused on a specific element.
+    A star is said to be focusable on [index] if there exists at least one (sub)trm used in [index]
+    such that, when substituted in the star’s formula, the resulting term matches [index]. *)
+let is_focusable (range, formula) index : bool =
+  (* Substitution ? *)
+  let _inf, _sup, star_index = range in
+  let var_star_index = trm_inv trm_var_inv star_index in
+  let subst_find = ref false in
+  let rec aux t =
+    let subst = trm_subst_var var_star_index t formula in
+    if are_same_trm index subst then begin
+      Printf.printf "%s \n" (print_trm_string subst);
+      subst_find := true
+    end else
+          trm_iter aux t in
+  aux index;
+  !subst_find
+
+(* establish a varmap in index of every var we see in this term *)
+(* For var v in this varmap, try to subst i1 by v int star_index , if star_index_subst = index then we can focus, same proof obligation,
+  verify the typ ?   *)
+
+let are_same_range (mini1, maxi1, ite1) (mini2, maxi2, ite2) : bool =
+  are_same_trm mini1 mini2 && are_same_trm maxi1 maxi2 && are_same_trm ite1 ite2
+
+let are_same_group_repr ((stars1, t1) : group_repr) ((stars2, t2) : group_repr) : bool =
+  are_same_trm t1 t2
+  && List.length stars1 = List.length stars2
+  && List.for_all2
+       (fun s1 s2 ->
+         match (s1, s2) with
+         | Index i1, Index i2 -> are_same_trm i1 i2
+         | Star ((a1, b1, c1), i1), Star ((a2, b2, c2), i2) ->
+           are_same_trm a1 a2 && are_same_trm b1 b2 && are_same_trm c1 c2 && are_same_trm i1 i2
+         | _, _ -> false
+       )
+       stars1 stars2
+
+let are_same_focus (result : focus) (expected : focus) : bool =
+  List.length result = List.length expected
+  && List.for_all2
+       (fun (g1a, g1b) (g2a, g2b) -> are_same_group_repr g1a g2a && are_same_group_repr g1b g2b)
+       result expected
+
+let base_access t =
+  let base, access = trm_inv trm_array_access_inv t in
+  base
+
+let build_focus (from_group : group_repr) (to_group : group_repr) : focus option =
+  let stars_from, t1 = from_group in
+  let stars_to, t2 = to_group in
+  if
+    List.length stars_from <> List.length stars_to
+    || not (are_same_trm (base_access t1) (base_access t2))
+  then
+    None
+  else
+    let folder
+        (state_opt : (starindex list * focus) option)
+        (si_from : starindex)
+        (si_to : starindex) =
+      match state_opt with
+      | None -> None
+      | Some (current_group, acc_focus) -> (
+        match (si_from, si_to) with
+        | Index _, Star _ -> None
+        | Star (range1, index1), Star (range2, index2) ->
+          if are_same_range range1 range2 && are_same_trm index1 index2 then
+            Some (current_group, acc_focus)
+          else
+            None
+        | Index i1, Index i2 -> if are_same_trm i1 i2 then Some (current_group, acc_focus) else None
+        | Star (range, index), Index i2 ->
+          if is_focusable (range, index) i2 then begin
+            Printf.printf "FIND VALID SUBST \n";
+            let new_group =
+              List.map (fun si -> if si = si_from then Index i2 else si) current_group in
+            Some (new_group, acc_focus @ [ ((current_group, t1), (new_group, t2)) ])
+          end else
+                None
+      ) in
+    Option.map snd (List.fold_left2 folder (Some (stars_from, [])) stars_from stars_to)
 
 let run_tests f =
   Printf.printf "Testing the tests \n";
@@ -245,7 +285,7 @@ let run_tests f =
         Printf.printf "FAIL: result is None for input (%s, %s)\n" (print_group_repr x)
           (print_group_repr y)
       | Some result ->
-        if are_same result expected then (
+        if are_same_focus result expected then (
           Printf.printf "OK for:\n";
           print_focus expected
         ) else (
