@@ -180,7 +180,7 @@ let several_focus_from =
 (* for i1 in 0..n1  ->for i4 in 0..10 -> t[MINDEX2(10,10,10,10,i1,2,3,i4)]  *)
 
 let several_focus_to =
-  ([ starindex 0 10 (trm_v "i1") (trm_v "i1"); starindex 0 10 (trm_v "i4") (trm_v "i4") ], trm_v "t")
+  ([ starindex 0 10 (trm_v "i1") (trm_v "i1"); Index(trm_int 2); Index(trm_int 3); starindex 0 10 (trm_v "i4") (trm_v "i4") ], trm_v "t")
 
 (* for i1 in 0..n1 -> for i3 in 0..10 ->for i4 in 0..10 -> t[MINDEX2(10,10,10,10,i1,2,i3,i4)]  *)
 
