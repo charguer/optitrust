@@ -46,8 +46,10 @@ jobs:
 
       - name: Create and use switch
         run: |
-          opam switch create 4.14.1+options \
-            --packages=ocaml-variants.4.14.1+options,ocaml-option-flambda -y
+          if ! opam switch list --short | grep -q '^4.14.1+options$'; then
+            opam switch create 4.14.1+options \
+              --packages=ocaml-variants.4.14.1+options,ocaml-option-flambda -y
+          fi
           eval $(opam env)
 
       - name: Pin required packages (exact versions)
