@@ -6,28 +6,16 @@ on:
 
 jobs:
   build:
-    name: Build project
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Cache LLVM and opam
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.opam
-            /usr/lib/llvm-15
-            /usr/bin/clang-15
-          key: ${{ runner.os }}-ocaml-4.14.1-flambda-llvm15-${{ hashFiles('*.opam') }}
-          restore-keys: |
-            ${{ runner.os }}-ocaml-4.14.1-flambda-llvm15-
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install LLVM/Clang 15
-        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget gnupg lsb-release software-properties-common
+          sudo apt-get install -y wget gnupg lsb-release
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh 15
@@ -37,57 +25,57 @@ jobs:
           clang --version
           llvm-config-15 --version
 
-      - name: Set up OCaml
+      - name: Set up OCaml (4.14.1 + flambda)
         uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ocaml-variants.4.14.1+options
           opam-depext: true
 
+      - name: Cache opam
+        uses: actions/cache@v4
+        with:
+          path: ~/.opam
+          key: ${{ runner.os }}-ocaml-4.14.1-flambda-${{ hashFiles('*.opam') }}
+          restore-keys: |
+            ${{ runner.os }}-ocaml-4.14.1-flambda-
+
       - name: Init opam environment
         run: |
           opam init -y --bare --disable-sandboxing
+          eval $(opam env)
+
+      - name: Create and use switch
+        run: |
           if ! opam switch list --short | grep -q '^4.14.1+options$'; then
             opam switch create 4.14.1+options \
               --packages=ocaml-variants.4.14.1+options,ocaml-option-flambda -y
           fi
           eval $(opam env)
 
-      - name: Install dependencies
+      - name: Pin required packages (exact versions)
         run: |
           opam pin add dune 3.18.2 -y
-          opam install -y refl clangml pprint menhir menhirLib base64 ocamlbuild ppx_deriving dream lambdasoup graphics
+          opam pin add menhirLib 20210419 -y
+          opam pin add pprint 20220103 -y
+          opam pin add clangml 4.8.0 -y --yes || true
           eval $(opam env)
+
+      - name: Install main dependencies
+        run: |
+          opam install -y dune refl clangml pprint menhir menhirLib base64 ocamlbuild ppx_deriving dream lambdasoup graphics
+          eval $(opam env)
+
+      - name: Precompile headers
+        run: |
+          make precompile
 
       - name: Build project
         run: |
           opam exec -- dune build
 
-  test:
-    name: Run tests
-    runs-on: ubuntu-22.04
-    needs: build
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Restore LLVM and opam cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.opam
-            /usr/lib/llvm-15
-            /usr/bin/clang-15
-          key: ${{ runner.os }}-ocaml-4.14.1-flambda-llvm15-${{ hashFiles('*.opam') }}
-
-      - name: Set up OCaml
-        uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: ocaml-variants.4.14.1+options
-          opam-depext: true
-
-      - name: Run tests
+      - name: Check installation
         run: |
-          eval $(opam env)
-          make precompile
           ./tester run tile
+      - name : Run tests
+        run : |
           make tests
