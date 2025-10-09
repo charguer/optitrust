@@ -1,4 +1,4 @@
-name: Documentation
+name: OptiTrust CI
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   doc:
-    name: Build documentation
+    name: Documentation
     runs-on: ubuntu-22.04
 
     steps:
@@ -41,11 +41,15 @@ jobs:
       - name: Install dependencies
         run: |
           opam pin add dune 3.18.2 -y
-          opam install -y refl clangml pprint menhir menhirLib base64 ocamlbuild ppx_deriving dream lambdasoup graphics
+          opam install -y refl clangml pprint menhir menhirLib base64 ocamlbuild ppx_deriving dream lambdasoup graphics odoc
           eval $(opam env)
 
       - name: Build project
         run: opam exec -- dune build
+
+      - name: Precompile headers
+        run: |
+          make precompile
 
       - name: Build documentation
         run: |
