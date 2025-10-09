@@ -1,0 +1,69 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  doc:
+    name: Build documentation
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LLVM/Clang 15
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg lsb-release software-properties-common
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 15
+          sudo apt-get install -y clang-15 llvm-15 llvm-15-dev libclang-15-dev
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 150
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 150
+
+      - name: Set up OCaml (4.14.1 + flambda)
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ocaml-variants.4.14.1+options
+          opam-depext: true
+
+      - name: Init opam environment
+        run: eval $(opam env)
+
+      - name: Install dependencies
+        run: |
+          opam pin add dune 3.18.2 -y
+          opam install -y refl clangml pprint menhir menhirLib base64 ocamlbuild ppx_deriving dream lambdasoup graphics
+          eval $(opam env)
+
+      - name: Build project
+        run: opam exec -- dune build
+
+      - name: Build documentation
+        run: |
+          eval $(opam env)
+          make doc
+
+      - name: Upload documentation artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _doc
+
+  deploy:
+    name: Deploy documentation to GitHub Pages
+    runs-on: ubuntu-22.04
+    needs: doc
+
+    steps:
+      - uses: actions/configure-pages@v5
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
