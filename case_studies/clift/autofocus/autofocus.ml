@@ -8,12 +8,39 @@ open Typ
 type range = trm * trm * trm
 type index = trm
 
+(**
+   A [Star] represents a permission on an entire group.
+   The [range] represents the inf,sup and iterator.
+   The [index] represents the accessed cell. Look at group_repr for an example
+   Example: for i in r -> .
+
+
+   An [Index] represents a permission on a specific cell in an array.
+
+   A [starindex] represents a permission on a single dimension of an array.
+   You can have either:
+     - Permission on the entire dimension: for i in r -> &t[MINDEX(..., i, ...)]
+     - Permission on a single index of this dimension.
+*)
 type starindex =
   | Star of range * index
   | Index of index
 
+(** [group_repr] is the internal representation of a permission on an array : For each dimension you can either have a [Star] or an [Index], the term [t] represents the array base
+Example : for i1 in 0..n1 -> &x[MINDEX1(n1,n2,f(i1),2)] ---> [Star(0,n1,i1,f(i1)), Index(2)],x  *)
+
 type group_repr = starindex list * trm
-type focus = (group_repr * group_repr) list
+
+(**
+   [focus_list] is the internal representation of the transformation
+   that allows us to go from the required resources to the resources we have.
+
+   Each entry is a quadruple: [group_repr] * [group_repr] * [var] * [trm],
+   which specifies how to transform the first group into the second
+   by instantiating [var] with [trm].
+*)
+
+type focus_list = (group_repr * group_repr) list
 
 (**[PRINTING INFRASTRUCTURE] *)
 let print_trm_string (t : trm) : string =
@@ -32,7 +59,7 @@ let print_group_repr ((stars, t) : group_repr) : string =
   let stars_str = stars |> List.map print_starindex |> String.concat "; " in
   Printf.sprintf "([%s], %s)" stars_str (print_trm_string t)
 
-let print_focus (f : focus) : unit =
+let print_focus_list (f : focus_list) : unit =
   let content =
     f
     |> List.map (fun (g1, g2) ->
@@ -50,7 +77,6 @@ let simple_access (base : string) (dims : int list) (indices : trm list) =
 (** [LIST OF TESTS] *)
 let trm_v (s : string) = trm_toplevel_var s
 
-(** [LIST OF TESTS] *)
 (* for i in 0..10 -> t[MINDEX1(10,i)] *)
 
 let from_focus1 = ([ starindex 0 10 (trm_toplevel_var "i") (trm_toplevel_var "i") ], trm_v "t")
@@ -130,7 +156,6 @@ let complex_access_2_from =
   ( [ starindex 0 10 (trm_v "i1") (identity "i1"); starindex 0 10 (trm_v "i2") (trm_v "i2") ],
     trm_v "t"
   )
-
 (* for i2 in 0..n2 -> t[MINDEX2(n1,n2,(c+c)/2,i2)]  *)
 
 let complex_access_2_to =
@@ -173,7 +198,23 @@ let several_focus_expected =
 
 let several_focus = ((several_focus_from, several_focus_to), Some several_focus_expected)
 
+(* for i1 in 0..n1 -> for a in 0..2 -> t[MINDEX1(n1,i1+a) ~> Cell *)
+
+(* what is this range ?  *)
+let star_not_index_from =
+  ( [ starindex 0 10 (trm_v "i") (trm_add_int (trm_v "i") (trm_v "a")) ],
+    Resource_formula.formula_group (new_var "a") (trm_int 2) (trm_v "t")
+  )
+
+let star_not_index_to =
+  ( [ Index (trm_add_int (trm_v "c") (trm_v "a")) ],
+    Resource_formula.formula_group (new_var "a") (trm_int 2) (trm_v "t")
+  )
+
+let star_not_index_expected = [ (star_not_index_from, star_not_index_to) ]
+
 (** [TEST THAT SHOULD NOT PASS]  *)
+let star_no_index = ((star_not_index_from, star_not_index_to), star_not_index_expected)
 
 (* t[MINDEX1(10,2)] *)
 let index_to_star_from = ([ Index (trm_int 2) ], trm_v "t")
@@ -207,14 +248,18 @@ let tests =
 
 (** [ALGO]*)
 
-(** [is_focusable star index] : determines whether a given star can be focused on a specific element.
-    A star is said to be focusable on [index] if there exists at least one (sub)trm used in [index]
-    such that, when substituted in the star’s formula, the resulting term matches [index]. *)
+(* index -> trm_index *)
+
+(** [is_focusable star index] : determines whether a given star can be focused on a specific element
+    Criteria for focus: This fonction determines whether
+    for i in r -> H(i) can be focused into H'
+    The function returns Some(t) if H(t) unifies with H' meaning that the star on i is focused on index t *)
 let is_focusable (range, formula) index : bool =
-  (* Substitution ? *)
   let _inf, _sup, star_index = range in
+  (* i is directly a var *)
   let var_star_index = trm_inv trm_var_inv star_index in
   let subst_find = ref false in
+  (* trm_unify to adapt *)
   let rec aux t =
     let subst = trm_subst_var var_star_index t formula in
     if are_same_trm index subst then begin
@@ -224,10 +269,6 @@ let is_focusable (range, formula) index : bool =
           trm_iter aux t in
   aux index;
   !subst_find
-
-(* establish a varmap in index of every var we see in this term *)
-(* For var v in this varmap, try to subst i1 by v int star_index , if star_index_subst = index then we can focus, same proof obligation,
-  verify the typ ?   *)
 
 let are_same_range (mini1, maxi1, ite1) (mini2, maxi2, ite2) : bool =
   are_same_trm mini1 mini2 && are_same_trm maxi1 maxi2 && are_same_trm ite1 ite2
@@ -245,7 +286,7 @@ let are_same_group_repr ((stars1, t1) : group_repr) ((stars2, t2) : group_repr) 
        )
        stars1 stars2
 
-let are_same_focus (result : focus) (expected : focus) : bool =
+let are_same_focus_list (result : focus_list) (expected : focus_list) : bool =
   List.length result = List.length expected
   && List.for_all2
        (fun (g1a, g1b) (g2a, g2b) -> are_same_group_repr g1a g2a && are_same_group_repr g1b g2b)
@@ -255,40 +296,47 @@ let base_access t =
   let base, access = trm_inv trm_array_access_inv t in
   base
 
-let build_focus (from_group : group_repr) (to_group : group_repr) : focus option =
+(* To comment  *)
+
+(** [build focus list]: Tries to build a [focus_list], i.e list of pairs of [group repr] tha represents unitary focuses that allows to goes from [from_group] to [to _group] *
+Criteria for focus is described in the [is_focusable] function
+*)
+let build_focus_list (from_group : group_repr) (to_group : group_repr) : focus_list option =
   let stars_from, t1 = from_group in
   let stars_to, t2 = to_group in
-  if
-    List.length stars_from <> List.length stars_to
-    || not (are_same_trm (base_access t1) (base_access t2))
-  then
-    None
+  if not (List.length stars_from == List.length stars_to && are_same_trm t1 t2) then
+    raise
+      (Invalid_argument
+         "Build focus: lists must have the same size and base_trm must be identical in 'from' and \
+          'to'"
+      )
   else
     let folder
-        (state_opt : (starindex list * focus) option)
+        (acc : (starindex list * focus_list * int) option)
         (si_from : starindex)
         (si_to : starindex) =
-      match state_opt with
+      match acc with
       | None -> None
-      | Some (current_group, acc_focus) -> (
+      | Some (current_group, acc_focus, ind) -> (
         match (si_from, si_to) with
         | Index _, Star _ -> None
         | Star (range1, index1), Star (range2, index2) ->
           if are_same_range range1 range2 && are_same_trm index1 index2 then
-            Some (current_group, acc_focus)
+            Some (current_group, acc_focus, ind + 1)
           else
             None
-        | Index i1, Index i2 -> if are_same_trm i1 i2 then Some (current_group, acc_focus) else None
+        | Index i1, Index i2 ->
+          if are_same_trm i1 i2 then Some (current_group, acc_focus, ind + 1) else None
         | Star (range, index), Index i2 ->
           if is_focusable (range, index) i2 then begin
-            Printf.printf "FIND VALID SUBST \n";
-            let new_group =
-              List.map (fun si -> if si = si_from then Index i2 else si) current_group in
-            Some (new_group, acc_focus @ [ ((current_group, t1), (new_group, t2)) ])
+            let new_group = List.update_nth ind (fun t -> Index i2) current_group in
+            Some (new_group, acc_focus @ [ ((current_group, t1), (new_group, t2)) ], ind + 1)
           end else
                 None
       ) in
-    Option.map snd (List.fold_left2 folder (Some (stars_from, [])) stars_from stars_to)
+    Option.map
+      (fun (a, b, c) -> b)
+      (List.fold_left2 folder (Some (stars_from, [], 0)) stars_from stars_to)
 
 let run_tests f =
   Printf.printf "Testing the tests\n";
@@ -304,17 +352,17 @@ let run_tests f =
         Printf.printf "FAIL: got a value but expected None for (%s, %s)\n" (print_group_repr x)
           (print_group_repr y);
         Printf.printf "Result:\n";
-        print_focus result
+        print_focus_list result
       | Some result, Some expected_val ->
-        if are_same_focus result expected_val then (
+        if are_same_focus_list result expected_val then (
           Printf.printf "OK for:\n";
-          print_focus expected_val
+          print_focus_list expected_val
         ) else (
           Printf.printf "FAIL for:\n";
           Printf.printf "Result:\n";
-          print_focus result;
+          print_focus_list result;
           Printf.printf "Expected:\n";
-          print_focus expected_val;
+          print_focus_list expected_val;
           Printf.printf "\n"
         )
     )
@@ -322,6 +370,6 @@ let run_tests f =
 
 let () =
   Run.script_cpp (fun _ ->
-      run_tests build_focus;
+      run_tests build_focus_list;
       ()
   )
