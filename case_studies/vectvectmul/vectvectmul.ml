@@ -11,27 +11,38 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_all (*Steps_important*)
 
 let int = trm_int
 
-let part = 2 (* Choose which part you want to work on. *)
+let part = 1 (* Choose which part you want to work on. *)
 
-(* Part 1: until need to fix the ghoston the shift_var *)
-let _ = if part = 1 then Run.script_cpp (fun () ->
+(* Part 0: *)
+let _ = if part = 0 then Run.script_cpp (fun () ->
   !! Function.elim_infix_ops ~indepth:true [];
   !! Loop.tile (int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
-  !! Variable.local_name ~var:"s" ~local_var:"t" [cFor "i"];
+  !! Sequence.intro ~mark:"t_scope" ~start:[tFirst; cForBody "bi"] ~stop:[tLast; cForBody "bi"] ();
+  !! Variable.local_name ~var:"s" ~local_var:"t" [cMark "t_scope"];
+  !! Sequence.elim [cMark "t_scope"];
   !! Sequence_basic.insert (trm_let (new_var "d", typ_f32) (trm_get (trm_find_var "s" []))) [tFirst; cForBody "bi"];
   (* at this line, the output is the equivalent of vectvectmul0.cpp,
     beware that "==" needs to be replaced with "=." and all the "__is_true" must be removed;
     some +. and + need to be fixed
     ----> todo: tweak display so that the output of _after.cpp is exactly  vectvectmul0.cpp *)
-  !! Accesses.shift_var ~factor:(trm_find_var "d" []) [nbMulti; cVarDef "t"];
+  !! Accesses.shift_var ~inv:true ~factor:(trm_find_var "d" []) [nbMulti; cVarDef "t"];
 )
 
-(* "vectvectmul1.cpp" is obtained by applying shift_var by hand on  vectvectmul0.cpp *)
-let _ = if part = 2 then Run.script_cpp ~filename:"vectvectmul1.cpp" (fun () ->
+(* Part-extra: "vectvectmul0.cpp" check is well-typed *)
+let _ = if part = -1 then Run.script_cpp ~filename:"vectvectmul0.cpp" (fun () ->
   !! ()
 )
 
+(* Part 1: "vectvectmul1.cpp" is obtained by applying shift_var by hand on  vectvectmul0.cpp *)
+let _ = if part = 1 then Run.script_cpp ~filename:"vectvectmul1.cpp" (fun () ->
+  !! () (* todo: handle the inlining of 'd', both in code (goes to 's') and in formulae (goes to 'reduce'),
+            and arith_simpl *)
+)
 
+(* Part 2: "vectvectmul2.cpp" is obtained by applying inlining by hand on  vectvectmul1.cpp *)
+let _ = if part = 2 then Run.script_cpp ~filename:"vectvectmul2.cpp" (fun () ->
+  !! ()
+)
 
   (**
   !! Accesses.shift_var ~inv:true ~factor:(trm_get (trm_find_var "s" [])) [cFor "bi"; cVarDef "t"];
