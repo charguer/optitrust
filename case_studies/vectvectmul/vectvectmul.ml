@@ -117,64 +117,179 @@ Pour ajouter le ... - reduce_sum(bi * 32 + 0, fun j -> A(j) * B(j)) manquant.
 
 
 s = 0
+__ghost(0 = reduce(0,0,f) à réécrire dans s ~> 0 pour avoir s ~> reduce(0,0,..))
 for i
+  __invariant "s ~> reduce(0,i,...)"
   s += a[i] * b[i]
+  __ghost(reduce(0,i,f) + f(i) = reduce(0,i+1,f) à réécrire dans le contenu de s)
 
---- tile
+--- unfold infix ops
 
 s = 0
-for b
-  for i in block b
-    s += a[i] * b[i]
+for i
+  __invariant "s ~> reduce(0,i,...)"
+  s = s + a[i] * b[i]
+
+--- tile
+const int NB_BLOCK = a.length/B // to insert! with check divisibility?
+s = 0
+for b = 0 to NB_BLOCK
+  __invariant "s ~> reduce(0,b*B,...)"
+  for i = b*B to (b+1)*B
+    __invariant "s ~> reduce(0,i,...)"
+    s = s + a[i] * b[i]
+    __ghost(reduce(0,i,f) + f(i) = reduce(0,i+1,f) à réécrire dans le contenu de s)
 
 --- local name
 
 s = 0
 for b
+  __invariant "s ~> reduce(0,b*B,...)"
   t = s
   // ghost(hide_cell, consume s~>v, produces "hidden(s,t)")
-  for i in block b
-    t += a[i] * b[i]
+  for i = b*B to (b+1)*B
+    __invariant "t ~> reduce(0,i,...)"
+    t = t + a[i] * b[i]
+    __ghost(reduce(0,i,f) + f(i) = reduce(0,i+1,f) à réécrire dans le contenu de t)
   s = t
   // ghost(hide_rev_cell, consume hidden(s,t), consume(t->w), produces "s~>w")
 
-
---- shift de t par s
+--- insert def 'p' for the contents of 's'
 
 s = 0
 for b
+  __invariant "s ~> reduce(0,b*B,...)"
+  const int p = s;  // sum of the prefix upto the block b
+  // in ctx, we have an alias: "p := reduce(0,b*B,...)"
   t = s
-  for i in block b
-    t += a[i] * b[i] // pareil que t = t + a[i] * b[i]
+  for i = b*B to (b+1)*B
+    __invariant "t ~> reduce(0,i,...)"
+    t = t + a[i] * b[i]
+    __ghost(reduce(0,i,f) + f(i) = reduce(0,i+1,f) à réécrire dans le contenu de t)
   s = t
 
---- shift de t par s
+--- shift_var t by p
 
 s = 0
 for b
-  t = 0  // en fait s-s
-  for i in block b
-    t += a[i] * b[i]  // en fait t = ((t + s) + a[i]*b[i]) - s
-  s += t  // en fait s = t+s
+  __invariant "s ~> reduce(0,b*B,...)"
+  const int p = s
+  // in ctx, we have an alias: "p := reduce(0,b*B,...)"
+  t = s - p // -p on write into t
+  for i = b*B to (b+1)*B
+    __invariant "t ~> reduce(0,i,...) - p" // -p on models of t
+    t = ((t + p) + a[i] * b[i]) - p   // +p on reads on t, -p on write into t
+    // ICI problème: on avait
+    // __ghost(reduce(0,i,f) + f(i) = reduce(0,i+1,f) à réécrire dans le contenu de t)
+    // et maintenant il faut
+    // __ghost(reduce(0,i,f) - p + p + f(i) - p = reduce(0,i+1,f) - p à réécrire dans le contenu de t)
+    // ça je sais pas trop comment on va gérer... peut être sans typer les étapes intermédiaires ?
+    // parce que après on retrouve un moment où la ghost d'origine fonctionne telle quelle
+  s = t + p  // +p on reads on t
+
+
+--- unfold def of 'p' in the code (not in formulae), using the fact that s is not modified in the scope
+
+s = 0
+for b
+  __invariant "s ~> reduce(0,b*B,...)"
+  const int p = s
+  // in ctx, we have an alias: "p := reduce(0,b*B,...)"
+  t = s - s
+  // in ctx, we have t ~> reduce(0,b*B,...) - reduce(0,b*B,...)
+  for i = b*B to (b+1)*B
+    __invariant "t ~> reduce(0,i,...) - p"
+    t = ((t + s) + a[i] * b[i]) - s
+    // ... ici la ghost qui va bien
+  s = t + s
+
+-- remove s from the block-processing by arith_simpl
+
+s = 0
+for b
+  __invariant "s ~> reduce(0,b*B,...)"
+  const int p = s
+  // in ctx, we have an alias: "p := reduce(0,b*B,...)"
+  t = 0
+  // HERE: need to insert a ghost rewriting "0" into "reduce(0,b*B,...) - reduce(0,b*B,...)" in contents of t
+  for i = b*B to (b+1)*B
+    __invariant "t ~> reduce(0,i,...) - p"
+    t = t + a[i] * b[i]
+    // la ghost d'accumulation fonctionne de nouveau !
+    __ghost(reduce(0,i,f) + f(i) = reduce(0,i+1,f) à réécrire dans le contenu de t)
+  s = t + s
+
+--- optional step: turn "p" into ghost def;
+--    alternative: inline "p", replacing it with "reduce(0,b*B,...)" in the formulae
+--    if we do nothing, it's fine too, but we'll need to duplicate "const int p = s"
+      when we do the fusion step later.
+
+s = 0
+for b
+  __invariant "s ~> reduce(0,b*B,...)"
+  // BEFORE:
+  //   const int p = s  // where p is not used in the code, only in formulae
+  //   in ctx, we have an alias: "p := reduce(0,b*B,...)"
+  // AFTER:
+  //   __DEF(p, "reduce(0,b*B,...)");
+  ...
+
+  ==> in fine, I think inlining 'p' would be easiest.
+
 
 --- hoist de t
 
 s = 0
-alloc t
+alloc t as an array of NB_BLOCK
 for b
+  __xmodifies "t ~> UninitCell" // pas de spécification du modèle d'entrée ou de sortie
+  __invariant "s ~> reduce(0,b*B,...)"
   t[b] = 0
-  for i in block b
-    t[b] += a[i] * b[i]
-  s += t[b]
+  // ghost rewriting "0" into "reduce(0,b*B,...) - reduce(0,b*B,...)" in contents of t
+  for i = b*B to (b+1)*B
+    __invariant "t[b] ~> reduce(0,i,...) - reduce(0,b*B,...)" // MODIFIED CONTRACT: t becomes t[b]
+    t[b] = t[b] + a[i] * b[i]
+    __ghost(reduce(0,i,f) + f(i) = reduce(0,i+1,f) à réécrire dans le contenu de t)
+  // NOTE: at this point, the ctx stores t[b] ~> reduce(0,i,...) - reduce(0,b*B,...)
+  //   the value of t[b] determines the contract for the fission that comes next
+  s = t[b] + s
 
---- fission
+
+--- fission + parallelization
 
 s = 0
-for b
+alloc t as an array of NB_BLOCK
+parallel for b
+  __xmodifies "t[b] ~> t[b] ~> reduce(0,i,...) - reduce(0,b*B,...)" // NEW CONTRACT!
+  __DEF(p, "reduce(0,b*B,...)");
   t[b] = 0
-  for i in block b
+  // ghost rewriting "0" into "reduce(0,b*B,...) - reduce(0,b*B,...)" in contents of t
+  for i = b*B to (b+1)*B
+    __invariant "t ~> reduce(0,i,...) - reduce(0,b*B,...)"
+    t[b] = t[b] + a[i] * b[i]
+    __ghost(reduce(0,i,f) + f(i) = reduce(0,i+1,f) à réécrire dans le contenu de t)
+for b
+  // MOVED: contract on 's' is just moved here
+  __invariant "s ~> reduce(0,b*B,...)"
+  s = t[b] + s
+
+
+--- cleanup, with infix ops
+
+s = 0
+alloc t as an array of NB_BLOCK
+parallel for b
+  t[b] = 0
+  for i = b*B to (b+1)*B
     t[b] += a[i] * b[i]
 for b
   s += t[b]
+
+
+
+
+=====================
+# remark: it seems that we never need to exploit
+   "reduce(0,i,f) - reduce(0,j,f) = reduce(j,i,f)"
 
 *)
