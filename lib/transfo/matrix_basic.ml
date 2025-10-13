@@ -5,8 +5,9 @@ open Matrix_trm
 (** [reorder_dims order tg]: expects the target [tg] to point at a call to MALLOC or MINDEX functions,
       then it will reorder their args based on [order], where [order] is a list of indices which the
       current args should follow. *)
-let%transfo reorder_dims ~(base:trm) ?(rotate_n : int = 0) ?(order : int list = []) (tg : target) : unit =
-  Target.apply_at_target_paths (Matrix_core.reorder_dims_aux ~base rotate_n order) tg
+let%transfo reorder_dims ~(base:trm) ?(rotate_n : int = 0) ?(order : int list = []) ~(dims:trms) (tg : target) : unit =
+  Target.apply_at_target_paths (Matrix_core.reorder_dims_aux ~base ~dims rotate_n order) tg
+
 
 (** [insert_alloc_dim new_dim]: expects the target [tg] to point at call to ALLOC functions, then it will
       add a new arg at the begining of the list of args in the targeted call. *)
@@ -127,7 +128,7 @@ let ghost_shift
 
 (** <private> *)
 let local_name_tile_on (mark_dims : mark)
-  (mark_accesses : mark)
+  (mark_accesses : mark) (mark_indices : mark)
   (mark_alloc : mark) (mark_load : mark) (mark_unload : mark)
   (var : var) (nd_range : Matrix_core.nd_range)
   (local_var : string) (dims : trms) (elem_ty : typ option)
@@ -154,11 +155,11 @@ let local_name_tile_on (mark_dims : mark)
   in
   let tile_indices =
     if !needs_to_replace_accesses
-    then List.map2 (fun (offset, _) ind -> trm_sub_int ind offset) nd_range indices
+    then List.map2 (fun (offset, _) ind -> trm_add_mark mark_indices (trm_sub_int ind offset)) nd_range indices
     else indices
   in
   let (new_t, elem_ty) = if !needs_to_replace_accesses then begin
-    let map_indices = List.map (fun (offset, _) -> fun i -> trm_sub_int i offset) nd_range in
+    let map_indices = List.map (fun (offset, _) -> fun i -> trm_add_mark mark_indices (trm_sub_int i offset) ) nd_range in
     let ret_dims_and_typ = ref (Option.map (fun t -> (dims, t)) elem_ty) in
     let new_t = Matrix_core.replace_all_accesses var local_var tile_dims
       ~ret_dims_and_typ map_indices mark_accesses t in
@@ -232,6 +233,7 @@ let local_name_tile_on (mark_dims : mark)
 let%transfo local_name_tile
   ?(mark_dims : mark = no_mark)
   ?(mark_accesses : mark = no_mark)
+  ?(mark_indices : mark = no_mark)
   ?(mark_alloc : mark = no_mark)
   ?(mark_load : mark = no_mark)
   ?(mark_unload : mark = no_mark)
@@ -299,7 +301,7 @@ let%transfo local_name_tile
       let (tile, dims, collected_elem_ty) = Option.unsome !tile_dims_typ in
       let elem_ty = Option.or_ elem_ty collected_elem_ty in
       Target.apply_at_path (local_name_tile_on
-        mark_dims mark_accesses mark_alloc mark_load mark_unload !ret_var tile local_var dims elem_ty indices uninit_pre uninit_post
+        mark_dims mark_accesses mark_indices mark_alloc mark_load mark_unload !ret_var tile local_var dims elem_ty indices uninit_pre uninit_post
       ) p;
       if !Flags.check_validity then begin
         Resources.ensure_computed ();
@@ -556,12 +558,10 @@ let simpl_index_add_on (t : trm) : trm =
 
 (** [simpl_index_add]: simplifies an MINDEX(..) + MINDEX(..) expression,
    into a single MINDEX(..) expression, if the dimensions are compatible:
-
    MINDEX{N}  (            n1, .., nN,                 i1, .., iN) +
    MINDEX{N+M}(m1, .., mM,     .., m{N+M}, j1, .., jM,     .., j{N+M})
     = [if n{i} = m{i+M}]
    MINDEX{N+M}(m1, .., mM,     .., m{N+M}, j1, .., jM, i1 + j{M+1}, .., iN + j{N+M})
-
    For correctness, size and index expressions must be pure.
    *)
 let%transfo simpl_index_add (tg : target) : unit =
@@ -923,11 +923,7 @@ let delete_on (var : var) (t : trm) : trm =
         trm_fail t "Matrix_basic.delete_on: matrix should not be used anymore"
       | _ ->
         let is_free_var = begin match Matrix_trm.free_inv t with
-        | Some freed ->
-          begin match trm_var_inv freed with
-          | Some n -> var_eq n var
-          | None -> false
-          end
+        | Some freed -> trm_is_var ~var freed
         | None -> false
         end in
         if is_free_var then trm_seq_nobrace_nomarks []

@@ -1,5 +1,15 @@
 #!/bin/bash
-# Assumes the current path to be .vscode
+#
+# This script issues 'queries' to be executed by the 'server' script `watch.sh`.
+# Each query consists of a command line to execute.
+#
+# Usage:
+#    ./run_action.sh ${CMD}
+#
+# where ${CMD} denotes the command to run.
+# The command must make sense when executed in the root folder of OptiTrust.
+# Indeed, the `watch.sh` script, which launches the actions, is executed in that folder.
+
 
 # -- for debug:
 # echo `pwd`
@@ -7,7 +17,7 @@
 # echo "with args $*"
 
 
-# Compute the paths to the files used for communiction
+# Compute the paths to the files used for communication
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 ACTION_OUT="${SCRIPT_DIR}/action_out.txt"
 ACTION_FILE="${SCRIPT_DIR}/action.sh"
@@ -30,7 +40,7 @@ rm -f ${ACTION_OUT}
 touch ${ACTION_OUT}
 
 # Request watch.sh to execute the command by writing the command in action.sh
-echo "Run_action executes the command written in ${ACTION_FILE}:"
+echo "Run_action executes:"
 echo "  ${ACTION}"
 # echo "  and wait for the output in file ${ACTION_OUT}"
 echo "${ACTION}" > ${ACTION_FILE}

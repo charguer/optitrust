@@ -33,6 +33,9 @@ void f() {
 void iter_contract_ro(int* M) {
   __reads("M ~> Matrix1(3)");
   int acc = 0;
+  __ghost(assume, "P := in_range(0, 0..3)");
+  __ghost(assume, "P := in_range(1, 0..3)");
+  __ghost(assume, "P := in_range(2, 0..3)");
   const __ghost_fn __ghost_pair_1 = __ghost_begin(
       ro_group_focus,
       "i := 0, items := fun (x: int) -> &M[MINDEX1(3, x)] ~> Cell");

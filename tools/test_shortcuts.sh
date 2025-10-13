@@ -2,7 +2,8 @@
 #
 # This script is for testing calling a shortcut from VSCode
 # and for testing the launch of a browser from VSCode.
-# Make sure that `watcher.sh` is running, else the command
+#
+# Make sure that `${OPTITRUST_FOLDER}/watcher.sh` is running, else the command
 # will be ran in a sandbox and the result might be broken.
 #
 # Usage: after configurating keybindings.json as explained in INSTALL.md
@@ -15,11 +16,9 @@
 # Any other line will use the 'open_in_browser.sh' script,
 # which is the one that OptiTrust tasks rely upon.
 #
-# With the line 1 (which uses 'nohup'), and the lines 4,5,6
-# which use "open_in_browser" (which uses 'nohup'), the vscode
-# task completes. Hence, it is possible to re-execute the same
-# task without the need to close the browser (in case the browser
-# wasn't already open before the task was run for the first time).
+# Certain lines won't work due to the sandbox.
+# (see in tasks.json "Test OptiTrust Shortcuts via runaction" to avoid this).
+# The tasks invoking `open_in_browser.sh` are meant to work.
 
 FILE=$1
 LINE=$2

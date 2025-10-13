@@ -152,6 +152,34 @@ void matvec(int col_count, int red_count, float *x, float *y, float *w) {
     }
   }
 }
+
+void matmul(int row_count, int col_count, int red_count, float *const x,
+            float *const y, float *const w) {
+  __reads("y ~> Matrix2(row_count,red_count)");
+  __reads("w ~> Matrix2(col_count,red_count)");
+  __writes("x ~> Matrix2(row_count,col_count)");
+  for (int i = 0; i < row_count; i++) {
+    __xwrites("for j in 0..col_count -> &x[MINDEX2(row_count, col_count, i, "
+              "j)] ~> Cell");
+
+    for (int j = 0; j < col_count; j++) {
+      __xwrites("&x[MINDEX2(row_count, col_count, i, j)] ~> Cell");
+
+      x[MINDEX2(row_count, col_count, i, j)] = 0.f;
+      for (int k = 0; k < red_count; k++) {
+        __GHOST_BEGIN(focusy, ro_matrix2_focus, "y, i, k");
+        __GHOST_BEGIN(focusw, ro_matrix2_focus, "w, j, k");
+        x[MINDEX2(row_count, col_count, i, j)] +=
+            y[MINDEX2(row_count, red_count, i, k)] *
+            w[MINDEX2(col_count, red_count, j, k)];
+
+        __GHOST_END(focusy);
+        __GHOST_END(focusw);
+      }
+    }
+  }
+}
+
 void forward(int token, int vocabulary_len, int context_len, int layer_count,
              int q_head_count, int kv_head_count, int q_head_per_kv_head_count,
              int embedding_dim, int head_dim, int q_dim, int kv_dim,
@@ -187,17 +215,7 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
         embedding_weight[MINDEX2(vocabulary_len, embedding_dim, token, e)];
     __GHOST_END(focus_embedding_weight);
   }
-  __ghost([&]() {
-    __consumes("for e in 0..embedding_dim -> &embedding[MINDEX1(embedding_dim, "
-               "e)] ~> Cell");
-    __consumes("for e in 0..embedding_dim -> &mha_norm[MINDEX1(embedding_dim, "
-               "e)] ~> UninitCell");
-    __produces("for e in 0..embedding_dim -> "
-               "&(&embedding[MINDEX0()])[MINDEX1(embedding_dim, e)] ~> Cell");
-    __produces("for e in 0..embedding_dim -> "
-               "&(&mha_norm[MINDEX0()])[MINDEX1(embedding_dim, e)] ~> Cell");
-    __admitted();
-  });
+
   // attention rmsnorm
   for (int l = 0; l < layer_count; l++) {
     __xreads(
@@ -218,22 +236,13 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
                 "head_dim, q, i1)] ~> UninitCell");
 
       matvec(head_dim, embedding_dim,
-             &mha_q[MINDEX2(q_head_count, head_dim, q, 0)], &mha_norm[MINDEX0()],
+             &mha_q[MINDEX2(q_head_count, head_dim, q, 0)],
+             &mha_norm[MINDEX0()],
              &mha_q_weight[MINDEX4(layer_count, q_head_count, head_dim,
                                    embedding_dim, l, q, 0, 0)]);
     }
   }
-  __ghost([&]() {
-    __consumes("for e in 0..embedding_dim -> "
-               "&(&embedding[MINDEX0()])[MINDEX1(embedding_dim, e)] ~> Cell");
-    __consumes("for e in 0..embedding_dim -> "
-               "&(&mha_norm[MINDEX0()])[MINDEX1(embedding_dim, e)] ~> Cell");
-    __produces("for e in 0..embedding_dim -> &embedding[MINDEX1(embedding_dim, "
-               "e)] ~> Cell");
-    __produces("for e in 0..embedding_dim -> &mha_norm[MINDEX1(embedding_dim, "
-               "e)] ~> UninitCell");
-    __admitted();
-  });
+
   free(embedding);
   free(mha_norm);
   free(mha_q);

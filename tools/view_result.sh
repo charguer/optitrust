@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Usage:
+# Usage (to be called from OptiTrust root folder):
 #   ./tools/view_result.sh ${MODE} ${FILEPATH} ${LINENUMBER} ${OPTIONS}
 #
 # where MODE is one of:
@@ -214,6 +214,12 @@ echo "View ${FILEPATH} with options ${OPTIONS}"
 # LATER: automate only if we are sure that clang versions are compatible
 # make -C ${OPTITRUST_FOLDER} precompile
 
+# Note: the test is to allow bypassing 'make precompile' on machines where it does not work
+if [ ! -f "${OPTITRUST_FOLDER}/disable_precompile.txt" ]; then
+    make -C ${OPTITRUST_FOLDER} precompile
+else
+    echo "File disable_precompile.txt detected, skipping 'make precompile'."
+fi
 
 # TODO: --no-build
 
@@ -228,6 +234,8 @@ echo "View ${FILEPATH} with options ${OPTIONS}"
 #==========================================================================
 # Open the output
 
+# At this stage, `pwd` is the folder containing the script.
+
 TIMER7=`date +%s%3N`
 
 if [ "${MODE}" = "step_diff" ] || [ "${MODE}" = "step_diff_from_inter" ]; then
@@ -241,12 +249,14 @@ elif [ "${MODE}" = "standalone_full_trace" ]; then
 elif [ "${MODE}" = "step_trace" ] || [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
 
   ${TOOLS_FOLDER}/open_trace.sh ${SRCBASE}
+  # LATER: might want to pass the ${MODE} argument in order to open_trace
 
 elif [ "${MODE}" = "save_inter" ]; then
 
   echo "Produced ${SRCBASE}_out.cpp as checkpoint for line ${LINE}"
 
 elif [ "${MODE}" = "step_result" ]; then
+  # not tested, no keybinding advertized for it
 
   ${CODE_VIEWER} ${SRCBASE}_after.cpp
 

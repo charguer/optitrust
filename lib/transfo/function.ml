@@ -208,28 +208,22 @@ let%transfo use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = tr
     Now the stage is ready for applying the basic version of uninline.
     *)
 let%transfo uninline ~(f : target) (tg : target) : unit =
-  Resources.delete_annots  f;
+Trace.without_resource_computation_between_steps (fun _ ->
   Resources.delete_annots tg;
-  let tg_fun_def = match get_trm_at f with
+  let f_decl = match get_trm_at f with
   | Some td -> td
-  | None -> failwith "Function.uninline: fct target does point to any node" in
+  | None -> failwith "could not find target function"
+  in
+  let f_decl = Nobrace.remove_after_trm_op Resource_trm.delete_annots_on f_decl in
+
   Target.iter (fun p ->
-    match trm_let_fun_inv tg_fun_def with
-    | Some (_, _, _, body, _) ->
-      begin match trm_seq_inv body with
-      | Some (tl, _) ->
-        let (start, p_seq) = Path.index_in_seq p in
-        let stop = ref start in
-        Mlist.iter (fun t ->
-          if Option.is_none (Resource_trm.admitted_inv t)
-          then incr stop
-        ) tl;
-        let span = { start; stop = !stop } in
-        Function_basic.uninline ~f (target_of_path (p_seq @ [Dir_span span]))
-      | _ -> trm_fail tg_fun_def "Function.uninline: weird function declaration "
-      end
-    | _ -> trm_fail tg_fun_def "Function.uinline: fct arg should point to a a function declaration"
-  ) tg
+    let (start, p_seq) = Path.index_in_seq p in
+    let error = "target function should be a function declaration" in
+    let (_, _, _, body, _) = trm_inv ~error trm_let_fun_inv f_decl in
+    let (body_instrs, _) = trm_inv ~error trm_seq_inv body in
+    let span = { start; stop = start + (Mlist.length body_instrs) } in
+    Function_basic.uninline ~f_decl (target_of_path (p_seq @ [Dir_span span]))
+  ) tg)
 
 (** [insert ~reparse decl tg]: expects the relative target [t] to point before or after an instruction,
      then it will insert the function declaration [decl] on that location.

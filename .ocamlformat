@@ -1,3 +1,4 @@
 wrap-comments=false
 margin=140
 break-cases=all
+comment-check=false

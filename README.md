@@ -32,8 +32,9 @@ Folders:
 - `tools`: utilities for parsing, loading traces, execution (runner), testing (generalized runner)
 - `include`: header files that need to be included in the C files that are processed using OptiTrust
 - `case_studies`: the case studies for OptiTrust
-- `doc`: tooling for extracting documentation from the .ml files and the minimal unit tests illustrating each transformation
+- `doc`: tooling for extracting documentation from the .ml files and the minimal unit tests illustrating each transformation. See `doc/doc.md` for details on documentation generation.
 - `_build` (not committed): where generated files are produced
+- `_doc` (not committed): where documentation files are produced
 
 In the `lib` folder:
 - `utils`: extensions to the standard library of OCaml
@@ -64,6 +65,7 @@ When producing a trace (see shortcuts in `INSTALL.md`), the trace opens in a bro
 - `print types`: to see all the type details associated with AST nodes
 - `show`: control whether to show only code, or code plus annotations, or code plus annotations plus resources available at every step, or same with all details on what resources each function call is consuming and producing. The detailed display should only be useful for debugging the typechecker
 - `full` (on the left) shows all the details of the trace structure.
+See `doc/interact.md` for details on the working of the interactive shortcuts.
 
 OptiTrust includes a commit hook to execute the unit tests (not the case studies, currently) before a commit.
 To bypass the verification, use `git commit --no-verify "my message"`.

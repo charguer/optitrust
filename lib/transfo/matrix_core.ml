@@ -4,7 +4,7 @@ open Typ
 open Contextualized_error
 open Mark
 open Matrix_trm
-
+open Target
 (** list of (offset, size) *)
 type nd_tile = (trm * trm) list
 
@@ -193,45 +193,48 @@ let pointwise_fors
       [order] - a list of indices based on which the elements in dims should be ordered,
       [t] - ast of the call to let_alloc or MINDEX.
       TODO : ghost_pair au lieu de deux ghosts ghost pair var must be generated in matrix_basic*)
-let reorder_dims_aux ~(base:trm) (rotate_n : int) (order : int list) (t : trm) : trm =
-  let typ_alloc = ref (trm_int 1) in
-  let init_alloc = ref false in
+let reorder_dims_aux ~(base : trm) ~(dims : trms) (rotate_n : int) (order : int list) (t : trm) : trm =
 
-  let var,dims, indices =
-    match mindex_inv t with
-    | Some (dims, indices) -> None,dims, Some indices
-    | None -> match let_alloc_inv t with
-      | Some (var,typ,dims, init) -> typ_alloc := typ; init_alloc := init; Some(var) ,dims,None
-      | None -> trm_fail t "Matrix_core.reorder_dims_aux: expected a function call to MSIZE or MINDEX"
-    in
+  (* let typ_alloc = ref (trm_int 1) in
+  let init_alloc = ref false in *)
   let nb = List.length dims in
-  let order = if rotate_n <> 0
-    then let id_perm = List.range 0 (nb - 1) in
-          List.rotate rotate_n id_perm
+  let order =
+    if rotate_n <> 0 then
+      let id_perm = List.range 0 (nb - 1) in
+      List.rotate rotate_n id_perm
     else
-      begin match order with
-    | [] -> trm_fail t "Matrix_core.reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
-    | _ -> order
-    end in
-  begin try List.check_permutation nb order with | List.Invalid_permutation -> trm_fail t "Matrix_core.order is not a permutation of indices" end;
+      match order with
+      | [] ->
+          trm_fail t
+            "Matrix_core.reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
+      | _ -> order
+  in
+  (try List.check_permutation nb order with
+  | List.Invalid_permutation -> trm_fail t "Matrix_core.order is not a permutation of indices");
   let reordered_dims = List.reorder order dims in
-  match indices with
-  | Some indices ->
-    let reordered_indices = List.reorder order indices in
-    mindex reordered_dims reordered_indices
-  | None -> let before = Resource_formula.formula_matrix ~init:(!init_alloc) base reordered_dims in
-          let after = Resource_formula.formula_matrix ~init:(!init_alloc) base dims in
-  Nobrace.trm_seq_nomarks
-  [
-  let_alloc (Option.get var) !typ_alloc reordered_dims ~zero_init:!init_alloc;
-  Resource_trm.ghost_admitted_rewrite before after (trm_var (toplevel_var "reorder_groups")) ]
+  match mindex_inv t with
+  | Some (dims, indices) ->
+      let reordered_indices = List.reorder order indices in
+      mindex reordered_dims reordered_indices
+  | None -> match let_alloc_inv t with
+      | Some (var, typ, dims, init) ->
+        let before = Resource_formula.formula_matrix ~init base reordered_dims in
+        let after = Resource_formula.formula_reorder_dims_patch ~init base dims order in
+        Nobrace.trm_seq_nomarks
+          [
+            let_alloc var typ reordered_dims ~zero_init:init;
+            Resource_trm.ghost_admitted_rewrite before after (trm_var (toplevel_var "reorder_groups"));
+          ]
+      | None -> match free_inv t with
+        | Some var ->
+          let before = Resource_formula.formula_reorder_dims_patch ~init:false base dims order in
+          let after = Resource_formula.formula_matrix ~init:false base reordered_dims in
+          Nobrace.trm_seq_nomarks
+                [
+                   Resource_trm.ghost_admitted_rewrite before after (trm_var (toplevel_var "reorder_groups"));
+                  free var ]
 
-(* et ghost_admitted_rewrite (before: formula) (after: formula) (justif: formula): trm =
-  let contract = {
-    pre = Resource_set.make ~linear:[new_anon_hyp (), before] ();
-    post = Resource_set.make ~linear:[new_anon_hyp (), after] ()
-  } in
-  ghost_admitted contract ~justif *)
+        | _ -> trm_fail t "Matrix_core.reorder_dims_aux: expected a function call to MSIZE or MINDEX"
 
 (** [insert_alloc_dim_aux new_dim t]: adds a new dimension at the beginning of the list of dimension,
      [new_dim]: the new dimension which is going to be inserted into the list of dims in an allocation,
@@ -302,3 +305,18 @@ let local_name_aux (mark : mark)
       let final_trm = Nobrace.trm_seq_nomarks [fst_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr] in
       trm_add_mark mark final_trm
     end
+
+(* TODO:
+let var_ghost_ro_matrix2_focus = toplevel_var_with_dim "ro_matrix%d_focus"
+*)
+
+(* NOTE: these are the names used by convention in the optitrust header definition.
+   a simpler number-based convention could be used instead. *)
+let index_names = ["i"; "j"]
+let dimension_names = ["m"; "n"]
+let ghost_ro_matrix_focus ?typ ?matrix ?frac ?dims indices =
+  let indices = List.zip index_names (List.map Option.some indices) in
+  let dims = List.zip dimension_names (List.map Option.some (Option.value ~default:[] dims)) in
+  Resource_trm.ghost_call_opt_args
+    (toplevel_var (sprintf "ro_matrix%d_focus" (List.length indices)))
+    (["T", typ; "matrix", matrix; "f", frac] @ indices @ dims)

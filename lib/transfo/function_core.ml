@@ -222,7 +222,7 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
 let uninline_on (fct_decl : trm)
  (to_type_ret_t : seq_component list option ref)
  (span : Dir.span) (t_seq : trm) : trm =
-  update_span_helper span t_seq (fun instrs ->
+  update_span_helper span t_seq (fun span_instrs ->
   let (f, ret_typ, targs, body, spec) = Pattern.pattern_match fct_decl [
     Pattern.(trm_let_fun !__ !__ !__ !__ !__) (fun f ret_typ targs body spec () ->
       (f, ret_typ, targs, body, spec)
@@ -255,34 +255,27 @@ let uninline_on (fct_decl : trm)
     ] end
     | _ -> body_instrs
   in
-  (* 2. check that there is no return in the rest of the function.
-        also delete admitted instructions. *)
+  (* 2. check that there is no return in the rest of the function.*)
   let rec check_body t =
     Pattern.pattern_match t [
       Pattern.(trm_return __) (fun () ->
-        trm_fail t "function has unsupported return instruction"
-      );
-      Resource_trm.Pattern.(admitted __) (fun () ->
-        trm_seq_nobrace_nomarks []
+        trm_fail t "function or code has unsupported return instruction"
       );
       Pattern.__ (fun () -> trm_map check_body t)
     ]
   in
-  let ret_body = Nobrace.remove_after_trm_op check_body (trm_seq ret_body_instrs) in
+  let ret_body = check_body (trm_seq ret_body_instrs) in
+  let target_code = trm_seq span_instrs in
   (* 3. try matching patched function body with target code. *)
   let ret_targs = match !ret_var with
     | None -> targs
     | Some rv -> (rv, ret_ptr_typ) :: targs
   in
-  let inst = Trm_matching.rule_match (*~higher_order_inst:true*) ret_targs ret_body (trm_seq instrs) in
+  let inst = Trm_matching.rule_match (*~higher_order_inst:true*) ret_targs ret_body target_code in
   let ret_args = Trm.tmap_to_list (List.map fst ret_targs) inst in
   (* 4. check validity: instantiated arguments must be pure,
         and a separate resource must be owned on the eventual return variable  *)
   if !Flags.check_validity then begin
-    let _f_contract = match spec with
-    | FunSpecUnknown | FunSpecReverts _ -> failwith "expected function contract"
-    | FunSpecContract c -> c
-    in
     Var_map.iter (fun _ arg_val ->
       if not (Resources.trm_is_pure arg_val) then
         trm_fail arg_val "basic function uninlining does not support non-pure arguments, combine with variable binding and inline"

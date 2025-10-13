@@ -11,6 +11,6 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-   !! Function_basic.uninline ~f:[cFunDef "g"] [cLabel "body"];
+   !! Function_basic.uninline ~f_decl:(get_trm_at_exn [cFunDef "g"]) [cLabel "body"];
 
 )

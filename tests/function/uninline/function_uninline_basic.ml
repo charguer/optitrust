@@ -14,13 +14,12 @@ let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp (fun _ ->
   let tLabelSpan label = tSpan [tAfter; cLabel (label ^ "_start")] [tBefore; cLabel (label ^ "_end")] in
-  !! Function_basic.uninline ~f:[cFunDef "gtwice"] [tLabelSpan "gtwice"];
-  !! Function_basic.uninline ~f:[cFunDef "f"] [nbMulti; tLabelSpan "f"];
+  !! Function_basic.uninline ~f_decl:(get_trm_at_exn [cFunDef "gtwice"]) [tLabelSpan "gtwice"];
+  !! Function_basic.uninline ~f_decl:(get_trm_at_exn [cFunDef "f"]) [nbMulti; tLabelSpan "f"];
   !! Variable_basic.inline [nbMulti; cVarDef "r_pure"];
 
-  !! Function_basic.uninline ~f:[cFunDef "loop_with_ret"] [tLabelSpan "loop_with_ret"];
-
-    (* FIXME: validation for higher-order functions
+  !! Function_basic.uninline ~f_decl:(get_trm_at_exn [cFunDef "loop_with_ret"]) [tLabelSpan "loop_with_ret"];
+  (* FIXME: validation for higher-order functions
     Flags.check_validity := false;
     Flags.recompute_resources_between_steps := false;
     !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabel "hobody"];

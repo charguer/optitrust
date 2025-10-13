@@ -182,18 +182,11 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
         embedding_weight[MINDEX2(vocabulary_len, embedding_dim, token, e)];
     __ghost_end(focus_embedding_weight);
   }
-  __ghost([&]() {
-    __consumes("embedding ~> Matrix1(embedding_dim)");
-    __consumes("mha_norm ~> UninitMatrix1(embedding_dim)");
-    __produces("&embedding[MINDEX0()] ~> Matrix1(embedding_dim)");
-    __produces("&mha_norm[MINDEX0()] ~> Matrix1(embedding_dim)");
-    __admitted();
-  });
   for (int l = 0; l < layer_count; l++) {
     __strict();
-    __smodifies("&mha_norm[MINDEX0()] ~> Matrix1(embedding_dim)");
     __smodifies("mha_q ~> UninitMatrix2(q_head_count, head_dim)");
-    __sreads("&embedding[MINDEX0()] ~> Matrix1(embedding_dim)");
+    __smodifies("mha_norm ~> UninitMatrix1(embedding_dim)");
+    __sreads("embedding ~> Matrix1(embedding_dim)");
     __xreads(
         "for i1 in 0..embedding_dim -> &mha_norm_weight[MINDEX2(layer_count, "
         "embedding_dim, l, i1)] ~> Cell");
@@ -221,13 +214,6 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
                                    embedding_dim, l, q, 0, 0)]);
     }
   }
-  __ghost([&]() {
-    __consumes("&embedding[MINDEX0()] ~> Matrix1(embedding_dim)");
-    __consumes("&mha_norm[MINDEX0()] ~> Matrix1(embedding_dim)");
-    __produces("embedding ~> Matrix1(embedding_dim)");
-    __produces("mha_norm ~> UninitMatrix1(embedding_dim)");
-    __admitted();
-  });
   free(embedding);
   free(mha_norm);
   free(mha_q);
@@ -260,18 +246,9 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
   for (int i = 0; i < sequence_len; i++) {
     __strict();
     __sreads("embedding_weight ~> Matrix2(vocabulary_len, embedding_dim)");
-    __xconsumes(
-        "for _v2 in 0..embedding_dim -> &mha_norm[MINDEX2(sequence_len, "
-        "embedding_dim, i, _v2)] ~> UninitCell");
-    __xconsumes(
-        "for _v1 in 0..embedding_dim -> &embedding[MINDEX2(sequence_len, "
-        "embedding_dim, i, _v1)] ~> UninitCell");
-    __xproduces(
-        "&embedding[MINDEX2(sequence_len, embedding_dim, i, 0)] ~> "
-        "Matrix1(embedding_dim)");
-    __xproduces(
-        "&mha_norm[MINDEX2(sequence_len, embedding_dim, i, 0)] ~> "
-        "Matrix1(embedding_dim)");
+    __xwrites(
+        "for e in 0..embedding_dim -> &embedding[MINDEX2(sequence_len, "
+        "embedding_dim, i, e)] ~> Cell");
     __xreads("&sequence[MINDEX1(sequence_len, i)] ~> Cell");
     const int logits_count = 1;
     const int token = sequence[MINDEX1(sequence_len, i)];
@@ -287,31 +264,12 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
           embedding_weight[MINDEX2(vocabulary_len, embedding_dim, token, e)];
       __ghost_end(focus_embedding_weight);
     }
-    __ghost([&]() {
-      __consumes(
-          "for i1 in 0..embedding_dim -> &embedding[MINDEX2(sequence_len, "
-          "embedding_dim, i, i1)] ~> Cell");
-      __consumes(
-          "for i1 in 0..embedding_dim -> &mha_norm[MINDEX2(sequence_len, "
-          "embedding_dim, i, i1)] ~> UninitCell");
-      __produces(
-          "&embedding[MINDEX2(sequence_len, embedding_dim, i, 0)] ~> "
-          "Matrix1(embedding_dim)");
-      __produces(
-          "&mha_norm[MINDEX2(sequence_len, embedding_dim, i, 0)] ~> "
-          "Matrix1(embedding_dim)");
-      __admitted();
-    });
   }
   for (int l = 0; l < layer_count; l++) {
     __strict();
-    __smodifies(
-        "for i in 0..sequence_len -> &mha_norm[MINDEX2(sequence_len, "
-        "embedding_dim, i, 0)] ~> Matrix1(embedding_dim)");
     __smodifies("mha_q ~> UninitMatrix3(sequence_len, q_head_count, head_dim)");
-    __sreads(
-        "for i in 0..sequence_len -> &embedding[MINDEX2(sequence_len, "
-        "embedding_dim, i, 0)] ~> Matrix1(embedding_dim)");
+    __smodifies("mha_norm ~> UninitMatrix2(sequence_len, embedding_dim)");
+    __sreads("embedding ~> Matrix2(sequence_len, embedding_dim)");
     __sreads("mha_norm_weight ~> Matrix2(layer_count, embedding_dim)");
     __sreads(
         "mha_q_weight ~> Matrix4(layer_count, q_head_count, head_dim, "
@@ -319,34 +277,44 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
     for (int i = 0; i < sequence_len; i++) {
       __strict();
       __sreads("mha_norm_weight ~> Matrix2(layer_count, embedding_dim)");
-      __sreads(
-          "mha_q_weight ~> Matrix4(layer_count, q_head_count, head_dim, "
-          "embedding_dim)");
-      __xmodifies(
+      __xconsumes(
+          "for i1 in 0..embedding_dim -> &mha_norm[MINDEX2(sequence_len, "
+          "embedding_dim, i, i1)] ~> UninitCell");
+      __xproduces(
           "&mha_norm[MINDEX2(sequence_len, embedding_dim, i, 0)] ~> "
           "Matrix1(embedding_dim)");
-      __xmodifies(
-          "for i1 in 0..q_head_count -> for i2 in 0..head_dim -> "
-          "&mha_q[MINDEX3(sequence_len, q_head_count, head_dim, i, i1, i2)] ~> "
-          "UninitCell");
       __xreads(
-          "&embedding[MINDEX2(sequence_len, embedding_dim, i, 0)] ~> "
-          "Matrix1(embedding_dim)");
+          "for i1 in 0..embedding_dim -> &embedding[MINDEX2(sequence_len, "
+          "embedding_dim, i, i1)] ~> Cell");
       const __ghost_fn __ghost_pair_2 = __ghost_begin(
           ro_group_focus,
           "i := l, items := fun (l: int) -> for i1 in 0..embedding_dim -> "
           "&mha_norm_weight[MINDEX2(layer_count, embedding_dim, l, i1)] ~> "
           "Cell");
-      const __ghost_fn __ghost_pair_1 = __ghost_begin(
+      rmsnorm(
+          embedding_dim, &mha_norm[MINDEX2(sequence_len, embedding_dim, i, 0)],
+          &embedding[MINDEX2(sequence_len, embedding_dim, i, 0)],
+          &mha_norm_weight[MINDEX2(layer_count, embedding_dim, l, 0)], epsilon);
+      __ghost_end(__ghost_pair_2);
+    }
+    for (int i = 0; i < sequence_len; i++) {
+      __strict();
+      __sreads(
+          "mha_q_weight ~> Matrix4(layer_count, q_head_count, head_dim, "
+          "embedding_dim)");
+      __xmodifies(
+          "for i1 in 0..q_head_count -> for i2 in 0..head_dim -> "
+          "&mha_q[MINDEX3(sequence_len, q_head_count, head_dim, i, i1, i2)] ~> "
+          "UninitCell");
+      __xreads(
+          "&mha_norm[MINDEX2(sequence_len, embedding_dim, i, 0)] ~> "
+          "Matrix1(embedding_dim)");
+      const __ghost_fn __ghost_pair_3 = __ghost_begin(
           ro_group_focus,
           "i := l, items := fun (l: int) -> for q in 0..q_head_count -> for h "
           "in 0..head_dim -> for e in 0..embedding_dim -> "
           "&mha_q_weight[MINDEX4(layer_count, q_head_count, head_dim, "
           "embedding_dim, l, q, h, e)] ~> Cell");
-      rmsnorm(
-          embedding_dim, &mha_norm[MINDEX2(sequence_len, embedding_dim, i, 0)],
-          &embedding[MINDEX2(sequence_len, embedding_dim, i, 0)],
-          &mha_norm_weight[MINDEX2(layer_count, embedding_dim, l, 0)], epsilon);
       for (int q = 0; q < q_head_count; q++) {
         __strict();
         __sreads(
@@ -365,39 +333,8 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
                &mha_q_weight[MINDEX4(layer_count, q_head_count, head_dim,
                                      embedding_dim, l, q, 0, 0)]);
       }
-      __ghost_end(__ghost_pair_1);
-      __ghost_end(__ghost_pair_2);
+      __ghost_end(__ghost_pair_3);
     }
-  }
-  for (int i = 0; i < sequence_len; i++) {
-    __strict();
-    __xconsumes(
-        "&embedding[MINDEX2(sequence_len, embedding_dim, i, 0)] ~> "
-        "Matrix1(embedding_dim)");
-    __xconsumes(
-        "&mha_norm[MINDEX2(sequence_len, embedding_dim, i, 0)] ~> "
-        "Matrix1(embedding_dim)");
-    __xproduces(
-        "for _v2 in 0..embedding_dim -> &mha_norm[MINDEX2(sequence_len, "
-        "embedding_dim, i, _v2)] ~> UninitCell");
-    __xproduces(
-        "for _v1 in 0..embedding_dim -> &embedding[MINDEX2(sequence_len, "
-        "embedding_dim, i, _v1)] ~> UninitCell");
-    __ghost([&]() {
-      __consumes(
-          "&embedding[MINDEX2(sequence_len, embedding_dim, i, 0)] ~> "
-          "Matrix1(embedding_dim)");
-      __consumes(
-          "&mha_norm[MINDEX2(sequence_len, embedding_dim, i, 0)] ~> "
-          "Matrix1(embedding_dim)");
-      __produces(
-          "for i1 in 0..embedding_dim -> &embedding[MINDEX2(sequence_len, "
-          "embedding_dim, i, i1)] ~> Cell");
-      __produces(
-          "for i1 in 0..embedding_dim -> &mha_norm[MINDEX2(sequence_len, "
-          "embedding_dim, i, i1)] ~> UninitCell");
-      __admitted();
-    });
   }
   free(mha_q);
   free(mha_norm);

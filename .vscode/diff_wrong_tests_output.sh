@@ -1,3 +1,5 @@
+#/bin/bash
+
 WRONG_TESTS=$(cat wrong.tests)
 
 for test in $WRONG_TESTS

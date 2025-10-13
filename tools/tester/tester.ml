@@ -7,7 +7,7 @@ module StringSet = Set.Make(String)
 (**
 
   This file is the source for the program `./tester.exe` used for executing unit tests.
-  This program is meant to be called by the bash script `./tester`.
+  This program is meant to be called by the bash script `./tester`, from the OptiTrust root.
   It expects as arguments:
 
   1. the relative path from the optitrust root to the folder from which the user invoked the tester
@@ -216,10 +216,10 @@ let do_or_die (cmd : string) : unit =
 (* LATER: remove and consider all mentioned directories instead *)
 let tests_folders = ["tests"; "case_studies"]
 
-(*** Folder from which the user invoked 'tester' *)
+(** Folder from which the user invoked 'tester' *)
 let caller_folder : string ref = ref ""
 
-(* Action requested, e.g. 'run' *)
+(** Action requested, e.g. 'run' *)
 let action : string ref = ref ""
 
 (** List of the [argi] arguments provided. *)
@@ -321,11 +321,19 @@ let spec : cmdline_args =
 (** Auxiliary function for handling dry-mode *)
 
 (** [run_action] is like [do_or_die], with an option to print the command,
-   and only prints the command if [-dry] flag has been set *)
-let run_action ?(print = false) (cmd : string) : unit =
+   and only prints the command if [-dry] flag has been set.
+   If the flag [is_gui] is set, then the function relies on the script
+   [exec_with_nohup_and_runaction] to avoid the limitation of the VScode
+   sandbox and to make the GUI process run persistently. *)
+let run_action ?(is_gui = false) ?(print = false) (cmd : string) : unit =
   (* FOR DEBUG:
    let _ = ignore print in
    printf "%s: %s\n" (if !dry_run then "[DRY]" else "[REAL]") cmd *)
+  let cmd =
+    if is_gui
+      then sprintf ".vscode/exec_with_nohup_and_runaction.sh %s\n" cmd
+      else cmd
+    in
   let pr () = printf "%s\n" cmd in
   if !dry_run then begin
     pr()
@@ -789,6 +797,7 @@ let action_create (tests : string list) : unit =
 (** Action 'addexp' *)
 
 let action_addexp (tests : string list) : unit =
+  let tests, _tests_ignored = get_tests_to_process_for_run_and_compile "compile" tests in
   ~~ List.iter tests (fun test ->
     let prefix = Filename.remove_extension test in
     let outfile = prefix ^ "_out.cpp" in
@@ -806,6 +815,7 @@ let action_addexp (tests : string list) : unit =
 (** Action 'fixexp' *)
 
 let action_fixexp (tests : string list) : unit =
+  let tests, _tests_ignored = get_tests_to_process_for_run_and_compile "compile" tests in
   ~~ List.iter tests (fun test ->
     let prefix = Filename.remove_extension test in
     let outfile = prefix ^ "_out.cpp" in
@@ -820,6 +830,7 @@ let action_fixexp (tests : string list) : unit =
 (** Action 'ignore' *)
 
 let action_ignore (tests : string list) : unit =
+  let tests, _tests_ignored = get_tests_to_process_for_run_and_compile "compile" tests in
   ~~ List.iter tests (fun test ->
     let ignorefile = "./ignore.tests" in
     run_action (sprintf "echo '%s' >> %s" test ignorefile)
@@ -830,6 +841,7 @@ let action_ignore (tests : string list) : unit =
 (** Action 'code' *)
 
 let action_code (tests : string list) : unit =
+  let tests, _tests_ignored = get_tests_to_process_for_run_and_compile "compile" tests in
   ~~ List.iter tests (fun test ->
     let prefix = Filename.remove_extension test in
     let mlfile = prefix ^ ".ml" in
@@ -842,11 +854,12 @@ let action_code (tests : string list) : unit =
 (** Action 'diff' *)
 
 let action_diff (tests : string list) : unit =
+  let tests, _tests_ignored = get_tests_to_process_for_run_and_compile "compile" tests in
   ~~ List.iter tests (fun test ->
     let prefix = Filename.remove_extension test in
     let outfile = prefix ^ "_out.cpp" in
     let expfile = prefix ^ "_exp.cpp" in
-    run_action (sprintf "code -d %s %s" outfile expfile);
+    run_action ~is_gui:true (sprintf "code -d %s %s" outfile expfile);
   )
 
 
@@ -854,6 +867,7 @@ let action_diff (tests : string list) : unit =
 (** Action 'meld' *)
 
 let action_meld (tests : string list) : unit =
+  let tests, _tests_ignored = get_tests_to_process_for_run_and_compile "compile" tests in
   let meldargs = ref [] in
   ~~ List.iter tests (fun test ->
     let prefix = Filename.remove_extension test in
@@ -861,7 +875,7 @@ let action_meld (tests : string list) : unit =
     let expfile = prefix ^ "_exp.cpp" in
     Tools.ref_list_add meldargs (sprintf "--diff %s %s " outfile expfile);
   );
-  run_action (sprintf "meld %s" (String.concat "" !meldargs))
+  run_action ~is_gui:true (sprintf "meld %s" (String.concat "" !meldargs))
 
 
 (*****************************************************************************)

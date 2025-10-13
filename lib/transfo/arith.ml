@@ -25,7 +25,7 @@ let default_simpl tg = simpl_surrounding_expr (fun x -> compute (gather x)) (nbA
 *)
 let default_simpl tg = simpl_surrounding_expr gather (nbAny :: tg)
 
-let do_nothing tg = ()
+let do_nothing tg = Marks.clean ~indepth:false (nbAny :: tg)
 
 let arith_goal_solver ((x, formula): resource_item) (evar_ctx: Resource_computation.unification_ctx): Resource_computation.unification_ctx option =
   let open Resource_formula in

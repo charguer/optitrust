@@ -102,7 +102,20 @@ void softmax(int col_count, int col_stride, float *x) {
     x[MINDEX1(col_count, j)] /= sum;
   }
 }
+void matmul(int row_count, int col_count, int red_count, float *const x,
+            float *const y, float *const w) {
 
+  for (int i = 0; i < row_count; i++) {
+    for (int j = 0; j < col_count; j++) {
+      x[MINDEX2(row_count, col_count, i, j)] = 0.f;
+      for (int k = 0; k < red_count; k++) {
+        x[MINDEX2(row_count, col_count, i, j)] +=
+            y[MINDEX2(row_count, red_count, i, k)] *
+            w[MINDEX2(col_count, red_count, j, k)];
+      }
+    }
+  }
+}
 void rmsnorm(int col_count, float *y, float *x, float *w, float epsilon) {
   __writes("y ~> Matrix1(col_count)");
   __reads("x ~>  Matrix1(col_count)");

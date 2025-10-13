@@ -27,8 +27,8 @@ let _ =
       !!Matrix.reorder_dims ~order:[ 1; 0; 2 ] [ nbMulti; f; cVarDefs [ "mha_q" ] ];
 
       !!Function.inline [ f; cCall "matvec" ];
-      !!Matrix.simpl_access_of_access ~indepth:true [ f ];
+      (* !!Matrix.simpl_access_of_access ~indepth:true [ f ];
       !!Matrix.simpl_index_add
         [ nbMulti; f; cCellAccess ~base:[ cVar ~substr:true "mha_" ] (); cBinop Binop_add ];
-      !!Rewrite.equiv_at "int j; ==> 0 + j == j" [ nbMulti; f ] ~indepth:true;
+      !!Rewrite.equiv_at "int j; ==> 0 + j == j" [ nbMulti; f ] ~indepth:true; *)
       !!Function.uninline ~f:[ cFunDef "matmul" ] [ f; cForBody "q"; dSeqNth 0 ])
