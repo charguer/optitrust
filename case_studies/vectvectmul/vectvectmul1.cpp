@@ -56,7 +56,6 @@ float vect_vect_mul(float* a, float* b, int n) {
       const __ghost_fn focusB =
           __ghost_begin(ro_matrix1_focus, "matrix := b, i := bi * 32 + i");
       t = ((t + d) + a[MINDEX1(n, bi * 32 + i)] * b[MINDEX1(n, bi * 32 + i)]) - d; // UPDATED
-      // then would be simplified to:
       __ghost_end(focusA);
       __ghost_end(focusB);
       __ghost(rewrite_float_linear_admitted, // ADDED

@@ -11,7 +11,7 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_all (*Steps_important*)
 
 let int = trm_int
 
-let part = 1 (* Choose which part you want to work on. *)
+let part = 2 (* Choose which part you want to work on. *)
 
 (* Part 0: *)
 let _ = if part = 0 then Run.script_cpp (fun () ->
