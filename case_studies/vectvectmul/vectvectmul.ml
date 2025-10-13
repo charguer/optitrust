@@ -24,8 +24,9 @@ let _ = if part = 0 then Run.script_cpp (fun () ->
   (* at this line, the output is the equivalent of vectvectmul0.cpp,
     beware that "==" needs to be replaced with "=." and all the "__is_true" must be removed;
     some +. and + need to be fixed
-    ----> todo: tweak display so that the output of _after.cpp is exactly  vectvectmul0.cpp *)
+    ----> LATER: tweak display so that the output of _after.cpp is exactly  vectvectmul0.cpp *)
   !! Accesses.shift_var ~inv:true ~factor:(trm_find_var "d" []) [nbMulti; cVarDef "t"];
+  (* TODO: make the shift_var update the ghost rewrite correctly *)
 )
 
 (* Part-extra: "vectvectmul0.cpp" check is well-typed *)
@@ -35,118 +36,24 @@ let _ = if part = -1 then Run.script_cpp ~filename:"vectvectmul0.cpp" (fun () ->
 
 (* Part 1: "vectvectmul1.cpp" is obtained by applying shift_var by hand on  vectvectmul0.cpp *)
 let _ = if part = 1 then Run.script_cpp ~filename:"vectvectmul1.cpp" (fun () ->
-  !! () (* todo: handle the inlining of 'd', both in code (goes to 's') and in formulae (goes to 'reduce'),
+  !! () (* TODO: handle the inlining of 'd', both in code (goes to 's') and in formulae (goes to 'reduce'),
             and arith_simpl *)
+            (*   !! Arith.(simpl_rec gather_rec) []; *)
 )
 
 (* Part 2: "vectvectmul2.cpp" is obtained by applying inlining by hand on  vectvectmul1.cpp *)
 let _ = if part = 2 then Run.script_cpp ~filename:"vectvectmul2.cpp" (fun () ->
-  !! ()
+  !! ();
+  !! Loop.hoist [cVarDef "t"];
+  !! Loop.fission [tBefore; cFor "bi"; cWriteVar "s"];
+  (* TODO: need to fix contracts for the loop fission *)
+  !! Loop.parallel [cFor "bi" ~body:[cFor "i"]];
+  !! Cleanup.std();
+  (* includes: !! Function.use_infix_ops ~indepth:true []; *)
 )
 
-  (**
-  !! Accesses.shift_var ~inv:true ~factor:(trm_get (trm_find_var "s" [])) [cFor "bi"; cVarDef "t"];
-  !! Loop.hoist [cVarDef "t"];
-  *)
 
-
-  (**
-  !! Marks.add "w0" [cWrite ~rhs:[cVar "s"] ()];
-  !! Function.elim_infix_ops ~indepth:true [];
-  Trace.without_resource_computation_between_steps (fun () ->
-    (* !! Show.add_marks_for_target_unit_tests [cFor "bi"; dBody; tFirst]; *)
-     !! Accesses.shift_var
-      ~array_base:(trm_find_var "t" [])
-       ~inv:true
-       ~factor:(trm_get (trm_find_var "s" [])) [cMark "w0"];
-       *)
-    (* works but does not produce the intended code
-       let address_pattern = Trm.(array_access (trm_find_var "t" []) (pattern_var "i")) in
-      !! Accesses.shift ~address_pattern ~inv:true ~factor:(trm_get (trm_find_var "s" [])) [cFor "i"]; *)
-
-
-  (*
-
-
-  ) *)
-
-  (*
-  !! Function.elim_infix_ops ~indepth:true [];
-
-    let address_pattern = Trm.(array_access (trm_find_var "t" []) (pattern_var "i")) in
-      !! Accesses.shift ~address_pattern ~inv:true ~factor:(trm_get (trm_find_var "s" [])) [cFor "i"];
-
-    (* !! Accesses.shift_var ~inv:true ~factor:(trm_get (trm_find_var "s" [])) [cVarDef "t"];
-       ==> ideally would work for arrays *)
-    !! Arith.(simpl_rec gather_rec) [];
-    !! Function.use_infix_ops ~indepth:true [];
-
-    !! Flags.recompute_resources_between_steps := false;
-  )
-
-    Flags.recompute_resources_between_steps := false;
-
-  )*)
-
-
-
-(*
-> J'arrive maintenant au stade :
->
-> s = 0
-> for b
->   t[bi] = s
->   for i in block bi
->     t[bi] = t[bi] + a[i] * b[i]
->   s = t[bi]
->
-> je lance le shift mais il ne fait pas exactement ce que je veux.
->
-> s = 0
-> for b
->   t[bi] = s
->   t[bi] = t[bi] - s
->         // alors que je voulais grouper les deux instructions ci-dessus en t = s - s
->   for i in block bi
->      t[bi] = ((t[bi] + s) + a[i]*b[i]) - s   // là je voudrais faire un arith simpl
->   t[bi] = t[bi] + s
->   s = t[bi]
->         // alors que je voulais grouper les deux instructions ci-dessus en s = s + t[bi]
->
-> Sur ce code là, qui ne type pas en raison du changement des modèles,
-> on peut donc se poser la question de ce qu'il faudrait faire pour que la boucle type.
-> (il faut faire le shift sur le contrat, je pense que ça suffit peut être).
-
-Je suis pas sur de ce que tu appelle shift sur le contrat, mais si ça revient transformer la ressource :
-&t[MINDEX1(exact_div(n, 32), bi)] ~~> reduce_sum(bi * 32 + i, fun -> A(j) * B(j))
-du contrat en
-&t[MINDEX1(exact_div(n, 32), bi)] ~~> reduce_sum(bi * 32 + i, fun j -> A(j) * B(j)) - reduce_sum(bi * 32 + 0, fun j -> A(j) * B(j))
-, ça ne suffira pas.
-
-Il y aura de toute façon le problème classique de réécriture arithmétique.
-Pour l'expression t[bi] + s tu obtiendra
-res ~~> reduce_sum(bi * 32 + i, fun j -> A(j) * B(j)) - reduce_sum(bi * 32 + 0, fun j -> A(j) * B(j)) + reduce_sum(bi * 32 + 0, fun j -> A(j) * B(j))
-qui ne se simplifie pas tout seul en res ~~> reduce_sum(bi * 32 + i, fun j -> A(j) * B(j)) par exemple.
-
-Si on insère bien la ghost de cette simplification, il faut aussi penser à adapter les arguments inside des deux ghosts qui suivent:
-   __ghost(rewrite_float_linear, "inside := fun v -> &t[MINDEX1(exact_div(n, 32), bi)] ~~> v, by := reduce_sum_add_right(bi * 32 + i, fun j -> A(j) * B(j), i_gt_0)");
-   __ghost(rewrite_linear, "inside := fun (i: int) -> &t[MINDEX1(exact_div(n, 32), bi)] ~~> reduce_sum(i, fun j -> A(j) * B(j)), by := add_assoc_right(bi * 32, i, 1)");
-
-Pour ajouter le ... - reduce_sum(bi * 32 + 0, fun j -> A(j) * B(j)) manquant.
-
-> En vrai, je voudrais en faire faire un shift_var sur toutes les cases du tableau "t", mais le code ne gère pas ça. Je ne sais pas si ça serait plus simple ou plus compliqué de passer par le code ci-dessus, plutôt que d'aller directement au code idéal avec les instructions regroupées. Un avis ?
-*)
-
-
-  (*  (*  *)
-   *)
-  (* !! Variable.shift *)
-  (* !! Openmp.parallel *)
-
-
-(*
-
-
+(*============================HIGH LEVEL VIEW OF THE SCRIPT ==============
 
 s = 0
 __ghost(0 = reduce(0,0,f) à réécrire dans s ~> 0 pour avoir s ~> reduce(0,0,..))
@@ -316,8 +223,6 @@ parallel for b
     t[b] += a[i] * b[i]
 for b
   s += t[b]
-
-
 
 
 =====================
