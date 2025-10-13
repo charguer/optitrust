@@ -9,4 +9,7 @@ let _ = Flags.preserve_specs_only := true
 let _ = Run.script_cpp (fun _ ->
   !! Accesses.shift_var ~factor:(trm_float 5.0) [nbMulti; cTopFunDef "test_var"; cVarDef "x"];
   !! Accesses.shift_var ~factor:(trm_int 1) [nbMulti; cTopFunDef "test_var_inv"; cVarDef "s"];
+
+  (* FIXME: properly shift through rewrite ghost *)
+  !! Accesses.shift_var ~factor:(trm_int 1) [nbMulti; cTopFunDef "test_var_inv"; cVarDef "s2"];
 )
