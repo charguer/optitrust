@@ -144,6 +144,10 @@ let ghost_admitted_rewrite (before: formula) (after: formula) (justif: formula):
   ghost_admitted contract ~justif
 
 let var_ghost_assert_hprop = toplevel_var "assert_hprop"
+
+let ghost_assert_hprop (f: formula): trm =
+  ghost (ghost_call var_ghost_assert_hprop ["H", f])
+
 let var_ghost_forget_init = toplevel_var "forget_init"
 
 let ghost_forget_init (f: formula): trm =
@@ -238,6 +242,11 @@ let to_prove_bind (f: formula): (var * trm) =
   let v = new_var "H" in
   (v, ghost (ghost_call ~ghost_bind:[Some v, "H"] var_ghost_to_prove ["P", f]))
 
+let var_ghost_to_prove_hprop = toplevel_var "to_prove_hprop"
+
+let ghost_to_prove_hprop (f1: formula) (f2: formula): trm =
+  ghost (ghost_call var_ghost_to_prove_hprop ["H1", f1; "H2", f2])
+
 (*****************************************************************************)
 (* Integer rewriting *)
 
@@ -292,6 +301,9 @@ let delete_annots_on
           Pattern.pattern_match t [
             Pattern.(trm_apps (trm_specific_var var_ghost_to_prove) nil (pair __ !__ ^:: nil) __) (fun prop_to_prove () ->
               on_delete_to_prove prop_to_prove
+            );
+            Pattern.(trm_apps (trm_specific_var var_ghost_to_prove_hprop) nil (pair __ !__ ^:: nil) __) (fun hprop_to_prove () ->
+              on_delete_to_prove hprop_to_prove
             );
             Pattern.__ (fun () -> ())
           ]

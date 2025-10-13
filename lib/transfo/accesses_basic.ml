@@ -61,8 +61,26 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
       );
       Pattern.(trm_set !__ !__) (fun addr value () ->
         Pattern.when_ (address_matches addr);
-        trm_set (trm_add_mark mark_handled_addresses addr)
-          (f_set (trm_map fix_inside_span value))
+        let new_set = trm_set (trm_add_mark mark_handled_addresses addr)
+          (f_set (trm_map fix_inside_span value)) in
+        if !Flags.use_resources_with_models then begin
+          let old_res_after = Resources.after_trm t in
+          let old_value_after =
+            Option.unsome ~error:"could not find old value" (List.find_map (fun (_, formula) ->
+              Pattern.pattern_match_opt formula [
+                Pattern.(formula_points_to !__ !__) (fun addr value () ->
+                  Pattern.when_ (address_matches addr);
+                  value
+                )
+              ]
+            ) old_res_after.linear) in
+          let maintain_res = Resource_trm.ghost_to_prove_hprop
+          (formula_points_to addr (trm_var ?typ:value.typ (toplevel_var (fresh_var_name ~prefix:"__hole" ()))))
+          (formula_points_to addr (f_set old_value_after)) in
+          trm_seq_nobrace_nomarks [new_set; maintain_res]
+        end else begin
+          new_set
+        end
       );
       Pattern.(formula_points_to !__ !__) (fun addr value () ->
         Pattern.when_ (address_matches addr);
@@ -273,6 +291,7 @@ let%transfo transform_arith ~(op:transform_arith_op) ?(inv:bool=false) ~(factor:
   ?(mark_to_prove : mark = no_mark)
   ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
   (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun () ->
   if !Flags.check_validity && not !Flags.preserve_specs_only then
     if not (Resources.trm_is_pure factor) then
       trm_fail factor "basic variable scaling does not support non-pure arguments";
@@ -295,6 +314,7 @@ let%transfo transform_arith ~(op:transform_arith_op) ?(inv:bool=false) ~(factor:
     | Transform_arith_mul -> [Resource_trm.to_prove Resource_formula.(formula_neq ~typ factor (trm_int ~typ 0))]
     in
   transform f_get f_set ~to_prove ~address_pattern ~mark_to_prove ~mark_preprocess ~mark_postprocess tg
+  )
 
 let%transfo transform_arith_immut ~(op:transform_arith_op) ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
   if !Flags.check_validity && not !Flags.preserve_specs_only then

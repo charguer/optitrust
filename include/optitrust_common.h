@@ -110,6 +110,13 @@ __GHOST(to_prove) {
   __admitted();
 }
 
+__GHOST(to_prove_hprop) {
+  __requires("H1: HProp, H2: HProp");
+  __consumes("H1");
+  __produces("H2");
+  __admitted();
+}
+
 /* ---- Pure matrix functions ---- */
 
 inline int MINDEX0() {

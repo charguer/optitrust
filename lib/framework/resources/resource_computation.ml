@@ -201,6 +201,10 @@ let missing_types_in_contracts = ref false
 let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
   let typ = match t.desc with
   | Trm_var v ->
+    if String.starts_with ~prefix:"__hole" v.name then
+      (* FIXME: hole hack *)
+      unsome_or_trm_fail t "unknown hole type" t.typ
+    else
     begin match Resource_set.find_pure v (Resource_set.make ~pure:env.res ()) with
     | Some typ -> typ
     | None -> failwith "Variable '%s' could not be found in environment" (var_to_string v)
