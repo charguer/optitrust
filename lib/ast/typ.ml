@@ -61,11 +61,18 @@ let typ_usize = typ_var typ_usize_var
 let typ_isize_var = toplevel_typvar "isize"
 let typ_isize = typ_var typ_isize_var
 
-(* Types for floating point values with 32 bits (C float's) or 64 bits (C double's) *)
+(* Types for floating point values with 32 bits (C float's) or 64 bits (C double's)  *)
 let typ_f32_var = toplevel_typvar "f32"
 let typ_f32 = typ_var typ_f32_var
 let typ_f64_var = toplevel_typvar "f64"
 let typ_f64 = typ_var typ_f64_var
+
+(* Types float and double for working with C code -- temporary
+  TODO failure("Type of the let binding does not match type of the body (float != float)") *)
+(* let typ_float_var = toplevel_typvar "float"
+let typ_float = typ_var typ_float_var
+let typ_double_var = toplevel_typvar "double"
+let typ_double = typ_var typ_double_var *)
 
 (* Type of booleans *)
 let typ_bool_var = toplevel_typvar "bool"

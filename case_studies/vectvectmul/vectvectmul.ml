@@ -3,7 +3,7 @@ open Prelude
 
 let _ = Flags.check_validity := false
 let _ = Flags.preserve_specs_only := true
-let _ = Flags.pretty_matrix_notation := true
+let _ = Flags.pretty_matrix_notation := false
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_all (*Steps_important*)
@@ -11,12 +11,33 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_all (*Steps_important*)
 
 let int = trm_int
 
-let _ = Run.script_cpp (fun () ->
+let part = 2 (* Choose which part you want to work on. *)
+
+(* Part 1: until need to fix the ghoston the shift_var *)
+let _ = if part = 1 then Run.script_cpp (fun () ->
+  !! Function.elim_infix_ops ~indepth:true [];
   !! Loop.tile (int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
   !! Variable.local_name ~var:"s" ~local_var:"t" [cFor "i"];
+  !! Sequence_basic.insert (trm_let (new_var "d", typ_f32) (trm_get (trm_find_var "s" []))) [tFirst; cForBody "bi"];
+  (* at this line, the output is the equivalent of vectvectmul0.cpp,
+    beware that "==" needs to be replaced with "=." and all the "__is_true" must be removed;
+    some +. and + need to be fixed
+    ----> todo: tweak display so that the output of _after.cpp is exactly  vectvectmul0.cpp *)
+  !! Accesses.shift_var ~factor:(trm_find_var "d" []) [nbMulti; cVarDef "t"];
+)
+
+(* "vectvectmul1.cpp" is obtained by applying shift_var by hand on  vectvectmul0.cpp *)
+let _ = if part = 2 then Run.script_cpp ~filename:"vectvectmul1.cpp" (fun () ->
+  !! ()
+)
+
+
+
+  (**
   !! Accesses.shift_var ~inv:true ~factor:(trm_get (trm_find_var "s" [])) [cFor "bi"; cVarDef "t"];
   !! Loop.hoist [cVarDef "t"];
-);
+  *)
+
 
   (**
   !! Marks.add "w0" [cWrite ~rhs:[cVar "s"] ()];
@@ -234,7 +255,7 @@ for b
   //   __DEF(p, "reduce(0,b*B,...)");
   ...
 
-  ==> in fine, I think inlining 'p' would be easiest.
+  ==> in fine, I think inlining 'p' into 'reduce(0,b*B,...)' in formulae would be easiest.
 
 
 --- hoist de t

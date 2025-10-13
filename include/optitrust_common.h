@@ -78,6 +78,14 @@ __GHOST(rewrite_float_linear) {
   __admitted();
 }
 
+__GHOST(rewrite_float_linear_admitted) {
+  __requires("from: float, to: float");
+  __requires("inside: float -> HProp");
+  __consumes("inside(from)");
+  __produces("inside(to)");
+  __admitted();
+}
+
 __GHOST(eq_refl_float) {
   __requires("x:float");
   __ensures("x =. x");
