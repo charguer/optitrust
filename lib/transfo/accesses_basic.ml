@@ -64,9 +64,13 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
         trm_set (trm_add_mark mark_handled_addresses addr)
           (f_set (trm_map fix_inside_span value))
       );
+      Pattern.(formula_repr !__ !__) (fun addr repr () ->
+        Pattern.when_ (address_matches addr);
+        formula_points_to (trm_add_mark mark_handled_addresses addr) repr
+      );
       Pattern.(formula_points_to !__ !__) (fun addr value () ->
         Pattern.when_ (address_matches addr);
-        formula_points_to (trm_add_mark mark_handled_addresses addr) value
+        formula_points_to (trm_add_mark mark_handled_addresses addr) (f_set value)
       );
       Pattern.(formula_uninit_cell !__) (fun addr () ->
         Pattern.when_ (address_matches addr);

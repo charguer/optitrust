@@ -9,6 +9,17 @@ void test_var() {
   x = x * 2.0;
 }
 
+void test_var_inv(int* t, int n) {
+  __reads("t ~> Matrix1(n)");
+
+  int s = 0;
+  for (int i = 0; i < n; i++) {
+    __spreserves("&s ~> Cell");
+    s = s + 1;
+  }
+}
+
+
 void test_array() {
   double t[2] = { 1., 2 };
   t[0] = t[0] * 1.0;

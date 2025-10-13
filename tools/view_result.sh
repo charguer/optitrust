@@ -211,9 +211,6 @@ TIMER6=`date +%s%3N`
 
 echo "View ${FILEPATH} with options ${OPTIONS}"
 
-# LATER: automate only if we are sure that clang versions are compatible
-# make -C ${OPTITRUST_FOLDER} precompile
-
 # Note: the test is to allow bypassing 'make precompile' on machines where it does not work
 if [ ! -f "${OPTITRUST_FOLDER}/disable_precompile.txt" ]; then
     make -C ${OPTITRUST_FOLDER} precompile
