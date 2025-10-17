@@ -217,6 +217,32 @@ void hist_merge(int *hist, int *partial_hists, int hist_len) {
   }
 }
 
+void hist_merge(int *hist, int *partial_hists, int hist_len) {
+  for (int b = 0; b < MERGE_BLOCKS; b++) { // Note: this HAS to be = hist_len!
+    __shared__ uint data[MERGE_THREADBLOCK_SIZE];
+    for (int t = 0; t < MERGE_THREADBLOCK_SIZE; t++) {
+      int sum = 0;
+      for (int i = t; i < PARTIAL_HISTOGRAMS_COUNT; i += MERGE_THREADBLOCK_SIZE) {
+        sum += partial_hists[b + i * hist_len];
+      }
+      data[threadIdx.x] = sum;
+    }
+    for (uint stride = MERGE_THREADBLOCK_SIZE / 2; stride > 0; stride >>= 1) {
+      __sync(block);
+      for (int t = 0; t < MERGE_THREADBLOCK_SIZE; t++) {
+        if (threadIdx.x < stride) {
+          data[threadIdx.x] += data[threadIdx.x + stride];
+        }
+      }
+    }
+    for (int t = 0; t < MERGE_THREADBLOCK_SIZE; t++) {
+      if (threadIdx.x == 0) {
+        hist[blockIdx.x] = data[0];
+      }
+    }
+  }
+}
+
 // Same problem as reduce in terms of making this a transformation
 // (do we express it as a sequential loop outside the thread loop,
 //  or have transfo that introduces sync, etc.)
