@@ -743,6 +743,17 @@ let compute_produced_resources (subst_ctx: tmap) ?(ensured_renaming = Var_map.em
               | _ -> aliases
             in
             let subst_ctx = if var_eq h var_result then subst_ctx else Var_map.add h (trm_var produced_hyp) subst_ctx in
+            (* BEGIN TEMPORARY solution to promote an equality "_Res = v" into an alias "_Res := v".
+              See unit test 'ghost_args.cpp' *)
+            Printf.printf "testing var_result\n";
+            let aliases =
+               Pattern.pattern_match produced_formula [
+                  Pattern.(formula_is_true (trm_eq (trm_specific_var var_result) !__)) (fun res_value () ->
+                    Printf.printf "found res = v\n";
+                    Var_map.add var_result res_value aliases);
+                  Pattern.__ (fun () -> aliases) ]
+              in
+            (* END *)
             (produced_hyp, produced_formula) :: pure_rev, contract_names, subst_ctx, aliases
           with ClearedVarOccurence _ ->
             pure_rev, contract_names, Var_map.add h (trm_var dummy_var) subst_ctx, aliases
