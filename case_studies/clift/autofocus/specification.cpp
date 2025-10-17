@@ -1,5 +1,5 @@
 #include "optitrust.h"
-/
+
 // Simple focus: We want to type the simple_focus call that requires permission
 // on one row of the matrix
 void simple_focus(float *x, int m, int n) {
