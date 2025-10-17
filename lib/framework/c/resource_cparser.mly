@@ -26,7 +26,7 @@
 %token <int> INT_LIT
 %token <float> FLOAT_LIT
 %token LPAR RPAR LBRACKET RBRACKET
-%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW LONG_SQUIG_ARROW COLON_EQUAL REV_ARROW DOT DOTDOT UNDERSCORE
+%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW LONG_SQUIG_ARROW LONG_SQUIG_ARROW_G COLON_EQUAL REV_ARROW DOT DOTDOT UNDERSCORE
 %token FUN FORALL FOR IN EOF
 %token PLUS MINUS STAR SLASH PERCENT
 %token EQUAL LT GT LEQ GEQ NEQ
@@ -172,6 +172,8 @@ formula:
     { formula_repr t f }
   | t=ampersand_formula; LONG_SQUIG_ARROW; f=formula;
     { formula_points_to t f }
+  | t=ampersand_formula; LONG_SQUIG_ARROW_G; f=formula;
+    { formula_gpu_points_to t f }
   | FUN; args=fun_args; ARROW; body=formula;
     { formula_fun args body }
   | FORALL; args=fun_args; ARROW; body=formula;

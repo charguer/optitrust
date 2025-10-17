@@ -369,6 +369,7 @@ and lit_to_doc style (cstyles: cstyle_annot list) (l : lit) : document =
 and unop_to_doc style (op : unary_op) : document =
   match op with
   | Unop_get -> star
+  | Unop_gpu_get -> star ^^ char 'g' ^^ blank 1
   | Unop_address -> ampersand
   | Unop_neg -> bang
   | Unop_bitwise_neg -> tilde
@@ -386,6 +387,7 @@ and unop_to_doc style (op : unary_op) : document =
 and binop_to_doc style (op : binary_op) : document =
   match op with
   | Binop_set -> equals
+  | Binop_gpu_set -> equals ^^ char 'g' ^^ blank 1
   | Binop_array_access -> lbracket ^^ rbracket
   | Binop_array_get -> lbracket ^^ rbracket
   | Binop_eq -> twice equals
@@ -963,6 +965,7 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_
           begin match op with
           (* | Unop_get when style.optitrust_syntax -> star ^^ d *)
           | Unop_get -> star ^^ d
+          | Unop_gpu_get -> star ^^ char 'g' ^^ blank 1 ^^ d
           | Unop_address ->ampersand ^^ d
           | Unop_neg -> bang ^^ d
           | Unop_bitwise_neg -> tilde ^^ d

@@ -66,6 +66,7 @@ let rec print_typ style t = print_trm style t
 and print_unop style (op : unary_op) : document =
   match op with
   | Unop_get -> string "Unop_get"
+  | Unop_gpu_get -> string "Unop_gpu_get"
   | Unop_address -> string "Unop_address"
   | Unop_neg -> string "Unop_neg"
   | Unop_bitwise_neg -> string "Unop_bitwise_neg"
@@ -104,6 +105,7 @@ and print_binop (op : binary_op) : document =
   | Binop_shiftl -> string "Binop_shiftl"
   | Binop_shiftr -> string "Binop_shiftr"
   | Binop_xor -> string "Binop_xor"
+  | Binop_gpu_set -> string "Binop_gpu_set"
   (*| Binop_fmod -> string "Binop_fmod"*)
 
 (** [print_consistency cm]: converts OpenMP memory consistency model to pprint document *)

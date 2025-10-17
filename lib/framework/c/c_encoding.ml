@@ -758,9 +758,6 @@ let rec decode_ghost_annot (t: trm): trm =
           trm_alter ~annot:{t.annot with trm_annot_attributes = [GhostInstr]} ~desc:(Trm_apps (ghost_fn, [], ghost_args, ghost_bind)) t
         ]
       );
-    Pattern.(trm_apps (trm_var_with_name "__clear") (trm_string !__ ^:: __) __ __) (fun hyp_name () ->
-        trm_alter ~loc:t.loc (Resource_trm.ghost_clear (name_to_var hyp_name))
-      );
     Pattern.(trm_seq !__ !__) (fun seq result () -> trm_alter ~desc:(Trm_seq (Mlist.of_list (decode_ghost_annot_in_seq (Mlist.to_list seq)), result)) t);
     Pattern.__ (fun () -> trm_map decode_ghost_annot t)
   ]
@@ -1418,6 +1415,17 @@ let autogen_alpha_rename style (t : trm) : trm =
 
 (*************************************** Main entry points *********************************************)
 
+let rec decode_gpu_ops (t: trm): trm =
+  match t.desc with
+  | Trm_apps (f,tl,g1,g2) ->
+    let result = trm_var_inv f in
+    let f' = (match result with
+      | Some fv when (var_eq fv (var_gpu_set)) ->  trm_alter ~desc:(Trm_prim (typ_auto,Prim_binop Binop_gpu_set)) f
+      | Some fv when (var_eq fv (var_gpu_get)) -> trm_alter ~desc:(Trm_prim (typ_auto,Prim_unop Unop_gpu_get)) f
+      | _ -> f) in
+    trm_map decode_gpu_ops (trm_alter ~desc:(Trm_apps (f',tl,g1,g2)) t)
+  | _ -> trm_map decode_gpu_ops t
+
 (** [decode_from_c t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let decode_from_c: trm -> trm =
@@ -1434,6 +1442,7 @@ let decode_from_c: trm -> trm =
   decode_return |>
   decode_expr_in_seq |>
   decode_formula_sugar |>
+  decode_gpu_ops |>
   decode_alloc |>
   Scope_computation.infer_var_ids)
 

@@ -148,16 +148,30 @@ let formula_repr_inv (t: formula): (trm * formula) option =
 let var_cell = toplevel_var "Cell"
 let trm_cell = trm_var var_cell
 
+let var_gpu_cell = toplevel_var "GpuCell"
+let trm_gpu_cell = trm_var var_gpu_cell
+
 let formula_cell (addr: trm): formula =
   if !Flags.use_resources_with_models then
     failwith "formula_cell cannot be used when models are enabled";
   formula_repr addr trm_cell
+
+let formula_gpu_cell (addr: trm): formula =
+  if !Flags.use_resources_with_models then
+    failwith "formula_gpu_cell cannot be used when models are enabled";
+  formula_repr addr trm_gpu_cell
 
 let formula_points_to (addr: trm) (value: formula): formula =
   if !Flags.use_resources_with_models then
     formula_repr addr (trm_apps trm_cell [value])
   else
     formula_cell addr
+
+let formula_gpu_points_to (addr: trm) (value: formula): formula =
+  if !Flags.use_resources_with_models then
+    formula_repr addr (trm_apps trm_gpu_cell [value])
+  else
+    formula_gpu_cell addr
 
 let formula_cell_inv (t: formula): trm option =
   let open Option.Monad in

@@ -18,6 +18,7 @@ rule lex_resources = parse
   | "->" { ARROW }
   | "~>" { SQUIG_ARROW }
   | "~~>" { LONG_SQUIG_ARROW }
+  | "~~>gpu" { LONG_SQUIG_ARROW_G }
   | "fun" { FUN }
   | "for" { FOR }
   | "forall" { FORALL }

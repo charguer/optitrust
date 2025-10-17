@@ -324,6 +324,10 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
           let model_typ = compute_pure_typ env model in
           if not (Trm_unify.are_same_trm val_typ model_typ) then failwith "In '%s': pointer '%s' of type '%s' cannot point to a value '%s' of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string ptr) (Ast_to_c.typ_to_string ptr_typ) (Ast_to_c.ast_to_string model) (Ast_to_c.typ_to_string model_typ)
         );
+        Pattern.(trm_apps1 (trm_specific_var var_gpu_cell) !__) (fun model () ->
+          let model_typ = compute_pure_typ env model in
+          if not (Trm_unify.are_same_trm val_typ model_typ) then failwith "In '%s': pointer '%s' of type '%s' cannot point to a value '%s' of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string ptr) (Ast_to_c.typ_to_string ptr_typ) (Ast_to_c.ast_to_string model) (Ast_to_c.typ_to_string model_typ)
+        );
         Pattern.__ (fun () -> failwith "Unknown representation predicate '%s'" (Ast_to_c.ast_to_string repr))
       ];
       typ_hprop
@@ -1287,6 +1291,28 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
       } in
       (* func_typ is hard to give because this is a polymorphic function and we do not have polymorphic function types *)
       typ_auto, { args = [arg_var]; contract; inverse = None }
+    | Unop_gpu_get ->
+      assert (is_typ_auto typ);
+      (* typ = auto so we replace it by a fresh type variable *)
+      let vartyp = new_hyp "T" in
+      let typ = typ_var vartyp in
+      let arg_var = new_hyp "p" in
+      let model_var = new_hyp "v" in
+      let pre_model, post_aliases =
+        if !Flags.use_resources_with_models then
+          [model_var, typ], (Var_map.singleton var_result (trm_var model_var))
+        else
+          [], Var_map.empty
+      in
+      let frac_var = new_hyp "f" in
+      let ro_cell = formula_read_only ~frac:(trm_var frac_var) (formula_gpu_points_to (trm_var arg_var) (trm_var model_var)) in
+      (* With C++ syntax: template<typename T> T get(T* p) { __reads("p ~> GpuCell"); } *)
+      let contract = {
+        pre = Resource_set.make ~pure:((vartyp, typ_type) :: (arg_var, typ_ptr typ) :: (frac_var, typ_frac) :: pre_model) ~linear:[new_anon_hyp (), ro_cell] ();
+        post = Resource_set.make ~pure:[var_result, typ] ~linear:[new_anon_hyp (), ro_cell] ~aliases:post_aliases ()
+      } in
+      (* func_typ is hard to give because this is a polymorphic function and we do not have polymorphic function types *)
+      typ_auto, { args = [arg_var]; contract; inverse = None }
   in
   let find_binop_spec (binop: binary_op) =
     match binop with
@@ -1294,6 +1320,17 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
       pure_prim (Prim_binop binop)
 
     | Binop_set ->
+      assert (is_typ_auto typ);
+      let vartyp = new_hyp "T" in
+      let typ = typ_var vartyp in
+      let dest_var = new_hyp "dest" in
+      let value_var = new_hyp "value" in
+      let contract = {
+        pre = Resource_set.make ~pure:[(vartyp, typ_type); (dest_var, typ_ptr typ); (value_var, typ)] ~linear:[new_anon_hyp (), (formula_uninit_cell_var dest_var)] ();
+        post = Resource_set.make ~linear:[new_anon_hyp (), formula_points_to (trm_var dest_var) (trm_var value_var)] ()
+      } in
+      typ_auto, { args = [dest_var; value_var]; contract; inverse = None }
+    | Binop_gpu_set ->
       assert (is_typ_auto typ);
       let vartyp = new_hyp "T" in
       let typ = typ_var vartyp in
