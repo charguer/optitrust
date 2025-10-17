@@ -173,6 +173,15 @@ let is_ghost_alias (t : trm) : bool =
   | _ -> false
   end
 
+let var_z_cancel_minus_plus = toplevel_var "z_cancel_minus_plus"
+let var_z_cancel_plus_minus = toplevel_var "z_cancel_plus_minus"
+
+let z_cancel_minus_plus (n: formula) (d: formula): trm =
+  trm_apps (trm_var var_z_cancel_minus_plus) [n; d]
+
+let z_cancel_plus_minus (n: formula) (d: formula): trm =
+  trm_apps (trm_var var_z_cancel_plus_minus) [n; d]
+
 let var_assert_eq = toplevel_var "assert_eq"
 
 let var_ghost_hide = toplevel_var "hide"

@@ -117,6 +117,21 @@ __GHOST(to_prove_hprop) {
   __admitted();
 }
 
+/* ---- theorems on Z (idealised int) ---- */
+
+__AXIOM(z_cancel_minus_plus, "forall (n: int) (d: int) -> n - d + d = n");
+__AXIOM(z_cancel_plus_minus, "forall (n: int) (d: int) -> n + d - d = n");
+
+// CURRENTLY NOT USED, '_Res =' equality is not automatically applied by typechecker
+int wrap_z_cancel_minus_plus(int m) {
+  __requires("n: int, d: int");
+  __requires("m = n - d + d");
+  __ensures("_Res = n");
+  __admitted();
+  return m;
+  __ghost(rewrite_linear, "inside := fun v -> _Res = v, by := z_cancel_minus_plus");
+}
+
 /* ---- Pure matrix functions ---- */
 
 inline int MINDEX0() {

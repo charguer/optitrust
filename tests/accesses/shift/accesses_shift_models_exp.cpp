@@ -2,38 +2,115 @@
 
 void test_var() {
   __pure();
-  double x = 0. + 5.;
-  __ghost(to_prove_hprop, "H1 := &x ~~> __hole1, H2 := &x ~~> 0. + 5.");
-  x = 1. + 5.;
-  __ghost(to_prove_hprop, "H1 := &x ~~> __hole2, H2 := &x ~~> 1. + 5.");
-  double y = (x - 5.) * 1.;
-  x = (x - 5.) * 2. + 5.;
-  __ghost(to_prove_hprop, "H1 := &x ~~> __hole3, H2 := &x ~~> 1. * 2. + 5.");
+  int x = 0 + 5;
+  x = 1 + 5;
+  int y = /*no-brace*/ { int get = x - 5;
+  __ghost(
+      rewrite_linear,
+      "inside := fun (v: int) -> &get ~~> v, by := z_cancel_plus_minus(1, 5)");
+  const int getc = get;
+}
+*1;
+x = /*no-brace*/ { int get = x - 5;
+__ghost(
+    rewrite_linear,
+    "inside := fun (v: int) -> &get ~~> v, by := z_cancel_plus_minus(1, 5)");
+const int getc = get;
+}
+*2 + 5;
 }
 
 void test_var_inv(int* t, int n) {
   __requires("T: int -> int");
   __reads("t ~> Matrix1(n, T)");
-  __ghost(assume, "P := __is_true(1 == 0 + 1)", "p01 <- H");
-  __ghost(assume, "P := forall (n: int) -> __is_true(n - 1 + 2 == n + 1)",
-          "p1 <- H");
+  int r = 0;
+  {
+    int s = 0 + 1;
+    for (int i = 0; i < n; i++) {
+      __strict();
+      __spreserves("&s ~~> i + 1");
+      s++;
+    }
+    r = /*no-brace*/ { int get = s - 1;
+    __ghost(rewrite_linear,
+            "inside := fun (v: int) -> &get ~~> v, by := "
+            "z_cancel_plus_minus(n, 1)");
+    const int getc = get;
+  };
+  __call_with(assert_hprop(), "H := &r ~~> n");
+}
+{
   int s = 0 + 1;
-  __ghost(to_prove_hprop, "H1 := &s ~~> __hole4, H2 := &s ~~> 0 + 1");
   for (int i = 0; i < n; i++) {
     __strict();
     __spreserves("&s ~~> i + 1");
     s++;
+    s = s - 1 - 1 + 1;
+    __ghost(rewrite_linear,
+            "inside := fun (v: int) -> &s ~~> v - 1 + 1, by := "
+            "z_cancel_plus_minus(i + 1, 1)");
+    s = s - 1 + 1 + 1;
+    __ghost(rewrite_linear,
+            "inside := fun (v: int) -> &s ~~> v + 1 + 1, by := "
+            "z_cancel_plus_minus(i + 1 - 1, 1)");
+    __ghost(
+        rewrite_linear,
+        "inside := fun v -> &s ~~> v + 1, by := z_cancel_minus_plus(i + 1, 1)");
+    s = /*no-brace*/ { int get = s - 1;
+    __ghost(rewrite_linear,
+            "inside := fun (v: int) -> &get ~~> v, by := z_cancel_plus_minus(i "
+            "+ 1, 1)");
+    const int getc = get;
   }
-  int s2 = 1 + 1;
-  __ghost(to_prove_hprop, "H1 := &s2 ~~> __hole5, H2 := &s2 ~~> 1 + 1");
-  __ghost(rewrite_linear, "inside := fun v -> &s2 ~~> v + 1, by := p01");
+  -1 + 1;
+  s = /*no-brace*/ { int get = s - 1;
+  __ghost(rewrite_linear,
+          "inside := fun (v: int) -> &get ~~> v, by := z_cancel_plus_minus(i + "
+          "1 - 1, 1)");
+  const int getc = get;
+}
++ 1 + 1;
+__ghost(rewrite_linear,
+        "inside := fun v -> &s ~~> v + 1, by := z_cancel_minus_plus(i + 1, 1)");
+}
+s = /*no-brace*/ { int get = s - 1;
+__ghost(
+    rewrite_linear,
+    "inside := fun (v: int) -> &get ~~> v, by := z_cancel_plus_minus(n, 1)");
+const int getc = get;
+}
++ 1 + 1;
+s = s - 1 + 1 + 1;
+__call_with(rewrite_linear(),
+            "inside := fun (v: int) -> &s ~~> v + 1 + 1, by := "
+            "z_cancel_plus_minus(n + 1, 1)");
+s++;
+r = /*no-brace*/ { int get = s - 1;
+__ghost(rewrite_linear,
+        "inside := fun (v: int) -> &get ~~> v, by := z_cancel_plus_minus(n + 1 "
+        "+ 1 + 1, 1)");
+const int getc = get;
+}
+;
+__call_with(assert_hprop(), "H := &r ~~> n + 1 + 1 + 1");
+}
+{
+  __call_with(assume(), "P := forall (n: int) -> __is_true(n - 1 + 2 == n + 1)",
+              "p1 <- H");
+  __call_with(assume(), "P := __is_true(1 == 0 + 1)", "p01 <- H");
+  int s = 1 + 1;
+  __call_with(rewrite_linear(), "inside := fun v -> &s ~~> v + 1, by := p01");
   for (int i = 0; i < n; i++) {
     __strict();
-    __spreserves("&s2 ~~> i + 1 + 1");
-    s2 = s2 - 1 - 1 + 2 + 1;
-    __ghost(to_prove_hprop,
-            "H1 := &s2 ~~> __hole6, H2 := &s2 ~~> i + 1 - 1 + 2 + 1");
+    __spreserves("&s ~~> i + 1 + 1");
+    s = /*no-brace*/ { int get = s - 1;
     __ghost(rewrite_linear,
-            "inside := fun v -> &s2 ~~> v + 1, by := p1(i + 1)");
+            "inside := fun (v: int) -> &get ~~> v, by := z_cancel_plus_minus(i "
+            "+ 1, 1)");
+    const int getc = get;
+  }
+  -1 + 2 + 1;
+  __ghost(rewrite_linear, "inside := fun v -> &s ~~> v + 1, by := p1(i + 1)");
+}
   }
 }
