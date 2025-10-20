@@ -261,7 +261,7 @@ let tests =
 (** [is_focusable star index] : determines whether a given star can be focused on a specific element
     Criteria for focus: This fonction determines whether
     for i in r -> H(i) can be focused into H'
-    The function returns Some(t) if H(t) unifies with H' meaning that the star on i is focused on index t *)
+    The function returns Some(t) if H(t) unifies with H', meaning that the star on i is focused on index t *)
 let is_focusable (range, formula) index : bool =
   let _inf, _sup, var_star_index = range in
   let evar_ctx = Var_map.(empty |> add var_star_index (Unknown ())) in
@@ -299,7 +299,11 @@ let base_access t =
 (* To comment  *)
 
 (** [build focus list]: Tries to build a [focus_list], i.e list of pairs of [group repr] tha represents unitary focuses that allows to goes from [from_group] to [to _group] *
+Each focus : H_i -> H_i+1)
+This function assumes that the from_group and to_group have been normalized already by the caller.
 Criteria for focus is described in the [is_focusable] function
+If the result is Some [F_1;..;F_N] then F_i represents a ghost operation that consumes H_i and produces H_i+1, therefore the sequence F1;..Fn consumes H_1 = from_group and produces H_n+1 = to_group.
+
 *)
 let build_focus_list (from_group : group_repr) (to_group : group_repr) : focus_list option =
   let stars_from, t1 = from_group in
@@ -375,3 +379,7 @@ let () =
       (* run_tests build_focus_list; *)
       !!!()
   )
+
+(* infer -> change name or change way we use it *)
+(* infer -> record avec infer_autofocus, strict pas strict -> a voir si comment ou le faire *)
+(* Add elabs into print evrything  *)

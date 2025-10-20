@@ -463,6 +463,11 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
         (used, candidate :: res, evar_ctx)
       end
   in
+  (* let rec extract_infer_handler ~(split_frac: bool) ((x, formula): resource_item)
+  (res: linear_resource_set) (evar_ctx: unification_ctx) ~(pure_ctx: pure_env) ~(infer:bool)
+  : used_resource_item * linear_resource_set * unification_ctx = *)
+
+  (* TODO : let rec extract_without_infer_then_with_infer  Not exactly sure how to wrap the extract *)
 
   let unify_and_remove_linear
     ((x, formula): resource_item)
@@ -483,6 +488,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
           else Formula_inst.inst_hyp candidate_name, formula_candidate
         in
         let* evar_ctx = (handle_unification infer) formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
+        (* Weakens into uninit every formula *)
         Some (
           { hyp = x; inst_by; used_formula = formula_to_unify },
           None,
@@ -504,6 +510,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
 
       let* evar_ctx = (handle_unification infer) formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
+      (* When I get the focus list here we need to make RO formula, not only RO *)
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
         Some (h, formula_read_only ~frac:(formula_frac_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
@@ -1428,6 +1435,11 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
     If provided, checks that [res' ==> expected_res].
 
     Sets [t.ctx.ctx_resources_*] fields in depth.
+    (* TODO ELIAN: If focus list, then throw everything then
+      -new term and call again compute resources with infer false
+    - modifies trm t (elabs field)
+    Another pass will be called later to trm_call -> trm_seq  *)
+    Rajouter Tools;.debug an niveau du trm apps
     *)
 let rec compute_resources
   ?(expected_res: resource_set option)
