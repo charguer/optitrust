@@ -132,6 +132,11 @@ int wrap_z_cancel_minus_plus(int m) {
   __ghost(rewrite_linear, "inside := fun v -> _Res = v, by := z_cancel_minus_plus");
 }
 
+/* ---- theorems on R (real / idealised float) ---- */
+
+__AXIOM(r_cancel_minus_plus, "forall (n: float) (d: float) -> n -. d +. d =. n");
+__AXIOM(r_cancel_plus_minus, "forall (n: float) (d: float) -> n +. d -. d =. n");
+
 /* ---- Pure matrix functions ---- */
 
 inline int MINDEX0() {

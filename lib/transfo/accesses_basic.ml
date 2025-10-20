@@ -76,8 +76,8 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
           let tmp_get = new_var "get" in
           let tmp_get_const = new_var "getc" in
           let v = new_var "v" in
-          let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~by:(f_cancel old_value_after) (formula_fun [v, typ] (formula_points_to (trm_var tmp_get) (trm_var v))))) in
-          trm_seq_helper ~result:tmp_get_const ~braces:false [
+          let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~typ ~by:(f_cancel old_value_after) (formula_fun [v, typ] (formula_points_to (trm_var tmp_get) (trm_var v))))) in
+          trm_seq_helper ~result:tmp_get_const [
             Trm (trm_let_mut (tmp_get, typ) new_get);
             Trm maintain_res;
             Trm (trm_let (tmp_get_const, typ) (trm_get (trm_var tmp_get)))
@@ -117,7 +117,8 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
             ) old_res_after.linear) in
 
           let v = new_var "v" in
-          let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~by:(f_cancel tvar_model) (formula_fun [v, typ] (formula_points_to tvar (f_set (trm_apps (trm_binop typ binop) [(trm_var v); tval_model])))))) in
+          let typ = Option.unsome ~error:"expected type" new_get.typ in
+          let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~typ ~by:(f_cancel tvar_model) (formula_fun [v, typ] (formula_points_to tvar (f_set (trm_apps (trm_binop typ binop) [(trm_var v); tval_model])))))) in
           trm_seq_helper ~braces:false [
             Trm new_t;
             (* tvar ~~> f_set (tvar_model_to_norm binop tval_model) *)
@@ -350,7 +351,7 @@ let%transfo transform_arith ~(op:transform_arith_op) ?(inv:bool=false) ~(factor:
   let todo_impl v f = trm_unit () in
   let op_get, op_set, op_cancel =
     match op with
-    | Transform_arith_add -> if inv then (trm_add, trm_sub, Resource_trm.z_cancel_minus_plus) else (trm_sub, trm_add, Resource_trm.z_cancel_plus_minus)
+    | Transform_arith_add -> if inv then (trm_add, trm_sub, Resource_trm.cancel_minus_plus ~typ) else (trm_sub, trm_add, Resource_trm.cancel_plus_minus ~typ)
     | Transform_arith_mul -> if inv then (trm_mul, trm_exact_div, todo_impl) else (trm_exact_div, trm_mul, todo_impl)
     in
   let f_get t = trm_add_mark mark (op_get ~typ t factor) in

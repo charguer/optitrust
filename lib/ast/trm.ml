@@ -1313,7 +1313,7 @@ let trm_combinators_unsupported_case (f_name : string) (t : trm) : trm =
 (** [trm_map]: applies function [f] over ast nodes.
    - [share_if_no_change]: enables sharing trm nodes if they are unchanged by [f].
   *)
-let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t : trm) : trm =
+let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) ?(f_formula: formula -> formula = f) (t : trm) : trm =
   let annot = t.annot in
   let loc = t.loc in
   let typ = t.typ in
@@ -1347,7 +1347,7 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
 
   let resource_items_map resources: resource_item list =
     list_map
-      (fun (name, formula) -> (name, f formula))
+      (fun (name, formula) -> (name, f_formula formula))
       (fun (_, fa) (_, fb) -> fa == fb)
       resources
   in
