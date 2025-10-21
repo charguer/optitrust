@@ -76,8 +76,8 @@ let slide_on (available_sum: trm) (a: trm) (b: trm) (w: trm) (f_elem: trm)
     let bi' = trm_add_int i w in
     let ai_next_inv = trm_sub_int (trm_add_int i (trm_int 1)) (trm_int 1) in
     let bi_next_inv = trm_sub_int (trm_add_int (trm_add_int i (trm_int 1)) w) (trm_int 1) in
-    let pi_res r: formula = Resource_formula.formula_points_to pi r in
-    let sum_res r: formula = Resource_formula.formula_points_to (trm_var sum) r in
+    let pi_res r: formula = Resource_formula.formula_points_to ~hw:Resource_formula.trm_any_ty pi r in
+    let sum_res r: formula = Resource_formula.formula_points_to ~hw:Resource_formula.trm_any_ty (trm_var sum) r in
     let contract = Resource_contract.(Resource_formula.(empty_loop_contract |>
       push_loop_contract_clause (Exclusive Writes) (new_anon_hyp (), pi_res (reduce ai' bi' f_elem)) |>
       push_loop_contract_clause (SharedModifies) (new_anon_hyp (), sum_res (reduce ai bi f_elem))
@@ -170,7 +170,7 @@ let%transfo slide
     let (sum, a, w, f_elem) = Option.unsome ~error (List.find_map (fun (_, r) ->
       Pattern.pattern_match_opt r [
         Pattern.(
-          (formula_points_to !__ (reduce_pat !__ (trm_add !__ !__) !__))
+          (formula_points_to !__ (reduce_pat !__ (trm_add !__ !__) !__) __) (* TODO should be restricted to Any? *)
         ) (fun sum a a2 w f_elem () ->
           Pattern.when_ (Trm_unify.are_same_trm a a2);
 
@@ -186,7 +186,7 @@ let%transfo slide
     let (i, ap1, b, pi) = Option.unsome ~error (List.find_map (fun (_, r) ->
       Pattern.pattern_match_opt r [
         Pattern.(formula_group !__ (formula_range !__ !__ (trm_int (eq 1)))
-          (formula_points_to !__ (reduce_pat (trm_var !__) (trm_add (trm_var !__) !__) !__))
+          (formula_points_to !__ (reduce_pat (trm_var !__) (trm_add (trm_var !__) !__) !__) __) (* TODO should be restricted to Any? *)
         ) (fun i ap1 b p i2 i3 w2 f_elem2 () ->
           Pattern.when_ ((var_eq i i2) && (var_eq i i3));
           Pattern.when_ ((Trm_unify.are_same_trm w w2) && (Trm_unify.are_same_trm f_elem f_elem2));
@@ -207,8 +207,8 @@ let%transfo slide
     let s = Option.unsome ~error:"could not find contract on reduction" (List.find_map (fun (_, r) ->
       Pattern.pattern_match_opt r [
         Pattern.(formula_points_to (trm_var !__)
-          (reduce_pat (trm_var (var_eq i_range.index)) (trm_var (var_eq k_range.index)) !__)
-        ) (fun s f_elem2 () ->
+          (reduce_pat (trm_var (var_eq i_range.index)) (trm_var (var_eq k_range.index)) !__) __
+        ) (fun s f_elem2 () ->  (* TODO should be restricted to Any? *)
           Pattern.when_ (Trm_unify.are_same_trm f_elem f_elem2);
 
           s

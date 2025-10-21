@@ -2061,6 +2061,7 @@ let gmem_set_spec _ =
 let init_ctx = Resource_set.make ~pure:[
   typ_type_var, typ_type; (* Needed for polymorphic functions, do we create one metatype to avoid universe inconsistency ? *)
   typ_prop_var, typ_type;
+  (* var_hw_ty, typ_type; *) (* TODO: do we need it? Is it even valid? Everything works without it *)
   typ_hprop_var, typ_type;
   typ_unit_var, typ_type;
   typ_int_var, typ_type;

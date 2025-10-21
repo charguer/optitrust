@@ -144,6 +144,12 @@ let formula_repr_inv (t: formula): (trm * formula) option =
   | Some ({ desc = Trm_var(xf) }, [var; repr]) when var_eq xf var_repr ->
     Some (var, repr)
   | _ -> None
+
+(* TODO: These variable names should probably be more consistent with the rest of the codebase's naming convention
+  To discuss in code review *)
+
+(* TODO: We might want to call it something other than "HW" - maybe memory space or something
+  To discuss in code review*)
 let var_hw_ty = toplevel_var "HwType"
 
 let trm_hw_ty = trm_var var_hw_ty
@@ -154,6 +160,8 @@ let trm_any_ty = trm_var var_any_ty
 let var_cell_of = toplevel_var "CellOf"
 
 let trm_cell_of = trm_var var_cell_of
+
+(* let var_cell = toplevel_var "Cell" *)
 
 
 let trm_cell ?(hw:hwtyp=trm_any_ty) () =
@@ -205,6 +213,7 @@ let formula_points_to_inv (t: formula): (trm * formula * hwtyp) option =
 
 let var_uninit_cell_of = toplevel_var "UninitCellOf"
 let trm_uninit_cell_of = trm_var var_uninit_cell_of
+(* let var_uninit_cell = toplevel_var "UninitCell" *)
 
 let trm_uninit_cell ?(hw:hwtyp=trm_any_ty) () =
     trm_apps ~annot:formula_annot trm_uninit_cell_of [hw]

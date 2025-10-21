@@ -956,6 +956,23 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_
   (* Case of function pointers *)
   (*| Trm_apps ({ desc = (Trm_prim (Prim_unop Unop_get)); _ }, [ { desc = Trm_var x; _ } ], _) ->
       aux_arguments (var_to_doc style x)*)
+  (* TODO make this proper *)
+  | Trm_var v when var_has_name Resource_formula.var_cell_of.name v ->
+    Pattern.pattern_match (List.nth tl 0) [
+      Pattern.(trm_var_with_name Resource_formula.var_any_ty.name) (fun () -> string "Cell");
+      Pattern.__ (fun () ->
+        let var_doc = trm_var_to_doc style v f in
+        aux_arguments var_doc
+        )
+    ]
+  | Trm_var v when var_has_name Resource_formula.var_uninit_cell_of.name v ->
+    Pattern.pattern_match (List.nth tl 0) [
+      Pattern.(trm_var_with_name Resource_formula.var_any_ty.name) (fun () -> string "UninitCell");
+      Pattern.__ (fun () ->
+        let var_doc = trm_var_to_doc style v f in
+        aux_arguments var_doc
+        )
+    ]
   | Trm_var x ->
     let var_doc = trm_var_to_doc style x f in
     aux_arguments var_doc
@@ -1348,7 +1365,7 @@ and formula_to_doc style (f: formula): document =
     Pattern.(formula_points_to !__ !__ !__) (fun addr formula hw () ->
       Pattern.when_ (!Flags.use_resources_with_models);
       Pattern.pattern_match hw [
-        Pattern.(trm_var_with_name "Any") (fun () -> decorate_trm style addr ^^ blank 1 ^^ string "~~>" ^^ blank 1 ^^ trm_to_doc style formula);
+        Pattern.(trm_specific_var ~ignore_unset_id:true var_any_ty) (fun () -> decorate_trm style addr ^^ blank 1 ^^ string "~~>" ^^ blank 1 ^^ trm_to_doc style formula);
         Pattern.__ (fun () -> decorate_trm style addr ^^ blank 1 ^^ string "~~>" ^^ string "[" ^^ (trm_to_doc style hw) ^^ string "]" ^^ blank 1 ^^ trm_to_doc style formula)
       ]
     );
