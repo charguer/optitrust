@@ -793,7 +793,7 @@ let justif (justif:string) : unit =
   infos.step_valid <- true;
   infos.step_justif <- justif::infos.step_justif
 
-(** [justif_always_correct()] is a specialized version of [step_justif]
+(** [justif_always_correct()] is a specialized version of [justif]
    for transformation that are always correct. *)
 let justif_always_correct () : unit =
   justif "always correct"
@@ -918,9 +918,13 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
         if !Flags.reparse_between_steps
           then reparse ();
         if !Flags.recompute_resources_between_steps
-          then
+          then begin
             (*DEBUG: Printf.printf "recompute between steps: %s\n" (step_kind_to_string step.step_kind); *)
-            recompute_resources ()
+            recompute_resources ();
+            if !Flags.use_resources_with_models then
+              (* if models are enabled, typing makes the step valid *)
+              infos.step_valid <- true
+          end
   end;
   (* Save the ast_after and its style *)
   step.step_ast_after <- the_trace.cur_ast;

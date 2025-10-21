@@ -894,9 +894,10 @@ let decl_list_to_typed_vars (tl : trms) : typed_vars =
   ) tl
 
 (** [trm_is_var t]: checks if [t] is a variable occurrence. *)
-let trm_is_var (t : trm) : bool =
-  match t.desc with
-  | Trm_var _ -> true
+let trm_is_var ?(var : var option) (t : trm) : bool =
+  match (t.desc, var) with
+  | (Trm_var _, None) -> true
+  | (Trm_var v1, Some v2) -> var_eq v1 v2
   | _ -> false
 
 (** [trm_is_val_or_var t]: checks if [t] is a variable occurrence or a value *)
@@ -2005,9 +2006,6 @@ let trm_vars_subst (subst_map: var varmap) (t: trm) =
   trm_rename_vars (fun () x -> match Var_map.find_opt x subst_map with
     | Some y -> y
     | None -> x) () t
-
-(* The value associated with an existential variable (evar).
-   It is generic over the type of information stored when the value is unknown. *)
 
 let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =
   (* TODO: Use a real trm_fold later to avoid reconstructing trm *)

@@ -409,6 +409,7 @@ let%transfo simpl_scoped_ghosts (ghosts_before : trm list) (ghosts_after : trm l
    #equiv-rewrite: fixes a similar problem as the code in Variable_basic.subst . *)
 let%transfo simpl_scoped ~(simpl : unit -> unit) (tg : target) : unit =
   if !Flags.check_validity then Target.iter (fun p ->
+  Nobrace_transfo.remove_after (fun () ->
   Trace.without_resource_computation_between_steps (fun () ->
     let error = "expected for loop" in
     let t = Target.get_trm_at_exn (target_of_path p) in
@@ -417,6 +418,7 @@ let%transfo simpl_scoped ~(simpl : unit -> unit) (tg : target) : unit =
     let new_t = Target.get_trm_at_exn (target_of_path p) in
     let (new_range, _, new_contract) = trm_inv ~error trm_for_inv new_t in
 
+    (* rewrites for exclusive resource groups *)
     let resource_item_rewrite_group acc range new_range r1 r2 =
       let open Resource_formula in
       let r1 = formula_group_range range r1 in
@@ -435,14 +437,30 @@ let%transfo simpl_scoped ~(simpl : unit -> unit) (tg : target) : unit =
       resource_item_list_rewrite_group acc range new_range r1.pure r2.pure;
       resource_item_list_rewrite_group acc range new_range r1.linear r2.linear;
     in
-    let rewrites_before = ref [] in
+
+    (* rewrites for invariant resources *)
+    (* FIXME: duplicated code with Loop_basic.transform_range_on *)
+    let with_index_start (rng: loop_range) (c: loop_contract) : resource_set =
+      Resource_set.subst_var rng.index rng.start (Resource_set.filter_with_var rng.index c.invariant) in
+    let with_index_stop (rng: loop_range) (c: loop_contract) : resource_set =
+      Resource_set.subst_var rng.index rng.stop (Resource_set.filter_with_var rng.index c.invariant) in
+    let start_inv_ghost = Resource_trm.ghost_admitted {
+      pre = with_index_start range contract;
+      post = with_index_start new_range new_contract;
+    } in
+    let stop_inv_ghost = Resource_trm.ghost_admitted {
+      pre = with_index_stop new_range new_contract;
+      post = with_index_stop range contract;
+    } in
+
+    let rewrites_before = ref [start_inv_ghost] in
     (* resource_set_rewrite rewrites_before contract.invariant new_contract.invariant; *)
     resource_set_rewrite_group rewrites_before range new_range contract.iter_contract.pre new_contract.iter_contract.pre;
-    let rewrites_after = ref [] in
+    let rewrites_after = ref [stop_inv_ghost] in
     (* resource_set_rewrite rewrites_after new_contract.invariant contract.invariant; *)
     resource_set_rewrite_group rewrites_after new_range range new_contract.iter_contract.post contract.iter_contract.post;
     simpl_scoped_ghosts !rewrites_before !rewrites_after p
-  )) tg
+  ))) tg
   else simpl ()
 
 let%transfo simpl_range ~(simpl : target -> unit) (tg : target) : unit =
@@ -485,7 +503,7 @@ let transform_range
     end;
     simpl_scoped ~simpl:(fun () ->
       simpl_range ~simpl ((target_of_path p_seq) @ [cMark mark_for]);
-      simpl [nbAny; cMark mark_occs];
+      simpl [nbAny; cMark mark_for; cMark mark_occs];
     ) [cMark mark_for];
     if index = "" then
       Loop_basic.rename_index prev_index.name ((target_of_path p_seq) @ [cMark mark_for])
@@ -1181,19 +1199,31 @@ let%transfo fold_instrs ~(index : string) ?(start : int = 0) ?(step : int = 1) (
   fold ~index ~start ~step !nb_targets first_target;
   Variable.fold ~nonconst:true [nbAny; cVarDef "" ~body:[cStrictNew; cInt !nb_targets]]
 
+let%transfo split_range ?(nb: int = 0) ?(cut: trm = trm_unit ())
+  ?(mark_loop1 : mark = no_mark) ?(mark_loop2 : mark = no_mark)
+  ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
+  Marks.with_marks (fun next_mark -> Target.iter (fun p ->
+    let mark_simpl = next_mark () in
+    Loop_basic.split_range ~nb ~cut ~mark_loop1 ~mark_loop2 ~mark_simpl (target_of_path p);
+    simpl [cMark mark_simpl];
+  ) tg)
+
 (** [unroll_first_iterations nb tg]: expects the target [tg] to be pointing at a simple loop;
    it extracts the sequences associated with the [nb] first iterations before loop.
    . *)
-let%transfo unroll_first_iterations (nb:int) ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
-  Target.iter (fun p ->
-    Loop_basic.split_range ~nb (target_of_path p);
-    unroll ~simpl (target_of_path p)
-  ) tg
+let%transfo unroll_first_iterations (nb:int) ?(mark_loop: mark = no_mark)
+  ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
+  Marks.with_marks (fun next_mark -> Target.iter (fun p ->
+    let mark_loop1 = next_mark () in
+    split_range ~simpl ~nb ~mark_loop1 ~mark_loop2:mark_loop (target_of_path p);
+    unroll ~simpl [cMark mark_loop1]
+  ) tg)
 
 (** [unroll_first_iteration tg]: expects the target [tg] to be pointing at a simple loop, it
    extracts the sequence associated with the first iteration before the loop. *)
-let%transfo unroll_first_iteration ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
-  unroll_first_iterations 1 ~simpl tg
+let%transfo unroll_first_iteration ?(mark_loop: mark = no_mark)
+  ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
+  unroll_first_iterations 1 ~mark_loop ~simpl tg
 
 (** [unfold_bound tg]: inlines the bound of the targeted loop if that loop is a simple for loop and if that bound
     is a variable and not a complex expression. *)
@@ -1273,8 +1303,9 @@ let%transfo tile ?(index : string = "b${id}")
     | (TileIterGlobal, _) | (_, TileDivides) ->
       Loop_basic.tile ~index ~bound tile_size (target_of_path p)
     | _ -> begin
-      reparse_after (Loop_basic.tile ~index ~bound tile_size) (target_of_path p);
-      shift_range StartAtZero (target_of_path (Path.to_inner_loop p));
+      (* reparse_after ( *)
+      Loop_basic.tile ~index ~bound tile_size (target_of_path p);
+      (* shift_range StartAtZero (target_of_path (Path.to_inner_loop p)); *)
     end
   ) tg
 

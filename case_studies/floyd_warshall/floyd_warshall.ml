@@ -24,7 +24,7 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.split_range ~cut:(expr "k") [occIndex 1; cFor "i"];
   !! Loop.split_range ~cut:(expr "k+1") [occIndex 2; cFor "i"];
   !!! (
-    Loop.shift StartAtZero [cFor ~stop:[sExpr "k + 1"] "i"];
+    Loop.shift_range StartAtZero [cFor ~stop:[sExpr "k + 1"] "i"];
     Loop.unroll [cFor ~stop:[sExpr "1"] "i"]
   );
 
@@ -33,7 +33,7 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.split_range ~cut:(expr "k+1") [occIndex 2; cFor "j"];
   !! Loop.fission ~nest_of:1 [cForBody ~stop:[sExpr "k"] "i"; tBetweenAll];
   !!! (
-    Loop.shift StartAtZero [cFor ~stop:[sExpr "k + 1"] "j"];
+    Loop.shift_range StartAtZero [cFor ~stop:[sExpr "k + 1"] "j"];
     Loop.unroll [cFor ~stop:[sExpr "1"] "j"]
   );
 
@@ -42,7 +42,7 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.split_range ~cut:(expr "k+1") [occIndex 5; cFor "j"];
   !! Loop.fission ~nest_of:1 [occIndex 4; cForBody "i"; tBetweenAll];
   !!! (
-    Loop.shift StartAtZero [cFor ~stop:[sExpr "k + 1"] "j"];
+    Loop.shift_range StartAtZero [cFor ~stop:[sExpr "k + 1"] "j"];
     Loop.unroll [cFor ~stop:[sExpr "1"] "j"]
   );
 

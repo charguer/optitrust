@@ -11,7 +11,6 @@ void f() {
     int y = b;
     y += 3;
   }
-  b++;
 
   int c = b;
   c++;

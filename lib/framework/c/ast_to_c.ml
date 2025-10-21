@@ -263,7 +263,7 @@ let rec typ_desc_to_doc style (t : typ) : document =
         in
         dargs ^^ space ^^ string "->" ^^ blank 1 ^^ dret
     );
-    Pattern.(trm_apps1 (typ_var (var_eq typ_typeof_var)) !__) (fun t () ->
+    Pattern.(trm_apps1 (typ_var (var_eq ~ignore_unset_id:true typ_typeof_var)) !__) (fun t () ->
       string "decltype" ^^ parens (decorate_trm style t)
     );
     Pattern.(typ_apps !__ !__) (fun ty args () ->
@@ -285,8 +285,13 @@ let rec typ_desc_to_doc style (t : typ) : document =
       | _ -> failwith "Ast_to_c.typ_to_doc: arbitrary types entered as string should be entered by using Typ"
     );
     Pattern.__ (fun () ->
+      let t = trm_rem_cstyle Type t in
+      string "/* @type */" ^^ trm_to_doc style t ^^ string "/* @type */"
+    );
+    (* DEPRECATED: try to print as term.
+    Pattern.__ (fun () ->
       failwith "no printing implemented for %s\n" (Ast_to_text.typ_to_string t)
-    )
+    ) *)
   ]
 
 and var_to_doc style (v : var) : document =
@@ -351,7 +356,7 @@ and lit_to_doc style (cstyles: cstyle_annot list) (l : lit) : document =
   | Lit_int (_, i) -> string (string_of_int i)
   | Lit_float (typ, f) ->
     begin match typ_var_inv typ with
-    | Some v when var_eq v typ_f32_var ->
+    | Some v when var_eq ~false_on_unset_id:true v typ_f32_var ->
       string ((string_of_float f) ^ "f")
     | _ ->
       string (string_of_float f)
@@ -726,7 +731,8 @@ and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm
   let dsemi = if semicolon then semi else empty in
   let dtx = typed_var_to_doc style (var_to_doc style) tv in
   match init.desc with
-  | Trm_var v when var_eq v var_uninitialized -> dtx ^^ semi
+  | Trm_var v when var_eq ~false_on_unset_id:true v var_uninitialized ->
+    dtx ^^ semi
   | Trm_fun (args, rettyp, body, _) when not (trm_has_cstyle Closure init) ->
     let fun_annot = trm_get_cstyles init in
     let static = if trm_has_cstyle Static_fun init then string "static" else empty in
@@ -784,7 +790,7 @@ and trm_let_mult_to_doc style ?(semicolon : bool = true) (bs : (typed_var * trm)
     (* check if all the declarations are of the same type *)
     let decl_list = List.rev_map (fun (x, dptr, init) ->
       let dinit = match trm_var_inv init with
-        | Some v when var_eq v var_uninitialized -> empty
+        | Some v when var_eq ~false_on_unset_id:true v var_uninitialized -> empty
         | _ -> equals ^^ decorate_trm ~force_expr:true style init
       in
       dptr ^^ blank 1 ^^ var_to_doc style x ^^ dinit
@@ -1354,7 +1360,7 @@ and formula_to_doc style (f: formula): document =
     );
     Pattern.(trm_fun !__ !__ !__ __) (fun tvl ty_opt body () -> formula_fun_to_doc style ty_opt tvl body
     );
-    Pattern.(trm_apps2 (trm_specific_var var_group) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
+    Pattern.(trm_apps2 (trm_specific_var ~ignore_unset_id:true var_group) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
       string "for" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc style range ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
     );
     Pattern.(formula_frac_div !__ !__) (fun base divisor () ->

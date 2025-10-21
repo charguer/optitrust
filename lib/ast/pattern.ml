@@ -66,10 +66,10 @@ let trm_var (var: 'a -> var -> 'b) (k: 'a) (t: trm): 'b =
   | Some v -> var k v
   | None -> raise Next
 
-let var_eq (v: var): 'a -> var -> 'a = check (var_eq v)
+let var_eq ?(ignore_unset_id = false) (v: var): 'a -> var -> 'a = check (var_eq ~false_on_unset_id:ignore_unset_id v)
 let var_has_name (name: string): 'a -> var -> 'a = check (var_has_name name)
 
-let trm_specific_var (v: var) = trm_var (var_eq v)
+let trm_specific_var ?(ignore_unset_id = false) (v: var) = trm_var (var_eq ~ignore_unset_id v)
 let trm_var_with_name (name: string) = trm_var (var_has_name name)
 
 let nil (k: 'a) (l: _ list) : 'a =

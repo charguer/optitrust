@@ -297,10 +297,11 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
           &mha_norm_weight[MINDEX2(layer_count, embedding_dim, l, 0)], epsilon);
       __ghost_end(__ghost_pair_2);
     }
-
     for (int i = 0; i < sequence_len; i++) {
-
-     __sreads("mha_q_weight ~> Matrix4(layer_count,q_head_count,head_dim,embedding_dim");
+      __strict();
+      __sreads(
+          "mha_q_weight ~> Matrix4(layer_count, q_head_count, head_dim, "
+          "embedding_dim)");
       __xmodifies(
           "for i1 in 0..q_head_count -> for i2 in 0..head_dim -> "
           "&mha_q[MINDEX3(sequence_len, q_head_count, head_dim, i, i1, i2)] ~> "
@@ -308,7 +309,7 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
       __xreads(
           "&mha_norm[MINDEX2(sequence_len, embedding_dim, i, 0)] ~> "
           "Matrix1(embedding_dim)");
-      const __ghost_fn __ghost_pair_12 = __ghost_begin(
+      const __ghost_fn __ghost_pair_3 = __ghost_begin(
           ro_group_focus,
           "i := l, items := fun (l: int) -> for q in 0..q_head_count -> for h "
           "in 0..head_dim -> for e in 0..embedding_dim -> "
@@ -332,9 +333,8 @@ void generate_prompt_proc(int vocabulary_len, int context_len, int layer_count,
                &mha_q_weight[MINDEX4(layer_count, q_head_count, head_dim,
                                      embedding_dim, l, q, 0, 0)]);
       }
-
+      __ghost_end(__ghost_pair_3);
     }
-    __ghost_end(__ghost_pair_12);
   }
   free(mha_q);
   free(mha_norm);

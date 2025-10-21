@@ -1,41 +1,56 @@
-CONTRIBUTORS TO OPTITRUST
-in historical order
+Contributors to OptiTrust
 
-
+Maintainers
+===========
 
 Arthur Charguéraud
 @charguer
-since 2019
-started OptiTrust
+Since 2019
+
+Thomas Koehler
+@Bastacyclop
+Since January 2023
+
+
+Other contributors
+==================
+(in historical order)
 
 Damien Rouhling
 @drouhling
-oct 2019 - july 2020
+Oct 2019 - July 2020
 initial implementation of the framework
 (not logged in git history)
 
 Begatim Bytyqi
-febuary 2021 - august 2022
+Febuary 2021 - August 2022
 implementation of transformations for PIC case studies
 
 Michel Tching
-july 2023 - august 2023
-works on tasked-based transformations
+July 2023 - August 2023
+tasked-based transformations (apac branch)
 
 Marek Felsöci @felsocim:
 @mfelsoci
-since april 2023
-works on tasked-based transformations
-
-Thomas Koehler
-@Bastacyclop
-since january 2023
-implementation of matmul and harris case studies,
-and of validity checks
+April 2023 - Sept 2024
+tasked-based transformations (apac branch)
 
 Guillaume Bertholon
 @sakarah
-since march 2023
-implementation of support for separation logic
+March 2023 - Septembre 2025
+separation logic typechecker, correctness criteria, various infrastructure
 
+Pauline Bonnet
+March 2025 - July 2025
+Progress on the validation of parallelization in the PIC case study
+
+Elian Morel
+@Elian Morel
+since may 2025
+works on LLM case study
+
+Yanni Lefki
+@yannilefki
+since march 2025
+works on pattern-matching
 

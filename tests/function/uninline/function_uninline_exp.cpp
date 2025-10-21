@@ -15,3 +15,13 @@ void h() {
   f(r_pure + 2);
   int s = r_pure;
 }
+
+void mindex_fold(float* x, int n) {
+  __writes("&x[MINDEX1(n, 0)] ~> Cell");
+  x[MINDEX1(n, 0)] = 12.f;
+}
+
+void test_mindex_fold(float* x, int m, int n) {
+  __writes("&x[MINDEX2(m, n, 1, 0)] ~> Cell");
+  mindex_fold(&x[MINDEX2(m, n, 1, 0)], n);
+}
