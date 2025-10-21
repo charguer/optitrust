@@ -1,10 +1,10 @@
 #include "optitrust_common.h"
 #include "optitrust_intrinsics.h"
 #include <optitrust_models.h>
+#include <optitrust_gpu.h>
 
+/*
 struct GPUThing{};
-
-int ExecCtx = 0;
 
 __DEF(add_x, "fun (x: float) (A: (int * int) -> float) -> fun (i j: int) -> A(i,j) +. x");
 
@@ -48,11 +48,11 @@ void kernel_##KERNEL_NAME (__VA_ARGS__){ \
     __produces("_RO(" FRAC ", &ExecCtx ~~> 1)"); \
     __admitted(); \
   });
-/*
+
   __xrequires(FRAC#IND ": _Fraction, " FRAC#IND " = " FRAC "/" #DIM);\
     __xconsumes("_RO(" FRAC#IND ", &ExecCtx ~~> 3)");\
     __xproduces("_RO(" FRAC#IND ", &ExecCtx ~~> 3)");\
-*/
+
 #define THREAD_LOOP(IND, DIM, FRAC, BODY)\
   __ghost([&]() {\
     __consumes("_RO(" FRAC ", &ExecCtx ~~> 2)");\
@@ -100,17 +100,13 @@ void kernel_cpu(float *arr, int N) {
   kernel_gpu_kernel(arr, N);
 }
 
-/*void please_call_me_with_one(int *x, int *res) {
-  __reads("x ~~> 1");
-  __writes("res ~~> 0");
-  *res = (*x-1)/(*x);
-  __ghost(assume, "P := (1-1)/1 = 0", "stuff <- H");
-  __ghost(rewrite_linear, "inside := (fun v -> res ~~> v), by := stuff");
-}
+*/
 
-void um(int *x, int *res) {
-  __reads("x ~~> 1");
-  __reads("x ~~> 0");
-  __writes("res ~~> 0");
-  please_call_me_with_one(x, res);
-}*/
+void test(int *a, int *b) {
+  __requires("t: int");
+  __preserves("GpuThread(t, 1)");
+  __writes("a ~~>[GMem] 0");
+  __reads("b ~~>[GMem] 0");
+
+  __GMEM_SET(a, __GMEM_GET(b));
+}

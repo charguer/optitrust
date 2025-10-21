@@ -492,7 +492,6 @@ and trm_annot = {
 (** [unary_op]: unary operators *)
 and unary_op =
   | Unop_get                     (* the "*" operator as in *p *)
-  | Unop_gpu_get
   | Unop_address                 (* the "&" operator as in &p *)
   (* LATER: get and address should be polymorphic functions instead of overloaded operators, address should not exist after decoding anyway *)
   | Unop_bitwise_neg             (* ~a *)
@@ -510,7 +509,6 @@ and unary_op =
 (** [binary_op]: binary operators *)
 and binary_op =
   | Binop_set           (* lvalue = rvalue *)
-  | Binop_gpu_set       (* lvalue gmem<= rvalue *)
   | Binop_array_access  (* &(a[i]) *)
   | Binop_array_get     (* a[i] *)
   | Binop_eq            (* a == b *)
@@ -590,6 +588,8 @@ and ctx = {
 
 and formula = trm
 and resource_item = var * formula
+
+and hwtyp = typ (* alias for trm/typ when a hardware type is expected *)
 
 (* FIXME: Perf issue: Replace the resource_item lists with efficient datastructures:
    We need push_back, push_front, find_opt, fold_left (in order), and map to be cheap *)
@@ -942,10 +942,6 @@ let toplevel_var ?(namespaces: string list = []) (name : string) : var =
 
 (** A dummy variable for special cases. *)
 let dummy_var = toplevel_var ""
-
-(** Julien:  I am very good at this *)
-let var_gpu_set = toplevel_var "__GPU_SET"
-let var_gpu_get = toplevel_var "__GPU_GET"
 
 (*****************************************************************************)
 

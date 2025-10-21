@@ -39,7 +39,7 @@ let rec formula_mindex_group_inv (f : formula) : ((formula * var) list * trm * t
           ((range, idx) :: ranges, matrix_ptr, mindex_dims, mindex_indices)
         | None -> raise Pattern.Failed
       );
-    Pattern.(formula_any_cell !__) (fun location () ->
+    Pattern.(formula_either_cell !__ __) (fun location () -> (*TODO should be restricted to Any?*)
       match Matrix_trm.access_inv location with
       | Some (matrix, mindex_dims, mindex_indices) -> ([], matrix, mindex_dims, mindex_indices)
       | None -> raise Pattern.Failed
@@ -178,8 +178,8 @@ let local_name_tile_on (mark_dims : mark)
   let access_local_var = access local_var_t tile_dims tile_indices in
   let write_on_local_var = trm_set access_local_var (trm_get access_var) in
   let write_on_var = trm_set access_var (trm_get access_local_var) in
-  let var_cell = Resource_formula.(formula_cell access_var) in
-  let local_var_cell = Resource_formula.(formula_cell access_local_var) in
+  let var_cell = Resource_formula.(formula_cell ~hw:Resource_formula.trm_any_ty access_var) in
+  let local_var_cell = Resource_formula.(formula_cell ~hw:Resource_formula.trm_any_ty access_local_var) in
   let load_for = if uninit_pre
     then trm_seq_nobrace_nomarks []
     else trm_add_mark mark_load (trm_copy (Matrix_core.pointwise_fors
@@ -193,7 +193,7 @@ let local_name_tile_on (mark_dims : mark)
     { index; start = trm_int 0; direction = DirUp; stop = size; step = trm_step_one () }
   ) tile_dims indices_list in
   let alloc_access = access local_var_t tile_dims indices in
-  let alloc_cell = Resource_formula.(formula_cell alloc_access) in
+  let alloc_cell = Resource_formula.(formula_cell ~hw:Resource_formula.trm_any_ty alloc_access) in
   let alloc_range_cell = (alloc_range, alloc_cell) in
   let local_var_range_cell = (nested_loop_range, local_var_cell) in
   let shift_res = ghost_shift alloc_range_cell local_var_range_cell true true in

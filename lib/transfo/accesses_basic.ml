@@ -64,13 +64,13 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
         trm_set (trm_add_mark mark_handled_addresses addr)
           (f_set (trm_map fix_inside_span value))
       );
-      Pattern.(formula_points_to !__ !__) (fun addr value () ->
+      Pattern.(formula_points_to !__ !__ !__) (fun addr value hw () ->
         Pattern.when_ (address_matches addr);
-        formula_points_to (trm_add_mark mark_handled_addresses addr) value
+        formula_points_to ~hw (trm_add_mark mark_handled_addresses addr) value
       );
-      Pattern.(formula_uninit_cell !__) (fun addr () ->
+      Pattern.(formula_uninit_cell !__ !__) (fun addr hw () ->
         Pattern.when_ (address_matches addr);
-        formula_uninit_cell (trm_add_mark mark_handled_addresses addr)
+        formula_uninit_cell ~hw (trm_add_mark mark_handled_addresses addr)
       );
       Pattern.__ (fun () ->
         trm_map fix_inside_span t
@@ -88,7 +88,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
         Pattern.(formula_group !__ (formula_range !__ !__ !__) !__) (fun index start stop step body () ->
           aux ({ index; start; stop; step; direction = DirUp } :: acc_rev_ranges) body
         );
-        Pattern.(formula_any_cell !__) (fun addr () ->
+        Pattern.(formula_either_cell !__ !__) (fun addr hw () -> (* TODO should be restricted to any? *)
           Pattern.when_ (address_matches addr);
           matched_ret := formula :: !matched_ret;
           if is_read_only then trm_fail formula "can't scale read-only resource in-place";

@@ -32,7 +32,6 @@ let precedence_prim (p : prim) : precedence =
     | Binop_xor -> (7, LtoR)
     | Binop_bitwise_or -> (6, LtoR)
     | Binop_set -> (2, RtoL)
-    | Binop_gpu_set -> (2, RtoL)
     end
   | Prim_compound_assign_op _ -> (2, RtoL)
   | _ -> precedence_default
