@@ -40,8 +40,16 @@ type group_repr = starindex list * trm
    which specifies how to transform the first group into the second
    by instantiating [var] with [trm].
 *)
-
 type focus_list = (group_repr * group_repr * (var * trm)) list
+(**
+   [group_list] is the representation of the transformation
+   that allows us to go from the required resources to the resources we have using ghosts.
+
+   Each entry is a quadruple: [formula] * [formula] * [var] * [trm],
+   which specifies how to transform the first resources into the second one, instantiating var with trm.
+   Theses quadruple will be need to build the ghosts around the instructions to focus the resources.
+*)
+type ghost_list = (formula * formula * (var * trm)) list
 
 (** [extract_group]: Will extract the groups and the basic cell accessed for future processing  *)
 let rec extract_group (formula : trm) : (range list * trm) option =
@@ -82,6 +90,21 @@ let to_group_repr (groups : (var * trm) list) (indices : trms) (t_base : trm) : 
       | _ -> None
     ) in
   aux groups [] indices
+
+let group_repr_inv (groups : group_repr) : formula =
+  let star_index_list, t_base = groups in
+  let cell = formula_cell t_base in
+  let formula_inv =
+    List.fold_left
+      (fun formula star_index ->
+        match star_index with
+        | Star (range, trm) ->
+          let var, range = range in
+          formula_group var range formula
+        | Index i -> formula
+      )
+      cell star_index_list in
+  formula_inv
 
 let rec trms_unify l1 l2 evar_ctx validate_inst =
   let open Option.Monad in
@@ -136,12 +159,6 @@ let are_same_focus_list (result : focus_list) (expected : focus_list) : bool =
        )
        result expected
 
-let base_access t =
-  let base, access = trm_inv trm_array_access_inv t in
-  base
-
-(* To comment  *)
-
 (** [build focus list]: Tries to build a [focus_list], i.e list of pairs of [group repr] tha represents unitary focuses that allows to goes from [from_group] to [to _group] *
 Each focus : H_i -> H_i+1)
 This function assumes that the from_group and to_group have been normalized already by the caller.
@@ -193,14 +210,18 @@ let build_focus_list (from_group : group_repr) (to_group : group_repr) : focus_l
   [autofocus_unify] : tries to see if formula and formula_to_unify can be unified if we add some ghosts instructions to satisfy the resource needed
   [formula] : might describe an access to a cell or a group
   [formula_candidate] : must be a group (if it's a Cell it has been unified on first round of [subtract_resource_item]
-    formula and formula will be parsed,reorder and renamed in order to search for possible focus *)
+    formula and formula will be parsed,reorder and renamed in order to search for possible focus
+  This function first checks that the resources are on an array and on the same array.
+  Then it unifies the dimensions
+  Then it tries to see if a list of ghost_pair can be established around the instruction, that allows to focus the [formula_candidate] into the [formula].
+  Returns the updated evar_ctx and the ghost_list if the operation succeeded *)
 
 let autofocus_unify
     (formula : trm)
     (formula_candidate : trm)
     (evar_ctx : 'a unification_ctx)
     (validate_inst : trm -> 'a -> 'a unification_ctx -> 'a unification_ctx option) :
-    'a unification_ctx option =
+    (ghost_list * 'a unification_ctx ) option =
   let open Option.Monad in
   (* Extract groups from the formulas, returns None if it doesn't fit the autofocus scope *)
   let* groups_candidate, t_candidate = extract_group formula_candidate in
@@ -210,9 +231,13 @@ let autofocus_unify
   let* t_base, dims, indices = Matrix_trm.access_inv t in
   let* evar_ctx = trm_unify t_base_candidate t_base evar_ctx validate_inst in
   let* evar_ctx = trms_unify dims_candidate dims evar_ctx validate_inst in
-  let* groups = to_group_repr groups indices t_base in
-  let* groups_candidate = to_group_repr groups_candidate indices_candidates t_base_candidate in
+  let* groups = to_group_repr groups indices t in
+  let* groups_candidate = to_group_repr groups_candidate indices_candidates t_candidate in
   let* focus_list = build_focus_list groups groups_candidate in
-
-
-  Some evar_ctx
+  let ghost_list =
+    List.map
+      (fun (from_group, to_group, (var, index)) ->
+        (group_repr_inv from_group, group_repr_inv to_group, (var, index))
+      )
+      focus_list in
+  Some (ghost_list,evar_ctx)
