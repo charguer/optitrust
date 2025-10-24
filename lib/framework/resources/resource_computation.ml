@@ -450,24 +450,23 @@ let find_pure ((x, formula): resource_item) (env: pure_env) ?(goal_solver = !pur
 *)
 let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_item)
   (res: linear_resource_set) (evar_ctx: unification_ctx) ~(pure_ctx: pure_env) ~(infer:bool)
-  : used_resource_item * Resource_autofocus.ghost_list * linear_resource_set * unification_ctx =
+  : used_resource_item * Resource_autofocus.ghosts * linear_resource_set * unification_ctx =
   let open Option.Monad in
-  (* Printf.printf "subtract linear resource item : %s %s" x.name (Ast_to_text.ast_to_string formula); *)
   let res_before,evar_ctx_before, pure_ctx_before =  res,evar_ctx,pure_ctx in
   let rec extract
-    (f : resource_item -> (used_resource_item * Resource_autofocus.ghost_list * resource_item option * unification_ctx  ) option)
+    (f : resource_item -> (used_resource_item * Resource_autofocus.ghosts * resource_item option * unification_ctx  ) option)
     (res: linear_resource_set)
-    (evar_ctx: unification_ctx): used_resource_item *  Resource_autofocus.ghost_list * linear_resource_set * unification_ctx =
+    (evar_ctx: unification_ctx): used_resource_item *  Resource_autofocus.ghosts * linear_resource_set * unification_ctx =
     match res with
     (* When we run out of candidate, either we try to infer/autocus, or if we already have, then raise Not found which will be caught later to create Resource_not_found *)
     | [] -> if infer then raise Not_found else subtract_linear_resource_item ~split_frac ~infer:true (x,formula) res_before evar_ctx_before ~pure_ctx:pure_ctx_before
     | candidate :: res ->
       begin match f candidate with
-      | Some (used_res, ghost_list, Some leftover, evar_ctx ) -> (used_res,  ghost_list, leftover :: res, evar_ctx)
-      | Some (used_res, ghost_list, None, evar_ctx) -> (used_res, ghost_list, res, evar_ctx)
+      | Some (used_res, ghosts, Some leftover, evar_ctx ) -> (used_res,  ghosts, leftover :: res, evar_ctx)
+      | Some (used_res, ghosts, None, evar_ctx) -> (used_res, ghosts, res, evar_ctx)
       | None ->
-        let used, ghost_list, res, evar_ctx  = extract f res evar_ctx in
-        (used, ghost_list, candidate :: res, evar_ctx )
+        let used, ghosts, res, evar_ctx  = extract f res evar_ctx in
+        (used, ghosts, candidate :: res, evar_ctx )
       end
   in
   (* let rec extract_infer_handler ~(split_frac: bool) ((x, formula): resource_item)
@@ -482,25 +481,24 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
     (res: linear_resource_set)
     (evar_ctx: unification_ctx)
     ~(infer:bool)
-    ~(pure_ctx: pure_env): used_resource_item * Resource_autofocus.ghost_list* linear_resource_set * unification_ctx =
+    ~(pure_ctx: pure_env): used_resource_item * Resource_autofocus.ghosts* linear_resource_set * unification_ctx =
     (* Used by {!subtract_linear_resource_item} in the case where [formula] is not a read-only resource. *)
     (* LATER: Improve the structure of the linear_resource_set to make this
       function faster on most frequent cases *)
     extract (fun (candidate_name, formula_candidate) ->
       try
+        (* Weakens into uninit every formula *)
         let inst_by, formula_to_unify =
           (* Check for possible Uninit coercion if formula_candidate is not already uninit *)
           if uninit && not (is_formula_uninit formula_candidate) then
             Formula_inst.inst_forget_init candidate_name, formula_uninit formula_candidate
           else Formula_inst.inst_hyp candidate_name, formula_candidate
         in
-        let* ghost_list,evar_ctx = handle_unification infer formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
+        let* ghosts,evar_ctx = handle_unification infer formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
 
-        (* We finally got the ghost list  *)
-        (* Weakens into uninit every formula *)
         Some (
           { hyp = x; inst_by; used_formula = formula_to_unify },
-          ghost_list,
+          ghosts,
           None,
           evar_ctx )
       with CannotTransformIntoUninit _ -> None
@@ -512,18 +510,18 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
     (res: linear_resource_set)
     (evar_ctx: unification_ctx)
     ~(infer:bool)
-    ~(pure_ctx: pure_env): used_resource_item * Resource_autofocus.ghost_list *linear_resource_set * unification_ctx =
+    ~(pure_ctx: pure_env): used_resource_item * Resource_autofocus.ghosts * linear_resource_set * unification_ctx =
     (* Used by {!subtract_linear_resource_item} in the case where [formula] is a read-only resource. *)
     (* LATER: Improve the structure of the linear_resource_set to make this
       function faster on most frequent cases *)
     extract (fun (h, formula_candidate) ->
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
 
-      let* ghost_list, evar_ctx = (handle_unification infer) formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
+      let* ghosts, evar_ctx = (handle_unification infer) formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
       (* When I get the focus list here we need to make RO formula, not only RO *)
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
-        ghost_list,
+        ghosts,
         Some (h, formula_read_only ~frac:(formula_frac_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
     ) res evar_ctx
   in
@@ -569,12 +567,12 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
   It should be provided whenever [evar_ctx] is.
 *)
 let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unification_ctx = Var_map.empty) ?(pure_ctx = empty_pure_env) (res_from: linear_resource_set) (res_removed: linear_resource_set)
-  : used_resource_item list *  Resource_autofocus.ghost_list list * linear_resource_set * unification_ctx  =
-  List.fold_left (fun (used_list,ghost_list, remaining_linear_res, evar_ctx ) res_item ->
+  : used_resource_item list *  Resource_autofocus.ghosts list * linear_resource_set * unification_ctx  =
+  List.fold_left (fun (used_list,ghosts_list, remaining_linear_res, evar_ctx ) res_item ->
     try
-      let used, ghost, res_from, evar_ctx  = subtract_linear_resource_item ~infer:false  ~split_frac res_item remaining_linear_res evar_ctx ~pure_ctx in
-      let ghost_list = if List.length ghost > 0 then ghost::ghost_list else ghost_list in
-      (used :: used_list, ghost_list,res_from, evar_ctx )
+      let used, ghosts, res_from, evar_ctx  = subtract_linear_resource_item ~infer:false  ~split_frac res_item remaining_linear_res evar_ctx ~pure_ctx in
+      let ghosts_list = if List.length ghosts > 0 then ghosts::ghosts_list else ghosts_list in
+      (used :: used_list, ghosts_list,res_from, evar_ctx )
     with Not_found ->
       raise_resource_not_found Linear res_item evar_ctx res_from
   ) ([], [], res_from, evar_ctx) res_removed
@@ -590,13 +588,13 @@ let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unifica
   FIXME: not symmetrical left/right doc (uninit and unification)
 *)
 let partial_extract_linear_resource_set ?(evar_ctx: unification_ctx = Var_map.empty) ?(pure_ctx = empty_pure_env) (res_left: linear_resource_set) (res_right: linear_resource_set)
-  : used_resource_item list *  Resource_autofocus.ghost_list list* linear_resource_set * linear_resource_set * unification_ctx =
-  List.fold_left (fun (used_list, ghost_list, res_left, unmatched_right, evar_ctx) res_item ->
+  : used_resource_item list *  Resource_autofocus.ghosts list* linear_resource_set * linear_resource_set * unification_ctx =
+  List.fold_left (fun (used_list, ghosts_list, res_left, unmatched_right, evar_ctx) res_item ->
     try
-      let used, ghost, res_left, evar_ctx = subtract_linear_resource_item ~infer:false ~split_frac:false res_item res_left evar_ctx ~pure_ctx in
-      (used :: used_list, ghost::ghost_list, res_left, unmatched_right, evar_ctx)
+      let used, ghosts, res_left, evar_ctx = subtract_linear_resource_item ~infer:false ~split_frac:false res_item res_left evar_ctx ~pure_ctx in
+      (used :: used_list, ghosts::ghosts_list, res_left, unmatched_right, evar_ctx)
     with Not_found ->
-      (used_list, ghost_list,res_left, res_item :: unmatched_right, evar_ctx)
+      (used_list, ghosts_list,res_left, res_item :: unmatched_right, evar_ctx)
   ) ([], [],res_left, [], evar_ctx) res_right
 
 
@@ -684,7 +682,7 @@ let check_frac_le subst_ctx (efrac, bigger_frac) =
 
   TODO: Add unit tests for this specific function
 *)
-let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(inst_map: tmap = Var_map.empty) (res_to: resource_set) : tmap * used_resource_set * Resource_autofocus.ghost_list list * linear_resource_set =
+let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(inst_map: tmap = Var_map.empty) (res_to: resource_set) : tmap * used_resource_set * Resource_autofocus.ghosts list * linear_resource_set =
   let inst_map = Var_map.add var_result (trm_var var_result) inst_map in (* Add _Res := _Res to force unification of results from both sides together *)
   let inst_map = Var_map.map (trm_subst res_from.aliases) inst_map in
   let res_from = Resource_set.subst_all_aliases res_from in
@@ -702,7 +700,7 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(inst_map: t
     failwith "cannot extract resources into a resource set with aliases";
 
   let pure_ctx = pure_env res_from in
-  let used_linear, ghost_list, leftover_linear, evar_ctx = subtract_linear_resource_set ~split_frac ~evar_ctx ~pure_ctx res_from.linear res_to.linear in
+  let used_linear, ghosts_list, leftover_linear, evar_ctx = subtract_linear_resource_set ~split_frac ~evar_ctx ~pure_ctx res_from.linear res_to.linear in
   (* Prefer the most recently generated pure fact when a choice has to be made *)
   let pure_ctx = { pure_ctx with res = List.rev pure_ctx.res } in
   let evar_ctx = List.fold_left (fun evar_ctx res_item ->
@@ -734,7 +732,7 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(inst_map: t
             )
             res_from.fun_specs res_to.fun_specs);
 
-  (subst_ctx, { used_pure; used_linear },ghost_list, leftover_linear)
+  (subst_ctx, { used_pure; used_linear },ghosts_list, leftover_linear)
 
 (* FIXME: resource set intuition breaks down, should we talk about resource predicates? *)
 (** [assert_resource_impl res_from res_to] checks that [res_from] ==> [res_to]. *)
@@ -1124,10 +1122,10 @@ let debug_print_computation_stack = false
   If provided, [ensured_renaming] is a partial map from ensured names in [contract] to new hypotesis names available after [t].
   Sets [t.ctx.ctx_resources_contract_invoc].
     *)
-let compute_contract_invoc (contract: fun_contract) ?(inst_map: tmap = Var_map.empty) ?(ensured_renaming = Var_map.empty) (res: resource_set) (t: trm): resource_usage_map * resource_set * Resource_autofocus.ghost_list list =
+let compute_contract_invoc (contract: fun_contract) ?(inst_map: tmap = Var_map.empty) ?(ensured_renaming = Var_map.empty) (res: resource_set) (t: trm): resource_usage_map * resource_set * Resource_autofocus.ghosts list =
   if debug_print_computation_stack then
     Tools.debug "compute_contract_invoc:\n%s\n==>\n%s" (resource_set_to_string contract.pre) (resource_set_to_string contract.post);
-  let subst_ctx, res_used, ghost_list, res_frame = extract_resources ~split_frac:true ~inst_map res contract.pre in
+  let subst_ctx, res_used, ghosts_list, res_frame = extract_resources ~split_frac:true ~inst_map res contract.pre in
 
   let usage = used_set_to_usage_map res_used in
   let new_fracs = new_fracs_from_used_set res_used in
@@ -1145,7 +1143,7 @@ let compute_contract_invoc (contract: fun_contract) ?(inst_map: tmap = Var_map.e
 
   let total_usage = update_usage_map ~current_usage:usage ~extra_usage:usage_after in
   let usage,res = Resource_set.remove_useless_fracs total_usage (Resource_set.bind ~old_res:res ~new_res) in
-  usage,res,ghost_list
+  usage,res,ghosts_list
 
 (** [handle_resource_errors t phase exn] hooks [exn] as error on the term [t],
     and save the fact that an exception [exn] was triggered. *)
@@ -1574,7 +1572,6 @@ let rec compute_resources
     (* Transitively compute resources through all sequence instructions.
        At the end of the sequence, take into account that all stack allocations are freed. *)
     | Trm_seq (instrs, seq_result_var) ->
-      Printf.printf "Trm seq with instrs\n";
       let instrs = Mlist.to_list instrs in
       let usage_map, res =
         List.fold_left (fun (current_usage, res) instr ->
@@ -1658,14 +1655,12 @@ let rec compute_resources
           Var_map.add contract_var bound_var ensured_renaming) Var_map.empty ghost_bind
         in
 
-        let call_usage_map, res_after, ghost_list = compute_contract_invoc spec.contract ~inst_map ~ensured_renaming res_after_args t in
-        Printf.printf "GHOST_LIST LEN %d \n" (List.length ghost_list);
-        if List.length ghost_list > 0 then begin
-          t.ctx.elaborate <- Some({pre_ghost = Resource_autofocus.ghosts (List.nth ghost_list 0); post_ghost =  Resource_autofocus.ghosts (List.nth ghost_list 0)});
+        let call_usage_map, res_after, ghosts_list = compute_contract_invoc spec.contract ~inst_map ~ensured_renaming res_after_args t in
+        if List.length ghosts_list > 0 then begin
+          t.ctx.elaborate <- Some({pre_ghost = List.concat_map (fun ghosts -> Resource_autofocus.ghosts_formula_begin (ghosts)) ghosts_list; post_ghost =  List.concat_map (fun ghosts -> Resource_autofocus.ghosts_formula_end (ghosts)) ghosts_list});
 
-          let t_with_ghosts = Resource_autofocus.seq_from_ghost_list t (List.nth ghost_list 0) in
+          let t_with_ghosts = Resource_autofocus.seq_from_ghosts_list t (ghosts_list) in
 
-        Printf.printf "Will call compute res on t with ghosts \n";
         compute_resources ?expected_res (Some (res)) t_with_ghosts
         end
         else
@@ -1869,7 +1864,7 @@ let rec compute_resources
       check_loop_contract_types ~pure_ctx:contract_ctx contract;
 
       let outer_contract = contract_outside_loop range contract in
-      let usage_map, res_after, ghost_list = compute_contract_invoc outer_contract res t in
+      let usage_map, res_after, ghosts_list = compute_contract_invoc outer_contract res t in
 
       let inner_contract = contract_inside_loop range contract in
       (* If the contract is not strict put all the framed resources inside the invariant *)
@@ -2132,7 +2127,6 @@ let trm_compute_resources_inplace (t: trm): unit =
 let elaborate (t :trm)  =
 trm_bottom_up (fun t -> match t.ctx.elaborate with
   | Some {pre_ghost = tl_pre; post_ghost = tl_post} -> (
-    Printf.printf "ELABORATION : %s \n" (Resource_autofocus.print_trm_string t);
     t.ctx.elaborate <- None;
    (* Nobrace_transfo.remove_after (fun _ -> t1 := Nobrace.trm_seq (Mlist.of_list (tl_pre @[t] @ tl_post))); *)
    trm_seq (Mlist.of_list (tl_pre @[t] @ tl_post)))

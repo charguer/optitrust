@@ -7,7 +7,6 @@ open Resource_formula
 open Resource_contract
 
 type range = var * trm
-type index = trm
 
 (**
    A [Star] represents a permission on an entire group.
@@ -24,8 +23,8 @@ type index = trm
      - Permission on a single index of this dimension.
 *)
 type starindex =
-  | Star of range * index
-  | Index of index
+  | Star of range * trm
+  | Index of trm
 
 (** [group_repr] is the internal representation of a permission on an array : For each dimension you can either have a [Star] or an [Index], the term [t] represents the array base
 Example : for i1 in 0..n1 -> &x[MINDEX1(n1,n2,f(i1),2)] ---> [Star(0,n1,i1,f(i1)), Index(2)],x  *)
@@ -42,9 +41,9 @@ type focus_list = (group_repr * group_repr * (var * trm)) list
    by instantiating [var] with [trm].
 *)
 
-type ghost_list = (formula * formula * (var * trm)) list
+type ghosts = (formula * formula * (var * trm)) list
 (**
-   [group_list] is the representation of the transformation
+   [ghosts] is the representation of the transformation
    that allows us to go from the required resources to the resources we have using ghosts.
 
    Each entry is a quadruple: [formula] * [formula] * [var] * [trm],
@@ -52,18 +51,7 @@ type ghost_list = (formula * formula * (var * trm)) list
    Theses quadruple will be need to build the ghosts around the instructions to focus the resources.
 *)
 
-(** [extract_group]: Will extract the groups and the basic cell accessed for future processing  *)
-let rec extract_group (formula : trm) : (range list * trm) option =
-  match formula_group_inv formula with
-  | Some (index, range, body) -> (
-    match extract_group body with
-    | Some (range_list, t) -> Some ([ (index, range) ] @ range_list, t)
-    | _ -> None
-  )
-  | _ -> (
-    match formula_cell_inv formula with Some t -> Some ([], t) | _ -> None
-  )
-
+(** [DEBUGGING]  *)
 let print_trm_string (t : trm) : string =
   let doc = Ast_to_text.print_trm Ast_to_text.default_style t in
   Tools.document_to_string doc
@@ -79,14 +67,32 @@ let print_group_repr ((stars, t) : group_repr) : string =
   let stars_str = stars |> List.map print_starindex |> String.concat "; " in
   Printf.sprintf "([%s], %s)" stars_str (print_trm_string t)
 
+(** [GROUP EXTRACTION] *)
+
+(** [extract_group]: Will extract the groups and the basic cell accessed for future processing  *)
+let rec extract_group (formula : trm) : (range list * trm * bool) option =
+  match formula_group_inv formula with
+  | Some (index, range, body) -> (
+    match extract_group body with
+    | Some (range_list, t, uninit) -> Some ([ (index, range) ] @ range_list, t, uninit)
+    | _ -> None
+  )
+  | _ -> (
+    match formula_cell_inv formula with
+    | Some t -> Some ([], t, false)
+    | _ -> (
+      match formula_uninit_cell_inv formula with Some t -> Some ([], t, false) | _ -> None
+    )
+  )
+
 (** [to_group_repr]: Build group_repr representation of the groups / and indices
 Used to compute list of focus in the build_focus function *)
 
 (* We are trying to find for each indice, a group that can be binded to it.
 For every indice : find the sets of used variables, try to find the intersection of used vars and groups that
 If the set S of intersection is > 1 then we abort
-If thereis exaclty one match then the group is binded to this index (Star)
-If there is no match, then we procuce an Index  *)
+If there is exaclty one match then the group is binded to this index (Star)
+If there is no match, then we procuce an index  *)
 let to_group_repr (group : (var * trm) list) (indices : trms) (t_base : trm) : group_repr option =
   let rec aux current_group star_index_list = function
     | [] ->
@@ -106,9 +112,10 @@ let to_group_repr (group : (var * trm) list) (indices : trms) (t_base : trm) : g
     ) in
   aux group [] indices
 
-let group_repr_inv (group : group_repr) : formula =
+(** [group_repr_inv]: Inversion fonction to go from group_repr to a formula (trm) *)
+let group_repr_inv ~(uninit:bool) (group : group_repr) : formula =
   let star_index_list, t = group in
-  let cell = formula_cell t in
+  let cell = if uninit then formula_uninit_cell t else formula_cell t in
   let formula_inv =
     List.fold_left
       (fun formula star_index ->
@@ -121,7 +128,13 @@ let group_repr_inv (group : group_repr) : formula =
       cell star_index_list in
   formula_inv
 
-let rec trms_unify l1 l2 evar_ctx validate_inst =
+(** [trms_unify] : Unification of two trm list. Unification is done trm by trm *)
+let rec trms_unify
+    (l1 : trm list)
+    (l2 : trm list)
+    (evar_ctx : 'a unification_ctx)
+    (validate_inst : trm -> 'a -> 'a unification_ctx -> 'a unification_ctx option) :
+    'a unification_ctx option =
   let open Option.Monad in
   match (l1, l2) with
   | [], [] -> Some evar_ctx
@@ -130,7 +143,9 @@ let rec trms_unify l1 l2 evar_ctx validate_inst =
     trms_unify q1 q2 evar_ctx validate_inst
   | _, _ -> None
 
-let rec unfold_list_if_resolved_evar (trms : trm list) evar_ctx =
+(** [unfold_list_if_resolved_evar] : Unfold trm in trms if the evar has been resolved *)
+let rec unfold_list_if_resolved_evar (trms : trm list) (evar_ctx : 'a unification_ctx) :
+    trm list * 'a unification_ctx =
   match trms with
   | [] -> ([], evar_ctx)
   | t :: l ->
@@ -140,24 +155,24 @@ let rec unfold_list_if_resolved_evar (trms : trm list) evar_ctx =
 
 (** [ALGO]*)
 
-(* index -> trm_index *)
-
 (** [is_focusable star index] : determines whether a given star can be focused on a specific element
     Criteria for focus: This fonction determines whether
     for i in r -> H(i) can be focused into H'
     The function returns Some(t) if H(t) unifies with H', meaning that the star on i is focused on index t *)
-let is_focusable (range, formula) index : (var * trm) option =
+let is_focusable ((range, formula) : range * formula) (trm_index : trm) : (var * trm) option =
   let open Option.Monad in
   let var_star_index, range = range in
   let evar_ctx = Var_map.(empty |> add var_star_index (Unknown ())) in
   (* i is directly a var *)
-  let* evar_ctx = trm_unify formula index evar_ctx (fun _ _ ctx -> Some ctx) in
+  let* evar_ctx = trm_unify formula trm_index evar_ctx (fun _ _ ctx -> Some ctx) in
   match Var_map.find var_star_index evar_ctx with
   | Unknown () -> None
   | Resolved t -> Some (var_star_index, t)
 
-let are_same_range range1 range2 : bool = true
+(** [are_same_range] : Determines if TODO *)
+let are_same_range (range1 : range) (range2 : range) : bool = true
 
+(** [are_same_group_repr] : Two groups are the same, if the base trm they refer to are the same and every item in the star_index list are the same *)
 let are_same_group_repr ((stars1, t1) : group_repr) ((stars2, t2) : group_repr) : bool =
   are_same_trm t1 t2
   && List.length stars1 = List.length stars2
@@ -171,6 +186,7 @@ let are_same_group_repr ((stars1, t1) : group_repr) ((stars2, t2) : group_repr) 
        )
        stars1 stars2
 
+(** [are_same_focus_list] : Compares and returns if the two focus list at hand are the same.  *)
 let are_same_focus_list (result : focus_list) (expected : focus_list) : bool =
   List.length result = List.length expected
   && List.for_all2
@@ -191,11 +207,9 @@ If the result is Some [F_1;..;F_N] then F_i represents a ghost operation that co
 *)
 let build_focus_list (from_group : group_repr) (to_group : group_repr) : focus_list option =
   let open Option.Monad in
-  Printf.printf "Entered build_focus \n";
   let stars_from, t1 = from_group in
   let stars_to, t2 = to_group in
   if not (List.length stars_from == List.length stars_to) then begin
-    Printf.printf "Hre? \n";
     None
   end else
         let folder
@@ -206,9 +220,7 @@ let build_focus_list (from_group : group_repr) (to_group : group_repr) : focus_l
           | None -> None
           | Some (current_group, acc_focus, ind) -> (
             match (si_from, si_to) with
-            | Index _, Star _ ->
-              Printf.printf " index star \n";
-              None
+            | Index _, Star _ -> None
             | Star (range1, index1), Star (range2, index2) ->
               if are_same_range range1 range2 && are_same_trm index1 index2 then
                 Some (current_group, acc_focus, ind + 1)
@@ -225,28 +237,9 @@ let build_focus_list (from_group : group_repr) (to_group : group_repr) : focus_l
                   ind + 1
                 )
           ) in
-        Printf.printf "we managed to get there\n";
-
         Option.map
           (fun (a, b, c) -> b)
           (List.fold_left2 folder (Some (stars_from, [], 0)) stars_from stars_to)
-
-let ghosts (gl : ghost_list) =
-  List.map
-    (fun (formula_from, formula_to, (_, _)) ->
-      Resource_trm.ghost_admitted_rewrite formula_from formula_to (trm_var (toplevel_var "focus"))
-    )
-    gl
-
-let ghosts_inv (gl : ghost_list) =
-  List.map
-    (fun (formula_from, formula_to, (_, _)) ->
-      Resource_trm.ghost_admitted_rewrite formula_to formula_from (trm_var (toplevel_var "focus"))
-    )
-    gl
-
-let seq_from_ghost_list (t : trm) (gl : ghost_list) =
-  trm_seq (Mlist.of_list (ghosts gl @ [ t ] @ ghosts_inv gl))
 
 (**
   [autofocus_unify] : tries to see if formula and formula_to_unify can be unified if we add some ghosts instructions to satisfy the resource needed
@@ -256,19 +249,19 @@ let seq_from_ghost_list (t : trm) (gl : ghost_list) =
   This function first checks that the resources are on an array and on the same array.
   Then it unifies the dimensions
   Then it tries to see if a list of ghost_pair can be established around the instruction, that allows to focus the [formula_candidate] into the [formula].
-  Returns the updated evar_ctx and the ghost_list if the operation succeeded *)
+  Returns the updated evar_ctx and the ghosts if the operation succeeded *)
 
 let autofocus_unify
     (formula : trm)
     (formula_candidate : trm)
     (evar_ctx : 'a unification_ctx)
     (validate_inst : trm -> 'a -> 'a unification_ctx -> 'a unification_ctx option) :
-    (ghost_list * 'a unification_ctx) option =
+    (ghosts * 'a unification_ctx) option =
   let open Option.Monad in
-  Printf.printf "entered autofocus_unify \n";
   (* Extract groups from the formulas, returns None if it doesn't fit the autofocus scope *)
-  let* group_candidate, t_candidate = extract_group formula_candidate in
-  let* group, t = extract_group formula in
+  let* group_candidate, t_candidate, uninit_candidate = extract_group formula_candidate in
+  let* group, t, uninit = extract_group formula in
+  if uninit_candidate && not uninit then None else
 
   (* Inverse the term group are pointing to, returns None if it's not a Matrix access *)
   let* t_base_candidate, dims_candidate, indices_candidates = Matrix_trm.access_inv t_candidate in
@@ -279,15 +272,41 @@ let autofocus_unify
   let t_base, evar_ctx = unfold_if_resolved_evar t_base evar_ctx in
   let dims, evar_ctx = unfold_list_if_resolved_evar dims evar_ctx in
   let t = Matrix_trm.access t_base dims indices in
-  Printf.printf "%s \n" (print_trm_string t);
-  Printf.printf "candidat: %s \n" (print_trm_string t_candidate);
+  (* Printf.printf "%s \n" (print_trm_string t);
+  Printf.printf "candidat: %s \n" (print_trm_string t_candidate); *)
   let* group = to_group_repr group indices t in
   let* group_candidate = to_group_repr group_candidate indices_candidates t_candidate in
   let* focus_list = build_focus_list group_candidate group in
-  let ghost_list =
+  let ghosts =
     List.map
       (fun (from_group, to_group, (var, index)) ->
-        (group_repr_inv from_group, group_repr_inv to_group, (var, index))
+        (group_repr_inv ~uninit from_group, group_repr_inv ~uninit to_group, (var, index))
       )
       focus_list in
-  Some (ghost_list, evar_ctx)
+  Some (ghosts, evar_ctx)
+
+(** [GHOST_CREATION] *)
+
+(** [ghosts_formula_begin]: Transforms ghosts into actual calls (trms) to ghost function.
+    Returns the list of [trm] representing these ghost calls, used to type-check the expression that required focus. *)
+let ghosts_formula_begin (ghosts : ghosts) : trm list =
+  List.map
+    (fun (formula_from, formula_to, (_, _)) ->
+      Resource_trm.ghost_admitted_rewrite formula_from formula_to (trm_var (toplevel_var "focus"))
+    )
+    ghosts
+
+(** [ghosts_formula_end]: Transforms ghost placeholders into actual calls to the [ghosts] function.
+    Returns the list of [trm] representing these ghost calls, used to restore the resources released during focus. *)
+let ghosts_formula_end (ghosts : ghosts) =
+  List.map
+    (fun (formula_from, formula_to, (_, _)) ->
+      Resource_trm.ghost_admitted_rewrite formula_to formula_from (trm_var (toplevel_var "focus"))
+    )
+    (List.rev ghosts)
+
+(** [seq_from_ghosts_list] : Returns the trm_seq corresponding to the full sequence needde to type the resource that needed focus  *)
+let seq_from_ghosts_list (t : trm) (gl : ghosts list) : trm =
+  let ghosts_before = List.concat (List.map (fun ghosts -> ghosts_formula_begin ghosts) gl) in
+  let ghosts_after = List.concat (List.map (fun ghosts -> ghosts_formula_end ghosts) gl) in
+  trm_seq (Mlist.of_list (ghosts_before @ [ t ] @ ghosts_after))
