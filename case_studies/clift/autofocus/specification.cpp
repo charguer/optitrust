@@ -12,8 +12,10 @@ void simple_focus_caller(float *x, int m, int n) {
   simple_focus(x, n);
 }
 
-// // General_simple_focus: MINDEX4. The focus can be placed on an inner dimension,
-// // which means we should preserve information about both what comes before and
+// // General_simple_focus: MINDEX4. The focus can be placed on an inner
+// dimension,
+// // which means we should preserve information about both what comes before
+// and
 // // what follows, any dimension can be already focuses
 
 // void general_simple_focus(float *x, int n1, int n2, int n3, int n4) {
@@ -36,7 +38,8 @@ void simple_focus_caller(float *x, int m, int n) {
 // }
 
 // // Complex access: we have permission on x[MINDEX2(n1,n2, f(i1), i2)]. Should
-// // work when the f(i1) is also asked by the callee , abort when different access
+// // work when the f(i1) is also asked by the callee , abort when different
+// access
 // // or when a focus is specified on this ?
 
 // void complex_access_ok(float *x, int n1, int n2) {
@@ -79,8 +82,8 @@ void simple_focus_caller(float *x, int m, int n) {
 
 // void complex_access_generic_caller(float *x, int n1, int n2) {
 //   __reads(
-//       "for i1 in 0..n2 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,f(i1,i1),i2)] ~> "
-//       "Cell");
+//       "for i1 in 0..n2 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,f(i1,i1),i2)]
+//       ~> " "Cell");
 //   int c = 3;
 //   complex_access_generic(x, n1, n2, c);
 // }
@@ -108,11 +111,13 @@ void simple_focus_caller(float *x, int m, int n) {
 
 // void rename_and_focus_caller(float *x, int n1, int n2) {
 //   __reads(
-//       "for i1 in 0..n1 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,i1,i2)] ~> Cell");
+//       "for i1 in 0..n1 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,i1,i2)] ~>
+//       Cell");
 //   rename_and_focus(x, n1, n2);
 // }
 
-// // different_order : Stars mights be in a different order between the caller and
+// // different_order : Stars mights be in a different order between the caller
+// and
 // // the callee (even without focus), but it should work
 
 // void different_order(float *x, int n1, int n2, int n3) {
@@ -141,7 +146,8 @@ void simple_focus_caller(float *x, int m, int n) {
 
 // void loop_basic(float *x, int n1, int n2) {
 //   __reads(
-//       "for i1 in 0..n1 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,i1,i2)] ~> Cell");
+//       "for i1 in 0..n1 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,i1,i2)] ~>
+//       Cell");
 //   for (int i1 = 0; i1 < n1; i1++) {
 //     for (int i2 = 0; i2 < n2; i2++) {
 //       float a = x[MINDEX2(n1, n2, i1, i2)];
@@ -161,13 +167,30 @@ void simple_focus_caller(float *x, int m, int n) {
 // // void loop_multi_focus(float *x, int n1, int n2, int n3) {
 // //   for (int i2 = 0; i2 < n2; i2++) {
 // //     for (int i3 = 0; i3 < n3; i3++) {
-// // const a = ghost_begin(focus1, "for i in 0..n1 -> for i2 in 0..n2 -> for i3 in
-// // 0..n3 -> &x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~>Cell,   i: 1") ; <-- This ghost can
-// // go outside the loops, const b = ghost_begin(focus1, "for i in 0 ..n2 -> for
-// // i3 in 0..n3 -> &x[MINDEX3(n1,n2,n3,1,i2,i3)] ~>Cell, i := i2"); <-- This one
+// // const a = ghost_begin(focus1, "for i in 0..n1 -> for i2 in 0..n2 -> for i3
+// in
+// // 0..n3 -> &x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~>Cell,   i: 1") ; <-- This ghost
+// can
+// // go outside the loops, const b = ghost_begin(focus1, "for i in 0 ..n2 ->
+// for
+// // i3 in 0..n3 -> &x[MINDEX3(n1,n2,n3,1,i2,i3)] ~>Cell, i := i2"); <-- This
+// one
 // // can go in between const c = ghost_begin(focus1, "for i in 0..n3 ->
-// // &x[MINDEX3(n1,n2,n3,1,i2,i3)] ~>Cell, i := i3"); < -- This one must stay here
+// // &x[MINDEX3(n1,n2,n3,1,i2,i3)] ~>Cell, i := i3"); < -- This one must stay
+// here
 // //       float a = x[MINDEX3(n1, n2, n3, 1, i2, i3)];
 // //     }
 // //   }
 // // }
+
+// void multiple_resources(float *x, int n) {
+//   __modifies("&x[MINDEX1(n,2)] ~> Cell");
+//   x[MINDEX1(n, 2)] = 2.f;
+// }
+
+// void multiple_resources(float *x, float *y, int n) {
+//   __modifies("for i1 in 0..n -> &x[MINDEX1(n,i1)] ~> Cell");
+//   __modifies("for i1 in 0..n -> &y[MINDEX1(n,i1)] ~> Cell");
+//   multiple_resources(x, n);
+//   multiple_resources(y, n);
+// }
