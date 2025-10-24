@@ -404,10 +404,11 @@ let compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx
 let handle_unification (infer:bool) (formula : trm) (formula_candidate : trm)
     (evar_ctx : unification_ctx) (validate_inst : trm -> 'a -> unification_ctx -> unification_ctx option) =
     let open Option.Monad in
+
     if infer then Resource_autofocus.autofocus_unify formula formula_candidate evar_ctx validate_inst
     else
     let* evar_ctx = trm_unify formula formula_candidate evar_ctx validate_inst in
-    Some (evar_ctx, [])
+    Some ([], evar_ctx)
 let pure_goal_solver: (resource_item -> unification_ctx -> unification_ctx option) ref = ref (fun formula evar_ctx -> None)
 
 (** [unify_pure (x, formula) env evar_ctx] unifies the given [formula] with one of the resources in [env.res].
@@ -451,7 +452,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
   (res: linear_resource_set) (evar_ctx: unification_ctx) ~(pure_ctx: pure_env) ~(infer:bool)
   : used_resource_item * Resource_autofocus.ghost_list * linear_resource_set * unification_ctx =
   let open Option.Monad in
-  Printf.printf "subtract linear resource item : %s %s" x.name (Ast_to_text.ast_to_string formula);
+  (* Printf.printf "subtract linear resource item : %s %s" x.name (Ast_to_text.ast_to_string formula); *)
   let res_before,evar_ctx_before, pure_ctx_before =  res,evar_ctx,pure_ctx in
   let rec extract
     (f : resource_item -> (used_resource_item * Resource_autofocus.ghost_list * resource_item option * unification_ctx  ) option)
@@ -493,7 +494,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
             Formula_inst.inst_forget_init candidate_name, formula_uninit formula_candidate
           else Formula_inst.inst_hyp candidate_name, formula_candidate
         in
-        let* evar_ctx,ghost_list = handle_unification infer formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
+        let* ghost_list,evar_ctx = handle_unification infer formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
 
         (* We finally got the ghost list  *)
         (* Weakens into uninit every formula *)
@@ -518,7 +519,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
     extract (fun (h, formula_candidate) ->
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
 
-      let* evar_ctx,ghost_list = (handle_unification infer) formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
+      let* ghost_list, evar_ctx = (handle_unification infer) formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
       (* When I get the focus list here we need to make RO formula, not only RO *)
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
@@ -572,7 +573,8 @@ let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unifica
   List.fold_left (fun (used_list,ghost_list, remaining_linear_res, evar_ctx ) res_item ->
     try
       let used, ghost, res_from, evar_ctx  = subtract_linear_resource_item ~infer:false  ~split_frac res_item remaining_linear_res evar_ctx ~pure_ctx in
-      (used :: used_list, ghost :: ghost_list,res_from, evar_ctx )
+      let ghost_list = if List.length ghost > 0 then ghost::ghost_list else ghost_list in
+      (used :: used_list, ghost_list,res_from, evar_ctx )
     with Not_found ->
       raise_resource_not_found Linear res_item evar_ctx res_from
   ) ([], [], res_from, evar_ctx) res_removed
@@ -1572,6 +1574,7 @@ let rec compute_resources
     (* Transitively compute resources through all sequence instructions.
        At the end of the sequence, take into account that all stack allocations are freed. *)
     | Trm_seq (instrs, seq_result_var) ->
+      Printf.printf "Trm seq with instrs\n";
       let instrs = Mlist.to_list instrs in
       let usage_map, res =
         List.fold_left (fun (current_usage, res) instr ->
@@ -1656,6 +1659,16 @@ let rec compute_resources
         in
 
         let call_usage_map, res_after, ghost_list = compute_contract_invoc spec.contract ~inst_map ~ensured_renaming res_after_args t in
+        Printf.printf "GHOST_LIST LEN %d \n" (List.length ghost_list);
+        if List.length ghost_list > 0 then begin
+          t.ctx.elaborate <- Some({pre_ghost = Resource_autofocus.ghosts (List.nth ghost_list 0); post_ghost =  Resource_autofocus.ghosts (List.nth ghost_list 0)});
+
+          let t_with_ghosts = Resource_autofocus.seq_from_ghost_list t (List.nth ghost_list 0) in
+
+        Printf.printf "Will call compute res on t with ghosts \n";
+        compute_resources ?expected_res (Some (res)) t_with_ghosts
+        end
+        else
         let usage_map = List.fold_left (fun usage_map (_, ghost_inst) ->
             let ghost_inst_fv = trm_free_vars ghost_inst in
             Var_set.fold (fun x -> Var_map.add x Required) ghost_inst_fv usage_map
@@ -2115,6 +2128,15 @@ let trm_compute_resources_inplace (t: trm): unit =
       | Some bt -> Printexc.raise_with_backtrace err bt
       | None -> raise err
 
+
+let elaborate (t :trm)  =
+trm_bottom_up (fun t -> match t.ctx.elaborate with
+  | Some {pre_ghost = tl_pre; post_ghost = tl_post} -> (
+    Printf.printf "ELABORATION : %s \n" (Resource_autofocus.print_trm_string t);
+    t.ctx.elaborate <- None;
+   (* Nobrace_transfo.remove_after (fun _ -> t1 := Nobrace.trm_seq (Mlist.of_list (tl_pre @[t] @ tl_post))); *)
+   trm_seq (Mlist.of_list (tl_pre @[t] @ tl_post)))
+  | _ -> t) t
 (** [trm_recompute_resources t] recomputes resources of [t] using [compute_resources],
   after a [trm_deep_copy] to prevent sharing.
   Otherwise, returns a fresh term in case of success, or raises [ResourceError] in case of failure.
@@ -2131,4 +2153,4 @@ let trm_recompute_resources ?(missing_types = false) (t: trm): trm =
   let t = trm_deep_copy t in
   missing_types_in_contracts := missing_types;
   trm_compute_resources_inplace t;
-  t
+  elaborate t

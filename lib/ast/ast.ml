@@ -591,10 +591,13 @@ and ctx = {
   mutable ctx_resources_post_inst: used_resource_set option;
   (* The time taken to typecheck the term, only measured for [Trm_fun] when [Flags.report_exectime] is one, else zero. *)
   mutable ctx_resources_exectime : float;
+  (* The elaboration needed to typ this trm *)
+  mutable elaborate : elaboration_set option;
 }
 
 and formula = trm
 and resource_item = var * formula
+
 
 (* FIXME: Perf issue: Replace the resource_item lists with efficient datastructures:
    We need push_back, push_front, find_opt, fold_left (in order), and map to be cheap *)
@@ -675,6 +678,10 @@ and contract_invoc = {
   contract_joined_resources: (var * var) list;
 }
 
+and elaboration_set = {
+pre_ghost : trm list;
+post_ghost : trm list
+}
 (** [template_param_kind]: parameters kind: typename or variable and an optional default value *)
 and template_param_kind =
   | Typename of typ option               (* <typename T> *)
@@ -903,6 +910,7 @@ and omp_routine =
   | Get_wtime
   | Get_wtick
 
+
 (*************************** Variable constructors ***************************)
 
 (** Creates a new variable, using a fresh identifier. *)
@@ -997,6 +1005,7 @@ let unknown_ctx (): ctx = {
   ctx_resources_before = None; ctx_resources_after = None;
   ctx_resources_usage = None; ctx_resources_contract_invoc = None;
   ctx_resources_post_inst = None; ctx_resources_exectime = 0.;
+  elaborate = None;
 }
 
 (** The empty resource set. *)
