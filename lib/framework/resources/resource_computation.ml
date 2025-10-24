@@ -745,6 +745,14 @@ let compute_produced_resources (subst_ctx: tmap) ?(ensured_renaming = Var_map.em
               | _ -> aliases
             in
             let subst_ctx = if var_eq h var_result then subst_ctx else Var_map.add h (trm_var produced_hyp) subst_ctx in
+            (* BEGIN TEMPORARY solution to manually create Result variable aliases at the contract level.
+            This is needed for axiomatized, polymorphic functions which are not ghosts,
+            because equality is only defined over int and float (equality also doesn't create an alias currently anyway). *)
+            let aliases = match Resource_formula.formula_spec_override_inv produced_formula with
+              | Some(Some res_value, _) -> Var_map.add var_result res_value aliases
+              | _ -> aliases
+              in
+            (* END *)
             (produced_hyp, produced_formula) :: pure_rev, contract_names, subst_ctx, aliases
           with ClearedVarOccurence _ ->
             pure_rev, contract_names, Var_map.add h (trm_var dummy_var) subst_ctx, aliases
@@ -1503,11 +1511,20 @@ let rec compute_resources
       in
       begin match contract with
       | FunSpecContract contract ->
-        (* Add arguments and return value to the contract *)
-        let pre = List.fold_left (fun pre arg ->
-            Resource_set.push_front_pure arg pre
-          ) contract.pre (List.rev args)
+        let spec_ovr: (trm option * typ) option = List.fold_left (fun spec (_,formula) ->
+          match spec with
+          | Some _ -> spec
+          | None -> Resource_formula.formula_spec_override_inv formula
+          ) None contract.post.pure in
+        (* Add arguments to the contract, if the spec does not override *)
+        let rettyp, pre = match spec_ovr with
+          | Some (_, rettyp) -> (rettyp, contract.pre)
+          | None -> (rettyp, List.fold_left (fun pre arg ->
+                Resource_set.push_front_pure arg pre
+              ) contract.pre (List.rev args)
+            )
         in
+        (* Add the return type to the contract *)
         let rettyp = if is_typ_auto rettyp then typ_unit else rettyp in
         let post = if is_typ_unit rettyp || Resource_trm.is_typ_ghost_ret rettyp
           then contract.post
@@ -1524,7 +1541,9 @@ let rec compute_resources
         let args, argtyps = List.split args in
         let res = { res with fun_specs = Var_map.add var_result { args; contract; inverse = None } res.fun_specs } in
         let usage = update_usage_map ~current_usage:contract_usage ~extra_usage:body_usage in
-        with_result (typ_fun argtyps rettyp) (Some usage) res
+        (* When the override permission is used, the pure type is forced to auto *)
+        let pure_typ = if Option.is_some spec_ovr then typ_auto else (typ_fun argtyps rettyp) in
+        with_result pure_typ (Some usage) res
       | FunSpecReverts reverted_fn ->
         (* LATER: allow non empty arg list for reversible functions, this requires subtitution in the reversed contract *)
         assert (args = []);
@@ -2094,6 +2113,9 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_formula.var_or, typ_pure_simple_fun [typ_prop; typ_prop] typ_prop;
   Resource_formula.var_frac_div, typ_pure_simple_fun [typ_frac; typ_int] typ_frac;
   Resource_formula.var_frac_sub, typ_pure_simple_fun [typ_frac; typ_frac] typ_frac;
+  Resource_formula.var_spec_override_ret, (let typ = new_var "T" in let res = new_var "v" in typ_pure_fun [typ, typ_type; res, (typ_var typ)] (typ_prop));
+  Resource_formula.var_spec_override_noret, (typ_pure_fun [] (typ_prop));
+  Resource_formula.var_spec_override_ret_implicit, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_prop));
   Resource_trm.var_ghost_ret, typ_type;
   Resource_trm.var_ghost_fn, typ_type; (* Maybe add an alias to trm_fun [] trm_ghost_ret *)
   Resource_trm.var_arbitrary, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_var typ));

@@ -129,6 +129,29 @@ let formula_gt ~typ t1 t2 = formula_is_true (trm_gt ~typ t1 t2)
 let formula_leq ~typ t1 t2 = formula_is_true (trm_le ~typ t1 t2)
 let formula_geq ~typ t1 t2 = formula_is_true (trm_ge ~typ t1 t2)
 
+(* Pure functions to manually override function specification *)
+(* These permissions, when used in a function contract, are used by the typechecker
+ to drop the function arguments as provided in the term, to consider the function's pure type as auto,
+ and to set the return type and a return alias as indicated.
+  _ret => bind a specific variable in context with type T to _Res
+  _ret_implicit => indicate that _Res has type T (used in postcondition)
+  _noret => has no return
+ All of the hints force the function's pure type to auto and drop the arguments.*)
+
+let var_spec_override_ret = toplevel_var "__spec_override_ret"
+let var_spec_override_ret_implicit = toplevel_var "__spec_override_ret_implicit"
+let var_spec_override_noret = toplevel_var "__spec_override_noret"
+
+let formula_spec_override_inv formula: (trm option * typ) option =
+  Pattern.pattern_match formula [
+    Pattern.(trm_apps2 (trm_specific_var var_spec_override_ret) !__ !__) (fun res_typ res_val () ->
+      Some (Some res_val, res_typ));
+    Pattern.(trm_apps1 (trm_specific_var var_spec_override_ret_implicit) !__) (fun res_typ () ->
+      Some (None, res_typ));
+    Pattern.(trm_apps0 (trm_specific_var var_spec_override_noret)) (fun () ->
+      Some (None, typ_unit));
+    Pattern.__ (fun () -> None) ]
+
 (* -------- SMART FORMULA CONSTRUCTORS, INVERTERS and COMBINATORS -------- *)
 
 let formula_fun ?(rettyp = typ_auto) args body =
