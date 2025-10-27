@@ -39,7 +39,46 @@ let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : 
   Trace.justif_always_correct ();
   Trace.tag_simpl_arith ();
   Trace.without_resource_computation_between_steps (fun () ->
-    Target.apply_at_target_paths (Arith_core.simplify indepth f) tg
+    Target.apply_at_target_paths (fun t ->
+      let f_postprocess (t: trm) (simpl_t: trm): trm =
+        let open Resource_formula in
+        if t != simpl_t && !Flags.use_resources_with_models && not (is_formula t) then begin
+          let typ = Option.unsome ~error:"expected type" t.typ in
+          let res = Resources.after_trm t in
+          begin match Var_map.find_opt Resource_set.var_result res.aliases with
+          | Some t_model ->
+            let new_result = new_hyp "res" in
+            let result = new_var "arith_res" in
+            (* FIXME: requires aliases in specs:
+            let contract = {
+                pre = Resource_set.make ~pure:[(new_result, typ)]
+                  ~aliases:(Var_map.singleton result (trm_var new_result)) ();
+                post = Resource_set.make ~aliases:(Var_map.singleton result t_model) ();
+              } in *)
+            let result_ptr = new_var "arith_res" in
+            let contract = {
+              pre = Resource_set.make ~pure:[(new_result, typ)]
+                ~linear:[new_anon_hyp (), formula_points_to (trm_var result_ptr) (trm_var new_result)] ();
+              post = Resource_set.make ~linear:[new_anon_hyp (), formula_points_to (trm_var result_ptr) t_model] ();
+            } in
+            let maintain_res = Resource_trm.ghost_admitted contract in
+            (* trm_seq_nomarks ~result [
+              trm_let (result, typ) simpl_t;
+              maintain_res;
+            ] *)
+            trm_seq_nomarks ~result [
+              trm_let_mut (result_ptr, typ) simpl_t;
+              maintain_res;
+              trm_let (result, typ) (trm_get (trm_var result_ptr));
+            ]
+          | None ->
+            simpl_t
+          end
+        end else begin
+          simpl_t
+        end in
+      Arith_core.simplify indepth f ~f_postprocess t
+    ) tg
   )
 
 (** [simpl2 f] applies a arithmetic rewriting method from the module Arith_core:

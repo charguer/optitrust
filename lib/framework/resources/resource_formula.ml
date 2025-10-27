@@ -15,6 +15,9 @@ type contract_resource_item = var option * formula
 (** All formulas should have this annotation. *)
 let formula_annot = {trm_annot_default with trm_annot_cstyle = [ResourceFormula]}
 
+let is_formula (t: trm): bool =
+  trm_has_cstyle ResourceFormula t
+
 let new_hyp = new_var
 
 (** Returns a fresh variable without name. *)

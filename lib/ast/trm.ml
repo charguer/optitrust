@@ -158,8 +158,8 @@ let trm_seq ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(result: va
 (** [trm_seq_nomarks ~annot ?loc ?ctx tl]: like [trm_seq] but takes
    a list as arguments --LATER: use it everywhere it should instead of
   [trm_seq (Mlist_of_list tl)] *)
-let trm_seq_nomarks ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (tl : trms) : trm =
-  trm_seq ~annot ?loc ?ctx (Mlist.of_list tl)
+let trm_seq_nomarks ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(result: var option) (tl : trms) : trm =
+  trm_seq ~annot ?loc ?ctx ?result (Mlist.of_list tl)
 
 (** [trm_apps ~annot ?loc ?typ ?ctx f args]: function call *)
 let trm_apps ?(annot = trm_annot_default) ?(loc) ?(typ)

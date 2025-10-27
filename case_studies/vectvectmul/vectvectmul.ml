@@ -12,7 +12,7 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_all (*Steps_important*)
 
 let int = trm_int
 
-let part = 3 (* Choose which part you want to work on. *)
+let part = 1 (* Choose which part you want to work on. *)
 
 (* Part 0: *)
 let _ = if part = 1 then Run.script_cpp (fun () ->
@@ -31,24 +31,24 @@ let _ = if part = 1 then Run.script_cpp (fun () ->
     beware that "==" needs to be replaced with "=." and all the "__is_true" must be removed;
     some +. and + need to be fixed
     ----> LATER: tweak display so that the output of _after.cpp is exactly  vectvectmul0.cpp *)
-)
+(* )
 
 (* Part 2: *)
 let _ = if part = 2 then Run.script_cpp ~filename:"vv1.cpp" (fun () ->
+*)
   (* Why nbMulti? !! Accesses.shift_var ~inv:true ~factor:(trm_find_var "d" []) [nbMulti; cVarDef "t"]; *)
   !! Accesses.shift_var ~inv:true ~factor:(trm_find_var "d" []) [cFor "bi"; cVarDef "t"];
   !! Variable.inline [cVarDef "d"];
-  (* FIXME: !! Arith.simpl_surrounding_expr Arith.gather_rec [nbMulti; cVar "s"]; *)
-)
+  !! Arith.simpl_surrounding_expr Arith.gather_rec [nbMulti; cVar "s"];
+(* )
 
 (* Part 3: *)
 let _ = if part = 3 then Run.script_cpp ~filename:"vv2.cpp" (fun () ->
+*)
   !! Resources.loop_minimize [cFor "i"];
 
   !! Loop.hoist [cVarDef "t"];
-  !! Resources.ensure_computed ();
   !! Loop.fission [tBefore; cFor "bi"; cWriteVar "s"];
-  (* TODO: need to fix contracts for the loop fission *)
   !! Loop.parallel [cFor "bi" ~body:[cFor "i"]];
   !! Cleanup.std();
   (* includes: !! Function.use_infix_ops ~indepth:true []; *)

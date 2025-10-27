@@ -381,6 +381,9 @@ let%transfo transform_arith_immut ~(op:transform_arith_op) ?(inv : bool = false)
   let to_prove = [Resource_trm.to_prove Resource_formula.(formula_neq ~typ factor (trm_int ~typ 0))] in
   transform_immut f_init f_use to_prove tg
 
+let scale_immut = transform_arith_immut ~op:Transform_arith_mul
+let shift_immut = transform_arith_immut ~op:Transform_arith_add
+
 (** [intro tg]: expects the target [tg] to be pointing at any node that could contain struct accesses, preferably
    a sequence, then it will transform all the encodings of the form struct_get (get (t), f) to
    get (struct_access (t, f)) . *)

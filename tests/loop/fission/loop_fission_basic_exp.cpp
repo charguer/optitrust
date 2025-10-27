@@ -39,7 +39,7 @@ void parallel(int* t, int* u, int n) {
   }
 }
 
-void uninit(int* t, int* u, int n) {
+void writes(int* t, int* u, int n) {
   __writes("for i in 1..n -> &t[i] ~> Cell");
   int x = 0;
   for (int i = 1; i < n; i++) {
@@ -51,6 +51,23 @@ void uninit(int* t, int* u, int n) {
     __strict();
     __smodifies("&x ~> Cell");
     __xmodifies("&t[i] ~> Cell");
+    x += t[i];
+  }
+}
+
+void uninit(int* t, int* u, int n) {
+  __modifies("for i in 1..n -> &t[i] ~> UninitCell");
+  int x = 0;
+  for (int i = 1; i < n; i++) {
+    __strict();
+    __xwrites("&t[i] ~> Cell");
+    t[i] = i;
+  }
+  for (int i = 1; i < n; i++) {
+    __strict();
+    __smodifies("&x ~> Cell");
+    __xconsumes("&t[i] ~> Cell");
+    __xproduces("&t[i] ~> UninitCell");
     x += t[i];
   }
 }
