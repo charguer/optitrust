@@ -1365,7 +1365,7 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
   | Prim_ref | Prim_new | Prim_ref_uninit | Prim_new_uninit ->
     let res_typ = typ_of_alloc typ in
     let pure_pre, args_typ, args, alloc_res = match prim with
-      | Prim_ref_uninit | Prim_new_uninit -> [], [], [], formula_uninit_cells_var ~mem_typ:mem_typ_any typ var_result (* TODO alloc for other types of hardware (same thing as I have for GPU_GET, & SET rn) *)
+      | Prim_ref_uninit | Prim_new_uninit -> [], [], [], formula_uninit_cells_var ~mem_typ:mem_typ_any typ var_result
       | _ ->
         let init_var = new_hyp "init_val" in
         [init_var, typ], [typ], [init_var], formula_cells_var ~mem_typ:mem_typ_any typ var_result (trm_var init_var)

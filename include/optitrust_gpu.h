@@ -1,8 +1,6 @@
 #ifndef OPTITRUST_GPU_H
 #define OPTITRUST_GPU_H
 
-#include "optitrust_common.h"
-#include "optitrust_intrinsics.h"
 #include <optitrust_models.h>
 
 __DECL(GMem, "MemType");
@@ -40,12 +38,7 @@ template <typename T> T* __GMEM_ALLOC_FN() {
   __admitted();
   return __GMEM_ALLOC_FN_IMPL<T>();
 }
-// TODO: not possible to do this just yet: complains with error
-  //     Failure("Could not find a prototype for trm at location Unknown location")
-  // because of the "__with" binding, and
-  // without the with binding, just pulls a random T from context
-  // int *b = (int*)__GMEM_ALLOC_FN<int>(); __with("T := int");
-#define __GMEM_ALLOC(T) (T*)__GMEM_ALLOC_FN<T>();__with("T := "#T)
+#define __GMEM_ALLOC(T) __call_with(__GMEM_ALLOC_FN<T>(), "T := "#T)
 
 template <typename T> void __GMEM_FREE_IMPL(T* p);
 template <typename T> void __GMEM_FREE(T* p) {

@@ -38,15 +38,10 @@ template <typename T> void __FREE_TEST(T* p) {
   __FREE_TEST_IMPL(p);
 }
 
-void test(int *a, int *b) {
-  __consumes("b ~> UninitCell");
+void test(int *a) {
   __writes("a ~~> 100");
 
-  // TODO: not possible to do this just yet: complains with error
-  //     Failure("Could not find a prototype for trm at location Unknown location")
-  // because of the "__with" binding, and
-  // without the with binding, just pulls a random T from context
-  // int *b = (int*)__GMEM_ALLOC_FN<int>(); __with("T := int");
+  int *b = __call_with(__ALLOC_TEST<int>(), "T := int");
 
   __SET_TEST(b, 100);
 
