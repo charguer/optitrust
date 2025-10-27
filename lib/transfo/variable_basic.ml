@@ -61,9 +61,20 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
             Pattern.(__) (fun () -> trm_map perform_subst_formula f)
           ] in
         let rec perform_subst_trm (t: trm): trm =
+          let aux = trm_map ~f_formula:perform_subst_formula perform_subst_trm in
           Pattern.pattern_match t [
             Pattern.(trm_specific_var x) (fun () -> trm_copy init);
-            Pattern.(__) (fun () -> trm_map ~f_formula:perform_subst_formula perform_subst_trm t)
+            Pattern.(trm_for !__ !__ !__) (fun range body spec () ->
+              (* NOTE: erase contracts on the way, the inline expression might require more resources. *)
+              let t2 = aux t in
+              Pattern.pattern_match t2 [
+                Pattern.(trm_for !__ !__ !__) (fun range body spec () ->
+                  let contract = { spec with strict = false } in
+                  trm_for ~annot:t.annot ~contract range body
+                )
+              ]
+            );
+            Pattern.(__) (fun () -> aux t)
           ] in
         let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) perform_subst_trm tl in
         trm_seq ~annot:t_seq.annot ?result new_tl
