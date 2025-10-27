@@ -76,8 +76,8 @@ let slide_on (available_sum: trm) (a: trm) (b: trm) (w: trm) (f_elem: trm)
     let bi' = trm_add_int i w in
     let ai_next_inv = trm_sub_int (trm_add_int i (trm_int 1)) (trm_int 1) in
     let bi_next_inv = trm_sub_int (trm_add_int (trm_add_int i (trm_int 1)) w) (trm_int 1) in
-    let pi_res r: formula = Resource_formula.formula_points_to ~hw:Resource_formula.trm_any_ty pi r in
-    let sum_res r: formula = Resource_formula.formula_points_to ~hw:Resource_formula.trm_any_ty (trm_var sum) r in
+    let pi_res r: formula = Resource_formula.formula_points_to ~mem_typ:Resource_formula.mem_typ_any pi r in
+    let sum_res r: formula = Resource_formula.formula_points_to ~mem_typ:Resource_formula.mem_typ_any (trm_var sum) r in
     let contract = Resource_contract.(Resource_formula.(empty_loop_contract |>
       push_loop_contract_clause (Exclusive Writes) (new_anon_hyp (), pi_res (reduce ai' bi' f_elem)) |>
       push_loop_contract_clause (SharedModifies) (new_anon_hyp (), sum_res (reduce ai bi f_elem))

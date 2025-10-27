@@ -317,12 +317,12 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
     | Trm_var xf, [ptr; repr] when var_eq xf var_repr ->
       let ptr_typ = compute_pure_typ env ptr in
       let val_typ = Option.unsome_or_else (typ_ptr_inv ptr_typ) (fun () -> failwith "The lefthand side of '%s' should be a pointer" (Ast_to_c.ast_to_string t)) in
-      let hw_check hw_var (cont: unit -> unit) = let hw_typ = compute_pure_typ env hw_var in if not (Trm_unify.are_same_trm hw_typ trm_hw_ty) then failwith "In '%s': hardware type '%s' is not recognized" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string hw_var) else cont () in
+      let mem_typ_check mem_typ_var (cont: unit -> unit) = let mem_typ = compute_pure_typ env mem_typ_var in if not (Trm_unify.are_same_trm mem_typ typ_mem_type) then failwith "In '%s': hardware type '%s' is not recognized" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string mem_typ_var) else cont () in
       Pattern.pattern_match repr [
-        generic_uninit_cell_pat (fun hw () -> hw_check hw (fun () -> ()));
-        generic_cell_pat (fun hw () -> hw_check hw (fun () ->
+        generic_uninit_cell_pat (fun mem_typ () -> mem_typ_check mem_typ (fun () -> ()));
+        generic_cell_pat (fun mem_typ () -> mem_typ_check mem_typ (fun () ->
           Pattern.when_ (not !Flags.use_resources_with_models)));
-        Pattern.(trm_apps1 (generic_cell_pat) !__) (fun hw model () -> hw_check hw (fun () ->
+        Pattern.(trm_apps1 (generic_cell_pat) !__) (fun mem_typ model () -> mem_typ_check mem_typ (fun () ->
           let model_typ = compute_pure_typ env model in
           if not (Trm_unify.are_same_trm val_typ model_typ) then failwith "In '%s': pointer '%s' of type '%s' cannot point to a value '%s' of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string ptr) (Ast_to_c.typ_to_string ptr_typ) (Ast_to_c.ast_to_string model) (Ast_to_c.typ_to_string model_typ)
         ));
@@ -1157,7 +1157,7 @@ let delete_stack_allocs instrs res =
     match trm_let_inv ti with
     | Some (x, _, t) ->
       begin match trm_ref_any_inv t with
-      | Some ty -> [formula_uninit_cells_var ~hw:trm_any_ty ty x] (* TODO: Does the stack always give variables of type Any? *)
+      | Some ty -> [formula_uninit_cells_var ~mem_typ:mem_typ_any ty x] (* TODO: Does the stack always give variables of type Any? *)
       | None -> []
       end
     | None -> []
@@ -1201,39 +1201,6 @@ let check_loop_contract_types ~(pure_ctx: pure_env) (contract: loop_contract): u
   check_linear_resource_types ~pure_ctx contract.parallel_reads;
   ignore (check_resource_set_types ~pure_ctx contract.invariant)
 
-let gen_get_spec ?(hw:hwtyp=trm_any_ty) (pre_contract: resource_set) (post_contract: resource_set) =
-  (* typ = auto so we replace it by a fresh type variable *)
-  let vartyp = new_hyp "T" in
-  let typ = typ_var vartyp in
-  let arg_var = new_hyp "p" in
-  let model_var = new_hyp "v" in
-  let pre_model, post_aliases =
-    if !Flags.use_resources_with_models then
-      [model_var, typ], (Var_map.singleton var_result (trm_var model_var))
-    else
-      [], Var_map.empty
-  in
-  let frac_var = new_hyp "f" in
-  let ro_cell = formula_read_only ~frac:(trm_var frac_var) (formula_points_to ~hw (trm_var arg_var) (trm_var model_var)) in
-  (* With C++ syntax: template<typename T> T get(T* p) { __reads("p ~> Cell"); } *)
-  let contract = {
-    pre = Resource_set.union (Resource_set.make ~pure:((vartyp, typ_type) :: (arg_var, typ_ptr typ) :: (frac_var, typ_frac) :: pre_model) ~linear:[new_anon_hyp (), ro_cell] ()) pre_contract;
-    post = Resource_set.union (Resource_set.make ~pure:[var_result, typ] ~linear:[new_anon_hyp (), ro_cell] ~aliases:post_aliases ()) post_contract;
-  } in
-  (* func_typ is hard to give because this is a polymorphic function and we do not have polymorphic function types *)
-  { args = [arg_var]; contract; inverse = None }
-
-let gen_set_spec ?(hw:hwtyp=trm_any_ty) (pre_contract: resource_set) (post_contract: resource_set) =
-  let vartyp = new_hyp "T" in
-  let typ = typ_var vartyp in
-  let dest_var = new_hyp "dest" in
-  let value_var = new_hyp "value" in
-  let contract = {
-    pre = Resource_set.union (Resource_set.make ~pure:[(vartyp, typ_type); (dest_var, typ_ptr typ); (value_var, typ)] ~linear:[new_anon_hyp (), (formula_uninit_cell_var ~hw dest_var)] ()) pre_contract;
-    post = Resource_set.union (Resource_set.make ~linear:[new_anon_hyp (), formula_points_to ~hw (trm_var dest_var) (trm_var value_var)] ()) post_contract;
-  } in
-  { args = [dest_var; value_var]; contract; inverse = None }
-
 let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
   let pure_prim prim =
     let pure_prim_typ = compute_pure_typ empty_pure_env (trm_prim typ prim) in
@@ -1264,8 +1231,8 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
         | _ -> value_after
       in
       let contract = {
-        pre = Resource_set.make ~pure:[(dest_var, typ_ptr typ); (value_var, typ)] ~linear:[new_anon_hyp (), formula_points_to ~hw:trm_any_ty (trm_var dest_var) (trm_var value_var)] ();
-        post = Resource_set.make ~pure:[var_result, typ] ~aliases:(Var_map.singleton var_result result_value) ~linear:[new_anon_hyp (), formula_points_to ~hw:trm_any_ty (trm_var dest_var) value_after] ()
+        pre = Resource_set.make ~pure:[(dest_var, typ_ptr typ); (value_var, typ)] ~linear:[new_anon_hyp (), formula_points_to ~mem_typ:mem_typ_any (trm_var dest_var) (trm_var value_var)] ();
+        post = Resource_set.make ~pure:[var_result, typ] ~aliases:(Var_map.singleton var_result result_value) ~linear:[new_anon_hyp (), formula_points_to ~mem_typ:mem_typ_any (trm_var dest_var) value_after] ()
       } in
       typ_fun [typ_ptr typ] typ, { args = [dest_var]; contract; inverse = None }
 
@@ -1273,8 +1240,8 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
       if not (is_typ_numeric typ) then failwith "Cannot apply unary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
       let dest_var = new_hyp "dest" in
       let contract = {
-        pre = Resource_set.make ~pure:[(dest_var, typ_ptr typ)] ~linear:[new_anon_hyp (), formula_cell_var ~hw:trm_any_ty dest_var] ();
-        post = Resource_set.make ~pure:[var_result, typ] ~linear:[new_anon_hyp (), formula_cell_var ~hw:trm_any_ty dest_var] ()
+        pre = Resource_set.make ~pure:[(dest_var, typ_ptr typ)] ~linear:[new_anon_hyp (), formula_cell_var ~mem_typ:mem_typ_any dest_var] ();
+        post = Resource_set.make ~pure:[var_result, typ] ~linear:[new_anon_hyp (), formula_cell_var ~mem_typ:mem_typ_any dest_var] ()
       } in
       typ_fun [typ_ptr typ] typ, { args = [dest_var]; contract; inverse = None }
 
@@ -1310,9 +1277,29 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
         post = Resource_set.make ~pure:[(var_result, field_typ)] ()
       } in
       typ_fun [typ] field_typ, { args = [base_var]; contract; inverse = None }
+
     | Unop_get ->
       assert (is_typ_auto typ);
-      typ_auto, gen_get_spec Resource_set.empty Resource_set.empty
+      (* typ = auto so we replace it by a fresh type variable *)
+      let vartyp = new_hyp "T" in
+      let typ = typ_var vartyp in
+      let arg_var = new_hyp "p" in
+      let model_var = new_hyp "v" in
+      let pre_model, post_aliases =
+        if !Flags.use_resources_with_models then
+          [model_var, typ], (Var_map.singleton var_result (trm_var model_var))
+        else
+          [], Var_map.empty
+      in
+      let frac_var = new_hyp "f" in
+      let ro_cell = formula_read_only ~frac:(trm_var frac_var) (formula_points_to ~mem_typ:mem_typ_any (trm_var arg_var) (trm_var model_var)) in
+      (* With C++ syntax: template<typename T> T get(T* p) { __reads("p ~> Cell"); } *)
+      let contract = {
+        pre = Resource_set.make ~pure:((vartyp, typ_type) :: (arg_var, typ_ptr typ) :: (frac_var, typ_frac) :: pre_model) ~linear:[new_anon_hyp (), ro_cell] ();
+        post = Resource_set.make ~pure:[var_result, typ] ~linear:[new_anon_hyp (), ro_cell] ~aliases:post_aliases ()
+      } in
+      (* func_typ is hard to give because this is a polymorphic function and we do not have polymorphic function types *)
+      typ_auto, { args = [arg_var]; contract; inverse = None }
   in
   let find_binop_spec (binop: binary_op) =
     match binop with
@@ -1327,7 +1314,15 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
         produces dest ~> value
       *)
       assert (is_typ_auto typ);
-      typ_auto, gen_set_spec Resource_set.empty Resource_set.empty
+      let vartyp = new_hyp "T" in
+      let typ = typ_var vartyp in
+      let dest_var = new_hyp "dest" in
+      let value_var = new_hyp "value" in
+      let contract = {
+        pre = Resource_set.make ~pure:[(vartyp, typ_type); (dest_var, typ_ptr typ); (value_var, typ)] ~linear:[new_anon_hyp (), (formula_uninit_cell_var ~mem_typ:mem_typ_any dest_var)] ();
+        post = Resource_set.make ~linear:[new_anon_hyp (), formula_points_to ~mem_typ:mem_typ_any (trm_var dest_var) (trm_var value_var)] ()
+      } in
+      typ_auto, { args = [dest_var; value_var]; contract; inverse = None }
 
     | Binop_array_access ->
       assert (is_typ_auto typ);
@@ -1362,18 +1357,18 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
     let pre_model = if !Flags.use_resources_with_models then [model_var, typ] else [] in
     let operand_var = new_hyp "operand" in
     let contract = { (* TODO: other hardware types allocated on stack? *)
-      pre = Resource_set.make ~pure:((dest_var, typ_ptr typ) :: (operand_var, typ) :: pre_model) ~linear:[new_anon_hyp (), formula_points_to ~hw:trm_any_ty (trm_var dest_var) (trm_var model_var)] ();
-      post = Resource_set.make ~linear:[new_anon_hyp (), formula_points_to ~hw:trm_any_ty (trm_var dest_var) (trm_apps (trm_binop typ op) [trm_var model_var; trm_var operand_var])] ()
+      pre = Resource_set.make ~pure:((dest_var, typ_ptr typ) :: (operand_var, typ) :: pre_model) ~linear:[new_anon_hyp (), formula_points_to ~mem_typ:mem_typ_any (trm_var dest_var) (trm_var model_var)] ();
+      post = Resource_set.make ~linear:[new_anon_hyp (), formula_points_to ~mem_typ:mem_typ_any (trm_var dest_var) (trm_apps (trm_binop typ op) [trm_var model_var; trm_var operand_var])] ()
     } in
     typ_fun [typ_ptr typ; typ] typ_unit, { args = [dest_var; operand_var]; contract; inverse = None }
 
   | Prim_ref | Prim_new | Prim_ref_uninit | Prim_new_uninit ->
     let res_typ = typ_of_alloc typ in
     let pure_pre, args_typ, args, alloc_res = match prim with
-      | Prim_ref_uninit | Prim_new_uninit -> [], [], [], formula_uninit_cells_var ~hw:trm_any_ty typ var_result (* TODO alloc for other types of hardware (same thing as I have for GPU_GET, & SET rn) *)
+      | Prim_ref_uninit | Prim_new_uninit -> [], [], [], formula_uninit_cells_var ~mem_typ:mem_typ_any typ var_result (* TODO alloc for other types of hardware (same thing as I have for GPU_GET, & SET rn) *)
       | _ ->
         let init_var = new_hyp "init_val" in
-        [init_var, typ], [typ], [init_var], formula_cells_var ~hw:trm_any_ty typ var_result (trm_var init_var)
+        [init_var, typ], [typ], [init_var], formula_cells_var ~mem_typ:mem_typ_any typ var_result (trm_var init_var)
     in
     let post_linear = match prim with
       | Prim_ref | Prim_ref_uninit -> [new_anon_hyp (), alloc_res]
@@ -2046,41 +2041,10 @@ let ignore_spec =
   } in
   { args = [arg_var]; contract; inverse = None }
 
-(* GPU memory typing rules *)
-(* We are only writing things here because polymorphic functions are not
-  supported in the C frontend yet *)
-let var_gmem_ty = toplevel_var "GMem"
-let trm_gmem_ty = trm_var var_gmem_ty
-
-let var_gpu_block = toplevel_var "GpuBlock"
-let trm_gpu_block = trm_var var_gpu_block
-
-let var_gpu_thread = toplevel_var "GpuThread"
-let trm_gpu_thread = trm_var var_gpu_thread
-let formula_gpu_thread idx bounds =
-  trm_apps ~annot:formula_annot trm_gpu_thread [idx; bounds]
-let var_gmem_get = toplevel_var "__GMEM_GET"
-let var_gmem_set = toplevel_var "__GMEM_SET"
-let gmem_get_spec _ =
-    let arg_idx = new_hyp "i" in
-    let thread_res = formula_gpu_thread (trm_var arg_idx) (trm_lit (Lit_int (typ_int,1))) in
-    let pre = Resource_set.make ~pure:[(arg_idx, typ_int)] ~linear:[(new_anon_hyp (),thread_res)] () in
-    let post = Resource_set.make ~linear:[(new_anon_hyp (),thread_res)] () in
-    gen_get_spec ~hw:trm_gmem_ty pre post
-
-let gmem_set_spec _ =
-  let arg_idx = new_hyp "i" in
-  let thread_res = formula_gpu_thread (trm_var arg_idx) (trm_lit (Lit_int (typ_int,1))) in
-  let pre = Resource_set.make ~pure:[(arg_idx, typ_int)] ~linear:[(new_anon_hyp (),thread_res)] () in
-  let post = Resource_set.make ~linear:[(new_anon_hyp (),thread_res)] () in
-  gen_set_spec ~hw:trm_gmem_ty pre post
-
-(* end GPU memory typing rules *)
-
 let init_ctx = Resource_set.make ~pure:[
   typ_type_var, typ_type; (* Needed for polymorphic functions, do we create one metatype to avoid universe inconsistency ? *)
   typ_prop_var, typ_type;
-  (* var_hw_ty, typ_type; *) (* TODO: do we need it? Is it even valid? Everything works without it *)
+  typ_mem_type_var, typ_type;
   typ_hprop_var, typ_type;
   typ_unit_var, typ_type;
   typ_int_var, typ_type;
@@ -2122,10 +2086,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_trm.var_admit, (let prop = new_var "P" in typ_pure_fun [prop, typ_prop] (typ_var prop));
   Resource_trm.var_admitted, typ_auto;
   var_ignore, typ_auto;
-  var_any_ty, trm_hw_ty;
-  var_gmem_ty, trm_hw_ty;
-  var_gpu_thread, typ_pure_simple_fun [typ_int; typ_int] typ_hprop;
-  var_gpu_block, typ_pure_simple_fun [typ_int; typ_int] typ_hprop;
+  mem_typ_any_var, typ_mem_type;
 ] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_specs) ()
 
 (** Compute resources inside [t] in place.
@@ -2134,15 +2095,9 @@ let init_ctx = Resource_set.make ~pure:[
   in the nodes inside [t]. *)
 let trm_compute_resources_inplace (t: trm): unit =
   global_errors := [];
-  let init_dyn_ctx = Resource_set.make
-    ~pure: [
-      var_gmem_get, typ_auto;
-      var_gmem_set, typ_auto; ]
-    ~fun_specs:(Var_map.of_seq (List.to_seq [var_gmem_get,gmem_get_spec ();
-    var_gmem_set,gmem_set_spec ()])) () in
   let backtrace =
     try
-      ignore (compute_resources (Some (Resource_set.union init_ctx init_dyn_ctx)) t);
+      ignore (compute_resources (Some init_ctx) t);
       None
     with StoppedOnFirstError -> Some (Printexc.get_raw_backtrace ())
   in

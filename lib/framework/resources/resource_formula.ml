@@ -168,54 +168,46 @@ let formula_repr_inv (t: formula): (trm * formula) option =
     Some (var, repr)
   | _ -> None
 
-(* TODO: These variable names should probably be more consistent with the rest of the codebase's naming convention
-  To discuss in code review *)
-
-(* TODO: We might want to call it something other than "HW" - maybe memory space or something
-  To discuss in code review*)
-let var_hw_ty = toplevel_var "HwType"
-
-let trm_hw_ty = trm_var var_hw_ty
-let var_any_ty = toplevel_var "Any"
-
-let trm_any_ty = trm_var var_any_ty
+let typ_mem_type_var = toplevel_var "MemType"
+let typ_mem_type = trm_var typ_mem_type_var
+let mem_typ_any_var = toplevel_var "Any"
+let mem_typ_any = trm_var mem_typ_any_var
 
 let var_cell_of = toplevel_var "CellOf"
-
 let trm_cell_of = trm_var var_cell_of
 
 (* let var_cell = toplevel_var "Cell" *)
 
 
-let trm_cell ?(hw:hwtyp=trm_any_ty) () =
-    trm_apps ~annot:formula_annot trm_cell_of [hw]
+let trm_cell ?(mem_typ:hwtyp=mem_typ_any) () =
+    trm_apps ~annot:formula_annot trm_cell_of [mem_typ]
 
 let generic_cell_pat cont = Pattern.(trm_apps1 (trm_specific_var var_cell_of) !__) cont
 let generic_cell_noid_pat cont = Pattern.(trm_apps1 (trm_var_with_name var_cell_of.name) !__) cont
 
-let formula_cell ~hw (addr: trm): formula =
+let formula_cell ~mem_typ (addr: trm): formula =
   if !Flags.use_resources_with_models then
     failwith "formula_cell cannot be used when models are enabled";
-  formula_repr addr (trm_cell ~hw ())
+  formula_repr addr (trm_cell ~mem_typ ())
 
-let formula_points_to ~hw (addr: trm) (value: formula): formula =
+let formula_points_to ~mem_typ (addr: trm) (value: formula): formula =
   if !Flags.use_resources_with_models then
-    formula_repr addr (trm_apps ~annot:formula_annot (trm_cell ~hw ()) [value])
+    formula_repr addr (trm_apps ~annot:formula_annot (trm_cell ~mem_typ ()) [value])
   else
-    formula_cell ~hw addr
+    formula_cell ~mem_typ addr
 
 
 let formula_cell_inv (t: formula): (trm * hwtyp) option =
   let open Option.Monad in
   let* addr, repr = formula_repr_inv t in
   Pattern.pattern_match_opt repr [
-    generic_cell_pat (fun hw () ->
+    generic_cell_pat (fun mem_typ () ->
       Pattern.when_ (not !Flags.use_resources_with_models);
-      (addr,hw)
+      (addr,mem_typ)
     );
-    Pattern.(trm_apps1 (generic_cell_pat) __) (fun hw () ->
+    Pattern.(trm_apps1 (generic_cell_pat) __) (fun mem_typ () ->
       Pattern.when_ (!Flags.use_resources_with_models);
-      (addr,hw)
+      (addr,mem_typ)
     );
   ]
 
@@ -223,14 +215,14 @@ let formula_points_to_inv (t: formula): (trm * formula * hwtyp) option =
   let open Option.Monad in
   let* addr, repr = formula_repr_inv t in
   Pattern.pattern_match_opt repr [
-    generic_cell_pat (fun hw () ->
+    generic_cell_pat (fun mem_typ () ->
       Pattern.when_ (not !Flags.use_resources_with_models);
       (* We need to return a model that will be ignored anyway. *)
-      (addr, trm_cell ~hw (), hw)
+      (addr, trm_cell ~mem_typ (), mem_typ)
     );
-    Pattern.(trm_apps1 (generic_cell_pat) !__) (fun hw model () ->
+    Pattern.(trm_apps1 (generic_cell_pat) !__) (fun mem_typ model () ->
       Pattern.when_ (!Flags.use_resources_with_models);
-      (addr, model, hw)
+      (addr, model, mem_typ)
     )
   ]
 
@@ -238,11 +230,11 @@ let var_uninit_cell_of = toplevel_var "UninitCellOf"
 let trm_uninit_cell_of = trm_var var_uninit_cell_of
 (* let var_uninit_cell = toplevel_var "UninitCell" *)
 
-let trm_uninit_cell ?(hw:hwtyp=trm_any_ty) () =
-    trm_apps ~annot:formula_annot trm_uninit_cell_of [hw]
+let trm_uninit_cell ?(mem_typ:hwtyp=mem_typ_any) () =
+    trm_apps ~annot:formula_annot trm_uninit_cell_of [mem_typ]
 
-let formula_uninit_cell ~hw (addr: trm): formula =
-  formula_repr addr (trm_uninit_cell ~hw ())
+let formula_uninit_cell ~mem_typ (addr: trm): formula =
+  formula_repr addr (trm_uninit_cell ~mem_typ ())
 
 let generic_uninit_cell_pat cont = Pattern.(trm_apps1 (trm_specific_var var_uninit_cell_of) !__) cont
 let generic_uninit_cell_noid_pat cont = Pattern.(trm_apps1 (trm_var_with_name var_uninit_cell_of.name) !__) cont
@@ -251,8 +243,8 @@ let formula_uninit_cell_inv (t: formula): (trm * hwtyp) option =
   let open Option.Monad in
   let* addr, repr = formula_repr_inv t in
   Pattern.pattern_match_opt repr [
-    generic_uninit_cell_pat (fun hw () ->
-      (addr,hw)
+    generic_uninit_cell_pat (fun mem_typ () ->
+      (addr,mem_typ)
     );
   ]
 
@@ -294,43 +286,43 @@ let formula_custom_repr_matrix repr (m: trm) (dims: trm list) : formula =
     trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula])
     indices dims inner_trm
 
-let formula_reorder_dims_patch ~hw ?(init=true) (m:trm) (dims : trm list) (order: int list) : formula =
+let formula_reorder_dims_patch ~mem_typ ?(init=true) (m:trm) (dims : trm list) (order: int list) : formula =
 
   let indices = List.mapi (fun i _ -> new_var (sprintf "i%d" (i+1))) dims in
   let reordered_indices = List.reorder order indices in
   let reordered_dims = List.reorder order dims in
-  let cell = if init then fun _ -> trm_cell ~hw () else fun _  ->  trm_uninit_cell ~hw () in
+  let cell = if init then fun _ -> trm_cell ~mem_typ () else fun _  ->  trm_uninit_cell ~mem_typ () in
   let inner_trm = formula_repr (Matrix_trm.access m reordered_dims (List.map trm_var reordered_indices)) (cell reordered_indices) in
   List.fold_right2 (fun idx dim formula ->
     trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula])
     indices dims inner_trm
 
-let formula_matrix ~hw (m: trm) ?(model: formula option) ?(init=true) (dims: trm list) : formula =
+let formula_matrix ~mem_typ (m: trm) ?(model: formula option) ?(init=true) (dims: trm list) : formula =
   if !Flags.use_resources_with_models then
     let model = Option.unsome_or_else model (fun () -> failwith "Providing a model to formula_matrix is mandatory when models are enabled") in
-    formula_custom_repr_matrix (fun indices -> trm_apps (trm_cell ~hw ()) [trm_apps model (List.map trm_var indices)]) m dims
+    formula_custom_repr_matrix (fun indices -> trm_apps (trm_cell ~mem_typ ()) [trm_apps model (List.map trm_var indices)]) m dims
   else
-    let cell = if init then fun _ -> (trm_cell ~hw ()) else fun _  -> (trm_uninit_cell ~hw ()) in
+    let cell = if init then fun _ -> (trm_cell ~mem_typ ()) else fun _  -> (trm_uninit_cell ~mem_typ ()) in
     formula_custom_repr_matrix cell m dims
 
-let formula_uninit_matrix ~hw (m: trm) (dims: trm list) : formula =
-  formula_custom_repr_matrix (fun _ -> (trm_uninit_cell ~hw ())) m dims
+let formula_uninit_matrix ~mem_typ (m: trm) (dims: trm list) : formula =
+  formula_custom_repr_matrix (fun _ -> (trm_uninit_cell ~mem_typ ())) m dims
 
-let formula_cell_var ~hw ?(typ : typ option) (x: var): formula =
-  formula_cell ~hw (trm_var ?typ:(Option.map typ_ptr typ) x)
+let formula_cell_var ~mem_typ ?(typ : typ option) (x: var): formula =
+  formula_cell ~mem_typ (trm_var ?typ:(Option.map typ_ptr typ) x)
 
-let formula_uninit_cell_var ~hw ?(typ : typ option) (x: var): formula =
-  formula_uninit_cell ~hw (trm_var ?typ:(Option.map typ_ptr typ) x)
+let formula_uninit_cell_var ~mem_typ ?(typ : typ option) (x: var): formula =
+  formula_uninit_cell ~mem_typ (trm_var ?typ:(Option.map typ_ptr typ) x)
 
-let formula_cells_var ~hw (typ: typ) (x: var) (model: formula): formula =
+let formula_cells_var ~mem_typ (typ: typ) (x: var) (model: formula): formula =
   match Matrix_trm.typ_matrix_inv typ with
-  | Some (base_ty, dims) -> formula_matrix ~hw (trm_var ~typ:(typ_ptr base_ty) x) dims ~model
-  | None -> formula_points_to ~hw (trm_var ~typ x) model
+  | Some (base_ty, dims) -> formula_matrix ~mem_typ (trm_var ~typ:(typ_ptr base_ty) x) dims ~model
+  | None -> formula_points_to ~mem_typ (trm_var ~typ x) model
 
-let formula_uninit_cells_var ~hw (typ: typ) (x: var): formula =
+let formula_uninit_cells_var ~mem_typ (typ: typ) (x: var): formula =
   match Matrix_trm.typ_matrix_inv typ with
-  | Some (base_ty, dims) -> formula_uninit_matrix ~hw (trm_var ~typ:(typ_ptr base_ty) x) dims
-  | None -> formula_uninit_cell_var ~hw ~typ x
+  | Some (base_ty, dims) -> formula_uninit_matrix ~mem_typ (trm_var ~typ:(typ_ptr base_ty) x) dims
+  | None -> formula_uninit_cell_var ~mem_typ ~typ x
 
 let var_in_range = toplevel_var "in_range"
 let trm_in_range = trm_var var_in_range
@@ -367,26 +359,26 @@ module Pattern = struct
 
   let formula_points_to f_var f_model f_hw k t =
     match formula_points_to_inv t with
-    | Some (var, model, hw) ->
+    | Some (var, model, mem_typ) ->
       let k = f_var k var in
       let k = f_model k model in
-      let k = f_hw k hw in
+      let k = f_hw k mem_typ in
       k
     | None -> raise Next
 
   let formula_cell f_var f_hw k t =
     match formula_cell_inv t with
-    | Some (var,hw) ->
+    | Some (var,mem_typ) ->
         let k = f_var k var in
-        let k = f_hw k hw in
+        let k = f_hw k mem_typ in
         k
     | None -> raise Next
 
   let formula_uninit_cell f_var f_hw k t =
     match formula_uninit_cell_inv t with
-    | Some (var,hw) ->
+    | Some (var,mem_typ) ->
         let k = f_var k var in
-        let k = f_hw k hw in
+        let k = f_hw k mem_typ in
         k
     | None -> raise Next
 
@@ -447,7 +439,7 @@ let () = Printexc.register_printer (function
 (** Make an uninitialized version of the formula, trying to convert cells into uninitialized cells *)
 let rec formula_uninit (formula: formula): formula =
   Pattern.pattern_match formula [
-    Pattern.(formula_either_cell !__ !__) (fun addr hw () -> formula_uninit_cell ~hw addr);
+    Pattern.(formula_either_cell !__ !__) (fun addr mem_typ () -> formula_uninit_cell ~mem_typ addr);
     Pattern.(formula_group !__ !__ !__) (fun idx range sub () -> formula_group idx range (formula_uninit sub));
     Pattern.__ (fun () -> raise (CannotTransformIntoUninit formula))
   ]
@@ -462,8 +454,8 @@ let rec is_formula_uninit (formula: formula): bool =
 (** Same as [formula_uninit] but works with raw formulas with syntatic sugar and without var ids *)
 let rec raw_formula_uninit (formula: formula): formula =
   Pattern.pattern_match formula [
-    Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (generic_uninit_cell_noid_pat ^| generic_cell_noid_pat ^| trm_apps1 (generic_cell_noid_pat) __)) (fun addr hw () ->
-      formula_uninit_cell ~hw addr
+    Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (generic_uninit_cell_noid_pat ^| generic_cell_noid_pat ^| trm_apps1 (generic_cell_noid_pat) __)) (fun addr mem_typ () ->
+      formula_uninit_cell ~mem_typ addr
     );
     Pattern.(trm_apps2 (trm_var_with_name var_group.name) !__ (trm_fun (pair !__ __ ^:: nil) __ !__ __)) (fun range idx sub () -> formula_group idx range (raw_formula_uninit sub));
     Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_apps (trm_var !(check (fun v -> String.starts_with ~prefix:"Matrix" v.name))) !__ __ __)) (fun addr matrix_repr matrix_args () ->
@@ -523,14 +515,14 @@ let formula_matrix_inv (f: formula): (trm * trm list * (trm*hwtyp) option) optio
   let* location, repr = formula_repr_inv inner_formula in
   let* model_hw = Pattern.pattern_match_opt repr [
     generic_uninit_cell_pat (fun _ () -> None);
-    generic_cell_pat (fun hw () ->
+    generic_cell_pat (fun mem_typ () ->
       Pattern.when_ (not !Flags.use_resources_with_models);
-      Some (trm_cell ~hw (), hw)
+      Some (trm_cell ~mem_typ (), mem_typ)
     );
-    Pattern.(trm_apps1 generic_cell_pat (trm_apps !__ !__ __ __)) (fun hw model args () ->
+    Pattern.(trm_apps1 generic_cell_pat (trm_apps !__ !__ __ __)) (fun mem_typ model args () ->
       Pattern.when_ (!Flags.use_resources_with_models);
       Pattern.when_ (has_matching_indices args indices);
-      Some (model, hw)
+      Some (model, mem_typ)
     )
   ] in
   let* matrix, mindex_dims, mindex_indices = Matrix_trm.access_inv location in

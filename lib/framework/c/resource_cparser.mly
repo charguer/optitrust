@@ -173,9 +173,9 @@ formula:
   | t=ampersand_formula; SQUIG_ARROW; f=formula;
     { formula_repr t f }
   | t=ampersand_formula; LONG_SQUIG_ARROW; f=formula;
-    { formula_points_to ~hw:trm_any_ty t f }
+    { formula_points_to ~mem_typ:mem_typ_any t f }
   | t=ampersand_formula; LONG_SQUIG_ARROW; LBRACKET; h=IDENT; RBRACKET; f=formula;
-    { formula_points_to ~hw:(trm_var ~annot:formula_annot (name_to_var h)) t f }
+    { formula_points_to ~mem_typ:(trm_var ~annot:formula_annot (name_to_var h)) t f }
   | FUN; args=fun_args; ARROW; body=formula;
     { formula_fun args body }
   | FORALL; args=fun_args; ARROW; body=formula;
