@@ -170,7 +170,7 @@ let%transfo slide
     let (sum, a, w, f_elem) = Option.unsome ~error (List.find_map (fun (_, r) ->
       Pattern.pattern_match_opt r [
         Pattern.(
-          (formula_points_to !__ (reduce_pat !__ (trm_add !__ !__) !__) __) (* TODO should be restricted to Any? *)
+          (formula_points_to !__ (reduce_pat !__ (trm_add !__ !__) !__) __)
         ) (fun sum a a2 w f_elem () ->
           Pattern.when_ (Trm_unify.are_same_trm a a2);
 

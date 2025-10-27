@@ -84,7 +84,7 @@ let rec desugar_formula (formula: formula): formula =
     Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_apps (trm_var !__) !__ __ __)) (fun var f args () ->
         if !Flags.use_resources_with_models && f.name = sprintf "Matrix%d" (List.length args - 1) then
           let size, model = List.unlast args in
-          formula_matrix var ~mem_typ:(mem_typ_any) size ~model (* TODO: allow other hardware types *)
+          formula_matrix var ~mem_typ:(mem_typ_any) size ~model (* TODO: other memory types in matrices (#23) *)
         else if not (!Flags.use_resources_with_models) && f.name = sprintf "Matrix%d" (List.length args) then
           formula_matrix var ~mem_typ:(mem_typ_any) args
         else if f.name = sprintf "UninitMatrix%d" (List.length args) then

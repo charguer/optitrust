@@ -88,7 +88,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
         Pattern.(formula_group !__ (formula_range !__ !__ !__) !__) (fun index start stop step body () ->
           aux ({ index; start; stop; step; direction = DirUp } :: acc_rev_ranges) body
         );
-        Pattern.(formula_either_cell !__ !__) (fun addr mem_typ () -> (* TODO should be restricted to any? *)
+        Pattern.(formula_either_cell !__ !__) (fun addr mem_typ () -> (* TODO upgrade to multiple mem types (#24) *)
           Pattern.when_ (address_matches addr);
           matched_ret := formula :: !matched_ret;
           if is_read_only then trm_fail formula "can't scale read-only resource in-place";

@@ -81,7 +81,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
           Pattern.(formula_group !__ !__ !__) (fun idx range body_formula () ->
             aux (fun c -> wrap_cell (trm_apps ~annot:formula.annot trm_group [range; formula_fun [idx, typ_int] c])) body_formula
           );
-          Pattern.(formula_cell !__ !__) (fun loc mem_typ () -> (* TODO should be restricted to any? *)
+          Pattern.(formula_cell !__ !__) (fun loc mem_typ () -> (* TODO upgrade to multiple mem types (#24) *)
             Pattern.when_ (trm_ptr_typ_matches loc);
             Some [process_one_cell (fun c -> trm_copy (wrap_cell c)) is_ro loc]
           );

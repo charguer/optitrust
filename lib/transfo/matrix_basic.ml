@@ -29,19 +29,19 @@ let%transfo biject (fun_name : var) (tg : target) : unit =
 (** <private>
   returns (ranges, matrix_ptr, mindex_dims, mindex_indices)
   *)
-let rec formula_mindex_group_inv (f : formula) : ((formula * var) list * trm * trm list * trm list) option =
+let rec formula_mindex_group_inv (f : formula) : ((formula * var) list * mem_typ * trm * trm list * trm list) option =
   let open Resource_formula in
   Pattern.pattern_match_opt f [
     Pattern.(formula_group !__ !__ !__)
       (fun idx range inner_formula () ->
         match formula_mindex_group_inv inner_formula with
-        | Some (ranges, matrix_ptr, mindex_dims, mindex_indices) ->
-          ((range, idx) :: ranges, matrix_ptr, mindex_dims, mindex_indices)
+        | Some (ranges, matrix_ptr, mem_typ, mindex_dims, mindex_indices) ->
+          ((range, idx) :: ranges, matrix_ptr, mem_typ, mindex_dims, mindex_indices)
         | None -> raise Pattern.Failed
       );
-    Pattern.(formula_either_cell !__ __) (fun location () -> (*TODO should be restricted to Any?*)
+    Pattern.(formula_either_cell !__ !__) (fun location mem_typ () ->
       match Matrix_trm.access_inv location with
-      | Some (matrix, mindex_dims, mindex_indices) -> ([], matrix, mindex_dims, mindex_indices)
+      | Some (matrix, mindex_dims, mindex_indices) -> ([], matrix, mem_typ, mindex_dims, mindex_indices)
       | None -> raise Pattern.Failed
     );
   ]
@@ -260,7 +260,7 @@ let%transfo local_name_tile
         let process_linear r =
           let Resource_formula.{ formula = r2 } = Resource_formula.formula_read_only_inv_all r in
           match formula_mindex_group_inv r2 with
-          | Some (ranges, matrix_ptr, dims, indices) ->
+          | Some (ranges, matrix_ptr, _, dims, indices) -> (* TODO upgrade to multiple mem types (#24) *)
             (* DEBUG: Printf.printf "formula: %s\n" Resource_computation.(formula_to_string r2); *)
             Pattern.pattern_match matrix_ptr [
               Pattern.(trm_specific_var var) (fun () ->

@@ -52,9 +52,10 @@ void __FREE_TEST_IMPL(T*)
   __FREE_TEST_IMPL(p);
 }
 
-void test(int* a, int* b) {
-  __consumes("b ~> UninitCell");
+void test(int* a) {
   __writes("a ~~> 100");
+  int* b = __ALLOC_TEST<int>();
+  __with("T := int");
   __SET_TEST(b, 100);
   __SET_TEST(a, __GET_TEST(b));
   __FREE_TEST(b);

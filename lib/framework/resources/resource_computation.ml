@@ -319,10 +319,10 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
       let val_typ = Option.unsome_or_else (typ_ptr_inv ptr_typ) (fun () -> failwith "The lefthand side of '%s' should be a pointer" (Ast_to_c.ast_to_string t)) in
       let mem_typ_check mem_typ_var (cont: unit -> unit) = let mem_typ = compute_pure_typ env mem_typ_var in if not (Trm_unify.are_same_trm mem_typ typ_mem_type) then failwith "In '%s': hardware type '%s' is not recognized" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string mem_typ_var) else cont () in
       Pattern.pattern_match repr [
-        generic_uninit_cell_pat (fun mem_typ () -> mem_typ_check mem_typ (fun () -> ()));
-        generic_cell_pat (fun mem_typ () -> mem_typ_check mem_typ (fun () ->
+        Pattern.(trm_uninit_cell !__) (fun mem_typ () -> mem_typ_check mem_typ (fun () -> ()));
+        Pattern.(trm_cell !__) (fun mem_typ () -> mem_typ_check mem_typ (fun () ->
           Pattern.when_ (not !Flags.use_resources_with_models)));
-        Pattern.(trm_apps1 (generic_cell_pat) !__) (fun mem_typ model () -> mem_typ_check mem_typ (fun () ->
+        Pattern.(trm_apps1 (trm_cell !__) !__) (fun mem_typ model () -> mem_typ_check mem_typ (fun () ->
           let model_typ = compute_pure_typ env model in
           if not (Trm_unify.are_same_trm val_typ model_typ) then failwith "In '%s': pointer '%s' of type '%s' cannot point to a value '%s' of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string ptr) (Ast_to_c.typ_to_string ptr_typ) (Ast_to_c.ast_to_string model) (Ast_to_c.typ_to_string model_typ)
         ));
