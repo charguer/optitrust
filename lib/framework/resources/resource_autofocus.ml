@@ -124,15 +124,15 @@ let group_repr_inv ~(uninit : bool) (group : group_repr) (t_base : trm) (dims:tr
   let access_trm = Matrix_trm.access t_base dims list_acess in
   let cell = if uninit then formula_uninit_cell access_trm else formula_cell access_trm in
   let formula_inv =
-    List.fold_left
-      (fun formula star_index ->
+    List.fold_right
+      (fun star_index formula ->
         match star_index with
         | Star (range, trm) ->
           let var, range = range in
           formula_group var range formula
         | Index i -> formula
       )
-      cell group in
+      group cell in
   formula_inv
 
 let var_index (i : int) = toplevel_var (sprintf "__AUTOFOCUS_INDEX_%d" i)
@@ -332,7 +332,7 @@ let autofocus_unify
     (ghosts * 'a unification_ctx) option =
   let open Option.Monad in
   (* Extract groups from the formulas, returns None if it doesn't fit the autofocus scope *)
-  Printf.printf "Enter autofoc unify \n";
+  Printf.printf "Enter autofoc unify  with %s and candidate %s\n" (print_trm_string formula) (print_trm_string formula_candidate);
   let* group_candidate, t_candidate, uninit_candidate = extract_group formula_candidate in
   let* group, t, uninit = extract_group formula in
   if uninit_candidate && not uninit then
@@ -345,10 +345,8 @@ let autofocus_unify
     let* evar_ctx = trms_unify dims_candidate dims evar_ctx validate_inst in
     let t_base, evar_ctx = unfold_if_resolved_evar t_base evar_ctx in
     let dims, evar_ctx = unfold_list_if_resolved_evar dims evar_ctx in
-    Printf.printf "Ended unification phase \n";
-
-    let t = Matrix_trm.access t_base dims indices in
     let* group, t_base = to_group_repr group indices t_base in
+    Printf.printf "Before unification : group repr for group : %s\n" (print_group_repr group);
     let* group_candidate, t_base_candidate =
       to_group_repr group_candidate indices_candidates t_base_candidate in
     Printf.printf "group repr for group_candidate : %s\n" (print_group_repr group_candidate);
@@ -358,9 +356,9 @@ let autofocus_unify
     let* focus_list = build_focus_list group_candidate group in
     Printf.printf "Builded focus list\n";
     Printf.printf "%d \n" (List.length focus_list);
-    let g_from, g_to, (_, _) = List.nth focus_list 0 in
+    (* let g_from, g_to, (_, _) = List.nth focus_list 0 in
     Printf.printf "FOCUS LIST %s \n " (print_group_repr g_from);
-    Printf.printf "FOCUS LIST %s \n " (print_group_repr g_to);
+    Printf.printf "FOCUS LIST %s \n " (print_group_repr g_to); *)
     let ghosts =
       List.map
         (fun (from_group, to_group, (var, index)) ->

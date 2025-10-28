@@ -41,18 +41,16 @@ void general_simple_focus_caller(float *x, int n1, int n2, int n3, int n4) {
 // access
 // // or when a focus is specified on this ?
 
-// void complex_access_ok(float *x, int n1, int n2) {
-//   __reads("for i1 in 0..n1 -> &x[MINDEX2(n1,n2,n1-i1,2)] ~> Cell");
-//   for (int i1 = 0; i1 < n1; i1++) {
-//     float a = x[MINDEX2(n1, n2, n1 - i1, 2)];
-//   }
-// }
-// void complex_access_ok_caller(float *x, int n1, int n2) {
-//   __reads(
-//       "for i1 in 0..n2 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,n1-i1,i2)] ~> "
-//       "Cell");
-//   complex_access_ok(x, n1, n2);
-// }
+void complex_access_ok(float *x, int n1, int n2) {
+  __modifies("for i1 in 0..n1 -> &x[MINDEX2(n1,n2,n1-i1,2)] ~> Cell");
+  __admitted();
+}
+void complex_access_ok_caller(float *x, int n1, int n2) {
+  __modifies(
+      "for i1 in 0..n2 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,n1-i1,i2)] ~> "
+      "Cell");
+  complex_access_ok(x, n1, n2);
+}
 // // Should also work when we can match the * with a specified c
 // void complex_access_ok_2(float *x, int n1, int n2, int c) {
 //   __reads("for i1 in 0..n1 -> &x[MINDEX2(n1,n2,(c + c) / 2,2)] ~> Cell");
