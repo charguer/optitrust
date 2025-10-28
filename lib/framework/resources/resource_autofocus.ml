@@ -117,9 +117,12 @@ let to_group_repr (group : (var * trm) list) (indices : trms) (t_base : trm) :
 (* TODO CHANGE *)
 
 (** [group_repr_inv]: Inversion fonction to go from group_repr to a formula (trm) , we can't keep the term because it doesnot make any sens*)
-let group_repr_inv ~(uninit : bool) (group : group_repr) (t_base : trm) : formula =
-  let star_index_list = group in
-  let cell = if uninit then formula_uninit_cell t_base else formula_cell t_base in
+let group_repr_inv ~(uninit : bool) (group : group_repr) (t_base : trm) (dims:trms): formula =
+  let list_acess = List.map( fun starindex -> match starindex with
+  | Index(trm_index) -> trm_index
+  | Star(range,trm_index) -> trm_index) group in
+  let access_trm = Matrix_trm.access t_base dims list_acess in
+  let cell = if uninit then formula_uninit_cell access_trm else formula_cell access_trm in
   let formula_inv =
     List.fold_left
       (fun formula star_index ->
@@ -129,7 +132,7 @@ let group_repr_inv ~(uninit : bool) (group : group_repr) (t_base : trm) : formul
           formula_group var range formula
         | Index i -> formula
       )
-      cell star_index_list in
+      cell group in
   formula_inv
 
 let var_index (i : int) = toplevel_var (sprintf "__AUTOFOCUS_INDEX_%d" i)
@@ -361,8 +364,8 @@ let autofocus_unify
     let ghosts =
       List.map
         (fun (from_group, to_group, (var, index)) ->
-          ( group_repr_inv ~uninit from_group t_base_candidate,
-            group_repr_inv ~uninit to_group t_base_candidate,
+          ( group_repr_inv ~uninit from_group t_base_candidate dims_candidate,
+            group_repr_inv ~uninit to_group t_base_candidate dims_candidate,
             (var, index)
           )
         )
