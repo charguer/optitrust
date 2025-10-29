@@ -1656,6 +1656,7 @@ let rec compute_resources
         in
 
         let call_usage_map, res_after, ghosts_list = compute_contract_invoc spec.contract ~inst_map ~ensured_renaming res_after_args t in
+        (* if we get a non empty ghosts_list, we throw everything away, we modify the elaborate field for future processing and we retype the whole trm_seq (ghost_begin;t;ghost_end) *)
         if List.length ghosts_list > 0 then begin
           t.ctx.elaborate <- Some({pre_ghost = List.concat_map (fun ghosts -> Resource_autofocus.ghosts_formula_begin (ghosts)) ghosts_list; post_ghost =  List.concat_map (fun ghosts -> Resource_autofocus.ghosts_formula_end (ghosts)) ghosts_list});
 
@@ -2124,12 +2125,12 @@ let trm_compute_resources_inplace (t: trm): unit =
       | None -> raise err
 
 
+(** [elaborate] : check if any trm in the ast as Some elaboration to do and replace the trm accordingly. For now it's replaced with ghost before and after the trm coming from the autofocus algorithm  *)
 let elaborate (t :trm)  =
 trm_bottom_up (fun t -> match t.ctx.elaborate with
   | Some {pre_ghost = tl_pre; post_ghost = tl_post} -> (
     t.ctx.elaborate <- None;
-   (* Nobrace_transfo.remove_after (fun _ -> t1 := Nobrace.trm_seq (Mlist.of_list (tl_pre @[t] @ tl_post))); *)
-   trm_seq (Mlist.of_list (tl_pre @[t] @ tl_post)))
+    trm_seq (Mlist.of_list (tl_pre @ [t] @ tl_post)))
   | _ -> t) t
 (** [trm_recompute_resources t] recomputes resources of [t] using [compute_resources],
   after a [trm_deep_copy] to prevent sharing.
