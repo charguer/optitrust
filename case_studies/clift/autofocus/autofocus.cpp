@@ -1,9 +1,9 @@
 #include "optitrust.h"
-void testo(int * YOYOYO,int n){
-  __modifies("YOYOYO~>Matrix1(n)");
+void testo(int * x,int n){
+  __modifies("x~>Matrix1(n)");
 
 }
-void test(int * YOYOYO,int n){
-  __modifies("YOYOYO~>Matrix1(n)");
-  testo(YOYOYO,n);
+void test(int * x,int n){
+  __modifies("x~>Matrix1(n)");
+  testo(x,n);
 }
