@@ -9,6 +9,9 @@ open Resource_contract
 type range = var * trm
 (** A [Range] represents the iterator on resources, it is composed by a [var] that iterates within a [trm] range *)
 
+type starindex =
+  | Star of range * trm
+  | Index of trm
 (**
    A [Star] represents a permission on an entire group.
    The [range] represents the inf,sup and iterator.
@@ -23,14 +26,10 @@ type range = var * trm
      - Permission on the entire dimension: for i in r -> &t[MINDEX(..., i, ...)]
      - Permission on a single index of this dimension.
 *)
-type starindex =
-  | Star of range * trm
-  | Index of trm
-
-(** [group_repr] is the internal representation of a permission on an array : For each dimension you can either have a [Star] or an [Index], the term [t] represents the array base
-Example : for i1 in 0..n1 -> &x[MINDEX1(n1,n2,f(i1),2)] ---> [Star(0,n1,i1,f(i1)), Index(2)],x  *)
 
 type group_repr = starindex list
+(** [group_repr] is the internal representation of a permission on an array : For each dimension you can either have a [Star] or an [Index], the term [t] represents the array base
+Example : for i1 in 0..n1 -> &x[MINDEX1(n1,n2,f(i1),2)] ---> [Star(0,n1,i1,f(i1)), Index(2)],x  *)
 
 type focus_list = (group_repr * group_repr * (var * trm)) list
 (**
@@ -84,16 +83,19 @@ let string_of_unification_ctx (ctx : 'a unification_ctx) : string =
 (** [range_check]: Checks that the [range] ~(inf,sup,ite) is such that inf = 0, the sup unifies with [dim] and the iteration is one  *)
 let range_check (range : trm) (dim : trm) : bool =
   match formula_range_inv range with
-  | Some (start, stop, _ite) -> Printf.printf "start %s \n stop %s \n" (print_trm_string start) (print_trm_string stop); are_same_trm start (trm_int 0) && are_same_trm stop dim
-  | _ -> Printf.printf "isssue with inversion \n";false
+  | Some (start, stop, _ite) ->
+    Printf.printf "start %s \n stop %s \n" (print_trm_string start) (print_trm_string stop);
+    are_same_trm start (trm_int 0) && are_same_trm stop dim
+  | _ ->
+    Printf.printf "isssue with inversion \n";
+    false
 
 (** [extract_group]: Will extract the groups and the basic cell accessed for future processing  *)
 let rec extract_group (formula : trm) : (range list * trm * bool) option =
   match formula_group_inv formula with
   | Some (index, range, body) -> (
     match extract_group body with
-    | Some (range_list, t, uninit) ->
-      Some ([ (index, range) ] @ range_list, t, uninit)
+    | Some (range_list, t, uninit) -> Some ([ (index, range) ] @ range_list, t, uninit)
     | _ -> None
   )
   | _ -> (
@@ -161,9 +163,8 @@ let group_repr_inv ~(uninit : bool) (group : group_repr) (t_base : trm) (dims : 
       group cell in
   formula_inv
 
-let var_index (i : int) = toplevel_var (sprintf "__AUTOFOCUS_INDEX_%d" i)
 
-(** [var_group_susbt]: Subsitute the group variables from group to the one used in group_candidate.
+(** [var_group_susbt]: Subsitute the group variables (i1,i2..) from group to the one used in group_candidate.
 We need to performs some substitution to be able to compare & unify trm_indices *)
 let var_group_subst (group : group_repr) (group_candidate : group_repr) : group_repr =
   let concat = List.combine group group_candidate in
@@ -201,40 +202,41 @@ let rec trms_unify
     trms_unify q1 q2 evar_ctx validate_inst
   | _, _ -> None
 
-
 (** [COMPARAISON FUNCTION]*)
 
 (** [is_focusable star index] : determines whether a given star can be focused on a specific element
     Criteria for focus: This fonction determines whether
     for i in r -> H(i) can be focused into H'
     The function returns Some(t) if H(t) unifies with H', meaning that the star on i is focused on index t *)
-let is_focusable ((range, formula) : range * formula) (trm_index : trm) (evar_ctx : 'a unification_ctx) : (var * trm) option =
+let is_focusable
+    ((range, formula) : range * formula)
+    (trm_index : trm)
+    (evar_ctx : 'a unification_ctx) : (var * trm) option =
   let open Option.Monad in
   let var_star_index, range = range in
   let evar_ctx = Var_map.(empty |> add var_star_index (Unknown ())) in
   (* i is directly a var *)
   let* evar_ctx = trm_unify formula trm_index evar_ctx (fun _ _ ctx -> Some ctx) in
 
-
   match Var_map.find var_star_index evar_ctx with
   | Unknown () -> None
-  | Resolved t ->  Some (var_star_index, t)
+  | Resolved t -> Some (var_star_index, t)
 
 (** [are_same_range] : Determines if TODO *)
-let are_same_range (range1 : range) (range2 : range) (evar_ctx : 'a unification_ctx) (validate_inst): bool =
-  let (var1,range_trm1) = range1 in
-  let (var2,range_trm2) = range2 in
+let are_same_range (range1 : range) (range2 : range) (evar_ctx : 'a unification_ctx) validate_inst :
+    bool =
+  let var1, range_trm1 = range1 in
+  let var2, range_trm2 = range2 in
   Option.is_some (trm_unify range_trm1 range_trm2 evar_ctx validate_inst)
 
 (** [are_same_group_repr] : Two groups are the same, if the base trm they refer to are the same and every item in the star_index list are the same *)
-let are_same_group_repr (stars1 : group_repr) (stars2 : group_repr)  : bool =
+let are_same_group_repr (stars1 : group_repr) (stars2 : group_repr) : bool =
   List.length stars1 = List.length stars2
   && List.for_all2
        (fun s1 s2 ->
          match (s1, s2) with
          | Index i1, Index i2 -> are_same_trm i1 i2
-         | Star (range1, i1), Star (range2, i2) ->
-           are_same_trm i1 i2
+         | Star (range1, i1), Star (range2, i2) -> are_same_trm i1 i2
          | _, _ -> false
        )
        stars1 stars2
@@ -251,17 +253,19 @@ let are_same_focus_list (result : focus_list) (expected : focus_list) : bool =
        )
        result expected
 
-let index_subst (t:trm) (evar_ctx : 'a unification_ctx) : trm =
-  let resolved_varmap  =
-  Var_map.fold
-    (fun v res acc ->
-       match res with
-       | Resolved t -> Printf.printf "find resolved : %s \n" (print_trm_string t) ; Var_map.add v t acc
-       | Unknown _ -> acc)
-    evar_ctx
-    Var_map.empty in
-  trm_subst resolved_varmap t
 (** [ALGO]  *)
+let index_subst (t : trm) (evar_ctx : 'a unification_ctx) : trm =
+  let resolved_varmap =
+    Var_map.fold
+      (fun v res acc ->
+        match res with
+        | Resolved t ->
+          Printf.printf "find resolved : %s \n" (print_trm_string t);
+          Var_map.add v t acc
+        | Unknown _ -> acc
+      )
+      evar_ctx Var_map.empty in
+  trm_subst resolved_varmap t
 
 (** [build focus list]: Tries to build a [focus_list], i.e list of pairs of [group repr] tha represents unitary focuses that allows to goes from [from_group] to [to _group] *
 Each focus : H_i -> H_i+1)
@@ -310,9 +314,10 @@ let build_focus_list
 
               (* Printf.printf "Issue inside is_focusable \n"; *)
               let* var, resolved_trm = is_focusable (range, index) i2 evar_ctx in
-              (* Printf.printf "is focusable is ok\n"; *)
 
-              let new_group = List.update_nth ind (fun t -> Index (index_subst i2 evar_ctx) ) current_group in
+              (* Printf.printf "is focusable is ok\n"; *)
+              let new_group =
+                List.update_nth ind (fun t -> Index (index_subst i2 evar_ctx)) current_group in
               Some
                 (new_group, acc_focus @ [ (current_group, new_group, (var, resolved_trm)) ], ind + 1)
           ) in
@@ -338,34 +343,34 @@ let autofocus_unify
     (validate_inst : trm -> 'a -> 'a unification_ctx -> 'a unification_ctx option) :
     (ghosts * 'a unification_ctx) option =
   let open Option.Monad in
-  (* Extract groups from the formulas, returns None if it doesn't fit the autofocus scope *)
+
   Printf.printf "Enter autofoc unify  with %s and candidate %s\n" (print_trm_string formula)
     (print_trm_string formula_candidate);
   Printf.printf "State of evar_ctx begin %s \n " (string_of_unification_ctx evar_ctx);
+  (* Group extraction for group and group candidate *)
   let* group_candidate, t_candidate, uninit_candidate = extract_group formula_candidate in
   let* group, t, uninit = extract_group formula in
+  (* Check that we do not have an unitialized candidate for an initialized formula *)
   if uninit_candidate && not uninit then
     None
-  else (* Inverse the term group are pointing to, returns None if it's not a Matrix access *)
+  else
+  (* Trm inversion and unification: both the base term and its dimensions must successfully unify before proceeding. *)
     let* t_base_candidate, dims_candidate, indices_candidates = Matrix_trm.access_inv t_candidate in
     let* t_base, dims, indices = Matrix_trm.access_inv t in
-    (* let* evar_ctx = trm_unify t t_candidate evar_ctx validate_inst in *)
+
     let* evar_ctx = trm_unify t_base_candidate t_base evar_ctx validate_inst in
     let* evar_ctx = trms_unify dims_candidate dims evar_ctx validate_inst in
-    let t_base, evar_ctx = unfold_if_resolved_evar t_base evar_ctx in
+    let t_base, evar_ctx = unfold_if_resolved_evar t_base evar_ctx in (* Unfolding needed for ghost creation in candidate context *)
+    (* Preprocessing and conversion to group_repr *)
     let* group, t_base = to_group_repr group indices dims t_base in
     let* group_candidate, t_base_candidate =
       to_group_repr group_candidate indices_candidates dims_candidate t_base_candidate in
     Printf.printf "group repr for group_candidate : %s\n" (print_group_repr group_candidate);
     let group = var_group_subst group group_candidate in
     Printf.printf "group repr for group : %s\n" (print_group_repr group);
-
     let* focus_list = build_focus_list group_candidate group evar_ctx validate_inst in
-    Printf.printf "Builded focus list\n";
-    Printf.printf "%d \n" (List.length focus_list);
-    (* let g_from, g_to, (_, _) = List.nth focus_list 0 in
-    Printf.printf "FOCUS LIST %s \n " (print_group_repr g_from);
-    Printf.printf "FOCUS LIST %s \n " (print_group_repr g_to); *)
+    Printf.printf "Builded focus list with length :%d \n" (List.length focus_list);
+    (* group_repr -> formula *)
     let ghosts =
       List.map
         (fun (from_group, to_group, (var, index)) ->

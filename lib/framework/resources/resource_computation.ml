@@ -458,7 +458,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
     (res: linear_resource_set)
     (evar_ctx: unification_ctx): used_resource_item *  Resource_autofocus.ghosts * linear_resource_set * unification_ctx =
     match res with
-    (* When we run out of candidate, either we try to infer/autocus, or if we already have, then raise Not found which will be caught later to create Resource_not_found *)
+    (* When we run out of candidate, either we try to infer/autocus, or if we already have (infer is true, meaning we run out of candidate even with inference allowed) , then raise Not found which will be caught later to create Resource_not_found *)
     | [] -> if infer then raise Not_found else subtract_linear_resource_item ~split_frac ~infer:true (x,formula) res_before evar_ctx_before ~pure_ctx:pure_ctx_before
     | candidate :: res ->
       begin match f candidate with
@@ -518,7 +518,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
 
       let* ghosts, evar_ctx = (handle_unification infer) formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
-      (* When I get the focus list here we need to make RO formula, not only RO *)
+
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
         ghosts,
