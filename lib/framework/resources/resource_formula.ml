@@ -211,6 +211,10 @@ let trm_range = trm_var var_range
 let formula_range (start: trm) (stop: trm) (step: trm) =
   trm_apps ~annot:formula_annot trm_range [start; stop; step]
 
+let formula_range_inv (range :trm) : (trm*trm*trm) option =
+  match trm_apps_inv range with
+  |Some (_range_var,[start;stop;step]) -> Some (start,stop,step)
+  | _ -> Printf.printf "Issue with inversion \n"; None
 let var_group = toplevel_var "Group"
 let trm_group = trm_var var_group
 let formula_group (index: var) (range: trm) (fi: formula) =
