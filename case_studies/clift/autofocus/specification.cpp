@@ -11,7 +11,15 @@ void simple_focus_caller(float *x, int m, int n) {
   __modifies("for i1 in 0..n -> &x[MINDEX1(n,i1)] ~> Cell");
   simple_focus(x, n);
 }
+void RO_simple_focus(float *y, int n) {
+  __reads(" &y[MINDEX1(n,2)] ~> Cell");
+  __admitted();
+}
 
+void RO_simple_focus_caller(float *x, int m, int n) {
+  __reads("for i1 in 0..n -> &x[MINDEX1(n,i1)] ~> Cell");
+  RO_simple_focus(x, n);
+}
 // General_simple_focus: MINDEX4. The focus can be placed on an inner
 // dimension,
 // which means we should preserve information about both what comes before

@@ -494,6 +494,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
             Formula_inst.inst_forget_init candidate_name, formula_uninit formula_candidate
           else Formula_inst.inst_hyp candidate_name, formula_candidate
         in
+        Printf.printf "Why guys \n";
         let* ghosts,evar_ctx = handle_unification infer formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
 
         Some (
@@ -516,12 +517,13 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
       function faster on most frequent cases *)
     extract (fun (h, formula_candidate) ->
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
-
+      Printf.printf "formula %s \n fromula_candidate %s \n" (Resource_autofocus.print_trm_string formula) (Resource_autofocus.print_trm_string formula_candidate);
       let* ghosts, evar_ctx = (handle_unification infer) formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
+
 
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
-        ghosts,
+         Resource_autofocus.ghosts_read_only ~frac:(cur_frac) ghosts,
         Some (h, formula_read_only ~frac:(formula_frac_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
     ) res evar_ctx
   in

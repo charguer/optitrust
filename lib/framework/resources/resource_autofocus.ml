@@ -350,6 +350,7 @@ let autofocus_unify
   (* Group extraction for group and group candidate *)
   let* group_candidate, t_candidate, uninit_candidate = extract_group formula_candidate in
   let* group, t, uninit = extract_group formula in
+  Printf.printf "Extraction done \n";
   (* Check that we do not have an unitialized candidate for an initialized formula *)
   if uninit_candidate && not uninit then
     None
@@ -407,3 +408,6 @@ let seq_from_ghosts_list (t : trm) (gl : ghosts list) : trm =
   let ghosts_before = List.concat (List.map (fun ghosts -> ghosts_formula_begin ghosts) gl) in
   let ghosts_after = List.concat (List.map (fun ghosts -> ghosts_formula_end ghosts) gl) in
   trm_seq (Mlist.of_list (ghosts_before @ [ t ] @ ghosts_after))
+
+let ghosts_read_only ~(frac:trm) (ghosts: ghosts) : ghosts =
+  List.map (fun (formula_from, formula_to, (var,index)) -> (formula_read_only ~frac formula_from, formula_read_only ~frac formula_to,(var,index))) ghosts
