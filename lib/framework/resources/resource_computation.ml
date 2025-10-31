@@ -494,7 +494,6 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
             Formula_inst.inst_forget_init candidate_name, formula_uninit formula_candidate
           else Formula_inst.inst_hyp candidate_name, formula_candidate
         in
-        Printf.printf "Why guys \n";
         let* ghosts,evar_ctx = handle_unification infer formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
 
         Some (
@@ -1574,12 +1573,14 @@ let rec compute_resources
     (* Transitively compute resources through all sequence instructions.
        At the end of the sequence, take into account that all stack allocations are freed. *)
     | Trm_seq (instrs, seq_result_var) ->
+      let _ = Mlist.map (fun instr -> Printf.printf " typing seq : %s \n" (Resource_autofocus.print_trm_string instr)) instrs in
       let instrs = Mlist.to_list instrs in
       let usage_map, res =
         List.fold_left (fun (current_usage, res) instr ->
             (* Compute resource for one instruction *)
             let instr_usage, res = compute_resources res instr in
             (* There should be no binding of _Res for an instruction in a sequence *)
+            Printf.printf "issue with instr %s \n" (Resource_autofocus.print_trm_string instr);
             assert (match res with
               | Some res -> Option.is_none (Resource_set.find_pure var_result res)
               | None -> true);

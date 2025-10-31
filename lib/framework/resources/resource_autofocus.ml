@@ -12,7 +12,7 @@ type range = var * trm
 type starindex =
   | Star of range * trm
   | Index of trm
-(**
+      (**
    A [Star] represents a permission on an entire group.
    The [range] represents the inf,sup and iterator.
    The [index] represents the accessed cell. Look at group_repr for an example
@@ -84,17 +84,16 @@ let string_of_unification_ctx (ctx : 'a unification_ctx) : string =
 let range_check (range : trm) (dim : trm) : bool =
   match formula_range_inv range with
   | Some (start, stop, _ite) ->
-    Printf.printf "start %s \n stop %s \n" (print_trm_string start) (print_trm_string stop);
     are_same_trm start (trm_int 0) && are_same_trm stop dim
   | _ ->
     Printf.printf "isssue with inversion \n";
     false
 
-(** [extract_group]: Will extract the groups and the basic cell accessed for future processing  *)
-let rec extract_group (formula : trm) : (range list * trm * bool) option =
+(** [extract_ranges]: Will extract the groups and the basic cell accessed for future processing  *)
+let rec extract_ranges (formula : trm) : (range list * trm * bool) option =
   match formula_group_inv formula with
   | Some (index, range, body) -> (
-    match extract_group body with
+    match extract_ranges body with
     | Some (range_list, t, uninit) -> Some ([ (index, range) ] @ range_list, t, uninit)
     | _ -> None
   )
@@ -129,7 +128,6 @@ let to_group_repr (range_list : (var * trm) list) (indices : trms) (dims : trms)
       match possible_group with
       | [] -> aux range_list (Index indice :: group) rest
       | [ (var, range) ] ->
-        Printf.printf "range: %s \n dim : %s \n" (print_trm_string range) (print_trm_string dim);
         if range_check range dim then
           let current_group = List.remove (var, range) range_list in
 
@@ -162,7 +160,6 @@ let group_repr_inv ~(uninit : bool) (group : group_repr) (t_base : trm) (dims : 
       )
       group cell in
   formula_inv
-
 
 (** [var_group_susbt]: Subsitute the group variables (i1,i2..) from group to the one used in group_candidate.
 We need to performs some substitution to be able to compare & unify trm_indices *)
@@ -260,7 +257,6 @@ let index_subst (t : trm) (evar_ctx : 'a unification_ctx) : trm =
       (fun v res acc ->
         match res with
         | Resolved t ->
-          Printf.printf "find resolved : %s \n" (print_trm_string t);
           Var_map.add v t acc
         | Unknown _ -> acc
       )
@@ -343,29 +339,34 @@ let autofocus_unify
     (validate_inst : trm -> 'a -> 'a unification_ctx -> 'a unification_ctx option) :
     (ghosts * 'a unification_ctx) option =
   let open Option.Monad in
-
+  (* Substitution using currente evar_ctx *)
   Printf.printf "Enter autofoc unify  with %s and candidate %s\n" (print_trm_string formula)
     (print_trm_string formula_candidate);
   Printf.printf "State of evar_ctx begin %s \n " (string_of_unification_ctx evar_ctx);
+  (* Subsitution needed for get / set operation, we substitute everything  *)
+  let formula = index_subst formula evar_ctx in
+  let formula_candidate = index_subst formula_candidate evar_ctx in
+
   (* Group extraction for group and group candidate *)
-  let* group_candidate, t_candidate, uninit_candidate = extract_group formula_candidate in
-  let* group, t, uninit = extract_group formula in
+  let* ranges_candidate, t_candidate, uninit_candidate = extract_ranges formula_candidate in
+  let* ranges, t, uninit = extract_ranges formula in
   Printf.printf "Extraction done \n";
   (* Check that we do not have an unitialized candidate for an initialized formula *)
   if uninit_candidate && not uninit then
     None
   else
-  (* Trm inversion and unification: both the base term and its dimensions must successfully unify before proceeding. *)
+    (* Trm inversion and unification: both the base term and its dimensions must successfully unify before proceeding. *)
     let* t_base_candidate, dims_candidate, indices_candidates = Matrix_trm.access_inv t_candidate in
     let* t_base, dims, indices = Matrix_trm.access_inv t in
 
     let* evar_ctx = trm_unify t_base_candidate t_base evar_ctx validate_inst in
     let* evar_ctx = trms_unify dims_candidate dims evar_ctx validate_inst in
-    let t_base, evar_ctx = unfold_if_resolved_evar t_base evar_ctx in (* Unfolding needed for ghost creation in candidate context *)
+    let t_base, evar_ctx = unfold_if_resolved_evar t_base evar_ctx in
+    (* Unfolding needed for ghost creation in candidate context *)
     (* Preprocessing and conversion to group_repr *)
-    let* group, t_base = to_group_repr group indices dims t_base in
+    let* group, t_base = to_group_repr ranges indices dims t_base in
     let* group_candidate, t_base_candidate =
-      to_group_repr group_candidate indices_candidates dims_candidate t_base_candidate in
+      to_group_repr ranges_candidate indices_candidates dims_candidate t_base_candidate in
     Printf.printf "group repr for group_candidate : %s\n" (print_group_repr group_candidate);
     let group = var_group_subst group group_candidate in
     Printf.printf "group repr for group : %s\n" (print_group_repr group);
@@ -409,5 +410,9 @@ let seq_from_ghosts_list (t : trm) (gl : ghosts list) : trm =
   let ghosts_after = List.concat (List.map (fun ghosts -> ghosts_formula_end ghosts) gl) in
   trm_seq (Mlist.of_list (ghosts_before @ [ t ] @ ghosts_after))
 
-let ghosts_read_only ~(frac:trm) (ghosts: ghosts) : ghosts =
-  List.map (fun (formula_from, formula_to, (var,index)) -> (formula_read_only ~frac formula_from, formula_read_only ~frac formula_to,(var,index))) ghosts
+let ghosts_read_only ~(frac : trm) (ghosts : ghosts) : ghosts =
+  List.map
+    (fun (formula_from, formula_to, (var, index)) ->
+      (formula_read_only ~frac formula_from, formula_read_only ~frac formula_to, (var, index))
+    )
+    ghosts

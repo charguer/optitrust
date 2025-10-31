@@ -38,7 +38,28 @@ void general_simple_focus_caller(float *x, int n1, int n2, int n3, int n4) {
              "&x[MINDEX4(n1,n2,n3,n4,i1,2,i3,i4)] ~> Cell");
   general_simple_focus(x, n1, n2, n3, n4);
 }
+void multi_focus(float *x, int n1_b, int n2_b, int n3_b) {
+  __modifies(
+      "for i1_b in 0..n1_b -> &x[MINDEX3(n1_b,n2_b,n3_b,i1_b,2,3)] ~> Cell");
+  __admitted();
+}
+void multi_focus_caller(float *x, int n1, int n2, int n3) {
+  __modifies("for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> "
+             "&x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~> Cell");
+  multi_focus(x, n1, n2, n3);
+}
+// void get_test(float *x ,int n1)
+// {
+//   __reads("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
+//   float a = x[MINDEX1(n1,2)];
 
+// }
+void set_test(float *x ,int n1)
+{
+  __modifies("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
+  x[MINDEX1(n1,2)] = 3.f;
+
+}
 // // Complex access: we have permission on x[MINDEX2(n1,n2, f(i1), i2)]. Should
 // // work when the f(i1) is also asked by the callee , abort when different
 // access
@@ -84,24 +105,8 @@ void complex_access_ok_caller_2(float *x, int n1, int n2) {
   complex_access_ok_2(x, n1, n2, c);
 }
 
-// // // generic case
-// int f(const int a,const int b) {
-//   __pure();
-//   __admitted();
-//   return (a + b) / 2;
-// }
-
-// void complex_access_generic(float *x, int n1, int n2, int d) {
-//   __reads("for i1 in 0..n1 -> &x[MINDEX2(n1,n2,f(d,d),2)] ~> Cell");
-//   __admitted();
-// }
-
-// void complex_access_generic_caller(float *x, int n1, int n2) {
-//   __reads(
-//       "for i1 in 0..n1 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,f(i1,i1),i2)]~> Cell");
-//   const int c = 3;
-//   complex_access_generic(x, n1, n2, c);
-// }
+// // generic case
+//
 // void complex_access_abort(float *x, int n1, int n2) {
 //   __reads("for i2 in 0..n2 -> &x[MINDEX2(n1,n2,4,n2)] ~> Cell");
 //   for (int i2 = 0; i2 < n2; i2++) {
@@ -158,10 +163,8 @@ void rename_and_focus_caller(float *x, int n1, int n2) {
 // }
 
 // void loop_basic(float *x, int n1, int n2) {
-//   __reads(
-//       "for i1 in 0..n1 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,i1,i2)] ~>
-//       Cell");
-//   for (int i1 = 0; i1 < n1; i1++) {
+//   __reads("for i1 in 0..n1 -> for i2 in 0..n2 -> &x[MINDEX2(n1,n2,i1,i2)]
+//   ~>Cell"); for (int i1 = 0; i1 < n1; i1++) {
 //     for (int i2 = 0; i2 < n2; i2++) {
 //       float a = x[MINDEX2(n1, n2, i1, i2)];
 //     }
@@ -207,3 +210,22 @@ void multiple_resources_caller(float *x, float *y, int n) {
   multiple_resources(x, n);
   multiple_resources(y, n);
 }
+
+void multiple_resources_same_call(float *x, float *y, int n, int m) {
+  __modifies("&x[MINDEX1(n,2)] ~> Cell");
+  __modifies("&y[MINDEX1(m,2)] ~> Cell");
+  __admitted();
+}
+void multiple_resources_same_call_caller(float *x, float *y, int n, int m) {
+  __modifies("for i1 in 0..n -> &x[MINDEX1(n,i1)] ~> Cell");
+  __modifies("for i1 in 0..m -> &y[MINDEX1(m,i1)] ~> Cell");
+  multiple_resources_same_call(x, y, n, m);
+}
+// void indirection(float *x, int *y, int n1, int n2) {
+//   __reads("&x[MINDEX1(n1,(&y[MINDEX1(n2,1)]))] ~> Cell");
+//   __admitted();
+// }
+// void indirection_caller(float *x, int *y, int n1, int n2) {
+//   __reads("for i1 in 0..n1 -> &x[MINDEX1(n1,y[MINDEX1(n2,i1)])] ~> Cell");
+//   indirection(x, y, n1, n2);
+// }
