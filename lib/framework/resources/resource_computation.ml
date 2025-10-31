@@ -1573,7 +1573,6 @@ let rec compute_resources
     (* Transitively compute resources through all sequence instructions.
        At the end of the sequence, take into account that all stack allocations are freed. *)
     | Trm_seq (instrs, seq_result_var) ->
-      let _ = Mlist.map (fun instr -> Printf.printf " typing seq : %s \n" (Resource_autofocus.print_trm_string instr)) instrs in
       let instrs = Mlist.to_list instrs in
       let usage_map, res =
         List.fold_left (fun (current_usage, res) instr ->

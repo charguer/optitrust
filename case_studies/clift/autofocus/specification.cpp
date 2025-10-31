@@ -54,11 +54,9 @@ void multi_focus_caller(float *x, int n1, int n2, int n3) {
 //   float a = x[MINDEX1(n1,2)];
 
 // }
-void set_test(float *x ,int n1)
-{
+void set_test(float *x, int n1) {
   __modifies("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
-  x[MINDEX1(n1,2)] = 3.f;
-
+  x[MINDEX1(n1, 2)] = 3.f;
 }
 // // Complex access: we have permission on x[MINDEX2(n1,n2, f(i1), i2)]. Should
 // // work when the f(i1) is also asked by the callee , abort when different
@@ -105,6 +103,25 @@ void complex_access_ok_caller_2(float *x, int n1, int n2) {
   complex_access_ok_2(x, n1, n2, c);
 }
 
+void diag(float *x, int n1) {
+  __reads("for i1 in 0..n1 -> &x[MINDEX2(n1,n1,i1,i1)]~> Cell");
+  __admitted();
+}
+void diag_caller(float *x, int n1) {
+  __reads(
+      "for i1 in 0..n1 -> for i2 in 0..n1 -> &x[MINDEX2(n1,n1,i1,i2)] ~> Cell");
+  diag(x, n1);
+}
+
+void diag2(float *x, int n1) {
+  __reads("&x[MINDEX2(n1,n1,2,2)]~> Cell");
+  __admitted();
+}
+void diag2_caller(float *x, int n1) {
+  __reads(
+      "for i1 in 0..n1 ->  &x[MINDEX2(n1,n1,i1,i1)] ~> Cell");
+  diag2(x, n1);
+}
 // // generic case
 //
 // void complex_access_abort(float *x, int n1, int n2) {
