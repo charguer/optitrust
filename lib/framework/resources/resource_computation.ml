@@ -401,6 +401,7 @@ let compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx
     let actual_typ = compute_pure_typ env ~typ_hint:expected_typ t in
     raise_mismatching_type t actual_typ expected_typ evar_ctx
 
+    (* TODO :: change name  *)
 let handle_unification (infer:bool) (formula : trm) (formula_candidate : trm)
     (evar_ctx : unification_ctx) (validate_inst : trm -> 'a -> unification_ctx -> unification_ctx option) =
     let open Option.Monad in
@@ -1579,7 +1580,7 @@ let rec compute_resources
             (* Compute resource for one instruction *)
             let instr_usage, res = compute_resources res instr in
             (* There should be no binding of _Res for an instruction in a sequence *)
-            Printf.printf "issue with instr %s \n" (Resource_autofocus.print_trm_string instr);
+            (* Printf.printf "issue with instr %s \n" (Resource_autofocus.print_trm_string instr); *)
             assert (match res with
               | Some res -> Option.is_none (Resource_set.find_pure var_result res)
               | None -> true);
@@ -1661,7 +1662,7 @@ let rec compute_resources
         (* if we get a non empty ghosts_list, we throw everything away, we modify the elaborate field for future processing and we retype the whole trm_seq (ghost_begin;t;ghost_end) *)
         if List.length ghosts_list > 0 then begin
           t.ctx.elaborate <- Some({pre_ghost = List.concat_map (fun ghosts -> Resource_autofocus.ghosts_formula_begin (ghosts)) ghosts_list; post_ghost =  List.concat_map (fun ghosts -> Resource_autofocus.ghosts_formula_end (ghosts)) ghosts_list});
-
+          Printf.printf "Resource typing enabled %b \n" (!Flags.resource_typing_enabled);
           let t_with_ghosts = Resource_autofocus.seq_from_ghosts_list t (ghosts_list) in
 
         compute_resources ?expected_res (Some (res)) t_with_ghosts
@@ -2130,9 +2131,9 @@ let trm_compute_resources_inplace (t: trm): unit =
 (** [elaborate] : check if any trm in the ast as Some elaboration to do and replace the trm accordingly. For now it's replaced with ghost before and after the trm coming from the autofocus algorithm  *)
 let elaborate (t :trm)  =
 trm_bottom_up (fun t -> match t.ctx.elaborate with
-  | Some {pre_ghost = tl_pre; post_ghost = tl_post} -> (
+  | Some { pre_ghost; post_ghost} -> (
     t.ctx.elaborate <- None;
-    trm_seq (Mlist.of_list (tl_pre @ [t] @ tl_post)))
+    trm_seq (Mlist.of_list (pre_ghost @ [t] @ post_ghost)))
   | _ -> t) t
 (** [trm_recompute_resources t] recomputes resources of [t] using [compute_resources],
   after a [trm_deep_copy] to prevent sharing.

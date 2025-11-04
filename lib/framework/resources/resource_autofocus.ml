@@ -139,13 +139,13 @@ let to_group_repr (range_list : (var * trm) list) (indices : trms) (dims : trms)
 (** [group_repr_inv]: Inversion fonction to go from group_repr to a formula (trm)
 You need the [t_base] and [dims] to be able to rebuild the trm corresponding to the cell*)
 let group_repr_inv ~(uninit : bool) (group : group_repr) (t_base : trm) (dims : trms) : formula =
-  let list_acess =
+  let list_access =
     List.map
       (fun starindex ->
         match starindex with Index trm_index -> trm_index | Star (range, trm_index) -> trm_index
       )
       group in
-  let access_trm = Matrix_trm.access t_base dims list_acess in
+  let access_trm = Matrix_trm.access t_base dims list_access in
   let cell = if uninit then formula_uninit_cell access_trm else formula_cell access_trm in
   let formula_inv =
     List.fold_right
@@ -363,11 +363,16 @@ let autofocus_unify
     let* group, t_base = to_group_repr ranges indices dims t_base in
     let* group_candidate, t_base_candidate =
       to_group_repr ranges_candidate indices_candidates dims_candidate t_base_candidate in
+
     Printf.printf "group repr for group_candidate : %s\n" (print_group_repr group_candidate);
     let group = var_group_subst group group_candidate in
     Printf.printf "group repr for group : %s\n" (print_group_repr group);
     let* focus_list = build_focus_list group_candidate group evar_ctx validate_inst in
+
+    (* let reorder_first = (formula_candidate,group_repr_inv ~uninit group_candidate t_base_candidate dims_candidate, (toplevel_var "var",trm_int 1) ) in *)
+    (* let reorder_last = (group_repr_inv ~uninit group t_base dims, formula, (toplevel_var "var",trm_int 1)) in *)
     Printf.printf "Builded focus list with length :%d \n" (List.length focus_list);
+
     (* group_repr -> formula *)
     let ghosts =
       List.map
@@ -378,6 +383,21 @@ let autofocus_unify
           )
         )
         focus_list in
+    (* Adding ghosts for reordering whenever it is needed *)
+    let reordered_candidate =
+      group_repr_inv ~uninit group_candidate t_base_candidate dims_candidate in
+    let reordered_target = group_repr_inv ~uninit group t_base dims in
+    let ghosts =
+      if not (are_same_trm reordered_candidate formula_candidate) then
+        (formula_candidate, reordered_candidate, (new_var "var", trm_int 0)) :: ghosts
+      else
+        ghosts in
+    let ghosts =
+      if not (are_same_trm reordered_target formula) then
+        ghosts @ [ (reordered_target, formula, (new_var "var", trm_int 0)) ]
+      else
+        ghosts in
+
     Some (ghosts, evar_ctx)
 
 (** [GHOST_CREATION] *)
@@ -404,6 +424,7 @@ let ghosts_formula_end (ghosts : ghosts) =
 let seq_from_ghosts_list (t : trm) (gl : ghosts list) : trm =
   let ghosts_before = List.concat (List.map (fun ghosts -> ghosts_formula_begin ghosts) gl) in
   let ghosts_after = List.concat (List.map (fun ghosts -> ghosts_formula_end ghosts) gl) in
+  (* let tmp = trm_let (new_var "tmp")  *)
   trm_seq (Mlist.of_list (ghosts_before @ [ t ] @ ghosts_after))
 
 let ghosts_read_only ~(frac : trm) (ghosts : ghosts) : ghosts =

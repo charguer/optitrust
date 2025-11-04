@@ -15,7 +15,6 @@ void RO_simple_focus(float *y, int n) {
   __reads(" &y[MINDEX1(n,2)] ~> Cell");
   __admitted();
 }
-
 void RO_simple_focus_caller(float *x, int m, int n) {
   __reads("for i1 in 0..n -> &x[MINDEX1(n,i1)] ~> Cell");
   RO_simple_focus(x, n);
@@ -54,10 +53,10 @@ void multi_focus_caller(float *x, int n1, int n2, int n3) {
 //   float a = x[MINDEX1(n1,2)];
 
 // }
-void set_test(float *x, int n1) {
-  __modifies("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
-  x[MINDEX1(n1, 2)] = 3.f;
-}
+// void set_test(float *x, int n1) {
+//   __modifies("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
+//   x[MINDEX1(n1, 2)] = 3.f;
+// }
 // // Complex access: we have permission on x[MINDEX2(n1,n2, f(i1), i2)]. Should
 // // work when the f(i1) is also asked by the callee , abort when different
 // access
@@ -150,21 +149,20 @@ void rename_and_focus_caller(float *x, int n1, int n2) {
   rename_and_focus(x, n1, n2);
 }
 
-// // different_order : Stars mights be in a different order between the caller
-// and
-// // the callee (even without focus), but it should work
+// different_order : Stars mights be in a different order between the caller and
+// the callee (even without focus), but it should work
 
-// void different_order(float *x, int n1, int n2, int n3) {
-//   __modifies("for i2 in 0..n2 -> for i3 in 0..n3 -> for i1 in 0..n1 -> "
-//           "&x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~> Cell");
-//   __admitted();
-// }
+void different_order(float *x, int n1, int n2, int n3) {
+  __modifies("for i2 in 0..n2 -> for i3 in 0..n3 -> for i1 in 0..n1 -> "
+          "&x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~> Cell");
+  __admitted();
+}
 
-// void different_order_caller(float *x, int n1, int n2, int n3) {
-//   __modifies("for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> "
-//           "&x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~> Cell");
-//   different_order(x, n1, n2, n3);
-// }
+void different_order_caller(float *x, int n1, int n2, int n3) {
+  __modifies("for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> "
+          "&x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~> Cell");
+  different_order(x, n1, n2, n3);
+}
 
 // // generic with different order : can be any HProp
 // void generic_different_order(float *x, int n1, int n2, int n3) {
@@ -216,6 +214,7 @@ void rename_and_focus_caller(float *x, int n1, int n2) {
 // //   }
 // // }
 
+/////////////////////////////////////////////////////////////:// Rich context
 void multiple_resources(float *x, int n) {
   __modifies("&x[MINDEX1(n,2)] ~> Cell");
   __admitted();
