@@ -22,7 +22,8 @@ void RO_simple_focus_caller(float *x, int m, int n) {
   RO_simple_focus(x, n);
 }
 
-// General_simple_focus: FOcus on multi-dimensional array. One focus on the third dimension
+// General_simple_focus: FOcus on multi-dimensional array. One focus on the
+// third dimension
 void general_simple_focus(float *x, int n1b, int n2, int n3, int n4b) {
   __modifies("for i10 in 0..n1b -> for i4 in 0..n4b -> "
              "&x[MINDEX4(n1b,n2,n3,n4b,i10,2,3,i4)] ~> Cell");
@@ -36,17 +37,25 @@ void general_simple_focus_caller(float *x, int n1, int n2, int n3, int n4) {
   general_simple_focus(x, n1, n2, n3, n4);
 }
 
+// issues with modifies -- reads -> look at it with arthur
+void ro_modifies_focus(float *x, int n1) {
+  __reads("&x[MINDEX1(n1,2)]~>Cell");
+  __admitted();
+}
+void ro_modifies_focus_caller(float *x, int n1) {
+  __modifies("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
+  ro_modifies_focus(x, n1);
+}
 // Multi-focus: 2 focus steps.
 void multi_focus(float *x, int n1, int n2, int n3) {
-  __modifies(
-      "for i1 in 0..n1 -> &x[MINDEX3(n1,n2,n3,i1,2,3)] ~> Cell");
+  __modifies("for i1 in 0..n1 -> &x[MINDEX3(n1,n2,n3,i1,2,3)] ~> Cell");
   __admitted();
 }
 void multi_focus_caller(float *x, int n1, int n2, int n3) {
   __modifies("for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> "
              "&x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~> Cell");
   multi_focus(x, n1, n2, n3);
-  }
+}
 
 ///////////////// Built-in functions
 
@@ -65,11 +74,9 @@ void multi_focus_caller(float *x, int n1, int n2, int n3) {
 ///////////////// Complex Access Patern
 // Indices are compose with sub-expressions
 
-
 // Complex_access : A star on both focus and candidate sides.
 void complex_access(float *x, int n1, int n2) {
-  __modifies(
-      "for i1 in 0..n1 -> &x[MINDEX2(n1,n2,n1-i1,2)] ~> Cell");
+  __modifies("for i1 in 0..n1 -> &x[MINDEX2(n1,n2,n1-i1,2)] ~> Cell");
   __admitted();
 }
 void complex_access_caller(float *x, int n1, int n2) {
@@ -79,9 +86,8 @@ void complex_access_caller(float *x, int n1, int n2) {
   complex_access(x, n1, n2);
 }
 
-
-
-// Complex_access_2: Focucs on a "complex" index pattern (i1 must be correctly instantiated as c)
+// Complex_access_2: Focucs on a "complex" index pattern (i1 must be correctly
+// instantiated as c)
 void complex_access_2(float *x, int n1, int n2, int c_callee) {
   __modifies("for i2 in 0..n2 -> &x[MINDEX2(n1,n2,(c_callee + c_callee) / "
              "2,i2)] ~> Cell");
@@ -115,12 +121,9 @@ void diag2(float *x, int n1) {
   __admitted();
 }
 void diag2_caller(float *x, int n1) {
-  __reads(
-      "for i1 in 0..n1 ->  &x[MINDEX2(n1,n1,i1,i1)] ~> Cell");
+  __reads("for i1 in 0..n1 ->  &x[MINDEX2(n1,n1,i1,i1)] ~> Cell");
   diag2(x, n1);
 }
-
-
 
 ////////////// Normalization
 
@@ -141,25 +144,24 @@ void rename_and_focus_caller(float *x, int n1, int n2) {
 
 void different_order(float *x, int n1, int n2, int n3) {
   __modifies("for i2 in 0..n2 -> for i3 in 0..n3 -> for i1 in 0..n1 -> "
-          "&x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~> Cell");
+             "&x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~> Cell");
   __admitted();
 }
 
 void different_order_caller(float *x, int n1, int n2, int n3) {
   __modifies("for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> "
-          "&x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~> Cell");
+             "&x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~> Cell");
   different_order(x, n1, n2, n3);
 }
 
-void reorder_and_focus(float *x, int n1, int n2, int n3){
+void reorder_and_focus(float *x, int n1, int n2, int n3) {
   __modifies("for i2 in 0..n2 -> for i1 in 0..n1 -> "
-          "&x[MINDEX3(n1,n2,n3,i1,i2,2)] ~> Cell");
+             "&x[MINDEX3(n1,n2,n3,i1,i2,2)] ~> Cell");
   __admitted();
-
 }
 void reorder_and_focus__caller(float *x, int n1, int n2, int n3) {
   __modifies("for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> "
-          "&x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~> Cell");
+             "&x[MINDEX3(n1,n2,n3,i1,i2,i3)] ~> Cell");
   reorder_and_focus(x, n1, n2, n3);
 }
 

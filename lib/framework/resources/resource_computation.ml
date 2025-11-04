@@ -529,6 +529,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
   in
 
   let formula, evar_ctx = unfold_if_resolved_evar formula evar_ctx in
+  Printf.printf "here is the formula %s \n:" (Resource_autofocus.print_trm_string formula);
   Pattern.pattern_match formula [
     (* special case where _Full disables split_frac. *)
     Pattern.(formula_read_only (trm_apps1 (trm_specific_var _Full) !__) !__) (fun frac ro_formula () ->
@@ -1662,9 +1663,8 @@ let rec compute_resources
         (* if we get a non empty ghosts_list, we throw everything away, we modify the elaborate field for future processing and we retype the whole trm_seq (ghost_begin;t;ghost_end) *)
         if List.length ghosts_list > 0 then begin
           t.ctx.elaborate <- Some({pre_ghost = List.concat_map (fun ghosts -> Resource_autofocus.ghosts_formula_begin (ghosts)) ghosts_list; post_ghost =  List.concat_map (fun ghosts -> Resource_autofocus.ghosts_formula_end (ghosts)) ghosts_list});
-          Printf.printf "Resource typing enabled %b \n" (!Flags.resource_typing_enabled);
           let t_with_ghosts = Resource_autofocus.seq_from_ghosts_list t (ghosts_list) in
-
+          Printf.printf "t with ghosts %s \n" (Resource_autofocus.print_trm_string t_with_ghosts);
         compute_resources ?expected_res (Some (res)) t_with_ghosts
         end
         else

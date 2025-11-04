@@ -25,6 +25,7 @@ type typing_style = {
   typing_joined_res : bool;
   typing_framed_res : bool;
   typing_contract_inst : bool;
+  typing_elaborate: bool;
   print_generated_res_ids: bool; (* print auto-generated resource names *)
   }
 
@@ -51,6 +52,7 @@ let typing_all : typing_style = {
   typing_framed_res = true;
   typing_contract_inst = true;
   print_generated_res_ids = true;
+  typing_elaborate = true;
 }
 
 let typing_none : typing_style = {
@@ -63,6 +65,7 @@ let typing_none : typing_style = {
   typing_framed_res = false;
   typing_contract_inst = false;
   print_generated_res_ids = false;
+  typing_elaborate = false;
 }
 
 let typing_annot : typing_style =
