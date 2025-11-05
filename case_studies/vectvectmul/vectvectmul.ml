@@ -1,7 +1,8 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := false
+let _ = Flags.check_validity := true (* FIXME: false *)
+let _ = Flags.use_resources_with_models := true
 let _ = Flags.preserve_specs_only := true
 let _ = Flags.pretty_matrix_notation := false
 let _ = Flags.recompute_resources_between_steps := true
@@ -11,42 +12,43 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_all (*Steps_important*)
 
 let int = trm_int
 
-let part = 2 (* Choose which part you want to work on. *)
+let part = 1 (* Choose which part you want to work on. *)
 
 (* Part 0: *)
-let _ = if part = 0 then Run.script_cpp (fun () ->
-  !! Function.elim_infix_ops ~indepth:true [];
+let _ = if part = 1 then Run.script_cpp (fun () ->
+  (* !! Function.elim_infix_ops ~indepth:true []; *)
   !! Loop.tile (int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
+
+  (* LATER: !! Variable.local_name ~var:"s" ~local_var:"t" [tSpanSeq [cForBody "bi"]]; *)
   !! Sequence.intro ~mark:"t_scope" ~start:[tFirst; cForBody "bi"] ~stop:[tLast; cForBody "bi"] ();
   !! Variable.local_name ~var:"s" ~local_var:"t" [cMark "t_scope"];
   !! Sequence.elim [cMark "t_scope"];
-  !! Sequence_basic.insert (trm_let (new_var "d", typ_f32) (trm_get (trm_find_var "s" []))) [tFirst; cForBody "bi"];
-  (* at this line, the output is the equivalent of vectvectmul0.cpp,
+
+  (* DEPRECATED? !! Sequence_basic.insert (trm_let (new_var "d", typ_f32) (trm_get (trm_find_var "s" []))) [tFirst; cForBody "bi"]; *)
+  !! Variable.insert ~name:"d" ~typ:typ_f32 ~value:(trm_get (trm_find_var "s" [])) [cForBody "bi"; tFirst];
+
+  (* at this line, the output is the equivalent of vectvectmul0_gen.cpp,
     beware that "==" needs to be replaced with "=." and all the "__is_true" must be removed;
     some +. and + need to be fixed
     ----> LATER: tweak display so that the output of _after.cpp is exactly  vectvectmul0.cpp *)
-  !! Accesses.shift_var ~inv:true ~factor:(trm_find_var "d" []) [nbMulti; cVarDef "t"];
-  (* TODO: make the shift_var update the ghost rewrite correctly *)
-)
+(* )
 
-(* Part-extra: "vectvectmul0.cpp" check is well-typed *)
-let _ = if part = -1 then Run.script_cpp ~filename:"vectvectmul0.cpp" (fun () ->
-  !! ()
-)
+(* Part 2: *)
+let _ = if part = 2 then Run.script_cpp ~filename:"vv1.cpp" (fun () ->
+*)
+  (* Why nbMulti? !! Accesses.shift_var ~inv:true ~factor:(trm_find_var "d" []) [nbMulti; cVarDef "t"]; *)
+  !! Accesses.shift_var ~inv:true ~factor:(trm_find_var "d" []) [cFor "bi"; cVarDef "t"];
+  !! Variable.inline [cVarDef "d"];
+  !! Arith.simpl_surrounding_expr Arith.gather_rec [nbMulti; cVar "s"];
+(* )
 
-(* Part 1: "vectvectmul1.cpp" is obtained by applying shift_var by hand on  vectvectmul0.cpp *)
-let _ = if part = 1 then Run.script_cpp ~filename:"vectvectmul1.cpp" (fun () ->
-  !! () (* TODO: handle the inlining of 'd', both in code (goes to 's') and in formulae (goes to 'reduce'),
-            and arith_simpl *)
-            (*   !! Arith.(simpl_rec gather_rec) []; *)
-)
+(* Part 3: *)
+let _ = if part = 3 then Run.script_cpp ~filename:"vv2.cpp" (fun () ->
+*)
+  !! Resources.loop_minimize [cFor "i"];
 
-(* Part 2: "vectvectmul2.cpp" is obtained by applying inlining by hand on  vectvectmul1.cpp *)
-let _ = if part = 2 then Run.script_cpp ~filename:"vectvectmul2.cpp" (fun () ->
-  !! ();
   !! Loop.hoist [cVarDef "t"];
   !! Loop.fission [tBefore; cFor "bi"; cWriteVar "s"];
-  (* TODO: need to fix contracts for the loop fission *)
   !! Loop.parallel [cFor "bi" ~body:[cFor "i"]];
   !! Cleanup.std();
   (* includes: !! Function.use_infix_ops ~indepth:true []; *)

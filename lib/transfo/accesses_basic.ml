@@ -13,6 +13,7 @@ type transform_ret = {
 
 (** <private> *)
 let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
+  (f_cancel : trm -> trm)
   (to_prove : trm list)
   (address_pattern : compiled_pattern)
   (mark_to_prove : mark)
@@ -57,12 +58,75 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
     Pattern.pattern_match t [
       Pattern.(trm_get !__) (fun addr () ->
         Pattern.when_ (address_matches addr);
-        f_get (trm_get (trm_add_mark mark_handled_addresses addr))
+        let new_get =
+          f_get (trm_get (trm_add_mark mark_handled_addresses addr)) in
+        if !Flags.use_resources_with_models then begin
+          let old_res_after = Resources.after_trm t in
+          let old_value_after =
+            Option.unsome ~error:"could not find old value" (List.find_map (fun (_, formula) ->
+              Pattern.pattern_match_opt formula [
+                Pattern.(formula_points_to !__ !__) (fun addr value () ->
+                  Pattern.when_ (address_matches addr);
+                  value
+                )
+              ]
+            ) old_res_after.linear) in
+
+          let typ = Option.unsome ~error:"expected type" new_get.typ in
+          let tmp_get = new_var "get" in
+          let tmp_get_const = new_var "getc" in
+          let v = new_var "v" in
+          let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~typ ~by:(f_cancel old_value_after) (formula_fun [v, typ] (formula_points_to (trm_var tmp_get) (trm_var v))))) in
+          trm_seq_helper ~result:tmp_get_const [
+            Trm (trm_let_mut (tmp_get, typ) new_get);
+            Trm maintain_res;
+            Trm (trm_let (tmp_get_const, typ) (trm_get (trm_var tmp_get)))
+          ]
+        end else begin
+          new_get
+        end
       );
       Pattern.(trm_set !__ !__) (fun addr value () ->
         Pattern.when_ (address_matches addr);
         trm_set (trm_add_mark mark_handled_addresses addr)
           (f_set (trm_map fix_inside_span value))
+      );
+      Pattern.(trm_compound_assign_any !__ !__ !__ !__) (fun typ binop tvar tval () ->
+        Pattern.when_ (address_matches tvar);
+        (* TODO: factorize this code *)
+
+        let new_get =
+          f_get (trm_get (trm_add_mark mark_handled_addresses tvar)) in
+        let new_val = trm_map fix_inside_span tval in
+        let new_t =
+          trm_set (trm_add_mark mark_handled_addresses tvar)
+            (f_set (trm_apps (trm_binop typ binop) [new_get; new_val])) in
+
+        if !Flags.use_resources_with_models then begin
+          (* tvar binop= tval
+             tvar ~~> tvar_model binop tval_model *)
+          let old_res_after = Resources.after_trm t in
+          let (tvar_model, tval_model) =
+            Option.unsome ~error:"could not find old value" (List.find_map (fun (_, formula) ->
+              Pattern.pattern_match_opt formula [
+                Pattern.(formula_points_to !__ (trm_binop binop !__ !__)) (fun addr tvar_model tval_model () ->
+                  Pattern.when_ (address_matches addr);
+                  (tvar_model, tval_model)
+                )
+              ]
+            ) old_res_after.linear) in
+
+          let v = new_var "v" in
+          let typ = Option.unsome ~error:"expected type" new_get.typ in
+          let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~typ ~by:(f_cancel tvar_model) (formula_fun [v, typ] (formula_points_to tvar (f_set (trm_apps (trm_binop typ binop) [(trm_var v); tval_model])))))) in
+          trm_seq_helper ~braces:false [
+            Trm new_t;
+            (* tvar ~~> f_set (tvar_model_to_norm binop tval_model) *)
+            Trm maintain_res;
+          ]
+        end else begin
+          new_t
+        end
       );
       Pattern.(formula_points_to !__ !__) (fun addr value () ->
         Pattern.when_ (address_matches addr);
@@ -139,6 +203,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
     For correctness, [f_get] and [f_set] must be inverses and pure.
     It is checked that all of the transformed gets and sets operate on resources found at the begining of the scope. *)
 let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
+  (f_cancel : trm -> trm)
   ?(to_prove : trm list = [])
   ~(address_pattern : compiled_pattern)
   ?(mark_to_prove : mark = no_mark)
@@ -164,7 +229,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
       others_post = ref [];
       pure_post = ref [];
     } in
-    Target.apply_at_path (transform_on f_get f_set to_prove address_pattern mark_to_prove mark_preprocess mark_postprocess mark_handled_resources ret span) p_seq;
+    Target.apply_at_path (transform_on f_get f_set f_cancel to_prove address_pattern mark_to_prove mark_preprocess mark_postprocess mark_handled_resources ret span) p_seq;
     if !Flags.check_validity && not !Flags.preserve_specs_only then begin
       (* TODO: factorize with local_name, should this be a Resource.assert_??? feature? may also be decomposed via elim_reuse? *)
       let error = "did not find on which inner pointer variable addresses where based" in
@@ -273,6 +338,7 @@ let%transfo transform_arith ~(op:transform_arith_op) ?(inv:bool=false) ~(factor:
   ?(mark_to_prove : mark = no_mark)
   ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
   (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun () ->
   if !Flags.check_validity && not !Flags.preserve_specs_only then
     if not (Resources.trm_is_pure factor) then
       trm_fail factor "basic variable scaling does not support non-pure arguments";
@@ -282,19 +348,22 @@ let%transfo transform_arith ~(op:transform_arith_op) ?(inv:bool=false) ~(factor:
     | Transform_arith_mul -> Trace.justif "factor is pure and will be proved != 0";
     in
   let typ = Option.unsome ~error:"factor needs to have a known type" factor.typ in
-  let op_get, op_set =
+  let todo_impl v f = trm_unit () in
+  let op_get, op_set, op_cancel =
     match op with
-    | Transform_arith_add -> if inv then (trm_add, trm_sub) else (trm_sub, trm_add)
-    | Transform_arith_mul -> if inv then (trm_mul, trm_exact_div) else (trm_exact_div, trm_mul)
+    | Transform_arith_add -> if inv then (trm_add, trm_sub, Resource_trm.cancel_minus_plus ~typ) else (trm_sub, trm_add, Resource_trm.cancel_plus_minus ~typ)
+    | Transform_arith_mul -> if inv then (trm_mul, trm_exact_div, todo_impl) else (trm_exact_div, trm_mul, todo_impl)
     in
   let f_get t = trm_add_mark mark (op_get ~typ t factor) in
   let f_set t = trm_add_mark mark (op_set ~typ t factor) in
+  let f_cancel t = op_cancel t factor in
   let to_prove =
     match op with
     | Transform_arith_add -> []
     | Transform_arith_mul -> [Resource_trm.to_prove Resource_formula.(formula_neq ~typ factor (trm_int ~typ 0))]
     in
-  transform f_get f_set ~to_prove ~address_pattern ~mark_to_prove ~mark_preprocess ~mark_postprocess tg
+  transform f_get f_set f_cancel ~to_prove ~address_pattern ~mark_to_prove ~mark_preprocess ~mark_postprocess tg
+  )
 
 let%transfo transform_arith_immut ~(op:transform_arith_op) ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
   if !Flags.check_validity && not !Flags.preserve_specs_only then
@@ -311,6 +380,9 @@ let%transfo transform_arith_immut ~(op:transform_arith_op) ?(inv : bool = false)
   let f_init t = trm_add_mark mark (op_set ~typ t factor) in
   let to_prove = [Resource_trm.to_prove Resource_formula.(formula_neq ~typ factor (trm_int ~typ 0))] in
   transform_immut f_init f_use to_prove tg
+
+let scale_immut = transform_arith_immut ~op:Transform_arith_mul
+let shift_immut = transform_arith_immut ~op:Transform_arith_add
 
 (** [intro tg]: expects the target [tg] to be pointing at any node that could contain struct accesses, preferably
    a sequence, then it will transform all the encodings of the form struct_get (get (t), f) to

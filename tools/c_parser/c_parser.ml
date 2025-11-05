@@ -55,6 +55,10 @@ let clangml_options : Clang.Ast.Options.t = {
 }
 
 let raw_parser (filename: string): trm =
+  if !Flags.verbose then begin
+    let v = Clang.version() in
+    printf "Clang version used by ClangML: %d.%d.%d\n" v.major v.minor v.subminor;
+  end;
   let command_line_include =
     List.map Clang.Command_line.include_directory
       (Filename.concat optitrust_root "include" :: Clang.default_include_directories ()) in

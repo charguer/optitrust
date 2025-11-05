@@ -49,8 +49,7 @@ let trm_seq_helper ?(annot : trm_annot option) ?(loc : location) ?(result: var o
   else begin
     assert (annot = None);
     assert (loc = None);
-    assert (result = None);
-    trm_seq_nobrace mlist
+    trm_seq_nobrace ?result mlist
   end
 
 let update_span_helper (span : Dir.span) (t_seq : trm) (f : trm mlist -> seq_component list) : trm =
