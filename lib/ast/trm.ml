@@ -295,6 +295,7 @@ type ghost_call = {
 }
 
 let trm_ghost_force ({ ghost_fn; ghost_args; ghost_bind } : ghost_call): trm =
+  Printf.printf "ghost_force\n";
   trm_add_attribute GhostInstr (trm_apps ghost_fn [] ~ghost_args ~ghost_bind)
 
 let ghost_call (ghost_var: var) ?(ghost_bind = []) (ghost_args: (string * formula) list): ghost_call =

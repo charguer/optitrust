@@ -54,7 +54,7 @@ type ghosts = (formula * formula * (var * trm)) list
 (** [DEBUGGING]  *)
 
 let print_trm_string (t : trm) : string =
-  let doc = Ast_to_text.print_trm Ast_to_text.default_style t in
+  let doc = Ast_to_text.print_trm Ast_to_text.style_full t in
   Tools.document_to_string doc
 
 let print_range ((a, b) : range) : string = Printf.sprintf "(%s, %s)" a.name (print_trm_string b)

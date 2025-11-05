@@ -133,8 +133,8 @@ let admitted_inv (t : trm) : (formula option) option =
 
 let ghost_admitted ?(justif: trm option) (contract: fun_contract): trm =
   if Resource_set.is_empty contract.pre && Resource_set.is_empty contract.post
-  then Nobrace.trm_seq_nomarks []
-  else ghost (ghost_closure_call contract (trm_seq_nomarks [admitted ?justif ()]))
+    then Nobrace.trm_seq_nomarks []
+    else ghost (ghost_closure_call contract (trm_seq_nomarks [admitted ?justif ()]))
 
 let ghost_admitted_rewrite (before: formula) (after: formula) (justif: formula): trm =
   let contract = {

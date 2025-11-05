@@ -1,5 +1,5 @@
 #include "optitrust.h"
-
+/*
 ///////////////// Simple Cases
 
 // Simple focus: one dimensional focus.
@@ -11,6 +11,7 @@ void simple_focus_caller(float *x, int n) {
   __modifies("for i1 in 0..n -> &x[MINDEX1(n,i1)] ~> Cell");
   simple_focus(x, n);
 }
+*/
 
 //  Read-only simple focus
 void RO_simple_focus(float *x, int n) {
@@ -21,7 +22,7 @@ void RO_simple_focus_caller(float *x, int m, int n) {
   __reads("for i1 in 0..n -> &x[MINDEX1(n,i1)] ~> Cell");
   RO_simple_focus(x, n);
 }
-
+/*
 // General_simple_focus: FOcus on multi-dimensional array. One focus on the
 // third dimension
 void general_simple_focus(float *x, int n1b, int n2, int n3, int n4b) {
@@ -250,3 +251,4 @@ void multiple_resources_same_call_caller(float *x, float *y, int n, int m) {
 //       "Cell");
 //   not_good_range(x,n1,n2);
 // }
+*/

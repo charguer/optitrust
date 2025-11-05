@@ -6,6 +6,8 @@ open Contextualized_error
 open Resource_formula
 open Resource_contract
 
+let debug = false
+
 (* TODO: Better module names:
   Resource_computation -> Resources.Computation
   Resources.compute = Resources.Computation.compute_resource *)
@@ -517,7 +519,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
       function faster on most frequent cases *)
     extract (fun (h, formula_candidate) ->
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
-      Printf.printf "formula %s \n fromula_candidate %s \n" (Resource_autofocus.print_trm_string formula) (Resource_autofocus.print_trm_string formula_candidate);
+      if debug then Printf.printf "formula %s \n fromula_candidate %s \n" (Resource_autofocus.print_trm_string formula) (Resource_autofocus.print_trm_string formula_candidate);
       let* ghosts, evar_ctx = (handle_unification infer) formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
 
 
@@ -529,7 +531,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
   in
 
   let formula, evar_ctx = unfold_if_resolved_evar formula evar_ctx in
-  Printf.printf "here is the formula %s \n:" (Resource_autofocus.print_trm_string formula);
+  if debug then Printf.printf "here is the formula %s \n:" (Resource_autofocus.print_trm_string formula);
   Pattern.pattern_match formula [
     (* special case where _Full disables split_frac. *)
     Pattern.(formula_read_only (trm_apps1 (trm_specific_var _Full) !__) !__) (fun frac ro_formula () ->
@@ -1664,7 +1666,7 @@ let rec compute_resources
         if List.length ghosts_list > 0 then begin
           t.ctx.elaborate <- Some({pre_ghost = List.concat_map (fun ghosts -> Resource_autofocus.ghosts_formula_begin (ghosts)) ghosts_list; post_ghost =  List.concat_map (fun ghosts -> Resource_autofocus.ghosts_formula_end (ghosts)) ghosts_list});
           let t_with_ghosts = Resource_autofocus.seq_from_ghosts_list t (ghosts_list) in
-          Printf.printf "t with ghosts %s \n" (Resource_autofocus.print_trm_string t_with_ghosts);
+          if debug then Printf.printf "t with ghosts %s \n" (Resource_autofocus.print_trm_string t_with_ghosts);
         compute_resources ?expected_res (Some (res)) t_with_ghosts
         end
         else
@@ -2133,6 +2135,10 @@ let elaborate (t :trm)  =
 trm_bottom_up (fun t -> match t.ctx.elaborate with
   | Some { pre_ghost; post_ghost} -> (
     t.ctx.elaborate <- None;
+    (match pre_ghost with g::_ ->
+      Printf.printf "autofocus_pre: %s\n" (Resource_autofocus.print_trm_string g)
+      | _ -> ());
+
     trm_seq (Mlist.of_list (pre_ghost @ [t] @ post_ghost)))
   | _ -> t) t
 (** [trm_recompute_resources t] recomputes resources of [t] using [compute_resources],

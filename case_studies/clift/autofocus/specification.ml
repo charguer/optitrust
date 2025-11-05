@@ -18,4 +18,6 @@ let elaborate (tg:target) : unit =
   apply_at_target_paths elaborate_on tg
 
 let _ = Flags.check_validity := true; Flags.recompute_resources_between_steps := false; Flags.resource_typing_enabled :=true
-let _ = Run.script_cpp (fun _ -> !!!(););
+let _ = Run.script_cpp (fun _ -> !!();
+ShowAt.trm ~style:(Style.internal_ast()) [cFunDef "RO_simple_focus_caller"]
+);
