@@ -4,7 +4,7 @@
 --------------------------------------------------------------------------------
 ## Installation
 
-### Install OCaml and system packages
+### Install system packages
 
 It takes about 30 minutes to install the required OCaml software.
 
@@ -19,35 +19,45 @@ Installation of system packages:
    sudo apt-get install meld
 ```
 
-Install Clang 15. IMPORTANT: versions released after 15.0.x are not supported by the Clangml package that OptiTrust depends upon. (Thus, don't use `sudo apt-get install clang libclang-dev llvm-dev`). You can try this procedure:
+### Install Clang 15.0.0 (exactly)
+
+Next, we need to install exactly version 15.0.0 of Clang. Other versions 15.0.x are not supported by the Clangml package that OptiTrust depends upon. (In particular, don't use `sudo apt-get install clang libclang-dev llvm-dev`, and don't use `sudo ./llvm.sh 15` to install Clang-15). The following procedure install 15.0.0 from binaries:
 
 ```sh
-wget https://apt.llvm.org/llvm.sh
-chmod +x llvm.sh
-sudo ./llvm.sh 15
-sudo apt install autoconf libclang-15-dev llvm-15-dev
-# for C++ headers support:
-sudo apt-get install libc++-dev libc++abi-15-dev
+# Download and install binaries from: https://github.com/llvm/llvm-project/releases/tag/llvmorg-15.0.0
+wget https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.0/clang+llvm-15.0.0-x86_64-linux-gnu-rhel-8.4.tar.xz
+tar -xf clang+llvm-15.0.0-x86_64-linux-gnu-rhel-8.4.tar.xz
+sudo mv clang+llvm-15.0.0-x86_64-linux-gnu-rhel-8.4 /opt/clang-15.0.0
 ```
-   
-you might need to make a symbolic link to redirect clang to clang-15 :
+
+Because LLVM does not ship C++ headers, you need to install them separately:
 ```sh
-sudo ln -s /usr/bin/clang-15 /usr/local/bin/clang
+# Install for C++ headers support:
+sudo apt-get install libc++-dev libc++abi-15-dev
 ```
 
 Depending on your prior installation, you might need to add the newly installed version of clang/llvm-config to the path, then select it among all of your versions :
 
 ```
-  sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 100
+  sudo update-alternatives --install /usr/bin/clang clang /opt/clang-15.0.0/bin/clang 100
   sudo update-alternatives --config clang
+  # then type the number that matches the /opt path
 ```
 
 ```
-  sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-15 100
+  sudo update-alternatives --install /usr/bin/llvm-config llvm-config /opt/clang-15.0.0/bin/llvm-config 100
   sudo update-alternatives --config llvm-config
+  # then type the number that matches the /opt path
 ```
 
-TODO: don't make this global switch, bad for benchmarking
+If everything goes well `clang --version` reports 15.0.0.
+The command `clang -v -E -stdlib=libc++ - < /dev/null` shows the path to the include folders.
+One of these folders should include the `functional` C++ library, e.g. `ls /usr/include/c++/11/functional`.
+
+
+### Install OCaml packages
+
+LATER: ideally, we would not require a global switch, as it is bad for benchmarking.
 
 Installation of Opam, the OCaml package manager (don't use `sudo apt-get install opam` as it might give you an out of date version).
 The following one-liner is advertised on `https://opam.ocaml.org/doc/Install.html`.
@@ -56,7 +66,7 @@ The following one-liner is advertised on `https://opam.ocaml.org/doc/Install.htm
   bash -c "sh <(curl -fsSL https://opam.ocaml.org/install.sh)"
 ```
 
-Installation of the opam switch with relevant packages:
+Installation of the opam switch with relevant packages (it seems that it must be done after `clang 15.0.0` is installed):
 
 ```sh
    opam init
@@ -64,6 +74,7 @@ Installation of the opam switch with relevant packages:
    opam pin add dune 3.18.0
    opam pin add menhirLib 20210419
    opam pin add pprint 20220103
+   opam add conf-libclang.15
    opam pin add clangml 4.8.0  # -> continueanyway
    opam install dune refl clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving
    # next line used only for generating the documentation of OptiTrust:
@@ -74,11 +85,11 @@ Installation of the opam switch with relevant packages:
    eval $(opam env)
 ```
 
- Note: dune 3.19.0 is known to have an issue, when executing the tester script use 3.18.0 instead
+Note: dune 3.19.0 is known to have an issue, when executing the tester script use 3.18.0 instead
 
- Note: clangml 4.8.0 is from Sept 2022.
+Note: clangml 4.8.0 is from Sept 2022.
 
- Note: graphics is used by the pview tool only.
+Note: graphics is used by the pview tool only.
 
 ### Install precommit hooks
 

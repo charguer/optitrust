@@ -3,6 +3,7 @@
 
 # Forcing use of Clang's stdlib
 precompiled_stdlib.pch: precompiled_stdlib.h
+	clang --version
 	clang -x c++-header $^ -o $@ -stdlib=libc++
 
 # -stdlib=libc++
