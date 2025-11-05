@@ -144,6 +144,10 @@ let ghost_admitted_rewrite (before: formula) (after: formula) (justif: formula):
   ghost_admitted contract ~justif
 
 let var_ghost_assert_hprop = toplevel_var "assert_hprop"
+
+let ghost_assert_hprop (f: formula): trm =
+  ghost (ghost_call var_ghost_assert_hprop ["H", f])
+
 let var_ghost_forget_init = toplevel_var "forget_init"
 
 let ghost_forget_init (f: formula): trm =
@@ -168,6 +172,28 @@ let is_ghost_alias (t : trm) : bool =
     end
   | _ -> false
   end
+
+let var_z_cancel_minus_plus = toplevel_var "z_cancel_minus_plus"
+let var_z_cancel_plus_minus = toplevel_var "z_cancel_plus_minus"
+let var_r_cancel_minus_plus = toplevel_var "r_cancel_minus_plus"
+let var_r_cancel_plus_minus = toplevel_var "r_cancel_plus_minus"
+
+let cancel_minus_plus ~(typ: typ) (n: formula) (d: formula): trm =
+  let var =
+    match typ with
+    | _ when is_typ_integer typ -> var_z_cancel_minus_plus
+    | _ when is_typ_float typ -> var_r_cancel_minus_plus
+    | _ -> failwith "unsupported cancel_minus_plus type"
+    in
+  trm_apps (trm_var var) [n; d]
+
+let cancel_plus_minus ~(typ: typ) (n: formula) (d: formula): trm =  let var =
+  match typ with
+  | _ when is_typ_integer typ -> var_z_cancel_plus_minus
+  | _ when is_typ_float typ -> var_r_cancel_plus_minus
+  | _ -> failwith "unsupported cancel_plus_minus type"
+  in
+  trm_apps (trm_var var) [n; d]
 
 let var_assert_eq = toplevel_var "assert_eq"
 
@@ -238,6 +264,11 @@ let to_prove_bind (f: formula): (var * trm) =
   let v = new_var "H" in
   (v, ghost (ghost_call ~ghost_bind:[Some v, "H"] var_ghost_to_prove ["P", f]))
 
+let var_ghost_to_prove_hprop = toplevel_var "to_prove_hprop"
+
+let ghost_to_prove_hprop (f1: formula) (f2: formula): trm =
+  ghost (ghost_call var_ghost_to_prove_hprop ["H1", f1; "H2", f2])
+
 (*****************************************************************************)
 (* Integer rewriting *)
 
@@ -245,9 +276,14 @@ let var_ghost_rewrite_prop = toplevel_var "rewrite_prop"
 let ghost_rewrite_prop ?from ?into ?by inside =
   ghost_call_opt_args var_ghost_rewrite_prop ["from", from; "to", into; "inside", Some inside; "by", by]
 
-let var_ghost_rewrite_linear = toplevel_var "rewrite_linear"
-let ghost_rewrite_linear ?from ?into ?by inside =
-  ghost_call_opt_args var_ghost_rewrite_linear ["from", from; "to", into; "inside", Some inside; "by", by]
+let var_ghost_rewrite_linear_int = toplevel_var "rewrite_linear"
+let var_ghost_rewrite_linear_float = toplevel_var "rewrite_float_linear"
+
+let ghost_rewrite_linear ~(typ : typ) ?from ?into ?by inside =
+  match typ with
+  | _ when is_typ_integer typ -> ghost_call_opt_args var_ghost_rewrite_linear_int ["from", from; "to", into; "inside", Some inside; "by", by]
+  | _ when is_typ_float typ -> ghost_call_opt_args var_ghost_rewrite_linear_float ["from", from; "to", into; "inside", Some inside; "by", by]
+  | _ -> failwith "unsupported ghost_rewrite_linear type"
 
 let logic_eq_sym = trm_toplevel_var "eq_sym"
 let logic_zero_mul_intro = trm_toplevel_var "zero_mul_intro"
@@ -266,7 +302,7 @@ let rewrite_var_in_res_ghosts ?(filter_changed = true) var ?from ?into ?by res =
   in
   (* LATER: Check that what we try to rewrite is indeed a Prop and not a Type... *)
   let res = if filter_changed then Resource_set.filter_with_var var res else res in
-  into_rewrite_ghost ghost_rewrite_prop res.pure @ into_rewrite_ghost ghost_rewrite_linear res.linear
+  into_rewrite_ghost ghost_rewrite_prop res.pure @ into_rewrite_ghost (ghost_rewrite_linear ~typ:typ_int) res.linear
 
 (*****************************************************************************)
 (* Contracts and annotations *)
@@ -292,6 +328,9 @@ let delete_annots_on
           Pattern.pattern_match t [
             Pattern.(trm_apps (trm_specific_var var_ghost_to_prove) nil (pair __ !__ ^:: nil) __) (fun prop_to_prove () ->
               on_delete_to_prove prop_to_prove
+            );
+            Pattern.(trm_apps (trm_specific_var var_ghost_to_prove_hprop) nil (pair __ !__ ^:: nil) __) (fun hprop_to_prove () ->
+              on_delete_to_prove hprop_to_prove
             );
             Pattern.__ (fun () -> ())
           ]

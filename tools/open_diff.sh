@@ -85,7 +85,9 @@ echo "Generated ${FILENAME}"
 #==========================================================================
 # Open output file
 
+CURPATH=`pwd`
 TARGET=$(realpath --relative-to=${OPTITRUST_FOLDER} ${FILENAME})
 
 # Open the browser with the target file
+echo "Opening browser on file://${CURPATH}/${TARGET}"
 ${TOOLS_FOLDER}/open_in_browser.sh ${TARGET} "${TITLESTR}"

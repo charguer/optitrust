@@ -26,6 +26,7 @@
     "initializer_list": "cpp",
     "utility": "cpp",
     "compare": "cpp",
+    "typeinfo": "cpp"
     "optitrust.h": "c",
     "cstdint": "cpp",
     "ratio": "cpp",

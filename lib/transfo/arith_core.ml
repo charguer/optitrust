@@ -1307,7 +1307,7 @@ let rec map_on_arith_nodes (tr : trm -> trm) (t : trm) : trm =
     AST, with non-arithmetic subterms described as "atoms"; then it applies the
     transformation [f_atom] on every atom; then it applies the transformation [f]
     on the reified expression; finally, it reconstructs the output term. *)
-let simplify_at_node (f_atom : trm -> trm) (f : arith_transfo) (t : trm) : trm =
+let simplify_at_node (f_atom : trm -> trm) (f : arith_transfo) (f_postprocess : trm -> trm -> trm) (t : trm) : trm =
   try (
   let expr, atoms0 = trm_to_expr t in
 
@@ -1322,7 +1322,8 @@ let simplify_at_node (f_atom : trm -> trm) (f : arith_transfo) (t : trm) : trm =
   if debug then Tools.debug "Expr after transformation: %s" (expr_to_string atoms1 expr2);
   (* let expr3 = normalize expr2 in
   if debug then Tools.debug "Expr after normalization: %s" (expr_to_string atoms expr3); *)
-  expr_to_trm atoms2 expr2
+  let simpl_t = expr_to_trm atoms2 expr2 in
+  f_postprocess t simpl_t
   )
   with e ->
     Tools.warn "Arith.simplify_at_node: error on processing at loc %s:\n%s" (loc_to_string t.loc) (Printexc.to_string e);
@@ -1337,20 +1338,20 @@ let simplify_at_node (f_atom : trm -> trm) (f : arith_transfo) (t : trm) : trm =
     return:
       update t with the simplified expressions
   LATER: should [simplify false f t] fail if [t] is not an application of prim_arith? *)
-let rec simplify (indepth : bool) (f : arith_transfo) (t : trm) : trm =
+let rec simplify (indepth : bool)?(f_postprocess : trm -> trm -> trm = fun _ t -> t) (f : arith_transfo) (t : trm) : trm =
   if not indepth then begin
     let f_atom_identity = (fun ti -> ti) in
-    simplify_at_node f_atom_identity f t
+    simplify_at_node f_atom_identity f f_postprocess t
   end else begin
     let f_atom_simplify = simplify indepth f in
-    map_on_arith_nodes (simplify_at_node f_atom_simplify f) t
+    map_on_arith_nodes (simplify_at_node f_atom_simplify f f_postprocess) t
   end
 
 (* TODO: export a better name *)
 let simplify2 = simplify
 
-let simplify (indepth : bool) (f : expr -> expr) (t : trm) : trm =
-  simplify indepth (fun (atoms,e) -> (atoms,f e)) t
+let simplify (indepth : bool) ?(f_postprocess : trm -> trm -> trm = fun _ t -> t) (f : expr -> expr) (t : trm) : trm =
+  simplify indepth (fun (atoms,e) -> (atoms,f e)) ~f_postprocess t
 
 
 (** [show_expr t] applies to a term [t] and replaces it with a term of the form

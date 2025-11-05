@@ -4,16 +4,39 @@ open Path
 open Target
 include Arith_basic
 
+(* given a path in an arithmetic expression and the entire ast,
+   find the root of that expression,
+   otherwise immediately return the provided path.
+   returns (path_to_trm, path). *)
+let find_arith_expr_root (p : path) (t : trm) : (trm * path) =
+  (* TODO: it is worth factorizing with 'find_surrounding_instr'?
+    'find_surrounding_trm_such_that' ? *)
+  (* TODO: is it worth having some kind of check?
+  assert ((Option.is_some (trm_lit_inv t)) || (Option.is_some (trm_var_inv t)) || (is_prim_arith_call t)); *)
+  let p_t, ctx = Path.resolve_path_and_ctx p t in
+  let rec aux p t ctx =
+    match ctx with
+    | parent_t :: ctx ->
+      let parent_p = Path.parent p in
+      let parent_is_arith_expr =
+        (is_prim_arith_call parent_t || Option.is_some (trm_get_inv parent_t)) &&
+        not (trm_is_statement parent_t) in
+        (* not (Arith_core.get_purity parent_t).redundant in *)
+      if not parent_is_arith_expr then (t, p)
+      else aux parent_p parent_t ctx
+    | [] -> (t, p)
+  in
+  aux p p_t ctx
 
 (** [simpl_surrounding_expr] first goes to the outside of the targeted expression,
    then applies [simpl] *)
-let%transfo simpl_surrounding_expr ?(indepth : bool = true) (f : (expr -> expr)) (tg : target) : unit =
+let%transfo simpl_surrounding_expr ?(indepth : bool = false) (f : (expr -> expr)) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   let paths_to_simpl = ref Path_set.empty in
   let t = Trace.ast () in
   Trace.without_resource_computation_between_steps (fun () ->
     Target.iter (fun p ->
-      paths_to_simpl := Path_set.add (snd (Path.find_arith_expr_root p t)) !paths_to_simpl;
+      paths_to_simpl := Path_set.add (snd (find_arith_expr_root p t)) !paths_to_simpl;
     ) tg;
     Path_set.iter (fun p ->
       Arith_basic.simpl ~indepth f (target_of_path p);

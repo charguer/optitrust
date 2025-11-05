@@ -78,6 +78,22 @@ __GHOST(rewrite_float_linear) {
   __admitted();
 }
 
+__GHOST(rewrite_float_linear_admitted) {
+  __requires("from: float, to: float");
+  __requires("inside: float -> HProp");
+  __consumes("inside(from)");
+  __produces("inside(to)");
+  __admitted();
+}
+
+__GHOST(eq_refl_float) {
+  __requires("x:float");
+  __ensures("x =. x");
+  __admitted();
+}
+
+
+
 // FIXME: Explain here why this is useful and can it be used in formulas ?
 // assumes a formula with no need to prove it later
 __GHOST(assume) {
@@ -93,6 +109,33 @@ __GHOST(to_prove) {
   __ensures("H: P");
   __admitted();
 }
+
+__GHOST(to_prove_hprop) {
+  __requires("H1: HProp, H2: HProp");
+  __consumes("H1");
+  __produces("H2");
+  __admitted();
+}
+
+/* ---- theorems on Z (idealised int) ---- */
+
+__AXIOM(z_cancel_minus_plus, "forall (n: int) (d: int) -> n - d + d = n");
+__AXIOM(z_cancel_plus_minus, "forall (n: int) (d: int) -> n + d - d = n");
+
+// CURRENTLY NOT USED, '_Res =' equality is not automatically applied by typechecker
+int wrap_z_cancel_minus_plus(int m) {
+  __requires("n: int, d: int");
+  __requires("m = n - d + d");
+  __ensures("_Res = n");
+  __admitted();
+  return m;
+  __ghost(rewrite_linear, "inside := fun v -> _Res = v, by := z_cancel_minus_plus");
+}
+
+/* ---- theorems on R (real / idealised float) ---- */
+
+__AXIOM(r_cancel_minus_plus, "forall (n: float) (d: float) -> n -. d +. d =. n");
+__AXIOM(r_cancel_plus_minus, "forall (n: float) (d: float) -> n +. d -. d =. n");
 
 /* ---- Pure matrix functions ---- */
 
