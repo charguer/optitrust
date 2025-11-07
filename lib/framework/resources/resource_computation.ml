@@ -402,14 +402,17 @@ let compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx
     raise_mismatching_type t actual_typ expected_typ evar_ctx
 
     (* TODO :: change name  *)
-let handle_unification (infer:bool) (formula : trm) (formula_candidate : trm)
+let handle_unification (infer:bool) ?(frac) (formula : trm) (formula_candidate : trm)
     (evar_ctx : unification_ctx) (validate_inst : trm -> 'a -> unification_ctx -> unification_ctx option) =
     let open Option.Monad in
 
-    if infer then Resource_autofocus.autofocus_unify formula formula_candidate evar_ctx validate_inst
+    if infer then Resource_autofocus.autofocus_unify ~frac formula formula_candidate evar_ctx validate_inst
     else
+      begin
+      Printf.printf "we wente here\n";
     let* evar_ctx = trm_unify formula formula_candidate evar_ctx validate_inst in
-    Some ([], evar_ctx)
+    Some ({Resource_autofocus.ghost_begin = []; ghost_end = [] }, evar_ctx)
+      end
 let pure_goal_solver: (resource_item -> unification_ctx -> unification_ctx option) ref = ref (fun formula evar_ctx -> None)
 
 (** [unify_pure (x, formula) env evar_ctx] unifies the given [formula] with one of the resources in [env.res].
@@ -460,7 +463,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
     (evar_ctx: unification_ctx): used_resource_item *  Resource_autofocus.ghosts * linear_resource_set * unification_ctx =
     match res with
     (* When we run out of candidate, either we try to infer/autocus, or if we already have (infer is true, meaning we run out of candidate even with inference allowed) , then raise Not found which will be caught later to create Resource_not_found *)
-    | [] -> if infer then raise Not_found else subtract_linear_resource_item ~split_frac ~infer:true (x,formula) res_before evar_ctx_before ~pure_ctx:pure_ctx_before
+    | [] -> if infer then raise Not_found else subtract_linear_resource_item ~split_frac:true ~infer:true (x,formula) res_before evar_ctx_before ~pure_ctx:pure_ctx_before
     | candidate :: res ->
       begin match f candidate with
       | Some (used_res, ghosts, Some leftover, evar_ctx ) -> (used_res,  ghosts, leftover :: res, evar_ctx)
@@ -482,7 +485,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
     (res: linear_resource_set)
     (evar_ctx: unification_ctx)
     ~(infer:bool)
-    ~(pure_ctx: pure_env): used_resource_item * Resource_autofocus.ghosts* linear_resource_set * unification_ctx =
+    ~(pure_ctx: pure_env): used_resource_item * Resource_autofocus.ghosts  * linear_resource_set * unification_ctx =
     (* Used by {!subtract_linear_resource_item} in the case where [formula] is not a read-only resource. *)
     (* LATER: Improve the structure of the linear_resource_set to make this
       function faster on most frequent cases *)
@@ -496,7 +499,6 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
           else Formula_inst.inst_hyp candidate_name, formula_candidate
         in
         let* ghosts,evar_ctx = handle_unification infer formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
-
         Some (
           { hyp = x; inst_by; used_formula = formula_to_unify },
           ghosts,
@@ -517,19 +519,18 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
       function faster on most frequent cases *)
     extract (fun (h, formula_candidate) ->
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
-      Printf.printf "formula %s \n fromula_candidate %s \n" (Resource_autofocus.print_trm_string formula) (Resource_autofocus.print_trm_string formula_candidate);
-      let* ghosts, evar_ctx = (handle_unification infer) formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
-
+      (* Printf.printf "formula %s \n fromula_candidate %s \n" (Resource_autofocus.print_trm_string formula) (Resource_autofocus.print_trm_string formula_candidate); *)
+      Printf.printf "frac %s \n formula_candidate %s  formula %s \n \n" (Resource_autofocus.print_trm_string cur_frac) (Resource_autofocus.print_trm_string formula_candidate) (Resource_autofocus.print_trm_string formula);
+      let* ghosts, evar_ctx = (handle_unification infer ~frac:cur_frac) formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
 
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
-         Resource_autofocus.ghosts_read_only ~frac:(cur_frac) ghosts,
+        ghosts,
         Some (h, formula_read_only ~frac:(formula_frac_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
     ) res evar_ctx
   in
 
   let formula, evar_ctx = unfold_if_resolved_evar formula evar_ctx in
-  Printf.printf "here is the formula %s \n:" (Resource_autofocus.print_trm_string formula);
   Pattern.pattern_match formula [
     (* special case where _Full disables split_frac. *)
     Pattern.(formula_read_only (trm_apps1 (trm_specific_var _Full) !__) !__) (fun frac ro_formula () ->
@@ -574,7 +575,7 @@ let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unifica
   List.fold_left (fun (used_list,ghosts_list, remaining_linear_res, evar_ctx ) res_item ->
     try
       let used, ghosts, res_from, evar_ctx  = subtract_linear_resource_item ~infer:false  ~split_frac res_item remaining_linear_res evar_ctx ~pure_ctx in
-      let ghosts_list = if List.length ghosts > 0 then ghosts::ghosts_list else ghosts_list in
+      let ghosts_list = if ghosts <> Resource_autofocus.empty_ghost then ghosts::ghosts_list else ghosts_list in
       (used :: used_list, ghosts_list,res_from, evar_ctx )
     with Not_found ->
       raise_resource_not_found Linear res_item evar_ctx res_from
@@ -1581,7 +1582,7 @@ let rec compute_resources
             (* Compute resource for one instruction *)
             let instr_usage, res = compute_resources res instr in
             (* There should be no binding of _Res for an instruction in a sequence *)
-            (* Printf.printf "issue with instr %s \n" (Resource_autofocus.print_trm_string instr); *)
+            Printf.printf "issue with instr %s \n" (Resource_autofocus.print_trm_string instr);
             assert (match res with
               | Some res -> Option.is_none (Resource_set.find_pure var_result res)
               | None -> true);
@@ -1589,7 +1590,6 @@ let rec compute_resources
             (usage_map, res))
           (Some Var_map.empty, Some res) instrs
       in
-
       (* Free the cells allocated with stack new *)
       let** res in
       let (removed_res, linear) = delete_stack_allocs instrs res in
@@ -1661,8 +1661,8 @@ let rec compute_resources
 
         let call_usage_map, res_after, ghosts_list = compute_contract_invoc spec.contract ~inst_map ~ensured_renaming res_after_args t in
         (* if we get a non empty ghosts_list, we throw everything away, we modify the elaborate field for future processing and we retype the whole trm_seq (ghost_begin;t;ghost_end) *)
-        if List.length ghosts_list > 0 then begin
-          t.ctx.elaborate <- Some({pre_ghost = List.concat_map (fun ghosts -> Resource_autofocus.ghosts_formula_begin (ghosts)) ghosts_list; post_ghost =  List.concat_map (fun ghosts -> Resource_autofocus.ghosts_formula_end (ghosts)) ghosts_list});
+        if ghosts_list <> [] then begin
+          t.ctx.elaborate <- Some({pre_ghost = List.concat_map (fun ghosts -> Resource_autofocus.ghost_begin ghosts ) ghosts_list; post_ghost =  List.concat_map (fun ghosts -> Resource_autofocus.ghost_end ghosts) ghosts_list});
           let t_with_ghosts = Resource_autofocus.seq_from_ghosts_list t (ghosts_list) in
           Printf.printf "t with ghosts %s \n" (Resource_autofocus.print_trm_string t_with_ghosts);
         compute_resources ?expected_res (Some (res)) t_with_ghosts
@@ -2007,6 +2007,7 @@ let rec compute_resources
   end;
 
   match res, expected_res with
+
   | Some res, Some expected_res ->
     (* Check that the expected resources after the expression are actually the resources available after the expression *)
     begin try
@@ -2133,7 +2134,9 @@ let elaborate (t :trm)  =
 trm_bottom_up (fun t -> match t.ctx.elaborate with
   | Some { pre_ghost; post_ghost} -> (
     t.ctx.elaborate <- None;
-    trm_seq (Mlist.of_list (pre_ghost @ [t] @ post_ghost)))
+    let tmp = trm_seq (Mlist.of_list (pre_ghost @ [t] @ post_ghost)) in
+    (* Printf.printf "%s \n" (Resource_autofocus.print_trm_string tmp); *)
+    tmp)
   | _ -> t) t
 (** [trm_recompute_resources t] recomputes resources of [t] using [compute_resources],
   after a [trm_deep_copy] to prevent sharing.

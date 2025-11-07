@@ -13,8 +13,8 @@ void simple_focus_caller(float *x, int n) {
 }
 
 //  Read-only simple focus
-void RO_simple_focus(float *x, int n) {
-  __reads(" &x[MINDEX1(n,2)] ~> Cell");
+void RO_simple_focus(float *y, int n) {
+  __reads(" &y[MINDEX1(n,2)] ~> Cell");
   __admitted();
 }
 void RO_simple_focus_caller(float *x, int m, int n) {
@@ -22,7 +22,7 @@ void RO_simple_focus_caller(float *x, int m, int n) {
   RO_simple_focus(x, n);
 }
 
-// General_simple_focus: FOcus on multi-dimensional array. One focus on the
+// General_simple_focus: Focus on multi-dimensional array. One focus on the
 // third dimension
 void general_simple_focus(float *x, int n1b, int n2, int n3, int n4b) {
   __modifies("for i10 in 0..n1b -> for i4 in 0..n4b -> "
@@ -38,14 +38,14 @@ void general_simple_focus_caller(float *x, int n1, int n2, int n3, int n4) {
 }
 
 // issues with modifies -- reads -> look at it with arthur
-void ro_modifies_focus(float *x, int n1) {
-  __reads("&x[MINDEX1(n1,2)]~>Cell");
-  __admitted();
-}
-void ro_modifies_focus_caller(float *x, int n1) {
-  __modifies("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
-  ro_modifies_focus(x, n1);
-}
+// void ro_modifies_focus(float *x, int n1) {
+//   __reads("&x[MINDEX1(n1,2)]~>Cell");
+//   __admitted();
+// }
+// void ro_modifies_focus_caller(float *x, int n1) {
+//   __modifies("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
+//   ro_modifies_focus(x, n1);
+// }
 // Multi-focus: 2 focus steps.
 void multi_focus(float *x, int n1, int n2, int n3) {
   __modifies("for i1 in 0..n1 -> &x[MINDEX3(n1,n2,n3,i1,2,3)] ~> Cell");

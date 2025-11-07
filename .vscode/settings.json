@@ -29,7 +29,8 @@
     "optitrust.h": "c",
     "cstdint": "cpp",
     "ratio": "cpp",
-    "locale": "cpp"
+    "locale": "cpp",
+    "bitset": "cpp"
   },
   "swapf.patterns": [
     {

@@ -259,6 +259,13 @@ __GHOST(in_range_bounds) {
 }
 
 /* ---- Manually split RO resources ---- */
+__GHOST(ro_split) {
+  __requires("f: _Fraction, H: HProp");
+  __consumes("_RO(f, H)");
+  __ensures("g: _Fraction");
+  __produces("_RO(f-g, H), _RO(g, H)");
+  __admitted();
+}
 
 __GHOST(ro_split2) {
   __requires("f: _Fraction, H: HProp");
@@ -281,6 +288,14 @@ __GHOST(ro_split4) {
   __admitted();
 }
 
+// __GHOST(ro_join){
+//   __requires("f: _Fraction, g: _Fraction, H:HProp");
+//   __consumes("_RO(f-g,H)");
+//   __consumes("_RO(g,H)");
+//   __produces("_RO(f,H)");
+//   __admitted();
+
+// }
 __GHOST(ro_allow_join2) {
   __requires("f: _Fraction, H: HProp");
   __consumes("_RO(f/2, H)");
