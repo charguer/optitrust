@@ -4,7 +4,7 @@ void ro_modifies_focus(float *x, int n1) {
   __admitted();
 }
 void ro_modifies_focus_caller(float *x, int n1) {
-  __modifies("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
+  __reads("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
   ro_modifies_focus(x, n1);
 }
 // void RO_simple_focus(float *y, int n) {

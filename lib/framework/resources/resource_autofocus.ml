@@ -413,6 +413,9 @@ let handle_reorder
     (t_base : trm)
     (dims_candidate : trms)
     (dims : trms) =
+  let formula,formula_candidate = match frac with
+  |Some (frac) -> formula_read_only ~frac formula, formula_read_only ~frac formula_candidate
+  | None -> formula,formula_candidate in
   let reordered_candidate =
     group_repr_inv ~uninit ~frac group_candidate t_base_candidate dims_candidate in
   let reordered_target = group_repr_inv ~uninit ~frac group t_base dims in
@@ -424,8 +427,8 @@ let handle_reorder
           post = Resource_set.make ~linear:[ (new_anon_hyp (), reordered_candidate) ] ();
         } in
       let rev_contract = { pre = contract.post; post = contract.pre } in
-      ( Resource_trm.ghost_admitted contract :: ghosts,
-        rev_ghosts @ [ Resource_trm.ghost_admitted rev_contract ]
+      ( ghosts @ [ Resource_trm.ghost_admitted contract],
+        Resource_trm.ghost_admitted rev_contract  :: rev_ghosts
       )
     else
       (ghosts, rev_ghosts) in
@@ -500,6 +503,7 @@ let autofocus_unify
         handle_read_only (Option.get frac) formula_candidate
       else
         ([], [], None) in
+
     let ghosts =
       ghosts @ group_repr_to_ghost_trm ~uninit ~frac focus_list t_base_candidate dims_candidate
     in
