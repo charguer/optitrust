@@ -45,12 +45,13 @@ type ghosts = {
   ghost_begin : trm list;
   ghost_end : trm list;
 }
+
 (**
    [ghosts] is the representation of the transformation
    that allows us to go from the required resources to the resources we have using ghosts.
    Composed by two lists of trm_apps(ghost) that must be must before and after the trm that need resource focus
 *)
-let empty_ghost = {ghost_begin = [] ; ghost_end = []}
+let empty_ghost = { ghost_begin = []; ghost_end = [] }
 
 (** [DEBUGGING]  *)
 
@@ -141,7 +142,7 @@ let to_group_repr (range_list : (var * trm) list) (indices : trms) (dims : trms)
 You need the [t_base] and [dims] to be able to rebuild the trm corresponding to the cell*)
 let group_repr_inv
     ~(uninit : bool)
-    ~(frac : var option)
+    ~(frac : trm option)
     (group : group_repr)
     (t_base : trm)
     (dims : trms) : formula =
@@ -164,7 +165,7 @@ let group_repr_inv
       )
       group cell in
   if Option.is_some frac then
-    formula_read_only ~frac:(trm_var (Option.get frac)) formula_inv
+    formula_read_only ~frac:(Option.get frac) formula_inv
   else
     formula_inv
 
@@ -326,16 +327,52 @@ let build_focus_list
           (fun (a, b, c, d) -> b)
           (List.fold_left folder (Some (stars_from, [], 0, evar_ctx)) stars_to)
 
-let handle_read_only (frac : trm) (formula : trm) : trms * trms *var option=
-  let autofoc,res_item = new_frac () in
-  let ghosts = [ Resource_trm.ghost (ghost_call  ~ghost_bind:[(Some(autofoc), "g")] (toplevel_var "ro_split") [("f", frac); ("H",formula);])] in
-  let rev_ghosts = [] in
-  ghosts,rev_ghosts,Some(autofoc)
+let handle_read_only (frac : trm) (formula : trm) : trms * trms * trm option =
+  let autofoc = formula_frac_div frac (trm_int 2) in
+  let ghosts =
+    [
+      Resource_trm.ghost_admitted
+        {
+          pre =
+            Resource_set.make
 
+              ~linear:[ (new_anon_hyp (), formula_read_only ~frac formula) ]
+              ();
+          post =
+            Resource_set.make
+
+              ~linear:
+                [
+                  (new_anon_hyp (), formula_read_only ~frac:autofoc formula);
+                  (new_anon_hyp (), formula_read_only ~frac:autofoc formula);
+                ]
+              ();
+        };
+    ] in
+  let to_join = formula_frac_sub frac autofoc in
+  let rev_ghosts = [
+      Resource_trm.ghost_admitted
+        {
+          pre =
+            Resource_set.make
+
+              ~linear:[ (new_anon_hyp (), formula_read_only ~frac:autofoc formula) ]
+              ();
+          post =
+            Resource_set.make
+
+              ~linear:
+                [
+                  (new_anon_hyp (), formula_read_only ~frac:to_join formula);
+                ]
+              ();
+        };
+    ] in
+  (ghosts, rev_ghosts, Some autofoc)
 
 let group_repr_to_ghost_trm
     ~(uninit : bool)
-    ~(frac : var option)
+    ~(frac : trm option)
     ?(rev = false)
     (focus_list : focus_list)
     (t_base : trm)
@@ -365,7 +402,7 @@ let group_repr_to_ghost_trm
 
 let handle_reorder
     ~(uninit : bool)
-    ~(frac : var option)
+    ~(frac : trm option)
     (ghosts : trm list)
     (rev_ghosts : trm list)
     (group : group_repr)
@@ -458,29 +495,32 @@ let autofocus_unify
     Printf.printf "group repr for group : %s\n" (print_group_repr group);
     let* focus_list = build_focus_list group_candidate group evar_ctx validate_inst in
     (* group_repr -> formula *)
-    let ghosts, rev_ghosts,frac =
-      if Option.is_some frac then handle_read_only (Option.get frac) formula_candidate else ([], [], None)
-    in
+    let ghosts, rev_ghosts, frac =
+      if Option.is_some frac then
+        handle_read_only (Option.get frac) formula_candidate
+      else
+        ([], [], None) in
     let ghosts =
       ghosts @ group_repr_to_ghost_trm ~uninit ~frac focus_list t_base_candidate dims_candidate
     in
     let rev_ghosts =
       group_repr_to_ghost_trm ~uninit ~frac ~rev:true focus_list t_base_candidate dims_candidate
       @ rev_ghosts in
-    Printf.printf " n ghost begin : %d \n n rev ghosts : %d \n" (List.length ghosts) (List.length rev_ghosts);
-    (* let ghosts, rev_ghosts =
+    Printf.printf " n ghost begin : %d \n n rev ghosts : %d \n" (List.length ghosts)
+      (List.length rev_ghosts);
+      (* Adding ghosts for reordering whenever it is needed *)
+    let ghosts, rev_ghosts =
       handle_reorder ~uninit ~frac ghosts rev_ghosts group group_candidate formula formula_candidate
-        t_base_candidate t_base dims_candidate dims in *)
-    (* Adding ghosts for reordering whenever it is needed *)
-    Printf.printf " n ghost begin : %d \n n rev ghosts : %d \n" (List.length ghosts) (List.length rev_ghosts);
+        t_base_candidate t_base dims_candidate dims in
+
+    Printf.printf " n ghost begin : %d \n n rev ghosts : %d \n" (List.length ghosts)
+      (List.length rev_ghosts);
     Some ({ ghost_begin = ghosts; ghost_end = rev_ghosts }, evar_ctx)
 
 (** [GHOST_CREATION] *)
 
-let ghost_begin ghosts =
-  ghosts.ghost_begin
-let ghost_end ghosts =
-  ghosts.ghost_end
+let ghost_begin ghosts = ghosts.ghost_begin
+let ghost_end ghosts = ghosts.ghost_end
 (* (** [ghosts_formula_begin]: Transforms ghosts into actual calls (trms) to ghost function.
     Returns the list of [trm] representing these ghost calls, used to type-check the expression that required focus. *)
 let ghosts_formula_begin (ghosts : ghosts) : trm list =

@@ -409,7 +409,6 @@ let handle_unification (infer:bool) ?(frac) (formula : trm) (formula_candidate :
     if infer then Resource_autofocus.autofocus_unify ~frac formula formula_candidate evar_ctx validate_inst
     else
       begin
-      Printf.printf "we wente here\n";
     let* evar_ctx = trm_unify formula formula_candidate evar_ctx validate_inst in
     Some ({Resource_autofocus.ghost_begin = []; ghost_end = [] }, evar_ctx)
       end
@@ -533,9 +532,11 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
   let formula, evar_ctx = unfold_if_resolved_evar formula evar_ctx in
   Pattern.pattern_match formula [
     (* special case where _Full disables split_frac. *)
-    Pattern.(formula_read_only (trm_apps1 (trm_specific_var _Full) !__) !__) (fun frac ro_formula () ->
+    Pattern.(formula_read_only (trm_apps1 (trm_specific_var _Full) !__) !__ ) (fun frac ro_formula () ->
       unify_and_remove_linear  ~infer (x, formula_read_only ~frac ro_formula) ~uninit:false res evar_ctx ~pure_ctx
     );
+    Pattern.(formula_read_only (trm_int (eq 1)) !__ )(fun ro_formula () ->
+    unify_and_remove_linear  ~infer (x, ro_formula) ~uninit:false res evar_ctx ~pure_ctx );
     (* we split a fraction from an RO if we don't care about the fraction we get (evar). *)
     Pattern.(formula_read_only (trm_var !__) !__) (fun frac_var ro_formula () ->
       match Var_map.find_opt frac_var evar_ctx with
