@@ -326,10 +326,10 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let tl1_inv_reads = resource_set_of_hyp_map tl1_inv_reads loop_start_res.linear in
       (* let tl1_inv_writes = resource_set_of_hyp_map tl1_inv_writes ctx_res.linear in *)
       let tl1_inv = resource_set_of_hyp_map tl1_inv_usage loop_start_res.linear in
-      let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource_set ~split_frac:false linear_invariant tl1_inv in (* = I'' *)
+      let (_, _,tl2_inv_writes, _) = Resource_computation.subtract_linear_resource_set ~split_frac:false linear_invariant tl1_inv in (* = I'' *)
       let split_res = if Mlist.is_empty tl2 then Resources.after_trm t_seq else Resources.before_trm (Mlist.nth tl2 0) in (* = R *)
 
-      let (_, split_res_comm, _) = (* R' *)
+      let (_, _,split_res_comm, _) = (* R' *)
         Resource_computation.subtract_linear_resource_set ~split_frac:false split_res.linear (linear_invariant @ Resource_contract.parallel_reads_inside_loop l_range contract.parallel_reads)
       in
 
@@ -545,7 +545,7 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
         let shared1 = contract1.invariant.linear @ contract1.parallel_reads in
         let shared2 = contract2.invariant.linear @ contract2.parallel_reads in
         let resources_in_common (ra : Resource_computation.linear_resource_set) (rb : Resource_computation.linear_resource_set) : bool =
-          let (used, _, _, _) = Resource_computation.partial_extract_linear_resource_set ra rb in
+          let (used, _,_, _, _) = Resource_computation.partial_extract_linear_resource_set ra rb in
           used <> []
         in
         (* TODO: instead of filtering, add featrues to collect interference to match paper formula *)
@@ -553,7 +553,7 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
           resources_in_common interference_resources shared2
         then trm_fail t (Resources.string_of_interference interference);
 
-        let (_, post1', pre2', _) =
+        let (_, _, post1', pre2', _) =
           (* TODO: the same on resource_set to match paper *)
           Resource_computation.partial_extract_linear_resource_set post1.linear pre2.linear in
         {
@@ -687,7 +687,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
     else
       (* FIXME: this still requires resources to update contract even when not checking validity! *)
       let resources_after = Option.unsome ~error:"Loop_basic.move_out: requires computed resources" instr.ctx.ctx_resources_after in
-      let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear (Resource_contract.parallel_reads_inside_loop range contract.parallel_reads @ contract.iter_contract.pre.linear) in
+      let _, _,new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear (Resource_contract.parallel_reads_inside_loop range contract.parallel_reads @ contract.iter_contract.pre.linear) in
       { contract with invariant = { contract.invariant with linear = new_invariant } }
   in
 

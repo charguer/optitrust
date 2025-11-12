@@ -1167,7 +1167,15 @@ let display_ctx_resources (style: style) (t: trm): trm list =
       then Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_after)
       else []
     in
-  (tl_before @ tl_used @ tl @ tl_after)
+  let elaborate_before =
+    if style.typing.typing_elaborate
+        then (Option.flat_map (fun elaborate -> elaborate.pre_ghost) t.ctx.elaborate)
+    else [] in
+  let elaborate_after =
+    if style.typing.typing_elaborate
+        then (Option.flat_map (fun elaborate -> elaborate.post_ghost) t.ctx.elaborate)
+    else [] in
+  (tl_before @ tl_used @ elaborate_before @ tl @ elaborate_after @ tl_after)
 
 let computed_resources_intro (style: style) (t: trm): trm =
   let rec aux t =

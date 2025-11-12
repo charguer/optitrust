@@ -170,7 +170,7 @@ and trm_unify (t_left : trm) (t_right : trm)
     | Trm_apps (f, args, [], []), Trm_apps (fe, argse, [], []) ->
         let res_opt =
           (* LATER: Manage functions with ghost_args and ghost_bind *)
-          let* evar_ctx = trm_unify  f fe evar_ctx validate_inst in
+          let* evar_ctx = trm_unify f fe evar_ctx validate_inst in
           try
             List.fold_left2
               (fun evar_ctx arg arge ->

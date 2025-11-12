@@ -113,7 +113,7 @@ let swap_on (t: trm): trm =
       let par_reads_twice, group_par_reads = List.partition is_from_outer_par_reads inner_par_reads in
       (* [par_iter] = par_pre = par_post *)
       let par_iter, group_pre = List.partition is_from_outer_par_reads inner_pre.linear in
-      let (_, group_post, _) = Resource_computation.subtract_linear_resource_set inner_post.linear par_iter in
+      let (_, _,group_post, _) = Resource_computation.subtract_linear_resource_set inner_post.linear par_iter in
 
       let swaps_pre = List.map (ghost_swap outer_range inner_range) group_pre in
       let swaps_post = List.map (ghost_swap inner_range outer_range) group_post in

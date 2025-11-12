@@ -393,7 +393,8 @@ and print_trm style (t : trm) : document =
               opt_str "u" t.ctx.ctx_resources_usage;
               opt_str "c" t.ctx.ctx_resources_contract_invoc;
               opt_str "a" t.ctx.ctx_resources_after;
-              opt_str "p" t.ctx.ctx_resources_post_inst] in
+              opt_str "p" t.ctx.ctx_resources_post_inst;
+              opt_str "e" t.ctx.elaborate] in
 
       let derrors = List.map string t.errors in
       print_fields (
