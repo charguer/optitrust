@@ -29,19 +29,19 @@ let%transfo biject (fun_name : var) (tg : target) : unit =
 (** <private>
   returns (ranges, matrix_ptr, mindex_dims, mindex_indices)
   *)
-let rec formula_mindex_group_inv (f : formula) : ((formula * var) list * trm * trm list * trm list) option =
+let rec formula_mindex_group_inv (f : formula) : ((formula * var) list * mem_typ * trm * trm list * trm list) option =
   let open Resource_formula in
   Pattern.pattern_match_opt f [
     Pattern.(formula_group !__ !__ !__)
       (fun idx range inner_formula () ->
         match formula_mindex_group_inv inner_formula with
-        | Some (ranges, matrix_ptr, mindex_dims, mindex_indices) ->
-          ((range, idx) :: ranges, matrix_ptr, mindex_dims, mindex_indices)
+        | Some (ranges, matrix_ptr, mem_typ, mindex_dims, mindex_indices) ->
+          ((range, idx) :: ranges, matrix_ptr, mem_typ, mindex_dims, mindex_indices)
         | None -> raise Pattern.Failed
       );
-    Pattern.(formula_any_cell !__) (fun location () ->
+    Pattern.(formula_either_cell !__ !__) (fun location mem_typ () ->
       match Matrix_trm.access_inv location with
-      | Some (matrix, mindex_dims, mindex_indices) -> ([], matrix, mindex_dims, mindex_indices)
+      | Some (matrix, mindex_dims, mindex_indices) -> ([], matrix, mem_typ, mindex_dims, mindex_indices)
       | None -> raise Pattern.Failed
     );
   ]
@@ -178,8 +178,8 @@ let local_name_tile_on (mark_dims : mark)
   let access_local_var = access local_var_t tile_dims tile_indices in
   let write_on_local_var = trm_set access_local_var (trm_get access_var) in
   let write_on_var = trm_set access_var (trm_get access_local_var) in
-  let var_cell = Resource_formula.(formula_cell access_var) in
-  let local_var_cell = Resource_formula.(formula_cell access_local_var) in
+  let var_cell = Resource_formula.(formula_cell ~mem_typ:Resource_formula.mem_typ_any access_var) in
+  let local_var_cell = Resource_formula.(formula_cell ~mem_typ:Resource_formula.mem_typ_any access_local_var) in
   let load_for = if uninit_pre
     then trm_seq_nobrace_nomarks []
     else trm_add_mark mark_load (trm_copy (Matrix_core.pointwise_fors
@@ -193,7 +193,7 @@ let local_name_tile_on (mark_dims : mark)
     { index; start = trm_int 0; direction = DirUp; stop = size; step = trm_step_one () }
   ) tile_dims indices_list in
   let alloc_access = access local_var_t tile_dims indices in
-  let alloc_cell = Resource_formula.(formula_cell alloc_access) in
+  let alloc_cell = Resource_formula.(formula_cell ~mem_typ:Resource_formula.mem_typ_any alloc_access) in
   let alloc_range_cell = (alloc_range, alloc_cell) in
   let local_var_range_cell = (nested_loop_range, local_var_cell) in
   let shift_res = ghost_shift alloc_range_cell local_var_range_cell true true in
@@ -260,7 +260,7 @@ let%transfo local_name_tile
         let process_linear r =
           let Resource_formula.{ formula = r2 } = Resource_formula.formula_read_only_inv_all r in
           match formula_mindex_group_inv r2 with
-          | Some (ranges, matrix_ptr, dims, indices) ->
+          | Some (ranges, matrix_ptr, _, dims, indices) -> (* TODO upgrade to multiple mem types (#24) *)
             (* DEBUG: Printf.printf "formula: %s\n" Resource_computation.(formula_to_string r2); *)
             Pattern.pattern_match matrix_ptr [
               Pattern.(trm_specific_var var) (fun () ->

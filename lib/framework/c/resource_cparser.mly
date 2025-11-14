@@ -19,6 +19,8 @@
     "float", typ_f32;
     "double", typ_f64;
     "__full", full_frac;
+    "Cell", trm_cell ();
+    "UninitCell", trm_uninit_cell ();
   ] |> List.to_seq |> String_map.of_seq
 %}
 
@@ -171,7 +173,9 @@ formula:
   | t=ampersand_formula; SQUIG_ARROW; f=formula;
     { formula_repr t f }
   | t=ampersand_formula; LONG_SQUIG_ARROW; f=formula;
-    { formula_points_to t f }
+    { formula_points_to ~mem_typ:mem_typ_any t f }
+  | t=ampersand_formula; LONG_SQUIG_ARROW; LBRACKET; h=IDENT; RBRACKET; f=formula;
+    { formula_points_to ~mem_typ:(trm_var ~annot:formula_annot (name_to_var h)) t f }
   | FUN; args=fun_args; ARROW; body=formula;
     { formula_fun args body }
   | FORALL; args=fun_args; ARROW; body=formula;

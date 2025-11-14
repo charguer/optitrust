@@ -1227,7 +1227,7 @@ let group_and_filter_include (filename : string) (dl : decl list) : file_decl li
         | _ ->
           let is_in_current_dir = Filename.dirname file = Filename.dirname filename in
           let basename = Filename.basename file in
-          let is_whitelisted = List.exists ((=) basename) ["optitrust.h"; "optitrust_models.h"; "optitrust_common.h"] in
+          let is_whitelisted = List.exists ((=) basename) ["optitrust.h"; "optitrust_models.h"; "optitrust_common.h"; "optitrust_gpu.h"] in
           if is_in_current_dir || is_whitelisted then
             IncludedFile (file, [d]) :: acc
           else

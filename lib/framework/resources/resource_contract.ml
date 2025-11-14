@@ -84,11 +84,11 @@ let rec desugar_formula (formula: formula): formula =
     Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_apps (trm_var !__) !__ __ __)) (fun var f args () ->
         if !Flags.use_resources_with_models && f.name = sprintf "Matrix%d" (List.length args - 1) then
           let size, model = List.unlast args in
-          formula_matrix var size ~model
+          formula_matrix var ~mem_typ:(mem_typ_any) size ~model (* TODO: other memory types in matrices (#23) *)
         else if not (!Flags.use_resources_with_models) && f.name = sprintf "Matrix%d" (List.length args) then
-          formula_matrix var args
+          formula_matrix var ~mem_typ:(mem_typ_any) args
         else if f.name = sprintf "UninitMatrix%d" (List.length args) then
-          formula_uninit_matrix var args
+          formula_uninit_matrix ~mem_typ:(mem_typ_any) var args
         else raise Pattern.Next
       );
     (* Allow using operators / and - in first argument of RO(_,_) while normally they are reserved for integers *)
@@ -111,7 +111,7 @@ let rec desugar_formula (formula: formula): formula =
 let rec encode_formula (formula: formula): formula =
   match formula_matrix_inv formula with
   | Some (m, dims, None) -> formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "UninitMatrix%d" (List.length dims)))) dims)
-  | Some (m, dims, Some model) ->
+  | Some (m, dims, Some (model,_)) -> (* TODO: handle other hardware types *)
     if !Flags.use_resources_with_models then
       formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "Matrix%d" (List.length dims)))) (dims @ [model]))
     else

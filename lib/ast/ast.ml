@@ -596,6 +596,8 @@ and ctx = {
 and formula = trm
 and resource_item = var * formula
 
+and mem_typ = typ (* Alias for memory types for different kinds of Cells, e.g. Any *)
+
 (* FIXME: Perf issue: Replace the resource_item lists with efficient datastructures:
    We need push_back, push_front, find_opt, fold_left (in order), and map to be cheap *)
 and resource_set = {

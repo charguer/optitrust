@@ -218,8 +218,8 @@ let reorder_dims_aux ~(base : trm) ~(dims : trms) (rotate_n : int) (order : int 
       mindex reordered_dims reordered_indices
   | None -> match let_alloc_inv t with
       | Some (var, typ, dims, init) ->
-        let before = Resource_formula.formula_matrix ~init base reordered_dims in
-        let after = Resource_formula.formula_reorder_dims_patch ~init base dims order in
+        let before = Resource_formula.formula_matrix ~mem_typ:Resource_formula.mem_typ_any ~init base reordered_dims in
+        let after = Resource_formula.formula_reorder_dims_patch ~mem_typ:Resource_formula.mem_typ_any ~init base dims order in
         Nobrace.trm_seq_nomarks
           [
             let_alloc var typ reordered_dims ~zero_init:init;
@@ -227,8 +227,8 @@ let reorder_dims_aux ~(base : trm) ~(dims : trms) (rotate_n : int) (order : int 
           ]
       | None -> match free_inv t with
         | Some var ->
-          let before = Resource_formula.formula_reorder_dims_patch ~init:false base dims order in
-          let after = Resource_formula.formula_matrix ~init:false base reordered_dims in
+          let before = Resource_formula.formula_reorder_dims_patch ~mem_typ:Resource_formula.mem_typ_any ~init:false base dims order in
+          let after = Resource_formula.formula_matrix ~mem_typ:Resource_formula.mem_typ_any ~init:false base reordered_dims in
           Nobrace.trm_seq_nomarks
                 [
                    Resource_trm.ghost_admitted_rewrite before after (trm_var (toplevel_var "reorder_groups"));

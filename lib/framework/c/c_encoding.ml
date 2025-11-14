@@ -1415,6 +1415,32 @@ let autogen_alpha_rename style (t : trm) : trm =
     then t (* When we want to print generated ids we prefer to keep them in sync with internal names *)
     else trm_rename_vars ~map_binder map_var (0, Var_map.empty) t
 
+(* Temporary method to add a polymorphic function interface to the C frontend.
+ We take a template term and replace it with the inner let, but with a modified function.
+ The contract of the new function has all the arguments pushed inside.
+ Normally, resource_computation takes care of this, but it would not know about the
+ type variable, so we do it manually. We also change the type of the let to typ_auto
+ because for these functions to work currently they need to be typed auto in the pure context.
+
+ Note that we do this instead of simply adding a typechecking rule for trm_template because
+ there is not a simple interface to add "T:Type" as an _argument_ to the inside function's
+ contract instead of simply making T:Type available in the context for the recursive call. *)
+let rec decode_template_decl (t : trm) : trm =
+  Pattern.pattern_match t [
+    Pattern.(trm_template !__ (trm_let !__ __ (trm_fun !__ !__ !__ !__)))
+      (fun template_params name args rettyp body spec () ->
+        let spec = match spec with
+        | FunSpecContract contract ->
+          let pre = List.fold_left (fun pre (arg_var, arg_typ) -> Resource_set.push_front_pure (arg_var, arg_typ) pre) contract.pre args in
+          let pre' = List.fold_left (fun pre (param_var, param_kind) ->
+            match param_kind with
+            | Typename _ -> Resource_set.push_front_pure (param_var, typ_type) pre
+            | _ -> pre) pre template_params in
+          FunSpecContract { contract with pre = pre'}
+        | _ -> failwith "Expected contract in template definition" in
+        trm_let (name, typ_auto) (trm_fun args rettyp body ~contract:spec));
+    Pattern.__ (fun () -> trm_map decode_template_decl t)
+  ]
 
 (*************************************** Main entry points *********************************************)
 
@@ -1435,6 +1461,7 @@ let decode_from_c: trm -> trm =
   decode_expr_in_seq |>
   decode_formula_sugar |>
   decode_alloc |>
+  decode_template_decl |>
   Scope_computation.infer_var_ids)
 
 (** [encode_to_c t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)

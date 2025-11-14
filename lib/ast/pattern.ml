@@ -184,6 +184,14 @@ let trm_typedef f k t =
   | Some td -> f k td
   | None -> raise Next
 
+let trm_template fps fb k t =
+  match trm_template_inv t with
+  | Some (params, body) ->
+    let k = fps k params in
+    let k = fb k body in
+    k
+  | _ -> raise Next
+
 let trm_unop unop ft k t =
   match trm_unop_inv unop t with
   | Some t0 -> ft k t0

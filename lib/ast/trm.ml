@@ -642,6 +642,12 @@ let trm_typedef_inv (t : trm) : typedef option =
   | Trm_typedef td -> Some td
   | _ -> None
 
+(** [trm_template_inv t] returns the components of a [trm_template] constructor when [t] is a template definition. *)
+let trm_template_inv (t : trm) : (template_parameter_list * trm) option =
+  match t.desc with
+  | Trm_template (params, body ) -> Some (params, body)
+  | _ -> None
+
 (** [trm_unop_inv t]: deconstructs t = op t1 *)
 let trm_unop_inv (op: unary_op) (t : trm) : trm option =
   match trm_apps_inv t with
