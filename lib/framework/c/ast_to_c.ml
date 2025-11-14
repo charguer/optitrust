@@ -956,7 +956,6 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_
   (* Case of function pointers *)
   (*| Trm_apps ({ desc = (Trm_prim (Prim_unop Unop_get)); _ }, [ { desc = Trm_var x; _ } ], _) ->
       aux_arguments (var_to_doc style x)*)
-  (* TODO make this proper *)
   | Trm_var v when var_has_name Resource_formula.var_cell_of.name v ->
     Pattern.pattern_match (List.nth tl 0) [
       Pattern.(trm_var_with_name Resource_formula.mem_typ_any_var.name) (fun () -> string "Cell");

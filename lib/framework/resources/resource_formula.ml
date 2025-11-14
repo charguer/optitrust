@@ -129,17 +129,27 @@ let formula_gt ~typ t1 t2 = formula_is_true (trm_gt ~typ t1 t2)
 let formula_leq ~typ t1 t2 = formula_is_true (trm_le ~typ t1 t2)
 let formula_geq ~typ t1 t2 = formula_is_true (trm_ge ~typ t1 t2)
 
-(* Pure functions to manually override function specification *)
-(* These permissions, when used in a function contract, are used by the typechecker
- to drop the function arguments as provided in the term, to consider the function's pure type as auto,
- and to set the return type and a return alias as indicated.
-  _ret => bind a specific variable in context with type T to _Res
-  _ret_implicit => indicate that _Res has type T (used in postcondition)
-  _noret => has no return
- All of the hints force the function's pure type to auto and drop the arguments.*)
-
+(**
+  Pure function representing a permission. When it is used in a function contract, the typechecker drops
+  the function arguments as provided in the function term, considers the function's pure type as auto,
+  and binds _Res to the variable provided as argument, with the provided return type T.
+  Used as a hack to implement polymorphic functions that return a polymorphic type.
+*)
 let var_spec_override_ret = toplevel_var "__spec_override_ret"
+
+(**
+  Pure function representing a permission. When it is used in a function contract, the typechecker drops
+  the function arguments as provided in the function term, considers the function's pure type as auto,
+  and indicates that _Res has type T, but does not bind it to any specific variable.
+  Used as a hack to implement polymorphic functions that produce resources referring to _Res directly (like malloc)
+*)
 let var_spec_override_ret_implicit = toplevel_var "__spec_override_ret_implicit"
+
+(**
+  Pure function representing a permission. When it is used in a function contract, the typechecker drops
+  the function arguments as provided in the function term, and considers the function's pure type as auto.
+  Used as a hack to implement polymorphic functions that have no return.
+*)
 let var_spec_override_noret = toplevel_var "__spec_override_noret"
 
 let formula_spec_override_inv formula: (trm option * typ) option =

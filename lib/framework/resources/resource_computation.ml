@@ -1157,7 +1157,8 @@ let delete_stack_allocs instrs res =
     match trm_let_inv ti with
     | Some (x, _, t) ->
       begin match trm_ref_any_inv t with
-      | Some ty -> [formula_uninit_cells_var ~mem_typ:mem_typ_any ty x] (* TODO: Does the stack always give variables of type Any? *)
+      (* TODO: Stack allocations (i.e. automatic free) for other types of cells (#26) *)
+      | Some ty -> [formula_uninit_cells_var ~mem_typ:mem_typ_any ty x]
       | None -> []
       end
     | None -> []
