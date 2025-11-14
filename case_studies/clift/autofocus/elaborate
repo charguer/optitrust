@@ -1,0 +1,51 @@
+f(  get(x)  )
+
+
+f(  {
+       focus;
+       const auto a = get(x);
+       unfocus;
+       a
+     }  )
+
+
+
+
+let rec process r t =
+  let aux t = process r t in
+  si t un seq(ts,var_a),
+     r := ts @ r
+    return var_a
+  else
+    trm_map aux t
+
+
+let%transfo pull_nested_seq ?(recursively=false) t =
+   let r = ref [] in
+   let t' = process r t in
+   let instrs = List.rev !r in
+   let instrs = if not recursively then instrs else
+      List.concat_map (pull_nested_seq ~recursively) instrs (* check
+the order *)
+   trm_seq_no_brace (instrs @ [t'])
+
+
+t = f(g({instrs1; a1}), h({instrs2; a2}))
+
+
+let%transfo pull_nested_seq_in_depth t
+bottom_up (fun t ->
+   si trm_seq t with ti
+      trm_seq (List.map pull_nested_seq ti)
+   else t)
+
+
+@nobrace{
+   instrs1;
+   instrs2;
+   f(g(a1}), h(a2))
+}
+
+
+f(g({ instr1; h({instr3 ; b});  instr2 ; a }))
+

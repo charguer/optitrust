@@ -22,6 +22,15 @@ void RO_simple_focus_caller(float *x, int m, int n) {
   RO_simple_focus(x, n);
 }
 
+int var_subst_simple_focus(float *x, int n) {
+  __modifies(" &x[MINDEX1(n,2)] ~> Cell");
+  __admitted();
+  return 2;
+}
+void var_subst_simple_focus_caller(float *x, int n) {
+  __modifies("for i1 in 0..n -> &x[MINDEX1(n,i1)] ~> Cell");
+  var_subst_simple_focus(x, n);
+}
 // General_simple_focus: Focus on multi-dimensional array. One focus on the
 // third dimension
 void general_simple_focus(float *x, int n1b, int n2, int n3, int n4b) {
@@ -176,7 +185,7 @@ void reorder_and_focus__caller(float *x, int n1, int n2, int n3) {
 // }
 
 // void loop_multi_focus(float *x, int n1, int n2, int n3) {
-//   __modifies("x ~> Matrix3(n1,n2,n3)");
+//   __modifies("x ~> 3(n1,n2,n3)");
 //   for (int i2 = 0; i2 < n2; i2++) {
 //     for (int i3 = 0; i3 < n3; i3++) {
 //       x[MINDEX3(n1, n2, n3, 1, i2, i3)] = 2;

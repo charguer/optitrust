@@ -87,3 +87,19 @@ let apply ?(start : target = []) ?(stop : target = []) ?(nb : int = 0) (f : mark
   intro ~mark ~start ~stop ~nb ();
   f mark;
   elim [Target.cMark mark]
+
+let rec process (r: trm mlist ref) (t:trm) : trm=
+  let aux t = process r t in
+  match trm_seq_inv t with
+  | Some(tl, res_var) -> r:= Mlist.merge tl !r; Option.map_or (fun var -> trm_var var) trm_dummy res_var
+  | None -> trm_map aux t
+let rec pull_nested_seq_on  ~(recursively:bool) (t:trm) : trm =
+(* must be called on a statement in a sequence *)
+   let r = ref Mlist.empty in
+   let t' = process r t in
+   let instrs = Mlist.rev !r in
+   let instrs = if not recursively then instrs else
+      Mlist.map (fun instr -> pull_nested_seq_on ~recursively instr) instrs in
+   trm_seq_nobrace (Mlist.merge instrs (Mlist.of_list [t']))
+let%transfo pull_nested_seq ~(indepth:bool) (tg:target) =
+apply_at_target_paths (fun t -> maybe_trm_bottom_up_try indepth (pull_nested_seq_on ~recursively:true) t)  tg

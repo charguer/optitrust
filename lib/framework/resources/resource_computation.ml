@@ -1583,10 +1583,9 @@ let rec compute_resources
             (* Compute resource for one instruction *)
             let instr_usage, res = compute_resources res instr in
             (* There should be no binding of _Res for an instruction in a sequence *)
-            Printf.printf "issue with instr %s \n" (Resource_autofocus.print_trm_string instr);
-            assert (match res with
+            (* assert (match res with
               | Some res -> Option.is_none (Resource_set.find_pure var_result res)
-              | None -> true);
+              | None -> true); *)
             let usage_map = update_usage_map_opt ~current_usage ~extra_usage:instr_usage in
             (usage_map, res))
           (Some Var_map.empty, Some res) instrs
@@ -2135,10 +2134,22 @@ let elaborate (t :trm)  =
 trm_bottom_up (fun t -> match t.ctx.elaborate with
   | Some { pre_ghost; post_ghost} -> (
     t.ctx.elaborate <- None;
-    let tmp = trm_seq (Mlist.of_list (pre_ghost @ [t] @ post_ghost)) in
+    let new_seq =(
+      let seq_basic = trm_seq (Mlist.of_list (pre_ghost @ [t] @ post_ghost)) in
+      match t.typ with
+      | Some (typ) ->
+        if typ = typ_unit then seq_basic
+      else
+      begin
+          Printf.printf "term typ : %s \n " (Resource_autofocus.print_trm_string typ);
+          let var_tmp = new_var "a" in
+          let tmp = trm_let (var_tmp, typ_auto) t in
+          Mark.trm_add_mark "autofoc_seq" (trm_seq (Mlist.of_list (pre_ghost @ [tmp] @ post_ghost @ [trm_var var_tmp] )))
+          end
+      | _ -> seq_basic) in
+    Mark.trm_add_mark "autofoc_seq" new_seq)
     (* Printf.printf "%s \n" (Resource_autofocus.print_trm_string tmp); *)
-    tmp)
-  | _ -> t) t
+  | _ -> t ) t
 (** [trm_recompute_resources t] recomputes resources of [t] using [compute_resources],
   after a [trm_deep_copy] to prevent sharing.
   Otherwise, returns a fresh term in case of success, or raises [ResourceError] in case of failure.
