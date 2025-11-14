@@ -10,7 +10,7 @@ let _ = Run.script_cpp (fun () ->
   let ctx = cFunBody "simulate_single_cell" in
   let stepDuration = trm_find_var "stepDuration" [ctx] in
 
-  !! Accesses.scale ~factor:stepDuration [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lParticles"] ~accesses:[cField ~field:"speed" (); cField ()] ()] ()];
+  !! Accesses.scale ~factor:stepDuration [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lParticles"] ~accesses:[cField ~field:"speed" (); cField ()] ()] ()]);
 
   bigstep "finish with style";
   !! Variable.inline [ctx; cVarDefs ["accelX"; "accelY"; "accelZ"; "pos2X"; "pos2Y"; "pos2Z"]];

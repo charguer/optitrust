@@ -33,7 +33,7 @@ let reduce_int_sum_slide_ghost (a: formula) (b: formula) (ap1: formula) (bp1: fo
   let (bp1_eq, bp1_eq_ghost) = to_prove_bind (formula_eq ~typ:typ_int bp1 (trm_add_int b (trm_int 1))) in
   [ b_geq_a_ghost; ap1_eq_ghost; bp1_eq_ghost;
     (let v = new_var "v" in
-    ghost (ghost_rewrite_linear
+    ghost (ghost_rewrite_linear ~typ:typ_int
       ~by:(trm_apps (trm_var reduce_int_sum_slide_ghost_var) [
         a; b; ap1; bp1; f_elem;
         trm_var b_geq_a; trm_var ap1_eq; trm_var bp1_eq
@@ -49,10 +49,10 @@ let reduce_rw_a_b (a: formula) (b: formula) (a': formula) (b': formula) (f_elem:
   [ a_eq_ghost;
     b_eq_ghost;
     (let v = new_var "v" in
-    ghost (ghost_rewrite_linear ~by:(trm_var a_eq)
+    ghost (ghost_rewrite_linear ~typ:typ_int ~by:(trm_var a_eq)
       (trm_fun [v, typ_int] typ_hprop (inside (reduce (trm_var v) b f_elem)))));
     (let v = new_var "v" in
-    ghost (ghost_rewrite_linear ~by:(trm_var b_eq)
+    ghost (ghost_rewrite_linear ~typ:typ_int ~by:(trm_var b_eq)
       (trm_fun [v, typ_int] typ_hprop (inside (reduce a' (trm_var v) f_elem)))))
   ]
 

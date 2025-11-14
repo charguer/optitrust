@@ -209,7 +209,21 @@ var expanded = []; // maps node ids to true, false or "full", indicating if node
                    // entries in this map are optional for nodes
 var hasErrorSubstep = []; // maps node ids to boolean indicating if the node contains an error
 
-// given the value of a 'radio' field, return the key of the activated option having this 'radio' field.
+// get the settings associated with a 'radio' entry. E.g. for 'view', may return 'code_before'
+function getRadioOption(radio) {
+  //console.log(options)
+  for (var i = 0; i < optionsDescr.length; i++) {
+    var descr = optionsDescr[i];
+    // e.g., descr.key is 'view_diff' and descr.value is 'diff'
+    if (descr.radio && descr.radio == radio && options[descr.key]) {
+      // console.log("returns " + descr.key + " -> " + descr.value);
+      return descr.value;
+    }
+  }
+  console.log("Error in getRadioOption, no matching entry");
+}
+/*
+// get the settings associated with a 'radio' entry. E.g. for 'view', can set it to 'code_before'
 function getRadioOption(radio) {
   for (var i = 0; i < optionsDescr.length; i++) {
     var descr = optionsDescr[i];
@@ -218,8 +232,7 @@ function getRadioOption(radio) {
     }
   }
 }
-
-
+*/
 //---------------------------------------------------
 // Code Mirror editor
 // Documentation: https://codemirror.net/doc/manual.html
@@ -445,6 +458,15 @@ function displayInfo(descr) {
 function loadSource(sourceCode) {
   $("#sourceDiv").show();
   editor.setValue(sourceCode);
+  // Search for error lines
+  const lineOfError = sourceCode.split('\n').findIndex(line => line.includes('ERROR:'));
+  if (lineOfError != -1) { // no
+    var delay = 300; // milliseconds
+    setTimeout(function() {
+        console.log("autoscrolling to error on line " + (lineOfError + 1));
+        scrollToLine(lineOfError + 1);  // lines are counted from 1 in the editor
+      }, delay);
+  }
 }
 
 function exandClickHandler(event) {
@@ -1029,7 +1051,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // start by showing the tree of steps on the root, or the requested step
-  selectedStep = 0; // root
+  selectedStep = 0;
   if (typeof startupOpenStep !== "undefined") {
     // if a step is targeted, expand it
     expanded[startupOpenStep] = true;
@@ -1039,6 +1061,18 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   // ensure errors are all visible
   checkErrorSubstep(0);
+  if (hasErrorSubstep[0]) {  // LATER: reach the line storing ERROR:
+    // if one error or more, use "code_after" view mode.
+    // LATER: cleanup this code, which assigns the view options
+    for (var i = 0; i < optionsDescr.length; i++) {
+      var descr = optionsDescr[i];
+      if (descr.radio && descr.radio == "view" && descr.key) {
+        options[descr.key] = (descr.value == "code_after");
+      }
+    }
+    optionsCheckboxUpdate();
+  }
+
   // display tree
   reloadTraceView(); // calls loadStepDetails(selectedStep)
 });
@@ -1109,3 +1143,4 @@ const mouseUpHandler = function () {
   document.removeEventListener('mousemove', mouseMoveHandler);
   document.removeEventListener('mouseup', mouseUpHandler);
 };
+

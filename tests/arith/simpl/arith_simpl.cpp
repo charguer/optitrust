@@ -63,6 +63,7 @@ void test_int(int a, int b, int c, int d, int e) {
   x = 2 + 2;
   x = 2 * b;
   x = a + b * 2 - (3 * c) - d;
+  x = a + b - a;
   x = a + ((a + 2*b) + 1);
   x = 3 + 5 + a + (a + b*2 - 3*c);
   x = 3 * 5 * a * b * b;

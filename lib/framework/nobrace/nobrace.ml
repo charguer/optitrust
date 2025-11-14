@@ -31,8 +31,8 @@ let trm_add_style (t : trm) : trm =
   trm_add_cstyle (No_braces (current())) t
 
 (** [trm_seq tl]: generates a nobrace sequence with the current id *)
-let trm_seq (tl : trm mlist) : trm =
-  trm_add_style (Trm.trm_seq tl)
+let trm_seq ?(result: var option) (tl : trm mlist) : trm =
+  trm_add_style (Trm.trm_seq ?result tl)
 
 (** [trm_seq_nomarks tl]: generates a nobrace sequence with the current id *)
 let trm_seq_nomarks (tl : trms) : trm =

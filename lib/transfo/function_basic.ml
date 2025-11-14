@@ -80,6 +80,10 @@ let%transfo inline ?(body_mark : mark = no_mark) ?(subst_mark : mark = no_mark) 
 let beta ?(body_mark : mark = no_mark) (tg : target) : unit =
   Target.apply_at_target_paths (Function_core.beta_reduce_on ~body_mark) tg
 
+(** [elim_infix_ops_at tg]: expects the target [tg] to point at an explicit set operation of the form x (op)= a,
+    then it will transform that instruction into x = x (op) a. Ex: x += 1 --> x = x + 1. *)
+let%transfo elim_infix_ops_at ?(allow_identity : bool = true) (tg : target) : unit =
+  apply_at_target_paths (Function_core.elim_infix_ops_on allow_identity) tg
 
 (** [use_infix_ops_at tg]: expects the target [tg] to point at an explicit set operation of the form x = x (op) a,
     then it will transform that instruction into x (op)= a. Ex: x = x + 1 --> x += 1. *)

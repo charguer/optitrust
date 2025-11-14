@@ -547,26 +547,6 @@ let add_marks_at_paths ?(prefix : path = []) (ps:path list) (t:trm) : trm * mark
     in
   res, marks
 
-(* given a path in an arithmetic expression and the entire ast,
-   find the root of that expression,
-   otherwise immediately return the provided path.
-   returns (path_to_trm, path). *)
-let find_arith_expr_root (p : path) (t : trm) : (trm * path) =
-  (* TODO: it is worth factorizing with 'find_surrounding_instr'?
-    'find_surrounding_trm_such_that' ? *)
-  (* TODO: is it worth having some kind of check?
-  assert ((Option.is_some (trm_lit_inv t)) || (Option.is_some (trm_var_inv t)) || (is_prim_arith_call t)); *)
-  let p_t, ctx = resolve_path_and_ctx p t in
-  let rec aux p t ctx =
-    match ctx with
-    | parent_t :: ctx ->
-      let parent_p = parent p in
-      if not (is_prim_arith_call parent_t) then (t, p)
-      else aux parent_p parent_t ctx
-    | [] -> (t, p)
-  in
-  aux p p_t ctx
-
 (* given a path in a term, go up this path until hitting an instruction.
    returns that instruction and its path. *)
 let find_surrounding_instr (p : path) (t : trm) : path =

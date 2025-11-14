@@ -213,6 +213,16 @@ let trm_compound_assign binop ft1 ft2 k t =
     k
   | None -> raise Next
 
+let trm_compound_assign_any ftyp fbinop ft1 ft2 k t =
+  match trm_compound_assign_any_inv t with
+  | Some (typ, binop, t1, t2) ->
+    let k = ftyp k typ in
+    let k = fbinop k binop in
+    let k = ft1 k t1 in
+    let k = ft2 k t2 in
+    k
+  | None -> raise Next
+
 let trm_get f = trm_unop Unop_get f
 let trm_set ft1 ft2 = trm_binop Binop_set ft1 ft2
 

@@ -180,7 +180,19 @@ let%transfo beta ?(indepth : bool = false) ?(body_mark : mark = no_mark) (tg : t
     | _ -> trm_fail tg_trm "Function.beta: this transformation expects a target to a function call"
   ) tg
 
-(** [use_infix_ops ~tg_ops]: expects the target [tg] to be pointing at an instruction that can be converted to
+let is_compound_assignement (p : prim) : bool =
+  match p with | Prim_compound_assign_op _ -> true | _ -> false
+
+(** [elim_infix_ops tg]: expects the target [tg] to be pointing at an instruction that can be converted to
+     an infix form, for example x += 1 can be converted to x = x + 1,
+    [indepth]: if true then it will check all the descendants of [t] if there are any write operations to be transformed
+    [allow_identity]: if true it stops the transformation from failing when it finds nodes that can't be transformed.*)
+let%transfo elim_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg : target) : unit =
+  let tg = if indepth
+    then [nbMulti] @ tg @ [cPrimPredCall is_compound_assignement] else tg in
+  Function_basic.elim_infix_ops_at ~allow_identity tg
+
+(** [use_infix_ops tg]: expects the target [tg] to be pointing at an instruction that can be converted to
      an infix form, for example x = x + 1 can be converted to x += 1,
     [indepth]: if true then it will check all the descendants of [t] if there are any write operations to be transformed
     [allow_identity]: if true it stops the transformation from failing when it finds nodes that can't be transformed.*)

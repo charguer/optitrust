@@ -20,6 +20,7 @@ let _ = Run.script_cpp ( fun _ ->
   !! Loop_basic.fission_basic [cFunDef "commute"; cFor "k1"; tBefore; sInstr "z += 1"];
 
   (* 3. Uninit tests. *)
+  !! Loop_basic.fission_basic [tAfter; cFunDef "writes"; sInstr "t[i] = i"];
   !! Loop_basic.fission_basic [tAfter; cFunDef "uninit"; sInstr "t[i] = i"];
 
   (* 3. Wrong fissions are rejected. *)
