@@ -38,19 +38,27 @@ sudo apt-get install libc++-dev libc++abi-15-dev
 
 Depending on your prior installation, you might need to add the newly installed version of clang/llvm-config to the path, then select it among all of your versions :
 
-```
+```bash
   sudo update-alternatives --install /usr/bin/clang clang /opt/clang-15.0.0/bin/clang 100
   sudo update-alternatives --config clang
   # then type the number that matches the /opt path
 ```
 
-```
+```bash
   sudo update-alternatives --install /usr/bin/llvm-config llvm-config /opt/clang-15.0.0/bin/llvm-config 100
   sudo update-alternatives --config llvm-config
   # then type the number that matches the /opt path
 ```
 
-If everything goes well `clang --version` reports 15.0.0.
+Finally, update your `$PATH` to include the newly installed clang/LLVM at the front of the `$PATH`:
+
+```bash
+export PATH="/opt/clang-15.0.0/bin/:$PATH"
+```
+
+This step is important in addition to the update-alternatives step because the `clangml` package looks for the `llvm-config-15` binary in particular, and if this points to an old installation, it will use that version of clang instead.
+
+If everything goes well `clang --version` and `llvm-config-15 --version` both report 15.0.0.
 The command `clang -v -E -stdlib=libc++ - < /dev/null` shows the path to the include folders.
 One of these folders should include the `functional` C++ library, e.g. `ls /usr/include/c++/11/functional`.
 
@@ -74,9 +82,23 @@ Installation of the opam switch with relevant packages (it seems that it must be
    opam pin add dune 3.18.0
    opam pin add menhirLib 20210419
    opam pin add pprint 20220103
-   opam add conf-libclang.15
+   opam pin add conf-libclang.15
    opam pin add clangml 4.8.0  # -> continueanyway
-   opam install dune refl clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving
+   opam install dune refl pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving
+```
+
+For clangml in particular, use the `--verbose` flag to double check that clangml is using the right version (15.0.0):
+
+```bash
+opam install --verbose clangml
+# Should see a line in the output of the configure script ran by opam that looks like:
+# - checking for llvm-config... /usr/bin/llvm-config
+# - checking llvm-config version... 15.0.0
+```
+
+Install remaining packages:
+
+```bash
    # next line used only for generating the documentation of OptiTrust:
    opam install odoc lambdasoup
    # fancy traces
