@@ -195,7 +195,7 @@ let%transfo local_name ~(var : var) (var_typ : typ)
         Nobrace_transfo.remove_after (fun () ->
         Target.apply_at_path (fun t ->
           let (_, open_w, close_w) = Resource_trm.ghost_pair_hide
-            (Resource_formula.formula_cell_var ~typ:var_typ var) in
+            (Resource_formula.formula_cell_var ~mem_typ:Resource_formula.mem_typ_any ~typ:var_typ var) in
           trm_seq_nobrace_nomarks [open_w; t; close_w]
         ) p
         );
@@ -373,7 +373,7 @@ let%transfo elim_reuse (tg : target) : unit =
         Target.apply_at_path (fun t_seq ->
           let error = "expected sequence" in
           let instrs, result = trm_inv ~error trm_seq_inv t_seq in
-          let y_cell = Resource_formula.formula_uninit_cell_var y in
+          let y_cell = Resource_formula.formula_uninit_cell_var ~mem_typ:Resource_formula.mem_typ_any y in
           let (_, open_hide, close_hide) = Resource_trm.ghost_pair_hide y_cell in
           (* detect if there is y = x at the end *)
           let copy_back_index = ref None in
@@ -394,7 +394,7 @@ let%transfo elim_reuse (tg : target) : unit =
             | Some i ->
               let instrs, end_trms = Mlist.split i instrs in
               let copy_back_instr, end_trms = Mlist.split 1 end_trms in
-              let x_cell = Resource_formula.formula_uninit_cell_var x in
+              let x_cell = Resource_formula.formula_uninit_cell_var ~mem_typ:Resource_formula.mem_typ_any x in
               let (_, open_x_hide, close_x_hide) = Resource_trm.ghost_pair_hide x_cell in
               (* during resource check, we keep the copy-back instr so that y can be read from after the transformed seq *)
               instrs, [TrmMlist copy_back_instr; Trm open_x_hide ; TrmMlist end_trms; Trm close_x_hide]

@@ -62,12 +62,12 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
           f_get (trm_get (trm_add_mark mark_handled_addresses addr)) in
         if !Flags.use_resources_with_models then begin
           let old_res_after = Resources.after_trm t in
-          let old_value_after =
+          let (old_value_after,mem_typ) =
             Option.unsome ~error:"could not find old value" (List.find_map (fun (_, formula) ->
               Pattern.pattern_match_opt formula [
-                Pattern.(formula_points_to !__ !__) (fun addr value () ->
+                Pattern.(formula_points_to !__ !__ !__) (fun addr value mem_typ () ->
                   Pattern.when_ (address_matches addr);
-                  value
+                  (value,mem_typ)
                 )
               ]
             ) old_res_after.linear) in
@@ -76,7 +76,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
           let tmp_get = new_var "get" in
           let tmp_get_const = new_var "getc" in
           let v = new_var "v" in
-          let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~typ ~by:(f_cancel old_value_after) (formula_fun [v, typ] (formula_points_to (trm_var tmp_get) (trm_var v))))) in
+          let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~typ ~by:(f_cancel old_value_after) (formula_fun [v, typ] (formula_points_to ~mem_typ (trm_var tmp_get) (trm_var v))))) in
           trm_seq_helper ~result:tmp_get_const [
             Trm (trm_let_mut (tmp_get, typ) new_get);
             Trm maintain_res;
@@ -106,19 +106,19 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
           (* tvar binop= tval
              tvar ~~> tvar_model binop tval_model *)
           let old_res_after = Resources.after_trm t in
-          let (tvar_model, tval_model) =
+          let (tvar_model, tval_model, mem_typ) =
             Option.unsome ~error:"could not find old value" (List.find_map (fun (_, formula) ->
               Pattern.pattern_match_opt formula [
-                Pattern.(formula_points_to !__ (trm_binop binop !__ !__)) (fun addr tvar_model tval_model () ->
+                Pattern.(formula_points_to !__ (trm_binop binop !__ !__) !__) (fun addr tvar_model tval_model mem_typ () ->
                   Pattern.when_ (address_matches addr);
-                  (tvar_model, tval_model)
+                  (tvar_model, tval_model, mem_typ)
                 )
               ]
             ) old_res_after.linear) in
 
           let v = new_var "v" in
           let typ = Option.unsome ~error:"expected type" new_get.typ in
-          let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~typ ~by:(f_cancel tvar_model) (formula_fun [v, typ] (formula_points_to tvar (f_set (trm_apps (trm_binop typ binop) [(trm_var v); tval_model])))))) in
+          let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~typ ~by:(f_cancel tvar_model) (formula_fun [v, typ] (formula_points_to ~mem_typ tvar (f_set (trm_apps (trm_binop typ binop) [(trm_var v); tval_model])))))) in
           trm_seq_helper ~braces:false [
             Trm new_t;
             (* tvar ~~> f_set (tvar_model_to_norm binop tval_model) *)
@@ -128,13 +128,13 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
           new_t
         end
       );
-      Pattern.(formula_points_to !__ !__) (fun addr value () ->
+      Pattern.(formula_points_to !__ !__ !__) (fun addr value mem_typ () ->
         Pattern.when_ (address_matches addr);
-        formula_points_to (trm_add_mark mark_handled_addresses addr) (f_set value)
+        formula_points_to ~mem_typ (trm_add_mark mark_handled_addresses addr) (f_set value)
       );
-      Pattern.(formula_uninit_cell !__) (fun addr () ->
+      Pattern.(formula_uninit_cell !__ !__) (fun addr mem_typ () ->
         Pattern.when_ (address_matches addr);
-        formula_uninit_cell (trm_add_mark mark_handled_addresses addr)
+        formula_uninit_cell ~mem_typ (trm_add_mark mark_handled_addresses addr)
       );
       Pattern.__ (fun () ->
         trm_map fix_inside_span t
@@ -152,7 +152,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
         Pattern.(formula_group !__ (formula_range !__ !__ !__) !__) (fun index start stop step body () ->
           aux ({ index; start; stop; step; direction = DirUp } :: acc_rev_ranges) body
         );
-        Pattern.(formula_any_cell !__) (fun addr () ->
+        Pattern.(formula_either_cell !__ !__) (fun addr mem_typ () -> (* TODO upgrade to multiple mem types (#24) *)
           Pattern.when_ (address_matches addr);
           matched_ret := formula :: !matched_ret;
           if is_read_only then trm_fail formula "can't scale read-only resource in-place";

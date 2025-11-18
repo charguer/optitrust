@@ -56,10 +56,11 @@ let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : 
                 post = Resource_set.make ~aliases:(Var_map.singleton result t_model) ();
               } in *)
             let result_ptr = new_var "arith_res" in
+            (* TODO upgrade to multiple mem types (#24) *)
             let contract = {
               pre = Resource_set.make ~pure:[(new_result, typ)]
-                ~linear:[new_anon_hyp (), formula_points_to (trm_var result_ptr) (trm_var new_result)] ();
-              post = Resource_set.make ~linear:[new_anon_hyp (), formula_points_to (trm_var result_ptr) t_model] ();
+                ~linear:[new_anon_hyp (), formula_points_to ~mem_typ:mem_typ_any (trm_var result_ptr) (trm_var new_result)] ();
+              post = Resource_set.make ~linear:[new_anon_hyp (), formula_points_to ~mem_typ:mem_typ_any (trm_var result_ptr) t_model] ();
             } in
             let maintain_res = Resource_trm.ghost_admitted contract in
             (* trm_seq_nomarks ~result [

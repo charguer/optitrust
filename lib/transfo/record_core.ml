@@ -52,11 +52,11 @@ let set_explicit_on (t : trm) : trm =
               let with_fresh_fracs () =
                 let frac_var, frac_ghost = new_frac () in
                 let folded_res =
-                  formula_read_only ~frac:(trm_var frac_var) (formula_cell loc)
+                  formula_read_only ~frac:(trm_var frac_var) (formula_cell ~mem_typ:mem_typ_any loc)
                 in
                 let unfolded_res =
                   formula_read_only ~frac:(trm_var frac_var)
-                    (formula_cell (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
+                    (formula_cell ~mem_typ:mem_typ_any (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
                 in
                 let wand = formula_wand unfolded_res folded_res in
                 let folded_linear = [(new_anon_hyp (), folded_res)] in
@@ -74,10 +74,10 @@ let set_explicit_on (t : trm) : trm =
              trm_seq_nobrace_nomarks per_field_folds)
           | Writes ->
             let folded_linear = [(
-              new_anon_hyp (), formula_cell loc
+              new_anon_hyp (), formula_cell ~mem_typ:mem_typ_any loc
             )] in
             let unfolded_linear = List.map (fun (sf, ty) ->
-              (new_anon_hyp (), formula_cell (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
+              (new_anon_hyp (), formula_cell ~mem_typ:mem_typ_any (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
             ) field_list in
             let make_uninit = List.map resource_item_uninit in
             (make_admitted [] (make_uninit folded_linear) (make_uninit unfolded_linear),
@@ -432,14 +432,14 @@ let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field 
         | None -> r, fun t -> t
       in
       Pattern.pattern_match inner_r [
-        Pattern.(formula_cell (trm_specific_var var)) (fun () ->
+        Pattern.(formula_cell (trm_specific_var var) !__) (fun mem_typ () ->
           List.map (fun (f, f_typ, v) ->
-            (new_anon_hyp (), maybe_ro (formula_cell (trm_var ~typ:(typ_ptr f_typ) v)))
+            (new_anon_hyp (), maybe_ro (formula_cell ~mem_typ (trm_var ~typ:(typ_ptr f_typ) v)))
           ) fields
         );
-        Pattern.(formula_uninit_cell (trm_specific_var var)) (fun () ->
+        Pattern.(formula_uninit_cell (trm_specific_var var) !__) (fun mem_typ () ->
           List.map (fun (f, f_typ, v) ->
-            (new_anon_hyp (), formula_uninit_cell (trm_var ~typ:(typ_ptr f_typ) v))
+            (new_anon_hyp (), formula_uninit_cell ~mem_typ (trm_var ~typ:(typ_ptr f_typ) v))
           ) fields
         );
         Pattern.__ (fun () -> [(h, r)])
