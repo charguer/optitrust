@@ -402,14 +402,14 @@ let compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx
     raise_mismatching_type t actual_typ expected_typ evar_ctx
 
     (* TODO :: change name  *)
-let handle_unification (infer:bool) ?(frac) (formula : trm) (formula_candidate : trm)
+let handle_unification (infer:bool) ?(frac) (formula : trm) (formula_candidate : trm) (formula_candidate_uninit : trm)
     (evar_ctx : unification_ctx) (validate_inst : trm -> 'a -> unification_ctx -> unification_ctx option) =
     let open Option.Monad in
 
     if infer then Resource_autofocus.autofocus_unify ~frac formula formula_candidate evar_ctx validate_inst
     else
       begin
-    let* evar_ctx = trm_unify formula formula_candidate evar_ctx validate_inst in
+    let* evar_ctx = trm_unify formula formula_candidate_uninit evar_ctx validate_inst in
     Some ({Resource_autofocus.ghost_begin = []; ghost_end = [] }, evar_ctx)
       end
 let pure_goal_solver: (resource_item -> unification_ctx -> unification_ctx option) ref = ref (fun formula evar_ctx -> None)
@@ -491,15 +491,15 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
     extract (fun (candidate_name, formula_candidate) ->
       try
         (* Weakens into uninit every formula *)
-        let inst_by, formula_to_unify =
+        let inst_by, formula_candidate_uninit =
           (* Check for possible Uninit coercion if formula_candidate is not already uninit *)
           if uninit && not (is_formula_uninit formula_candidate) then
             Formula_inst.inst_forget_init candidate_name, formula_uninit formula_candidate
           else Formula_inst.inst_hyp candidate_name, formula_candidate
         in
-        let* ghosts,evar_ctx = handle_unification infer formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
+        let* ghosts,evar_ctx = handle_unification infer formula formula_candidate formula_candidate_uninit evar_ctx (try_compute_and_unify_typ pure_ctx) in
         Some (
-          { hyp = x; inst_by; used_formula = formula_to_unify },
+          { hyp = x; inst_by; used_formula = formula_candidate_uninit},
           ghosts,
           None,
           evar_ctx )
@@ -520,7 +520,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
       (* Printf.printf "formula %s \n fromula_candidate %s \n" (Resource_autofocus.print_trm_string formula) (Resource_autofocus.print_trm_string formula_candidate); *)
       Printf.printf "frac %s \n formula_candidate %s  formula %s \n \n" (Resource_autofocus.print_trm_string cur_frac) (Resource_autofocus.print_trm_string formula_candidate) (Resource_autofocus.print_trm_string formula);
-      let* ghosts, evar_ctx = (handle_unification infer ~frac:cur_frac) formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
+      let* ghosts, evar_ctx = (handle_unification infer ~frac:cur_frac) formula formula_candidate formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
 
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
@@ -2144,12 +2144,13 @@ trm_bottom_up (fun t -> match t.ctx.elaborate with
           Printf.printf "term typ : %s \n " (Resource_autofocus.print_trm_string typ);
           let var_tmp = new_var "a" in
           let tmp = trm_let (var_tmp, typ_auto) t in
-          Mark.trm_add_mark "autofoc_seq" (trm_seq (Mlist.of_list (pre_ghost @ [tmp] @ post_ghost @ [trm_var var_tmp] )))
+         (trm_seq ~result:var_tmp (Mlist.of_list (pre_ghost @ [tmp] @ post_ghost )))
           end
       | _ -> seq_basic) in
     Mark.trm_add_mark "autofoc_seq" new_seq)
     (* Printf.printf "%s \n" (Resource_autofocus.print_trm_string tmp); *)
   | _ -> t ) t
+
 (** [trm_recompute_resources t] recomputes resources of [t] using [compute_resources],
   after a [trm_deep_copy] to prevent sharing.
   Otherwise, returns a fresh term in case of success, or raises [ResourceError] in case of failure.

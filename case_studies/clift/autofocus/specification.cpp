@@ -29,7 +29,7 @@ int var_subst_simple_focus(float *x, int n) {
 }
 void var_subst_simple_focus_caller(float *x, int n) {
   __modifies("for i1 in 0..n -> &x[MINDEX1(n,i1)] ~> Cell");
-  var_subst_simple_focus(x, n);
+  int b = var_subst_simple_focus(x, n);
 }
 // General_simple_focus: Focus on multi-dimensional array. One focus on the
 // third dimension
@@ -68,17 +68,17 @@ void multi_focus_caller(float *x, int n1, int n2, int n3) {
 
 ///////////////// Built-in functions
 
-// test on get
-// void get_test(float *x ,int n1)
-// {
-//   __reads("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
-//   float a = x[MINDEX1(n1,2)];
-// }
-// test on set operation
-// void set_test(float *x, int n1) {
-//   __modifies("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
-//   x[MINDEX1(n1, 2)] = 3.f;
-// }
+
+void get_test(float *x ,int n1)
+{
+  __reads("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
+  float a = x[MINDEX1(n1,2)];
+}
+
+void set_test(float *x, int n1) {
+  __modifies("for i1 in 0..n1 -> &x[MINDEX1(n1,i1)] ~> Cell");
+  x[MINDEX1(n1, 2)] = 3.f;
+}
 
 ///////////////// Complex Access Patern
 // Indices are compose with sub-expressions

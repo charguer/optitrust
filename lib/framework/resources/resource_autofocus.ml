@@ -91,18 +91,18 @@ let range_check (range : trm) (dim : trm) : bool =
     false
 
 (** [extract_ranges]: Will extract the groups and the basic cell accessed for future processing  *)
-let rec extract_ranges (formula : trm) : (range list * trm * bool) option =
+let rec extract_ranges (formula : trm) : (range list * trm ) option =
   match formula_group_inv formula with
   | Some (index, range, body) -> (
     match extract_ranges body with
-    | Some (range_list, t, uninit) -> Some ([ (index, range) ] @ range_list, t, uninit)
+    | Some (range_list, t) -> Some ([ (index, range) ] @ range_list, t)
     | _ -> None
   )
   | _ -> (
     match formula_cell_inv formula with
-    | Some t -> Some ([], t, false)
+    | Some t -> Some ([], t)
     | _ -> (
-      match formula_uninit_cell_inv formula with Some t -> Some ([], t, false) | _ -> None
+      match formula_uninit_cell_inv formula with Some t -> Some ([], t) | _ -> None
     )
   )
 
@@ -141,7 +141,6 @@ let to_group_repr (range_list : (var * trm) list) (indices : trms) (dims : trms)
 (** [group_repr_inv]: Inversion fonction to go from group_repr to a formula (trm)
 You need the [t_base] and [dims] to be able to rebuild the trm corresponding to the cell*)
 let group_repr_inv
-    ~(uninit : bool)
     ~(frac : trm option)
     (group : group_repr)
     (t_base : trm)
@@ -153,7 +152,7 @@ let group_repr_inv
       )
       group in
   let access_trm = Matrix_trm.access t_base dims list_access in
-  let cell = if uninit then formula_uninit_cell access_trm else formula_cell access_trm in
+  let cell = formula_cell access_trm in
   let formula_inv =
     List.fold_right
       (fun star_index formula ->
@@ -333,14 +332,9 @@ let handle_read_only (frac : trm) (formula : trm) : trms * trms * trm option =
     [
       Resource_trm.ghost_admitted
         {
-          pre =
-            Resource_set.make
-
-              ~linear:[ (new_anon_hyp (), formula_read_only ~frac formula) ]
-              ();
+          pre = Resource_set.make ~linear:[ (new_anon_hyp (), formula_read_only ~frac formula) ] ();
           post =
             Resource_set.make
-
               ~linear:
                 [
                   (new_anon_hyp (), formula_read_only ~frac:autofoc formula);
@@ -350,28 +344,23 @@ let handle_read_only (frac : trm) (formula : trm) : trms * trms * trm option =
         };
     ] in
   let to_join = formula_frac_sub frac autofoc in
-  let rev_ghosts = [
+  let rev_ghosts =
+    [
       Resource_trm.ghost_admitted
         {
           pre =
             Resource_set.make
-
               ~linear:[ (new_anon_hyp (), formula_read_only ~frac:autofoc formula) ]
               ();
           post =
             Resource_set.make
-
-              ~linear:
-                [
-                  (new_anon_hyp (), formula_read_only ~frac:to_join formula);
-                ]
+              ~linear:[ (new_anon_hyp (), formula_read_only ~frac:to_join formula) ]
               ();
         };
     ] in
   (ghosts, rev_ghosts, Some autofoc)
 
 let group_repr_to_ghost_trm
-    ~(uninit : bool)
     ~(frac : trm option)
     ?(rev = false)
     (focus_list : focus_list)
@@ -384,11 +373,11 @@ let group_repr_to_ghost_trm
         ( {
             pre =
               Resource_set.make
-                ~linear:[ (new_anon_hyp (), group_repr_inv ~uninit ~frac from_group t_base dims) ]
+                ~linear:[ (new_anon_hyp (), group_repr_inv  ~frac from_group t_base dims) ]
                 ();
             post =
               Resource_set.make
-                ~linear:[ (new_anon_hyp (), group_repr_inv ~uninit ~frac to_group t_base dims) ]
+                ~linear:[ (new_anon_hyp (), group_repr_inv  ~frac to_group t_base dims) ]
                 ();
           },
           (var, index)
@@ -401,7 +390,7 @@ let group_repr_to_ghost_trm
   if rev then List.rev ghost_trms else ghost_trms
 
 let handle_reorder
-    ~(uninit : bool)
+
     ~(frac : trm option)
     (ghosts : trm list)
     (rev_ghosts : trm list)
@@ -413,12 +402,14 @@ let handle_reorder
     (t_base : trm)
     (dims_candidate : trms)
     (dims : trms) =
-  let formula,formula_candidate = match frac with
-  |Some (frac) -> formula_read_only ~frac formula, formula_read_only ~frac formula_candidate
-  | None -> formula,formula_candidate in
+  let formula, formula_candidate =
+    match frac with
+    | Some frac -> (formula_read_only ~frac formula, formula_read_only ~frac formula_candidate)
+    | None -> (formula, formula_candidate) in
   let reordered_candidate =
-    group_repr_inv ~uninit ~frac group_candidate t_base_candidate dims_candidate in
-  let reordered_target = group_repr_inv ~uninit ~frac group t_base dims in
+    group_repr_inv  ~frac group_candidate t_base_candidate dims_candidate in
+  let reordered_target = group_repr_inv  ~frac group t_base dims in
+
   let ghosts, rev_ghosts =
     if not (are_same_trm reordered_candidate formula_candidate) then
       let contract =
@@ -427,8 +418,8 @@ let handle_reorder
           post = Resource_set.make ~linear:[ (new_anon_hyp (), reordered_candidate) ] ();
         } in
       let rev_contract = { pre = contract.post; post = contract.pre } in
-      ( ghosts @ [ Resource_trm.ghost_admitted contract],
-        Resource_trm.ghost_admitted rev_contract  :: rev_ghosts
+      ( Resource_trm.ghost_admitted contract :: ghosts,
+        Resource_trm.ghost_admitted rev_contract :: rev_ghosts
       )
     else
       (ghosts, rev_ghosts) in
@@ -471,17 +462,16 @@ let autofocus_unify
     (print_trm_string formula_candidate);
   Printf.printf "State of evar_ctx begin %s \n " (string_of_unification_ctx evar_ctx);
   (* Subsitution needed for get / set operation, we substitute everything  *)
+
   let formula = evar_subst formula evar_ctx in
   let formula_candidate = evar_subst formula_candidate evar_ctx in
 
   (* Group extraction for group and group candidate *)
-  let* ranges_candidate, t_candidate, uninit_candidate = extract_ranges formula_candidate in
-  let* ranges, t, uninit = extract_ranges formula in
+  let* ranges_candidate, t_candidate = extract_ranges formula_candidate in
+
+  let* ranges, t = extract_ranges formula in
   Printf.printf "Extraction done \n";
-  (* Check that we do not have an unitialized candidate for an initialized formula *)
-  if uninit_candidate && not uninit then
-    None
-  else
+
     (* Trm inversion and unification: both the base term and its dimensions must successfully unify before proceeding. *)
     let* t_base_candidate, dims_candidate, indices_candidates = Matrix_trm.access_inv t_candidate in
     let* t_base, dims, indices = Matrix_trm.access_inv t in
@@ -505,16 +495,16 @@ let autofocus_unify
         ([], [], None) in
 
     let ghosts =
-      ghosts @ group_repr_to_ghost_trm ~uninit ~frac focus_list t_base_candidate dims_candidate
+      ghosts @ group_repr_to_ghost_trm ~frac focus_list t_base_candidate dims_candidate
     in
     let rev_ghosts =
-      group_repr_to_ghost_trm ~uninit ~frac ~rev:true focus_list t_base_candidate dims_candidate
+      group_repr_to_ghost_trm  ~frac ~rev:true focus_list t_base_candidate dims_candidate
       @ rev_ghosts in
     Printf.printf " n ghost begin : %d \n n rev ghosts : %d \n" (List.length ghosts)
       (List.length rev_ghosts);
-      (* Adding ghosts for reordering whenever it is needed *)
+    (* Adding ghosts for reordering whenever it is needed *)
     let ghosts, rev_ghosts =
-      handle_reorder ~uninit ~frac ghosts rev_ghosts group group_candidate formula formula_candidate
+      handle_reorder  ~frac ghosts rev_ghosts group group_candidate formula formula_candidate
         t_base_candidate t_base dims_candidate dims in
 
     Printf.printf " n ghost begin : %d \n n rev ghosts : %d \n" (List.length ghosts)
@@ -546,10 +536,8 @@ let seq_from_ghosts_list (t : trm) (gl : ghosts list) : trm =
   let ghosts_after = List.concat (List.map (fun ghosts -> ghosts.ghost_end) gl) in
   (* let tmp = trm_let (new_var "tmp")  *)
   let tmp = new_var "autofocus_tmp" in
-  Printf.printf "typt %s\n" (print_trm_string (Option.value ~default:typ_bool t.typ));
   if Option.is_some t.typ then (
     let result = trm_let (tmp, Option.get t.typ) t in
-    Printf.printf "we went here at some point \n";
     trm_seq ~result:tmp (Mlist.of_list (ghosts_before @ [ result ] @ ghosts_after))
   ) else
     trm_seq (Mlist.of_list (ghosts_before @ [ t ] @ ghosts_after))

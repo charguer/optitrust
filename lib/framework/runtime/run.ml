@@ -154,7 +154,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
           Trace.step ~kind:Step_small ~tags:["pre-post-processing"] ~name:"Preprocessing contracts" (fun () ->
             Resources.fix_types_in_contracts ();
             Resources.make_strict_loop_contracts [];
-            Resources.pull_nested_seq ~recursively:true [Target.nbMulti; Target.cMark "autofoc_seq"];
+            Resources.pull_nested_seq [Target.nbMulti;Target.cFunDef ""];
           );
         Show.with_captured_show ~activated:activate_capture_show contents_captured_show (fun () ->
           may_report_time "script-exec" f)

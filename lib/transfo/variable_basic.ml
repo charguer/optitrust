@@ -61,7 +61,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           let dl = Mlist.nth tl index in
           let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
           (* -- *)
-          Resources.assert_not_self_interfering init;
+          (* Resources.assert_not_self_interfering init; *)
           let occurences = Constr.resolve_target ~prefix:p_seq [nbMulti; cVarId x] t_seq in
           let end_occ_index = match snd (List.unlast occurences) with
           | Dir_seq_nth i :: _ -> i

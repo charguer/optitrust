@@ -121,26 +121,27 @@ let%transfo fun_minimize (tg: target) : unit =
 let rec process (r: trm mlist ref) (t:trm) : trm=
   let aux t = process r t in
   match trm_seq_inv t with
-  | Some(tl, res_var) -> r:= Mlist.merge tl !r; Option.map_or (fun var -> trm_var var) trm_dummy res_var
+  | Some(tl, res_var) -> if Mark.trm_has_mark "autofoc_seq" t then begin  r:= Mlist.merge tl !r; Option.map_or (fun var -> trm_var var) trm_dummy res_var end
+  else t
   | None -> trm_map aux t
-let pull_nested_seq_on  ~(recursively:bool)  (t:trm) : trm =
-(* must be called on a statement in a sequence *)
-   let r = ref Mlist.empty in
-    match trm_seq_inv t with
-  | Some(tl, res_var) ->
-    let instrs = if not recursively then tl else
-      Mlist.map (fun instr -> process r instr) tl in
-     trm_seq ?result:res_var (Mlist.merge !r instrs)
-   |None -> t
 
-let%transfo pull_nested_seq_transfo ~(recursively:bool) (tg:target) : unit =
-Target.apply_at_target_paths (pull_nested_seq_on ~recursively) tg
 
-let%transfo pull_nested_seq ~(recursively:bool) (tg:target) : unit =
-     Target.iter (fun p ->
-       let path_to_seq, _local_path, _index = Internal.get_instruction_in_surrounding_sequence p in
-       pull_nested_seq_transfo ~recursively:true (target_of_path path_to_seq))
-       tg
+let rec pull_nested_seq_on (t:trm): trm =
+  match trm_seq_inv t with
+  |  Some (instrs,res_var) ->
+      let new_instrs = Mlist.concat_mapi (fun _i instr ->
+        let instr = pull_nested_seq_on instr in
+        let r = ref Mlist.empty in
+        let instr' = process r instr in
+        Mlist.merge !r (Mlist.of_list [instr']) ) instrs in
+        trm_seq ~annot:t.annot ?result:res_var new_instrs
+
+  | _ -> trm_map  pull_nested_seq_on t
+
+let %transfo pull_nested_seq (tg:target) : unit =
+apply_at_target_paths pull_nested_seq_on tg
+
+
 (** Specification of loop minimization.
 
     When using OptiTrust resource system, all loops are considered to

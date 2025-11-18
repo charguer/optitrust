@@ -115,8 +115,8 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
   float *const ffn_out = MALLOC1(float, embedding_dim);
   // Get embedding representation of each token in the token sequence
   for (int e = 0; e < embedding_dim; e++) {
-    embedding[MINDEX1(embedding_dim, e)] =
-        embedding_weight[MINDEX2(vocabulary_len, embedding_dim, token, e)];
+    embedding[MINDEX1(embedding_dim, e)] = //embedding[e]
+        embedding_weight[MINDEX2(vocabulary_len, embedding_dim, token, e)]; //
   }
 
   // forward all the layers
