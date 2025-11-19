@@ -53,6 +53,7 @@ type ghosts = {
 *)
 let empty_ghost = { ghost_begin = []; ghost_end = [] }
 
+let debug = false
 (** [DEBUGGING]  *)
 
 let print_trm_string (t : trm) : string =
@@ -300,7 +301,7 @@ let build_focus_list
             let si_from = List.nth current_group ind in
             match (si_from, si_to) with
             | Index _, Star _ ->
-              Printf.printf "Index, Star \n";
+              if debug then Printf.printf "Index, Star \n";
               None
             | Star (range1, index_trm1), Star (range2, index_trm2) ->
               let* evar_ctx = trm_unify index_trm2 index_trm1 evar_ctx validate_inst in
@@ -310,7 +311,7 @@ let build_focus_list
               let* evar_ctx = trm_unify i1 i2 evar_ctx validate_inst in
               Some (current_group, acc_focus, ind + 1, evar_ctx)
             | Star (range, trm_index), Index i2 ->
-              Printf.printf "starindex starindex  %s %s \n" (print_trm_string trm_index)
+              if debug then Printf.printf "starindex starindex  %s %s \n" (print_trm_string trm_index)
                 (print_trm_string i2);
               let* var, resolved_trm = is_focusable (range, trm_index) i2 evar_ctx in
               let new_group = update_group var resolved_trm current_group in
@@ -458,9 +459,9 @@ let autofocus_unify
     (ghosts * 'a unification_ctx) option =
   let open Option.Monad in
   (* Substitution using currente evar_ctx *)
-  Printf.printf "Enter autofoc unify  with %s and candidate %s\n" (print_trm_string formula)
+  if debug then Printf.printf "Enter autofoc unify  with %s and candidate %s\n" (print_trm_string formula)
     (print_trm_string formula_candidate);
-  Printf.printf "State of evar_ctx begin %s \n " (string_of_unification_ctx evar_ctx);
+  if debug then Printf.printf "State of evar_ctx begin %s \n " (string_of_unification_ctx evar_ctx);
   (* Subsitution needed for get / set operation, we substitute everything  *)
 
   let formula = evar_subst formula evar_ctx in
@@ -470,7 +471,7 @@ let autofocus_unify
   let* ranges_candidate, t_candidate = extract_ranges formula_candidate in
 
   let* ranges, t = extract_ranges formula in
-  Printf.printf "Extraction done \n";
+  if debug then Printf.printf "Extraction done \n";
 
     (* Trm inversion and unification: both the base term and its dimensions must successfully unify before proceeding. *)
     let* t_base_candidate, dims_candidate, indices_candidates = Matrix_trm.access_inv t_candidate in
@@ -483,9 +484,9 @@ let autofocus_unify
     let* group, t_base = to_group_repr ranges indices dims t_base in
     let* group_candidate, t_base_candidate =
       to_group_repr ranges_candidate indices_candidates dims_candidate t_base_candidate in
-    Printf.printf "group repr for group_candidate : %s\n" (print_group_repr group_candidate);
+    if debug then Printf.printf "group repr for group_candidate : %s\n" (print_group_repr group_candidate);
     let group = var_group_subst group group_candidate in
-    Printf.printf "group repr for group : %s\n" (print_group_repr group);
+    if debug then Printf.printf "group repr for group : %s\n" (print_group_repr group);
     let* focus_list = build_focus_list group_candidate group evar_ctx validate_inst in
     (* group_repr -> formula *)
     let ghosts, rev_ghosts, frac =
@@ -500,14 +501,14 @@ let autofocus_unify
     let rev_ghosts =
       group_repr_to_ghost_trm  ~frac ~rev:true focus_list t_base_candidate dims_candidate
       @ rev_ghosts in
-    Printf.printf " n ghost begin : %d \n n rev ghosts : %d \n" (List.length ghosts)
+    if debug then Printf.printf " n ghost begin : %d \n n rev ghosts : %d \n" (List.length ghosts)
       (List.length rev_ghosts);
     (* Adding ghosts for reordering whenever it is needed *)
     let ghosts, rev_ghosts =
       handle_reorder  ~frac ghosts rev_ghosts group group_candidate formula formula_candidate
         t_base_candidate t_base dims_candidate dims in
 
-    Printf.printf " n ghost begin : %d \n n rev ghosts : %d \n" (List.length ghosts)
+    if debug then Printf.printf " n ghost begin : %d \n n rev ghosts : %d \n" (List.length ghosts)
       (List.length rev_ghosts);
     Some ({ ghost_begin = ghosts; ghost_end = rev_ghosts }, evar_ctx)
 

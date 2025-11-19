@@ -138,7 +138,7 @@ let rec pull_nested_seq_on (t:trm): trm =
 
   | _ -> trm_map  pull_nested_seq_on t
 
-let %transfo pull_nested_seq (tg:target) : unit =
+let %transfo autofocus_elaboration (tg:target) : unit =
 apply_at_target_paths pull_nested_seq_on tg
 
 

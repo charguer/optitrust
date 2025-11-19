@@ -13,7 +13,7 @@ let f = cFunDef "generate_prompt_proc"
 let _ =
   Run.script_cpp (fun _ ->
       !!(Function.inline [ f; cCall "forward" ]);
-      !!Loop.hoist [ nbMulti; cFunDef "generate_prompt_proc"; cVarDefs [ "embedding"; "mha_norm"; "mha_q" ] ];
+      (* !!Loop.hoist [ nbMulti; cFunDef "generate_prompt_proc"; cVarDefs [ "embedding"; "mha_norm"; "mha_q" ] ];
       !!Loop.fission [ f; cForBody "i"; cFor "l"; tBefore ];
       !!Loop.reorder_at ~order:[ "l"; "i" ] [ f; cForBody "l"; dSeqNth 0 ];
       !!Loop.fission [ f; cFor "l"; cForBody "i"; cCall "rmsnorm"; tAfter ];
@@ -24,5 +24,5 @@ let _ =
       let _kv_headcount = trm_find_var "kv_head_count" [ cFunDefAndDecl "generate_prompt_proc" ] in *)
 
       !!Function.inline [ f; cCall "matvec" ];
-      !!Function.uninline ~f:[ cFunDef "matmul" ] [  f; cFor "i" ~body:[cFor "j"] ];
+      !!Function.uninline ~f:[ cFunDef "matmul" ] [  f; cFor "i" ~body:[cFor "j"] ]; *)
      )

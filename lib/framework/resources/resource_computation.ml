@@ -519,7 +519,7 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
     extract (fun (h, formula_candidate) ->
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
       (* Printf.printf "formula %s \n fromula_candidate %s \n" (Resource_autofocus.print_trm_string formula) (Resource_autofocus.print_trm_string formula_candidate); *)
-      Printf.printf "frac %s \n formula_candidate %s  formula %s \n \n" (Resource_autofocus.print_trm_string cur_frac) (Resource_autofocus.print_trm_string formula_candidate) (Resource_autofocus.print_trm_string formula);
+      (* Printf.printf "frac %s \n formula_candidate %s  formula %s \n \n" (Resource_autofocus.print_trm_string cur_frac) (Resource_autofocus.print_trm_string formula_candidate) (Resource_autofocus.print_trm_string formula); *)
       let* ghosts, evar_ctx = (handle_unification infer ~frac:cur_frac) formula formula_candidate formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
 
       Some (

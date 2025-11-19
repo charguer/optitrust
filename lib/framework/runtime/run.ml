@@ -153,8 +153,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
         if !Flags.check_validity || !Flags.recompute_resources_between_steps then
           Trace.step ~kind:Step_small ~tags:["pre-post-processing"] ~name:"Preprocessing contracts" (fun () ->
             Resources.fix_types_in_contracts ();
+            Resources.autofocus_elaboration [Target.nbMulti;Target.cFunDef ""];
             Resources.make_strict_loop_contracts [];
-            Resources.pull_nested_seq [Target.nbMulti;Target.cFunDef ""];
+
           );
         Show.with_captured_show ~activated:activate_capture_show contents_captured_show (fun () ->
           may_report_time "script-exec" f)
