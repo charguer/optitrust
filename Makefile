@@ -58,6 +58,7 @@ doc:
 	@ rm -rf $(FINALDOCDIR)
 	@ cp -r $(BUILDOCDIR) $(FINALDOCDIR)
 	@ ./doc/add_tests_into_doc.sh
+	@ find $(FINALDOCDIR) -name "*.html" -exec sed -i 's|_doc/optitrust|optitrust/optitrust|g' {} +
 	@ echo "You can view the documentation by typing 'make viewdoc'".
 
 test_into_doc:
