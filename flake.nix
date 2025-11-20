@@ -36,17 +36,17 @@
         '';
       };
 
-    in {
-      devShells.${system}.default = pkgs.mkShell {
+      dev = pkgs.mkShell {
         buildInputs = [
           pkgs.opam
           pkgs.ocaml
           pkgs.pkg-config
           pkgs.autoconf
           pkgs.curl
-	  pkgs.ncurses
+          pkgs.libev
+	        pkgs.ncurses
           customLLVM
-	  pkgs.gcc.cc.lib
+	        pkgs.gcc.cc.lib
         ];
 
         # ---- Ensure custom LLVM is used ----
@@ -67,14 +67,14 @@
 
             # Create switch with your exact compiler variant
             opam switch create . --no-install \
-              --packages=ocaml-variants.4.14.1+options,ocaml-option-flambda
+              --packages=ocaml-variants.4.14.2+options,ocaml-option-flambda
           fi
 
           eval "$(opam env --switch=.)"
 
           # ---- Apply your pins (idempotent) ----
-	  # quit first if everything is already installed
-	  opam list --installed --short | grep -q -w -f <(echo "dune menhirLib pprint conf-libclang clangml refl menhir base64 ocamlbuild ocaml-lsp-server ppx_deriving" | tr ' ' '\n') && { exit 0; }
+      	  # quit first if everything is already installed
+          [ "$(printf '%s\n' dune menhirLib pprint conf-libclang clangml refl menhir base64 ocamlbuild ocaml-lsp-server ppx_deriving dream odoc lambdasoup ocaml-lsp-server dot-merlin-reader | grep -xF -f <(opam list --short --installed) | wc -l)" -eq 16 ] && exit 0
 
           opam pin add -y dune 3.18.2
           opam pin add -y menhirLib 20210419
@@ -83,10 +83,19 @@
           opam pin add -y clangml 4.8.0 --yes --no-action || true   # continue anyway
 
           # ---- Install your required packages ----
-          opam install -y clangml dune refl pprint menhir menhirLib base64 ocamlbuild \
+          opam install -y ocaml-lsp-server dot-merlin-reader clangml dune refl pprint menhir menhirLib base64 ocamlbuild \
             ocaml-lsp-server ppx_deriving
+          opam install -y odoc lambdasoup dream
+
+          opam init --no
         '';
       };
+
+    in {
+      devShells.${system}.default = dev;
+
+      ## ---- Add this so that `nix shell` works ----
+      packages.${system}.default = dev;
     };
 }
 
