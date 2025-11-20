@@ -1,4 +1,4 @@
-name: OptiTrust CI
+name: OptiTrust Doc
 
 on:
   push:
