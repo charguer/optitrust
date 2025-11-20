@@ -27,23 +27,30 @@ let%transfo biject (fun_name : var) (tg : target) : unit =
 
 
 (** <private>
-  returns (ranges, matrix_ptr, mindex_dims, mindex_indices)
+  returns (ranges, matrix_ptr, mindex_dims, mindex_indices, element_model)
   *)
-let rec formula_mindex_group_inv (f : formula) : ((formula * var) list * trm * trm list * trm list) option =
+let rec formula_mindex_group_inv (f : formula) : ((formula * var) list * trm * trm list * trm list * trm) option =
   let open Resource_formula in
   Pattern.pattern_match_opt f [
     Pattern.(formula_group !__ !__ !__)
       (fun idx range inner_formula () ->
         match formula_mindex_group_inv inner_formula with
-        | Some (ranges, matrix_ptr, mindex_dims, mindex_indices) ->
-          ((range, idx) :: ranges, matrix_ptr, mindex_dims, mindex_indices)
+        | Some (ranges, matrix_ptr, mindex_dims, mindex_indices, model) ->
+          ((range, idx) :: ranges, matrix_ptr, mindex_dims, mindex_indices, model)
         | None -> raise Pattern.Failed
       );
-    Pattern.(formula_any_cell !__) (fun location () ->
+    Pattern.(formula_repr !__ !__) (fun location model () ->
       match Matrix_trm.access_inv location with
-      | Some (matrix, mindex_dims, mindex_indices) -> ([], matrix, mindex_dims, mindex_indices)
+      | Some (matrix, mindex_dims, mindex_indices) -> ([], matrix, mindex_dims, mindex_indices, model)
       | None -> raise Pattern.Failed
     );
+    (*
+    (* TODO: refactor to factorize init and uninit *)
+    Pattern.(formula_uninit_cell !__) (fun location () ->
+      match Matrix_trm.access_inv location with
+      | Some (matrix, mindex_dims, mindex_indices) -> ([], matrix, mindex_dims, mindex_indices, trm_uninit_cell)
+      | None -> raise Pattern.Failed
+    ); *)
   ]
 
 (* TODO: implement using local_name_tile to avoid duplication *)
@@ -56,7 +63,7 @@ let%transfo local_name
   ?(indices : (string list) = [])
   ?(alloc_instr : target option) (* TODO: this should be supported at non-basic level *)
   ?(type_and_dims : (typ * trms) option)
-  (v : var) ~(into : string)
+  ~(var : var) ~(local_var : string)
   ?(uninit_pre : bool = false) ?(uninit_post : bool = false)
   ?(local_ops : local_ops = Local_arith (Lit_int (typ_int, 0), Binop_add))
   (tg : target) : unit =
@@ -67,10 +74,10 @@ let%transfo local_name
       | Trm_apps (_, [lhs; _rhs], _, _) when is_set_operation t ->
         begin match lhs.typ with
         | Some ty -> ty
-        | None -> trm_fail t (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s\n'" (var_to_string v))
+        | None -> trm_fail t (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s\n'" (var_to_string var))
         end
       | _ -> trm_fail t (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s, alloc_instr
-          target doesn't point to a write operation or a variable declaration \n'" (var_to_string v))
+          target doesn't point to a write operation or a variable declaration \n'" (var_to_string var))
       end in
       let dims = begin match Target.get_trm_at (tg1 @ [Target.cNew ()]) with
         | Some at ->
@@ -95,7 +102,7 @@ let%transfo local_name
             | None -> failwith "Matrix_basical_name: alloc_instr target does not match to any ast node"
             end
           | None ->
-            let var_target = cOr [[cVarDef v.name]; [cWriteVar v.name]] in
+            let var_target = cOr [[cVarDef var.name]; [cWriteVar var.name]] in
             begin match get_trm_at (seq_tg @ [var_target]) with
             | Some t1 ->
               let tg1 = (seq_tg @ [var_target]) in
@@ -105,7 +112,7 @@ let%transfo local_name
         end
       in
       if not remove then Nobrace.enter();
-      Target.apply_at_path (Matrix_core.local_name_aux my_mark v into dims elem_type indices local_ops) p
+      Target.apply_at_path (Matrix_core.local_name_aux my_mark var local_var dims elem_type indices local_ops) p
     ) tg
   )
 
@@ -133,6 +140,8 @@ let local_name_tile_on (mark_dims : mark)
   (var : var) (nd_range : Matrix_core.nd_range)
   (local_var : string) (dims : trms) (elem_ty : typ option)
   (indices : string list) (uninit_pre : bool) (uninit_post : bool)
+  (model_before : trm list -> formula)
+  (model_after : trm list -> formula)
   (t : trm) : trm =
   let local_var = new_var local_var in
   let indices_list = begin match indices with
@@ -178,24 +187,24 @@ let local_name_tile_on (mark_dims : mark)
   let access_local_var = access local_var_t tile_dims tile_indices in
   let write_on_local_var = trm_set access_local_var (trm_get access_var) in
   let write_on_var = trm_set access_var (trm_get access_local_var) in
-  let var_cell = Resource_formula.(formula_cell access_var) in
-  let local_var_cell = Resource_formula.(formula_cell access_local_var) in
+  let model_before = model_before (List.map trm_var indices_list) in
+  let model_after = model_after (List.map trm_var indices_list) in
   let load_for = if uninit_pre
     then trm_seq_nobrace_nomarks []
     else trm_add_mark mark_load (trm_copy (Matrix_core.pointwise_fors
-      ~reads:[var_cell] ~writes:[local_var_cell] nested_loop_range write_on_local_var)) in
+      ~reads:[Resource_formula.(formula_repr access_var model_before)] ~writes:[Resource_formula.(formula_repr access_local_var model_before)] nested_loop_range write_on_local_var)) in
   let unload_for = if uninit_post
     then trm_seq_nobrace_nomarks []
     else trm_add_mark mark_unload (trm_copy (Matrix_core.pointwise_fors
-      ~reads:[local_var_cell] ~writes:[var_cell] nested_loop_range write_on_var)) in
+      ~reads:[Resource_formula.(formula_repr access_local_var model_after)] ~writes:[Resource_formula.(formula_repr access_var model_after)] nested_loop_range write_on_var)) in
   let free_instr = free local_var_t in
   let alloc_range = List.map2 (fun size index ->
     { index; start = trm_int 0; direction = DirUp; stop = size; step = trm_step_one () }
   ) tile_dims indices_list in
   let alloc_access = access local_var_t tile_dims indices in
-  let alloc_cell = Resource_formula.(formula_cell alloc_access) in
+  let alloc_cell = Resource_formula.(formula_uninit_cell alloc_access) in
   let alloc_range_cell = (alloc_range, alloc_cell) in
-  let local_var_range_cell = (nested_loop_range, local_var_cell) in
+  let local_var_range_cell = (nested_loop_range, Resource_formula.(formula_uninit_cell access_local_var)) in
   let shift_res = ghost_shift alloc_range_cell local_var_range_cell true true in
   let unshift_res = ghost_shift local_var_range_cell alloc_range_cell true true in
   trm_seq_nobrace_nomarks [
@@ -249,32 +258,63 @@ let%transfo local_name_tile
   (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun p -> Marks.with_fresh_mark_on p (fun m ->
-      let tile_dims_typ = ref None in
+      let tile_dims_typ_model = ref None in
       if !Flags.check_validity then begin
         (* find groups of mindex resource over !ret_var in context *)
         Resources.ensure_computed ();
         let var = !ret_var in
         if var = dummy_var then failwith "expected target matrix variable to be provided";
-        let res = Resources.before_trm (get_trm_at_exn (target_of_path p)) in
-        let ranges_dims_indices_typ = ref None in
+        let t = get_trm_at_exn (target_of_path p) in
+        let res_before = Resources.before_trm t in
+        let res_after = Resources.after_trm t in
+        let ranges_dims_indices_typ_model = ref None in
         let process_linear r =
           let Resource_formula.{ formula = r2 } = Resource_formula.formula_read_only_inv_all r in
           match formula_mindex_group_inv r2 with
-          | Some (ranges, matrix_ptr, dims, indices) ->
+          | Some (ranges, matrix_ptr, dims, indices, model) ->
             (* DEBUG: Printf.printf "formula: %s\n" Resource_computation.(formula_to_string r2); *)
             Pattern.pattern_match matrix_ptr [
               Pattern.(trm_specific_var var) (fun () ->
-                if Option.is_some !ranges_dims_indices_typ
+                let model_fun new_indices =
+                  let subst = List.fold_left (fun acc ((_, ri), ni) ->
+                      Var_map.add ri ni acc
+                    ) Var_map.empty (List.combine ranges new_indices) in
+                  trm_subst subst model
+                in
+                if Option.is_some !ranges_dims_indices_typ_model
                 then trm_fail r (sprintf "found multiple resources with %s" (var_to_string var))
-                else ranges_dims_indices_typ := Some (ranges, dims, indices,
-                  Option.bind matrix_ptr.typ typ_ptr_inv)
+                else ranges_dims_indices_typ_model := Some (ranges, dims, indices,
+                  Option.bind matrix_ptr.typ typ_ptr_inv, model_fun)
               );
               Pattern.__ (fun () -> ())
             ]
           | None -> ()
         in
-        List.iter (fun (h, r) -> process_linear r) res.linear;
-        let (ranges, dims, indices, typ) = Option.unsome ~error:"expected appropriate mindex formula in resource context" !ranges_dims_indices_typ in
+        let model_after = ref None in
+        let process_linear_after r =
+          let Resource_formula.{ formula = r2 } = Resource_formula.formula_read_only_inv_all r in
+          match formula_mindex_group_inv r2 with
+          | Some (ranges, matrix_ptr, dims, indices, model) ->
+            Pattern.pattern_match matrix_ptr [
+              Pattern.(trm_specific_var var) (fun () ->
+                let model_fun new_indices =
+                  let subst = List.fold_left (fun acc ((_, ri), ni) ->
+                      Var_map.add ri ni acc
+                    ) Var_map.empty (List.combine ranges new_indices) in
+                  trm_subst subst model
+                in
+                if Option.is_some !model_after
+                then trm_fail r (sprintf "found multiple resources with %s" (var_to_string var))
+                else model_after := Some model_fun
+              );
+              Pattern.__ (fun () -> ())
+            ]
+          | None -> ()
+        in
+        List.iter (fun (h, r) -> process_linear r) res_before.linear;
+        List.iter (fun (h, r) -> process_linear_after r) res_after.linear;
+        let (ranges, dims, indices, typ, model) = Option.unsome ~error:"expected appropriate mindex formula in resource context" !ranges_dims_indices_typ_model in
+        let model_after = Option.unsome ~error:"expected model after in resource context" !model_after in
         List.iter2 (fun (_, ri) i ->
           Pattern.pattern_match i [
             Pattern.(trm_specific_var ri) (fun () -> ());
@@ -288,7 +328,7 @@ let%transfo local_name_tile
             Pattern.__ (fun () -> trm_fail r "expected range with step 1")
           ]
         ) ranges in
-        tile_dims_typ := Some (tiles, dims, typ);
+        tile_dims_typ_model := Some (tiles, dims, typ, model, model_after);
       end else begin
         let t1 = Option.unsome_or_else (get_trm_at (Option.unsome ~error:"expected alloc_instr" alloc_instr)) (fun () ->
           failwith "alloc_instr target does not match to any ast node"
@@ -296,33 +336,36 @@ let%transfo local_name_tile
         let error = "alloc_instr should target a matrix allocation" in
         let v, elem_ty, dims, _ = trm_inv ~error Matrix_core.let_alloc_inv t1 in
         ret_var := v;
-        tile_dims_typ := Some (Option.unsome ~error:"expected tile argument" tile, dims, Some elem_ty)
+        tile_dims_typ_model := Some (Option.unsome ~error:"expected tile argument" tile, dims, Some elem_ty, (fun _ -> Resource_formula.trm_cell), (fun _ -> Resource_formula.trm_cell))
       end;
-      let (tile, dims, collected_elem_ty) = Option.unsome !tile_dims_typ in
+      let (tile, dims, collected_elem_ty, model_before, model_after) = Option.unsome !tile_dims_typ_model in
       let elem_ty = Option.or_ elem_ty collected_elem_ty in
       Target.apply_at_path (local_name_tile_on
         mark_dims mark_accesses mark_indices mark_alloc mark_load mark_unload !ret_var tile local_var dims elem_ty indices uninit_pre uninit_post
+        model_before model_after
       ) p;
       if !Flags.check_validity then begin
         Resources.ensure_computed ();
-        let p = resolve_target_exactly_one [cMark m] in
-        if uninit_post then begin
-          let pred formula =
-            is_free_var_in_trm !ret_var formula
-          in
-          Resources.assert_instr_effects_shadowed ~pred p;
-          Trace.justif "local effects on replaced variable are shadowed"
-        end;
-        (* TODO: is this exactly the same check as for variables? *)
-        let t = resolve_path p in
-        let t_res_usage = Resources.usage_of_trm t in
-        let t_res_before = Resource_set.filter_touched t_res_usage (Resources.before_trm t) in
-        let t_res_after = Resource_set.filter_touched t_res_usage (Resources.after_trm t) in
-        let used_vars = Var_set.union (Resource_set.used_vars t_res_before) (Resource_set.used_vars t_res_after) in
-        if Var_set.mem !ret_var used_vars then
-          trm_fail t "resources still mention replaced variable after transformation"
-        else
-          Trace.justif "resources do not mention replaced variable after transformation"
+        if not !Flags.use_resources_with_models then begin
+          let p = resolve_target_exactly_one [cMark m] in
+          if uninit_post then begin
+            let pred formula =
+              is_free_var_in_trm !ret_var formula
+            in
+            Resources.assert_instr_effects_shadowed ~pred p;
+            Trace.justif "local effects on replaced variable are shadowed"
+          end;
+          (* TODO: is this exactly the same check as for variables? *)
+          let t = resolve_path p in
+          let t_res_usage = Resources.usage_of_trm t in
+          let t_res_before = Resource_set.filter_touched t_res_usage (Resources.before_trm t) in
+          let t_res_after = Resource_set.filter_touched t_res_usage (Resources.after_trm t) in
+          let used_vars = Var_set.union (Resource_set.used_vars t_res_before) (Resource_set.used_vars t_res_after) in
+          if Var_set.mem !ret_var used_vars then
+            trm_fail t "resources still mention replaced variable after transformation"
+          else
+            Trace.justif "resources do not mention replaced variable after transformation"
+        end
       end
     )) tg
   )

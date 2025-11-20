@@ -19,6 +19,12 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
 let int = trm_int
 
 let _ = Run.script_cpp (fun () ->
+  (* !! Matrix.local_name ~type_and_dims:(~var:"c" ~local_var:"c_gmem" [cFor "i"]; *)
+  !! Matrix.local_name_tile ~uninit_pre:true ~var:"c" ~local_var:"c_gmem" [cFor "i"];
+  !! Matrix.local_name_tile ~uninit_post:true ~var:"a" ~local_var:"a_gmem" [cFor "i"];
+  !! Matrix.local_name_tile ~uninit_post:true ~var:"b" ~local_var:"b_gmem" [cFor "i"];
+
+  (*
   !! Function.inline_def [cFunDef "mm"];
   let tile (loop_id, tile_size) = Loop.tile (int tile_size)
     ~index:("b" ^ loop_id) ~bound:TileDivides [cFor loop_id] in
@@ -30,4 +36,5 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.simd [nbMulti; cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "j"];
   !! Loop.parallel [nbMulti; cFunBody ""; cStrict; cFor ""];
   !! Loop.unroll ~simpl:Arith.do_nothing [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
+  *)
 )

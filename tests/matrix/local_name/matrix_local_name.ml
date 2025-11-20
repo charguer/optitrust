@@ -16,5 +16,5 @@ let _ = Run.script_cpp (fun _ ->
 
   let (x, _) = find_var "c" [] in
   let (n, _) = find_var "n" [] in
-  !! Matrix_basic.local_name x ~into:"z" ~type_and_dims:(typ_int, [trm_var n]) [cFunBody "f"; dSeqNth 0];
+  !! Matrix_basic.local_name ~var:x ~local_var:"z" ~type_and_dims:(typ_int, [trm_var n]) [cFunBody "f"; dSeqNth 0];
 )
