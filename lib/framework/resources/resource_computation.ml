@@ -521,7 +521,6 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
       (* Printf.printf "formula %s \n fromula_candidate %s \n" (Resource_autofocus.print_trm_string formula) (Resource_autofocus.print_trm_string formula_candidate); *)
       (* Printf.printf "frac %s \n formula_candidate %s  formula %s \n \n" (Resource_autofocus.print_trm_string cur_frac) (Resource_autofocus.print_trm_string formula_candidate) (Resource_autofocus.print_trm_string formula); *)
       let* ghosts, evar_ctx = (handle_unification infer ~frac:cur_frac) formula formula_candidate formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
-
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
         ghosts,

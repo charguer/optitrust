@@ -382,6 +382,14 @@ let () = Printexc.register_printer (function
   | CannotTransformIntoUninit formula -> Some (sprintf "Cannot make an uninitialized version of formula %s" (Ast_to_text.ast_to_string formula))
   | _ -> None)
 
+(** Make an initialized version of the formula, trying to convert uninit_cells into cells *)
+
+let rec formula_init (formula: formula): formula =
+  Pattern.pattern_match formula [
+    Pattern.(formula_any_cell !__) (fun addr () -> formula_cell addr);
+    Pattern.(formula_group !__ !__ !__) (fun idx range sub () -> formula_group idx range (formula_init sub));
+    Pattern.__ (fun () -> raise (CannotTransformIntoUninit formula))
+  ]
 (** Make an uninitialized version of the formula, trying to convert cells into uninitialized cells *)
 let rec formula_uninit (formula: formula): formula =
   Pattern.pattern_match formula [
