@@ -24,11 +24,21 @@ let _ = Run.script_cpp (fun () ->
   !! Matrix.local_name_tile ~uninit_post:true ~var:"a" ~local_var:"a_gmem" [cFor "i"];
   !! Matrix.local_name_tile ~uninit_post:true ~var:"b" ~local_var:"b_gmem" [cFor "i"];
 
+  let rec tiles (loop_id, tile_name_sizes) =
+    match tile_name_sizes with
+    | (tile_name, tile_size) :: rest ->
+      Loop.tile (int tile_size) ~index:tile_name ~bound:TileDivides [cFor loop_id];
+      tiles (loop_id, rest)
+    | [] -> ()
+    in
+  !! List.iter tiles [
+    "i", ["bi", 32];
+    "j", ["bj", 32];
+    "k", ["bk", 4]
+  ];
+
   (*
   !! Function.inline_def [cFunDef "mm"];
-  let tile (loop_id, tile_size) = Loop.tile (int tile_size)
-    ~index:("b" ^ loop_id) ~bound:TileDivides [cFor loop_id] in
-  !! List.iter tile [("i", 32); ("j", 32); ("k", 4)];
   !! Loop.reorder_at ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cPlusEq ~lhs:[cVar "sum"] ()];
   !! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "bT" ~indep:["bi"; "i"] [cArrayRead "b"];
   !! Matrix.stack_copy ~var:"sum" ~copy_var:"s" ~copy_dims:1

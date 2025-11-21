@@ -7,13 +7,15 @@ void mm(float* c, float* a, float* b, int m, int n, int p,
   __requires("bm divides m, bn divides n, bk divides p, tm divides bm, tn divides bn");
 
   const int nblk = (m / bm) * (n / bn);
+  // TODO? nblkx nblky
   const int nthr = (bm / tm) * (bn / tn);
+  // TODO? (?!?) nthrx nthry
 
   float* const c_gmem = MALLOC2(float, m, n);
   float* const a_gmem = MALLOC2(float, m, p);
   float* const b_gmem = MALLOC2(float, p, n);
 
-  MATRIX2_COPY_float(c_gmem, c, m, n);
+  // MATRIX2_COPY_float(c_gmem, c, m, n);
   MATRIX2_COPY_float(a_gmem, a, m, p);
   MATRIX2_COPY_float(b_gmem, b, p, n);
 
@@ -40,8 +42,8 @@ void mm(float* c, float* a, float* b, int m, int n, int p,
 
     for (int t; t < nthr; t++) { // par
       // TODO: memset
-      for (uint32_t resIdxM = 0; resIdxM < tm; resIdxM++) {
-        for (uint32_t resIdxN = 0; resIdxN < tn; resIdxN++) {
+      for (uint32_t resIdxM = 0; resIdxM < tm; resIdxM++) { // thread seq
+        for (uint32_t resIdxN = 0; resIdxN < tn; resIdxN++) { // thread seq
           rchProd[t][MINDEX2(tm, tn, resIdxM, resIdxN)] = 0.f;
         }
       }
@@ -50,24 +52,24 @@ void mm(float* c, float* a, float* b, int m, int n, int p,
       threadCol[t] = t % (bn / tn);
     }
 
-    for (uint32_t bkIdx = 0; bkIdx < p; bkIdx += bk) {
+    for (uint32_t bkIdx = 0; bkIdx < p; bkIdx += bk) { // block seq
       // __syncthreads
       for (int t; t < nthr; t++) { // par
-        for (uint32_t i = 0; i < bm * bk; i += nthr * 4) {
+        for (uint32_t i = 0; i < bm * bk; i += nthr * 4) { // thread seq
           uint32_t row = (i + t * 4) / bk;
           uint32_t col = (i + t * 4) / bk;
 
           const int aVectorStart = tile_row_a + MINDEX2(m, p, row, bkIdx + col);
-          for (uint32_t v = 0; v < 4; v++) {
+          for (uint32_t v = 0; v < 4; v++) { // semi-vector
             a_smem[MINDEX2(bk, bm, col + v, row)] = a_gmem[aVectorStart + v];
           }
         }
-        for (uint32_t i = 0; i < bk * bn; i += nthr * 4) {
+        for (uint32_t i = 0; i < bk * bn; i += nthr * 4) { // thread seq
           uint32_t row = (i + t * 4) / bn;
           uint32_t col = (i + t * 4) / bn;
 
           const int bVectorStart = tile_col_b + MINDEX2(p, n, bkIdx + row, col);
-          for (uint32_t v = 0; v < 4; v++) {
+          for (uint32_t v = 0; v < 4; v++) { // vector
             b_smem[MINDEX2(bk, bn, row, col + v)] = b_gmem[bVectorStart + v];
           }
         }
@@ -75,15 +77,17 @@ void mm(float* c, float* a, float* b, int m, int n, int p,
 
       // TODO: __syncthreads
       for (int t; t < nthr; t++) { // par
-        for (uint32_t dotIdx = 0; dotIdx < bk; dotIdx++) {
-          for (uint32_t i = 0; i < tm; i++) {
+        for (uint32_t dotIdx = 0; dotIdx < bk; dotIdx++) { // thread seq
+          for (uint32_t i = 0; i < tm; i++) { // thread seq
+            // vecload
             rAcol[t][i] = a_smem[MINDEX2(bk, bm, dotIdx, threadRow[t] * tm + i)];
           }
-          for (uint32_t i = 0; i < tn; i++) {
+          for (uint32_t i = 0; i < tn; i++) { // thread seq
+            // vecload
             rBrow[t][i] = b_smem[MINDEX2(bk, bn, dotIdx, threadCol[t] * tn + i)];
           }
-          for (uint32_t resIdxM = 0; resIdxM < tm; resIdxM++) {
-            for (uint32_t resIdxN = 0; resIdxN < tn; resIdxN++) {
+          for (uint32_t resIdxM = 0; resIdxM < tm; resIdxM++) { // thread seq
+            for (uint32_t resIdxN = 0; resIdxN < tn; resIdxN++) { // thread seq
               rchProd[t][MINDEX2(tm, tn, resIdxM, resIdxN)] +=
                 rAcol[t][resIdxM] * rBrow[t][resIdxN];
             }
@@ -93,8 +97,8 @@ void mm(float* c, float* a, float* b, int m, int n, int p,
     }
 
     for (int t; t < nthr; t++) { // par
-      for (uint32_t resIdxM = 0; resIdxM < tm; resIdxM++) {
-        for (uint32_t resIdxN = 0; resIdxN < tn; resIdxN++) {
+      for (uint32_t resIdxM = 0; resIdxM < tm; resIdxM++) { // thread seq
+        for (uint32_t resIdxN = 0; resIdxN < tn; resIdxN++) { // thread seq
           const int out_index = tile_c + MINDEX2(m, n, threadRow[t] * tm + resIdxM, threadCol[t] * tn + resIdxN);
           c_gmem[out_index] = rchProd[t][MINDEX2(tm, tn, resIdxM, resIdxN)];
           // GEMM:
@@ -105,6 +109,6 @@ void mm(float* c, float* a, float* b, int m, int n, int p,
   }
 
   MATRIX2_COPY_float(c, c_gmem, m, n);
-  MATRIX2_COPY_float(a, a_gmem, m, p);
-  MATRIX2_COPY_float(b, b_gmem, p, n);
+  // MATRIX2_COPY_float(a, a_gmem, m, p);
+  // MATRIX2_COPY_float(b, b_gmem, p, n);
 }
