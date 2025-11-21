@@ -74,20 +74,21 @@
 
           # ---- Apply your pins (idempotent) ----
       	  # quit first if everything is already installed
-          [ "$(printf '%s\n' dune menhirLib pprint conf-libclang clangml refl menhir base64 ocamlbuild ocaml-lsp-server ppx_deriving dream odoc lambdasoup ocaml-lsp-server dot-merlin-reader | grep -xF -f <(opam list --short --installed) | wc -l)" -eq 16 ] && exit 0
+          if [ ! "$(printf '%s\n' dune menhirLib pprint conf-libclang clangml refl menhir base64 ocamlbuild ocaml-lsp-server ppx_deriving dream odoc lambdasoup ocaml-lsp-server dot-merlin-reader | grep -xF -f <(opam list --short --installed) | wc -l)" -eq 16 ]; then
+		  opam pin add -y dune 3.18.2
+		  opam pin add -y menhirLib 20210419
+		  opam pin add -y pprint 20220103
+		  opam pin add -y conf-libclang 15 --no-depexts
+		  opam pin add -y clangml 4.8.0 --yes --no-action || true   # continue anyway
 
-          opam pin add -y dune 3.18.2
-          opam pin add -y menhirLib 20210419
-          opam pin add -y pprint 20220103
-          opam pin add -y conf-libclang 15 --no-depexts
-          opam pin add -y clangml 4.8.0 --yes --no-action || true   # continue anyway
+		  # ---- Install your required packages ----
+		  opam install -y ocaml-lsp-server dot-merlin-reader clangml dune refl pprint menhir menhirLib base64 ocamlbuild \
+		    ocaml-lsp-server ppx_deriving
+		  opam install -y odoc lambdasoup dream
 
-          # ---- Install your required packages ----
-          opam install -y ocaml-lsp-server dot-merlin-reader clangml dune refl pprint menhir menhirLib base64 ocamlbuild \
-            ocaml-lsp-server ppx_deriving
-          opam install -y odoc lambdasoup dream
+		  opam init --no
+	  fi
 
-          opam init --no
         '';
       };
 

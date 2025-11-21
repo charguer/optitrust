@@ -61,3 +61,4 @@ _doc
 .idea
 .vscode/action_out.txt
 .ocamlformat
+.direnv
