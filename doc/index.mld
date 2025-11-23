@@ -1,0 +1,24 @@
+{0 Optitrust Project}
+{1 Introduction}
+{ul
+{- The OptiTrust framework provides programmers with means of optimizing their programs via source-to-source transformations. The framework currently supports array-manipulating programs written in a subset of C syntax.}
+{- OptiTrust leverages static analyses based on a subset of Separation Logic to justify the that the transformations applied are semantic-preserving. }
+{- OptiTrust supports source-to-source tranformations that preserve separation logic derivations, allowing to validate the property that the final optimized code satisfies the same specification as the unoptimized input program. }
+}
+More details and explanation can be found on {{:https://www.chargueraud.org/softs/optitrust/}[Optitrust website]}
+
+Source code can be find at {{:https://www.github.com/charguer/optitrust/}[Github Repo]}
+{2 A small example}
+TBD
+{1 Documentation}
+{2 Transformation}
+{!module-Optitrust_transfo} documents all the transformations one might use to produce optimized code
+{2 Ast}
+{!module-Optitrust_ast} documents all code related to parsing and generation of the internal ast.
+Technical details can be found in: {!module-Optitrust_ast.Ast}
+{2 Framework}
+{!module-Optitrust_framework} documents a lot of things
+{2 Utils}
+{!module-Optitrust_utils} documents a lot of other things
+{1 Extras}
+
