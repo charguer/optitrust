@@ -1657,10 +1657,10 @@ let rec compute_resources
           if Var_map.mem contract_var ensured_renaming then (failwith "Ghost binding %s given twice for function %s" (var_to_string contract_var) (Ast_to_c.ast_to_string fn));
           Var_map.add contract_var bound_var ensured_renaming) Var_map.empty ghost_bind
         in
-
         let call_usage_map, res_after, ghosts_list = compute_contract_invoc spec.contract ~inst_map ~ensured_renaming res_after_args t in
         (* if we get a non empty ghosts_list, we throw everything away, we modify the elaborate field for future processing and we retype the whole trm_seq (ghost_begin;t;ghost_end) *)
         if ghosts_list <> [] then begin
+          Printf.printf "we wrote elaborate \n";
           t.ctx.elaborate <- Some({pre_ghost = List.concat_map (fun ghosts -> Resource_autofocus.ghost_begin ghosts ) ghosts_list; post_ghost =  List.concat_map (fun ghosts -> Resource_autofocus.ghost_end ghosts) ghosts_list});
           let t_with_ghosts = Resource_autofocus.seq_from_ghosts_list t (ghosts_list) in
           Printf.printf "t with ghosts %s \n" (Resource_autofocus.print_trm_string t_with_ghosts);
@@ -2130,8 +2130,9 @@ let trm_compute_resources_inplace (t: trm): unit =
 
 (** [elaborate] : check if any trm in the ast as Some elaboration to do and replace the trm accordingly. For now it's replaced with ghost before and after the trm coming from the autofocus algorithm  *)
 let elaborate (t :trm)  =
-trm_bottom_up (fun t -> match t.ctx.elaborate with
+trm_bottom_up  ~keep_ctx:true (fun t -> match t.ctx.elaborate with
   | Some { pre_ghost; post_ghost} -> (
+    Printf.printf "elaborate not nul with : %s \n " (Resource_autofocus.print_trm_string t);
     t.ctx.elaborate <- None;
     let new_seq =(
       let seq_basic = trm_seq (Mlist.of_list (pre_ghost @ [t] @ post_ghost)) in
@@ -2140,7 +2141,7 @@ trm_bottom_up (fun t -> match t.ctx.elaborate with
         if typ = typ_unit then seq_basic
       else
       begin
-          Printf.printf "term typ : %s \n " (Resource_autofocus.print_trm_string typ);
+        Printf.printf ("we are here\n");
           let var_tmp = new_var "a" in
           let tmp = trm_let (var_tmp, typ_auto) t in
          (trm_seq ~result:var_tmp (Mlist.of_list (pre_ghost @ [tmp] @ post_ghost )))

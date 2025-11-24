@@ -553,7 +553,11 @@ let seq_from_ghosts_list (t : trm) (gl : ghosts list) : trm =
   (* let tmp = trm_let (new_var "tmp")  *)
   let tmp = new_var "autofocus_tmp" in
   if Option.is_some t.typ then
+    begin
     let result = trm_let (tmp, Option.get t.typ) t in
-    trm_seq ~result:tmp (Mlist.of_list (ghosts_before @ [ result ] @ ghosts_after))
+    trm_seq ~result:tmp (Mlist.of_list (ghosts_before @ [ result ] @ ghosts_after ))
+    end
   else
+    begin
     trm_seq (Mlist.of_list (ghosts_before @ [ t ] @ ghosts_after))
+    end

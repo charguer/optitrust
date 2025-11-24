@@ -1423,6 +1423,7 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
       then t
       else (trm_seq ~annot ?loc ~ctx ?typ ?result tl')
   | Trm_apps (func, args, ghost_args, ghost_bind) ->
+    if Option.is_some t.ctx.elaborate then Printf.printf "here still smtg  with %s \n" (Ast_to_text.ast_to_string t);
     let func' = f func in
     let args' = list_map f (==) args in
     let ghost_args' = resource_items_map ghost_args in
@@ -1529,8 +1530,8 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
     if typ == typ' then t' else trm_alter ~typ:typ' t'
 
 (** [trm_bottom_up]: applies f on t recursively from bottom to top. *)
-let rec trm_bottom_up (f : trm -> trm) (t : trm) : trm =
-  let t2 = trm_map (trm_bottom_up f) t in
+let rec trm_bottom_up ?(keep_ctx=false) (f : trm -> trm) (t : trm) : trm =
+  let t2 = trm_map ~keep_ctx (trm_bottom_up f) t in
   f t2
 (** [trm_bottom_up_try] : tries to applies f on t recursively from bottom to top and catch error*)
 let  trm_bottom_up_try (f : trm -> trm) (t : trm) : trm =
