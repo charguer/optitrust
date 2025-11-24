@@ -1423,7 +1423,6 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
       then t
       else (trm_seq ~annot ?loc ~ctx ?typ ?result tl')
   | Trm_apps (func, args, ghost_args, ghost_bind) ->
-    if Option.is_some t.ctx.elaborate then Printf.printf "here still smtg  with %s \n" (Ast_to_text.ast_to_string t);
     let func' = f func in
     let args' = list_map f (==) args in
     let ghost_args' = resource_items_map ghost_args in

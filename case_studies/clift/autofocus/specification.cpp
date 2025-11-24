@@ -80,6 +80,14 @@ void set_test(float *x, int n1) {
   x[MINDEX1(n1, 2)] = 3.f;
 }
 
+void get_set_test(float*x, float *y, int n){
+  __modifies("x ~> Matrix1(n)");
+  __reads("y ~> Matrix1(n)");
+
+  x[MINDEX1(n,0)] = y[MINDEX1(n,0)];
+}
+
+
 ///////////////// Complex Access Patern
 // Indices are compose with sub-expressions
 

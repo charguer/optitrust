@@ -54,7 +54,7 @@ type ghosts = {
 let empty_ghost = { ghost_begin = []; ghost_end = [] }
 
 (** [DEBUGGING]  *)
-let debug = true
+let debug = false
 
 let print_trm_string (t : trm) : string =
   let doc = Ast_to_text.print_trm Ast_to_text.default_style t in
