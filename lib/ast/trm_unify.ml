@@ -155,6 +155,12 @@ and trm_unify (t_left : trm) (t_right : trm)
   in
   let res =
     match (t_left.desc, t_right.desc) with
+    (* -- FIXME: hole hack *)
+    | _, Trm_var h when String.starts_with ~prefix:"__hole" h.name ->
+      Some evar_ctx
+    | Trm_var h, _ when String.starts_with ~prefix:"__hole" h.name ->
+      Some evar_ctx
+    (* -- *)
     | Trm_var x_left, Trm_var x_right when var_eq x_left x_right ->
         Some evar_ctx
     | Trm_var x_left, _ when Var_map.mem x_left evar_ctx ->

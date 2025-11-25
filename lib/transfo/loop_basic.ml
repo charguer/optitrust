@@ -236,7 +236,7 @@ let hoist_on (name : string)
     let new_resource = List.fold_right (fun (i, d) acc ->
       (* FIXME: need to match inner loop ranges. *)
       Resource_formula.formula_group_range { index = i; start = trm_int 0; direction = DirUp; stop = d; step = trm_step_one () } acc
-    ) (List.combine other_indices dims) Resource_formula.(formula_uninit_cell access) in
+    ) (List.combine other_indices dims) Resource_formula.(formula_uninit_cell ~mem_typ:Resource_formula.mem_typ_any access) in (* TODO upgrade to multiple mem types (#24) *)
     new_body_instrs, Resource_contract.push_loop_contract_clause (Exclusive Preserves) (Resource_formula.new_anon_hyp (), new_resource) contract
   else
     new_body_instrs, contract
@@ -766,7 +766,7 @@ let move_out_alloc_on (trm_index : int) (t : trm) : trm =
   end;
 
   let open Resource_formula in
-  let contract = { contract with invariant = { contract.invariant with linear = (new_anon_hyp (), formula_uninit_matrix (trm_var array_var) dims) :: contract.invariant.linear }} in
+  let contract = { contract with invariant = { contract.invariant with linear = (new_anon_hyp (), formula_uninit_matrix ~mem_typ:Resource_formula.mem_typ_any (trm_var array_var) dims) :: contract.invariant.linear }} in (* TODO upgrade to multiple mem types (#24) *)
   let loop = trm_for ~annot:t.annot ~contract range (trm_seq rest) in
 
   trm_seq_nobrace_nomarks [

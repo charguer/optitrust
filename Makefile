@@ -58,6 +58,7 @@ doc:
 	@ rm -rf $(FINALDOCDIR)
 	@ cp -r $(BUILDOCDIR) $(FINALDOCDIR)
 	@ ./doc/add_tests_into_doc.sh
+	@ find $(FINALDOCDIR) -name "*.html" -exec sed -i 's|_doc/optitrust|optitrust/optitrust|g' {} +
 	@ echo "You can view the documentation by typing 'make viewdoc'".
 
 test_into_doc:
@@ -88,7 +89,7 @@ clean_cache:
 	find . -type f -name '*.ser' -exec rm {} +
 	find . -type f -name '*.trace' -exec rm {} +
 	find . -type f -name '*_notfmt.cpp' -exec rm {} +
-	find . -type f -name '*.cmxs' -exec rm {} +
+	find . -type f -name '*.cmxs' -exec rm -f {} +
 
 watch:
 	nohup .vscode/watch.sh >/dev/null 2>&1

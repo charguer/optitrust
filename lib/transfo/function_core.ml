@@ -116,14 +116,25 @@ let inline_on ?(body_mark = no_mark) ?(subst_mark = no_mark) (t: trm): trm =
     end
   | _ -> trm_fail t "Function_core.inline_on: expected a target to a function call"
 
+exception Elim_infix_ops_on_failure of string
+
+(** [elim_infix_ops_on allow_identity t]: eliminates operations such as [x += a] into [x = x + a].
+      [allow_identity] - if true then the transformation will never fail
+      [t] - ast of the operation
+      *)
+let elim_infix_ops_on (allow_identity : bool) (t : trm) : trm =
+  match trm_compound_assign_any_inv t with
+  | Some (typ, op, tvar, tval) ->
+      trm_like ~old:t (trm_set tvar (trm_apps (trm_binop typ op) [trm_get tvar; tval]))
+  | None ->
+      if not allow_identity then raise (Elim_infix_ops_on_failure "elim_infix_ops_on: not a compound assignment");
+      t
 
 exception Use_infix_ops_on_failure of string
 
 (** [use_infix_ops_on allow_identity t]: transforms an explicit write operation to an implicit one
       [allow_identity] - if true then the transformation will never fail
       [t] - ast of the write operation *)
-    (* TODO: generalize to handle the cleanup of operations that are already infix,
-       for example x += -4   to convert to  x -= 4. *)
 let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
   let fail : 'a. string -> 'a = fun (msg : string) ->
     raise (Use_infix_ops_on_failure msg) in
@@ -149,7 +160,7 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
               | Some (ti,_purity) ->
                   if is_get_of_ls ti then begin
                     (* found the [get(ls)], check duplicatability, then remove the item from the list *)
-                    if !Flags.check_validity then begin
+                    if !Flags.check_validity && not !Flags.preserve_specs_only then begin
                       if not purity.redundant
                         then fail "Unable to introduce an infix op, because the LHS is not a duplicatable expressions.";
                       Trace.justif "the expression denoting the address is redundant.";

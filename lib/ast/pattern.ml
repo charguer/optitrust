@@ -184,6 +184,14 @@ let trm_typedef f k t =
   | Some td -> f k td
   | None -> raise Next
 
+let trm_template fps fb k t =
+  match trm_template_inv t with
+  | Some (params, body) ->
+    let k = fps k params in
+    let k = fb k body in
+    k
+  | _ -> raise Next
+
 let trm_unop unop ft k t =
   match trm_unop_inv unop t with
   | Some t0 -> ft k t0
@@ -200,6 +208,16 @@ let trm_binop binop ft1 ft2 k t =
 let trm_compound_assign binop ft1 ft2 k t =
   match trm_compound_assign_inv binop t with
   | Some (t1, t2) ->
+    let k = ft1 k t1 in
+    let k = ft2 k t2 in
+    k
+  | None -> raise Next
+
+let trm_compound_assign_any ftyp fbinop ft1 ft2 k t =
+  match trm_compound_assign_any_inv t with
+  | Some (typ, binop, t1, t2) ->
+    let k = ftyp k typ in
+    let k = fbinop k binop in
     let k = ft1 k t1 in
     let k = ft2 k t2 in
     k

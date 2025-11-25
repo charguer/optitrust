@@ -39,6 +39,7 @@ let%transfo unfold ?(mark : mark = no_mark) ~(at : target) (tg : target) : unit 
 *)
 let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : target) : unit =
   (* if !Flags.check_validity then Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *) *)
+  if !Flags.use_resources_with_models then Resources.ensure_computed ();
   Target.iter (fun p ->
     let (p_seq, p_local, index) = Internal.get_instruction_in_surrounding_sequence p in
     assert (p_local = []);
@@ -47,6 +48,38 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
       let tl, result = trm_inv ~error trm_seq_inv t_seq in
       let dl = Mlist.nth tl index in
       let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
+      if !Flags.use_resources_with_models then begin
+        (* when using models, type-checking is sufficient to check for correctness *)
+        let init = trm_add_mark mark init in
+        let res = Resources.after_trm init in
+        let init_model = trm_add_mark mark (Var_map.find Resource_set.var_result res.aliases) in
+        (* Printf.printf "rs: %s\n" (Resource_computation.resource_set_to_string res);
+        let init_model = (Option.unsome ~error:"expected init result" Resource_set.(find_pure var_result res)) in *)
+        let rec perform_subst_formula (f: formula): formula =
+          Pattern.pattern_match f [
+            Pattern.(trm_specific_var x) (fun () -> trm_copy init_model);
+            Pattern.(__) (fun () -> trm_map perform_subst_formula f)
+          ] in
+        let rec perform_subst_trm (t: trm): trm =
+          let aux = trm_map ~f_formula:perform_subst_formula perform_subst_trm in
+          Pattern.pattern_match t [
+            Pattern.(trm_specific_var x) (fun () -> trm_copy init);
+            Pattern.(trm_for !__ !__ !__) (fun range body spec () ->
+              (* NOTE: erase contracts on the way, the inline expression might require more resources. *)
+              let t2 = aux t in
+              Pattern.pattern_match t2 [
+                Pattern.(trm_for !__ !__ !__) (fun range body spec () ->
+                  let contract = { spec with strict = false } in
+                  trm_for ~annot:t.annot ~contract range body
+                )
+              ]
+            );
+            Pattern.(__) (fun () -> aux t)
+          ] in
+        let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) perform_subst_trm tl in
+        trm_seq ~annot:t_seq.annot ?result new_tl
+      end else begin
+      (* LEGACY: shapes *)
       if !Flags.check_validity then begin
         if Resources.trm_is_pure init then
           (* Case 1: pure expression *)
@@ -97,6 +130,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
       let init = trm_add_mark mark init in
       let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) (trm_subst_var x init) tl in
       trm_seq ~annot:t_seq.annot ?result new_tl
+      end
     ) p_seq
   ) tg
 
@@ -155,13 +189,13 @@ let%transfo local_name ~(var : var) (var_typ : typ)
     Nobrace_transfo.remove_after (fun () ->
       Target.apply_at_path (local_name_on var var_typ ~uninit_pre ~uninit_post local_var) p
     );
-    if !Flags.check_validity then begin
+    if !Flags.check_validity && not !Flags.preserve_specs_only then begin
       step_backtrack ~discard_after:true (fun () ->
         let p = resolve_mark_exactly_one m in
         Nobrace_transfo.remove_after (fun () ->
         Target.apply_at_path (fun t ->
           let (_, open_w, close_w) = Resource_trm.ghost_pair_hide
-            (Resource_formula.formula_cell_var ~typ:var_typ var) in
+            (Resource_formula.formula_cell_var ~mem_typ:Resource_formula.mem_typ_any ~typ:var_typ var) in
           trm_seq_nobrace_nomarks [open_w; t; close_w]
         ) p
         );
@@ -339,7 +373,7 @@ let%transfo elim_reuse (tg : target) : unit =
         Target.apply_at_path (fun t_seq ->
           let error = "expected sequence" in
           let instrs, result = trm_inv ~error trm_seq_inv t_seq in
-          let y_cell = Resource_formula.formula_uninit_cell_var y in
+          let y_cell = Resource_formula.formula_uninit_cell_var ~mem_typ:Resource_formula.mem_typ_any y in
           let (_, open_hide, close_hide) = Resource_trm.ghost_pair_hide y_cell in
           (* detect if there is y = x at the end *)
           let copy_back_index = ref None in
@@ -360,7 +394,7 @@ let%transfo elim_reuse (tg : target) : unit =
             | Some i ->
               let instrs, end_trms = Mlist.split i instrs in
               let copy_back_instr, end_trms = Mlist.split 1 end_trms in
-              let x_cell = Resource_formula.formula_uninit_cell_var x in
+              let x_cell = Resource_formula.formula_uninit_cell_var ~mem_typ:Resource_formula.mem_typ_any x in
               let (_, open_x_hide, close_x_hide) = Resource_trm.ghost_pair_hide x_cell in
               (* during resource check, we keep the copy-back instr so that y can be read from after the transformed seq *)
               instrs, [TrmMlist copy_back_instr; Trm open_x_hide ; TrmMlist end_trms; Trm close_x_hide]

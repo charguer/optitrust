@@ -336,7 +336,7 @@ let%transfo local_name_tile
         let error = "alloc_instr should target a matrix allocation" in
         let v, elem_ty, dims, _ = trm_inv ~error Matrix_core.let_alloc_inv t1 in
         ret_var := v;
-        tile_dims_typ_model := Some (Option.unsome ~error:"expected tile argument" tile, dims, Some elem_ty, (fun _ -> Resource_formula.trm_cell), (fun _ -> Resource_formula.trm_cell))
+        tile_dims_typ_model := Some (Option.unsome ~error:"expected tile argument" tile, dims, Some elem_ty, (fun _ -> Resource_formula.trm_cell ()), (fun _ -> Resource_formula.trm_cell ()))
       end;
       let (tile, dims, collected_elem_ty, model_before, model_after) = Option.unsome !tile_dims_typ_model in
       let elem_ty = Option.or_ elem_ty collected_elem_ty in

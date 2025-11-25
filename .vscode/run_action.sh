@@ -19,6 +19,7 @@
 
 # Compute the paths to the files used for communication
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+OPTITRUST_DIR=$(realpath "${SCRIPT_DIR}/..")
 ACTION_OUT="${SCRIPT_DIR}/action_out.txt"
 ACTION_FILE="${SCRIPT_DIR}/action.sh"
 ACTION="$*"
@@ -30,7 +31,8 @@ if ! pgrep -f "watch.sh" > /dev/null; then
   echo "  Open a separate terminal and in the optitrust folder execute 'watcher.sh'."
   echo "  As a fallback, now trying to run the command directly."
   echo "  However, due to sandboxing, the command may not work fully as expected".
-  echo "  Running command: ${ACTION}"
+  echo "  In the OptiTrust root folder (${OPTITRUST_DIR}), running the command: ${ACTION}"
+  cd ${OPTITRUST_DIR}
   ${ACTION}
   exit
 fi

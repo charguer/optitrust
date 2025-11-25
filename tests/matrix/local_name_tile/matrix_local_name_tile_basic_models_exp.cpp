@@ -20,17 +20,17 @@ void malloc_uninit_pre() {
     __strict();
     __xwrites(
         "for j in 2..10 -> for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, "
-        "i - 0, j - 2, k - 0)] ~~> 1");
+        "i - 0, j - 2, k - 0)] ~~> i");
     for (int j = 2; j < 10; j++) {
       __strict();
       __xwrites(
           "for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k "
-          "- 0)] ~~> 1");
+          "- 0)] ~~> i");
       for (int k = 0; k < 4; k++) {
         __strict();
         __xwrites(
-            "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] ~~> 1");
-        x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] = 1;
+            "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] ~~> i");
+        x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] = i;
       }
     }
   }
@@ -38,21 +38,22 @@ void malloc_uninit_pre() {
     __strict();
     __xwrites(
         "for i2 in 2..10 -> for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, "
-        "i3)] ~~> 1");
+        "i3)] ~~> i1");
     __xreads(
         "for i2 in 2..10 -> for i3 in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - "
-        "0, i1 - 0, i2 - 2, i3 - 0)] ~~> 1");
+        "0, i1 - 0, i2 - 2, i3 - 0)] ~~> i1");
     for (int i2 = 2; i2 < 10; i2++) {
       __strict();
-      __xwrites("for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, i3)] ~~> 1");
+      __xwrites("for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, i3)] ~~> i1");
       __xreads(
           "for i3 in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i1 - 0, i2 - 2, "
-          "i3 - 0)] ~~> 1");
+          "i3 - 0)] ~~> i1");
       for (int i3 = 0; i3 < 4; i3++) {
         __strict();
-        __xwrites("&a[MINDEX3(10, 10, 4, i1, i2, i3)] ~~> 1");
+        __xwrites("&a[MINDEX3(10, 10, 4, i1, i2, i3)] ~~> i1");
         __xreads(
-            "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i1 - 0, i2 - 2, i3 - 0)] ~~> 1");
+            "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i1 - 0, i2 - 2, i3 - 0)] ~~> "
+            "i1");
         a[MINDEX3(10, 10, 4, i1, i2, i3)] =
             x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i1 - 0, i2 - 2, i3 - 0)];
       }
@@ -99,8 +100,8 @@ void malloc_uninit_post() {
   for (int i = 2; i < 10; i++) {
     __strict();
     __xconsumes("&x[MINDEX1(10 - 2, i - 2)] ~~> 1");
-    __xproduces("&x[MINDEX1(10 - 2, i - 2)] ~~> 1 + 1");
-    x[MINDEX1(10 - 2, i - 2)] += 1;
+    __xproduces("&x[MINDEX1(10 - 2, i - 2)] ~~> 1 + i");
+    x[MINDEX1(10 - 2, i - 2)] += i;
   }
   __ghost([&]() {
     __consumes("for i1 in 2..10 -> &x[MINDEX1(10 - 2, i1 - 2)] ~> UninitCell");
