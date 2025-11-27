@@ -325,7 +325,7 @@ let build_focus_list
           (fun (a, b, c, d) -> b)
           (List.fold_left folder (Some (stars_from, [], 0, evar_ctx)) stars_to)
 
-(* let handle_read_only (frac : trm) (formula : trm) : trms * trms * trm option =
+let handle_read_only (frac : trm) (formula : trm) : trms * trms * trm option =
   let autofoc = formula_frac_div frac (trm_int 2) in
   let ghosts =
     [
@@ -357,7 +357,7 @@ let build_focus_list
               ();
         };
     ] in
-  (ghosts, rev_ghosts, Some autofoc) *)
+  (ghosts, rev_ghosts, Some autofoc)
 
 let group_repr_to_closure
     ~(frac : trm option)
@@ -451,10 +451,6 @@ let handle_reorder
       (ghosts, rev_ghosts) in
   (ghosts, rev_ghosts)
 
-let handle_frac (frac:trm option) : trm option =
-  match frac with
-  |Some(f) -> Some(formula_frac_div f (trm_int 2))
-  | _ -> None
 (**
   [autofocus_unify] : tries to see if formula and formula_to_unify can be unified if we add some ghosts instructions to satisfy the resource needed
   [formula] : might describe an access to a cell or a group
@@ -474,6 +470,12 @@ let autofocus_unify
     (validate_inst : trm -> 'a -> 'a unification_ctx -> 'a unification_ctx option) :
     (ghosts * 'a unification_ctx) option =
   let open Option.Monad in
+  (* Substitution using currente evar_ctx *)
+  if debug then
+    Printf.printf "Enter autofoc unify  with %s and candidate %s\n" (print_trm_string formula)
+      (print_trm_string formula_candidate);
+  if debug then Printf.printf "State of evar_ctx begin %s \n " (string_of_unification_ctx evar_ctx);
+
   (* Subsitution needed for get / set operation, we substitute everything  *)
   let formula = evar_subst formula evar_ctx in
   let formula = formula_init formula in
@@ -481,31 +483,48 @@ let autofocus_unify
 
   (* Group extraction for group and group candidate *)
   let* ranges_candidate, t_candidate = extract_ranges formula_candidate in
+
   let* ranges, t = extract_ranges formula in
-  (* normalization and unification checks *)
+  if debug then Printf.printf "Extraction done \n";
   let t, evar_ctx = normalize_trm t evar_ctx validate_inst in
   let t_candidate, evar_ctx = normalize_trm t_candidate evar_ctx validate_inst in
+  (* Trm inversion and unification: both the base term and its dimensions must successfully unify before proceeding. *)
   let* t_base_candidate, dims_candidate, indices_candidates = Matrix_trm.access_inv t_candidate in
   let* t_base, dims, indices = Matrix_trm.access_inv t in
   let* evar_ctx = trm_unify t_base_candidate t_base evar_ctx validate_inst in
   let* evar_ctx = trms_unify dims_candidate dims evar_ctx validate_inst in
-  let t_base, evar_ctx = unfold_if_resolved_evar t_base evar_ctx in (* Unfolding needed for ghost creation in candidate context *)
-
-  (* Conversion to group_repr *)
+  let t_base, evar_ctx = unfold_if_resolved_evar t_base evar_ctx in
+  (* Unfolding needed for ghost creation in candidate context *)
+  (* Preprocessing and conversion to group_repr *)
   let* group, t_base = to_group_repr ranges indices dims t_base in
   let* group_candidate, t_base_candidate =
     to_group_repr ranges_candidate indices_candidates dims_candidate t_base_candidate in
+  if debug then
+    Printf.printf "group repr for group_candidate : %s\n" (print_group_repr group_candidate);
   let group = var_group_subst group group_candidate in
+  if debug then Printf.printf "group repr for group : %s\n" (print_group_repr group);
   let* focus_list = build_focus_list group_candidate group evar_ctx validate_inst in
   (* group_repr -> formula *)
-  let frac = handle_frac frac in
-
-  let ghosts_focus, rev_ghosts_focus =
+  let ghosts, rev_ghosts, frac =
+    if Option.is_some frac then
+      handle_read_only (Option.get frac) formula_candidate
+    else
+      ([], [], None) in
+  let ghosts_from_focus, rev_ghosts_from_focus =
     group_repr_to_ghost_pairs ~frac focus_list t_base_candidate dims_candidate in
+  let ghosts = ghosts @ ghosts_from_focus in
+  let rev_ghosts = rev_ghosts_from_focus @ rev_ghosts in
+  if debug then
+    Printf.printf " n ghost begin : %d \n n rev ghosts : %d \n" (List.length ghosts)
+      (List.length rev_ghosts);
   (* Adding ghosts for reordering whenever it is needed *)
   let ghosts, rev_ghosts =
-    handle_reorder ~frac ghosts_focus rev_ghosts_focus group group_candidate formula formula_candidate
+    handle_reorder ~frac ghosts rev_ghosts group group_candidate formula formula_candidate
       t_base_candidate t_base dims_candidate dims in
+
+  if debug then
+    Printf.printf " n ghost begin : %d \n n rev ghosts : %d \n" (List.length ghosts)
+      (List.length rev_ghosts);
   Some ({ ghost_begin = ghosts; ghost_end = rev_ghosts }, evar_ctx)
 
 (** [GHOST_CREATION] *)
@@ -517,21 +536,22 @@ let ghost_end ghosts = ghosts.ghost_end
 let seq_from_ghosts_list (t : trm) (gl : ghosts list) : trm =
   let ghosts_before = List.concat (List.map (fun ghosts -> ghosts.ghost_begin) gl) in
   let ghosts_after = List.concat (List.map (fun ghosts -> ghosts.ghost_end) gl) in
-  (* let tmp = trm_let (new_var "tmp")  *)
-  let tmp = new_var "autofocus_tmp" in
-  if Option.is_some t.typ then begin
-    let result = trm_let (tmp, Option.get t.typ) t in
-    trm_seq ~result:tmp (Mlist.of_list (ghosts_before @ [ result ] @ ghosts_after))
-  end else begin
-        trm_seq (Mlist.of_list (ghosts_before @ [ t ] @ ghosts_after))
-      end
+  let seq_basic = trm_seq (Mlist.of_list (ghosts_before @ [ t ] @ ghosts_after)) in
+  match t.typ with
+  | Some typ ->
+    if typ = typ_unit then
+      seq_basic
+    else
+      let tmp = new_var "autofocus_tmp" in
+      let result = trm_let (tmp, typ) t in
+      trm_seq ~result:tmp (Mlist.of_list (ghosts_before @ [ result ] @ ghosts_after))
+  | _ -> seq_basic
 
 (** [elaborate] : check if any trm in the ast as Some elaboration to do and replace the trm accordingly. For now it's replaced with ghost before and after the trm coming from the autofocus algorithm  *)
 let elaborate (t :trm)  =
-Printf.printf "Elaboration \n";
 trm_bottom_up  ~keep_ctx:true (fun t -> match t.ctx.elaborate with
   | Some { pre_ghost; post_ghost} -> (
     t.ctx.elaborate <- None;
-    let new_seq = seq_from_ghosts_list t [{ghost_begin = pre_ghost; ghost_end = post_ghost}] in
+    let new_seq = seq_from_ghosts_list t [{ghost_begin=pre_ghost; ghost_end=post_ghost}] in
     Mark.trm_add_mark "autofoc_seq" new_seq)
   | _ -> t ) t
