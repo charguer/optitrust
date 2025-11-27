@@ -101,7 +101,7 @@ let rec extract_ranges (formula : trm) : (range list * trm) option =
   )
   | _ -> (
     match formula_cell_inv formula with
-    | Some t -> Some ([],  t)
+    | Some t -> Some ([], t)
     | _ -> (
       match formula_uninit_cell_inv formula with Some t -> Some ([], t) | _ -> None
     )
@@ -486,7 +486,7 @@ let autofocus_unify
 
   let* ranges, t = extract_ranges formula in
   if debug then Printf.printf "Extraction done \n";
-  let t ,evar_ctx = normalize_trm t evar_ctx validate_inst  in
+  let t, evar_ctx = normalize_trm t evar_ctx validate_inst in
   let t_candidate, evar_ctx = normalize_trm t_candidate evar_ctx validate_inst in
   (* Trm inversion and unification: both the base term and its dimensions must successfully unify before proceeding. *)
   let* t_base_candidate, dims_candidate, indices_candidates = Matrix_trm.access_inv t_candidate in
@@ -546,18 +546,3 @@ let ghosts_formula_end (ghosts : ghosts) =
     )
     (List.rev ghosts) *)
 
-(** [seq_from_ghosts_list] : Returns the trm_seq corresponding to the full sequence needde to type the resource that needed focus  *)
-let seq_from_ghosts_list (t : trm) (gl : ghosts list) : trm =
-  let ghosts_before = List.concat (List.map (fun ghosts -> ghosts.ghost_begin) gl) in
-  let ghosts_after = List.concat (List.map (fun ghosts -> ghosts.ghost_end) gl) in
-  (* let tmp = trm_let (new_var "tmp")  *)
-  let tmp = new_var "autofocus_tmp" in
-  if Option.is_some t.typ then
-    begin
-    let result = trm_let (tmp, Option.get t.typ) t in
-    trm_seq ~result:tmp (Mlist.of_list (ghosts_before @ [ result ] @ ghosts_after ))
-    end
-  else
-    begin
-    trm_seq (Mlist.of_list (ghosts_before @ [ t ] @ ghosts_after))
-    end

@@ -2129,27 +2129,7 @@ let trm_compute_resources_inplace (t: trm): unit =
       | None -> raise err
 
 
-(** [elaborate] : check if any trm in the ast as Some elaboration to do and replace the trm accordingly. For now it's replaced with ghost before and after the trm coming from the autofocus algorithm  *)
-let elaborate (t :trm)  =
-Printf.printf "Elaboration \n";
-trm_bottom_up  ~keep_ctx:true (fun t -> match t.ctx.elaborate with
-  | Some { pre_ghost; post_ghost} -> (
-    t.ctx.elaborate <- None;
-    let new_seq =(
-      let seq_basic = trm_seq (Mlist.of_list (pre_ghost @ [t] @ post_ghost)) in
-      match t.typ with
-      | Some (typ) ->
-        if typ = typ_unit then seq_basic
-      else
-      begin
-          let var_tmp = new_var "a" in
-          let tmp = trm_let (var_tmp, typ_auto) t in
-         (trm_seq ~result:var_tmp (Mlist.of_list (pre_ghost @ [tmp] @ post_ghost )))
-          end
-      | _ -> seq_basic) in
-    Mark.trm_add_mark "autofoc_seq" new_seq)
-    (* Printf.printf "%s \n" (Resource_autofocus.print_trm_string tmp); *)
-  | _ -> t ) t
+
 
 (** [trm_recompute_resources t] recomputes resources of [t] using [compute_resources],
   after a [trm_deep_copy] to prevent sharing.
@@ -2167,4 +2147,4 @@ let trm_recompute_resources ?(missing_types = false) (t: trm): trm =
   let t = trm_deep_copy t in
   missing_types_in_contracts := missing_types;
   trm_compute_resources_inplace t;
-  elaborate t
+  Resource_autofocus.elaborate t
