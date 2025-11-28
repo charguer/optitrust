@@ -1530,7 +1530,7 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
 
 (** [trm_bottom_up]: applies f on t recursively from bottom to top. *)
 let rec trm_bottom_up ?(keep_ctx=false) (f : trm -> trm) (t : trm) : trm =
-  let t2 = trm_map ~keep_ctx (trm_bottom_up f) t in
+  let t2 = trm_map ~keep_ctx (trm_bottom_up ~keep_ctx f) t in
   f t2
 (** [trm_bottom_up_try] : tries to applies f on t recursively from bottom to top and catch error*)
 let  trm_bottom_up_try (f : trm -> trm) (t : trm) : trm =

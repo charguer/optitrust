@@ -121,9 +121,9 @@ let%transfo fun_minimize (tg: target) : unit =
 let rec process (r: trm mlist ref) (t:trm) : trm=
   let aux t = process r t in
   match trm_seq_inv t with
-  | Some(tl, res_var) -> if Mark.trm_has_mark "autofoc_seq" t then begin  r:= Mlist.merge tl !r; Option.map_or (fun var -> trm_var var) trm_dummy res_var end
+  | Some(tl, res_var) -> if Mark.trm_has_mark "autofoc_seq" t then begin r:= Mlist.merge !r tl; Option.map_or (fun var -> trm_var var) trm_dummy res_var end
   else t
-  | None -> trm_map aux t
+  | None -> trm_map ~keep_ctx:true aux t
 
 
 let rec pull_nested_seq_on (t:trm): trm =
@@ -136,7 +136,7 @@ let rec pull_nested_seq_on (t:trm): trm =
         Mlist.merge !r (Mlist.of_list [instr']) ) instrs in
         trm_seq ~annot:t.annot ?result:res_var new_instrs
 
-  | _ -> trm_map  pull_nested_seq_on t
+  | _ -> trm_map ~keep_ctx:true pull_nested_seq_on t
 
 let %transfo autofocus_elaboration (tg:target) : unit =
 apply_at_target_paths pull_nested_seq_on tg

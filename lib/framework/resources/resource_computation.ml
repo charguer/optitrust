@@ -36,7 +36,10 @@ module Formula_inst = struct
     Pattern.pattern_match_opt f [
       Pattern.(trm_apps3 (trm_specific_var var_SplitRO) (trm_var !__) !__ (trm_var !__)) (fun frac old_frac hyp () -> (frac, old_frac, hyp))
     ]
-
+  let inst_div_read_only_inv (f: t): (formula * formula * var) option =
+    Pattern.pattern_match_opt f [
+      Pattern.(trm_apps3 (trm_specific_var var_SplitRO) (!__) !__ (trm_var !__)) (fun frac old_frac hyp () -> (frac, old_frac, hyp))
+    ]
   let var_ForgetInit = toplevel_var "ForgetInit"
 
   let inst_forget_init (h: var) : t =
@@ -129,6 +132,9 @@ let used_set_to_usage_map (res_used: used_resource_set) : resource_usage_map =
     match Formula_inst.inst_split_read_only_inv inst_by with
     | Some (_, _, orig_hyp) -> Var_map.add orig_hyp SplittedFrac usage_map
     | None ->
+      match Formula_inst.inst_div_read_only_inv inst_by with
+      | Some (_, _, orig_hyp) -> Var_map.add orig_hyp SplittedFrac usage_map
+      | None ->
       let hyp_usage = if is_formula_uninit used_formula then ConsumedUninit else ConsumedFull in
       match Formula_inst.inst_hyp_inv inst_by with
       | Some hyp -> Var_map.add hyp hyp_usage usage_map
@@ -451,18 +457,18 @@ let find_pure ((x, formula): resource_item) (env: pure_env) ?(goal_solver = !pur
 
   Raises {!Not_found} if the [formula] cannot be consumed.
 *)
-let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_item)
+let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_item)
   (res: linear_resource_set) (evar_ctx: unification_ctx) ~(pure_ctx: pure_env) ~(infer:bool)
   : used_resource_item * Resource_autofocus.ghosts * linear_resource_set * unification_ctx =
   let open Option.Monad in
-  let res_before,evar_ctx_before, pure_ctx_before =  res,evar_ctx,pure_ctx in
+
   let rec extract
     (f : resource_item -> (used_resource_item * Resource_autofocus.ghosts * resource_item option * unification_ctx  ) option)
     (res: linear_resource_set)
     (evar_ctx: unification_ctx): used_resource_item *  Resource_autofocus.ghosts * linear_resource_set * unification_ctx =
     match res with
     (* When we run out of candidate, either we try to infer/autocus, or if we already have (infer is true, meaning we run out of candidate even with inference allowed) , then raise Not found which will be caught later to create Resource_not_found *)
-    | [] -> if infer then raise Not_found else subtract_linear_resource_item ~split_frac:true ~infer:true (x,formula) res_before evar_ctx_before ~pure_ctx:pure_ctx_before
+    | [] -> raise Not_found
     | candidate :: res ->
       begin match f candidate with
       | Some (used_res, ghosts, Some leftover, evar_ctx ) -> (used_res,  ghosts, leftover :: res, evar_ctx)
@@ -521,10 +527,40 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
       (* Printf.printf "formula %s \n fromula_candidate %s \n" (Resource_autofocus.print_trm_string formula) (Resource_autofocus.print_trm_string formula_candidate); *)
       (* Printf.printf "frac %s \n formula_candidate %s  formula %s \n \n" (Resource_autofocus.print_trm_string cur_frac) (Resource_autofocus.print_trm_string formula_candidate) (Resource_autofocus.print_trm_string formula); *)
       let* ghosts, evar_ctx = (handle_unification infer ~frac:cur_frac) formula formula_candidate formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
+      if ghosts <> Resource_autofocus.empty_ghost then
+        let frac_used = formula_frac_div cur_frac (trm_int 2) in
+         Some (
+        { hyp ; inst_by = trm_apps (trm_var Formula_inst.var_SplitRO) [frac_used; cur_frac; Formula_inst.inst_hyp h]; used_formula = formula_read_only ~frac:(frac_used) formula_candidate },
+        ghosts,
+        Some (h, formula_read_only ~frac:(formula_frac_sub cur_frac (frac_used)) formula_candidate), evar_ctx)
+    else
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
         ghosts,
         Some (h, formula_read_only ~frac:(formula_frac_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
+    ) res evar_ctx
+  in
+
+  let unify_and_div_read_only
+    (hyp: var) ~(div: trm)  ~(frac:trm) (formula: formula)
+    (res: linear_resource_set)
+    (evar_ctx: unification_ctx)
+    ~(pure_ctx: pure_env): used_resource_item * Resource_autofocus.ghosts * linear_resource_set * unification_ctx =
+    (* Used by {!subtract_linear_resource_item} in the case where [formula] is a read-only resource. *)
+    (* LATER: Improve the structure of the linear_resource_set to make this
+      function faster on most frequent cases *)
+    extract (fun (h, formula_candidate) ->
+      let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
+      if not (are_same_trm cur_frac frac || are_same_trm cur_frac (formula_frac_div frac div)) then None else
+      (* Printf.printf "formula %s \n fromula_candidate %s \n" (Resource_autofocus.print_trm_string formula) (Resource_autofocus.print_trm_string formula_candidate); *)
+      (* Printf.printf "frac %s \n formula_candidate %s  formula %s \n \n" (Resource_autofocus.print_trm_string cur_frac) (Resource_autofocus.print_trm_string formula_candidate) (Resource_autofocus.print_trm_string formula); *)
+      let* ghosts, evar_ctx = (handle_unification false) (formula) formula_candidate formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
+      let frac_used = formula_frac_div frac div in
+      let rest = if are_same_trm cur_frac frac then  Some (h, formula_read_only ~frac:(formula_frac_sub cur_frac (frac_used)) formula_candidate) else None in
+         Some (
+        { hyp ; inst_by = trm_apps (trm_var Formula_inst.var_SplitRO) [frac_used; cur_frac; Formula_inst.inst_hyp h]; used_formula = formula_read_only ~frac:(frac_used) formula_candidate },
+        ghosts,
+       rest, evar_ctx)
     ) res evar_ctx
   in
 
@@ -534,8 +570,9 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
     Pattern.(formula_read_only (trm_apps1 (trm_specific_var _Full) !__) !__ ) (fun frac ro_formula () ->
       unify_and_remove_linear  ~infer (x, formula_read_only ~frac ro_formula) ~uninit:false res evar_ctx ~pure_ctx
     );
-    Pattern.(formula_read_only (trm_int (eq 1)) !__ )(fun ro_formula () ->
-    unify_and_remove_linear  ~infer (x, ro_formula) ~uninit:false res evar_ctx ~pure_ctx );
+    (* If a specific fraction (div) is asked then  *)
+    Pattern.(formula_read_only (formula_frac_div !__ !__) !__ )(fun frac div ro_formula () ->
+      unify_and_div_read_only  x ~div ~frac ro_formula res evar_ctx ~pure_ctx);
     (* we split a fraction from an RO if we don't care about the fraction we get (evar). *)
     Pattern.(formula_read_only (trm_var !__) !__) (fun frac_var ro_formula () ->
       match Var_map.find_opt frac_var evar_ctx with
@@ -554,7 +591,14 @@ let rec subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resourc
     Pattern.__ (fun () ->
       unify_and_remove_linear  ~infer  (x, formula) ~uninit:(is_formula_uninit formula) res evar_ctx ~pure_ctx)
   ]
-
+let wrap_subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_item)
+  (res: linear_resource_set) (evar_ctx: unification_ctx) ~(pure_ctx: pure_env) ~(infer_allowed:bool)
+  : used_resource_item * Resource_autofocus.ghosts * linear_resource_set * unification_ctx =
+  if infer_allowed then
+    try subtract_linear_resource_item ~split_frac ~infer:false (x,formula) res evar_ctx ~pure_ctx:pure_ctx
+with Not_found -> subtract_linear_resource_item ~split_frac ~infer:true (x,formula) res evar_ctx ~pure_ctx:pure_ctx
+else
+  subtract_linear_resource_item ~split_frac ~infer:false (x,formula) res evar_ctx ~pure_ctx:pure_ctx
 (** [subtract_linear_resource_set ?split_frac ?evar_ctx ?pure_ctx res_from res_removed] subtracts [res_removed] from [res_from].
   Returns [(used, res', evar_ctx')] where:
   - [used] are the consumed resource items
@@ -574,8 +618,8 @@ let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unifica
   : used_resource_item list *  Resource_autofocus.ghosts list * linear_resource_set * unification_ctx  =
   List.fold_left (fun (used_list,ghosts_list, remaining_linear_res, evar_ctx ) res_item ->
     try
-      let used, ghosts, res_from, evar_ctx  = subtract_linear_resource_item ~infer:false  ~split_frac res_item remaining_linear_res evar_ctx ~pure_ctx in
-      let ghosts_list = if ghosts <> Resource_autofocus.empty_ghost then ghosts::ghosts_list else ghosts_list in
+      let used, ghosts, res_from, evar_ctx  = wrap_subtract_linear_resource_item ~infer_allowed:true ~split_frac res_item remaining_linear_res evar_ctx ~pure_ctx in
+      let ghosts_list = if ghosts <> Resource_autofocus.empty_ghost then ghosts_list @ [ghosts] else ghosts_list in
       (used :: used_list, ghosts_list,res_from, evar_ctx )
     with Not_found ->
       raise_resource_not_found Linear res_item evar_ctx res_from
@@ -595,7 +639,7 @@ let partial_extract_linear_resource_set ?(evar_ctx: unification_ctx = Var_map.em
   : used_resource_item list *  Resource_autofocus.ghosts list* linear_resource_set * linear_resource_set * unification_ctx =
   List.fold_left (fun (used_list, ghosts_list, res_left, unmatched_right, evar_ctx) res_item ->
     try
-      let used, ghosts, res_left, evar_ctx = subtract_linear_resource_item ~infer:false ~split_frac:false res_item res_left evar_ctx ~pure_ctx in
+      let used, ghosts, res_left, evar_ctx =wrap_subtract_linear_resource_item ~infer_allowed:true ~split_frac:false res_item res_left evar_ctx ~pure_ctx in
       (used :: used_list, ghosts::ghosts_list, res_left, unmatched_right, evar_ctx)
     with Not_found ->
       (used_list, ghosts_list,res_left, res_item :: unmatched_right, evar_ctx)
@@ -1660,11 +1704,10 @@ let rec compute_resources
         let call_usage_map, res_after, ghosts_list = compute_contract_invoc spec.contract ~inst_map ~ensured_renaming res_after_args t in
         (* if we get a non empty ghosts_list, we throw everything away, we modify the elaborate field for future processing and we retype the whole trm_seq (ghost_begin;t;ghost_end) *)
         if ghosts_list <> [] then begin
-          (* If we elaborate the function call, then some elaboration on the args might not be needed  anymore *)
-          let t = trm_bottom_up (fun t -> t.ctx.elaborate <- None;t) t in
-          t.ctx.elaborate <- Some({pre_ghost = List.concat_map (fun ghosts -> Resource_autofocus.ghost_begin ghosts ) ghosts_list; post_ghost =  List.concat_map (fun ghosts -> Resource_autofocus.ghost_end ghosts) ghosts_list});
-          let t_with_ghosts = Resource_autofocus.seq_from_ghosts_list t (ghosts_list) in
-          Printf.printf "t with ghosts %s \n fo t : %s\n" (Resource_autofocus.print_trm_string t_with_ghosts) (Resource_autofocus.print_trm_string t);
+          let elab_set = {pre_ghost = List.concat_map (fun ghosts -> Resource_autofocus.ghost_begin ghosts ) ghosts_list; post_ghost =  List.concat_map (fun ghosts -> Resource_autofocus.ghost_end ghosts) ghosts_list} in
+          t.ctx.elaborate <- Some(elab_set);
+          let t_with_ghosts = Resource_autofocus.seq_from_ghosts_list t elab_set in
+          Printf.printf "t with ghosts %s \n for t : %s\n" (Resource_autofocus.print_trm_string t_with_ghosts) (Resource_autofocus.print_trm_string t);
         compute_resources ?expected_res (Some (res)) t_with_ghosts
         end
         else
