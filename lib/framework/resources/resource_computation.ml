@@ -1707,7 +1707,6 @@ let rec compute_resources
           let elab_set = {pre_ghost = List.concat_map (fun ghosts -> Resource_autofocus.ghost_begin ghosts ) ghosts_list; post_ghost =  List.concat_map (fun ghosts -> Resource_autofocus.ghost_end ghosts) ghosts_list} in
           t.ctx.elaborate <- Some(elab_set);
           let t_with_ghosts = Resource_autofocus.seq_from_ghosts_list t elab_set in
-          Printf.printf "t with ghosts %s \n for t : %s\n" (Resource_autofocus.print_trm_string t_with_ghosts) (Resource_autofocus.print_trm_string t);
         compute_resources ?expected_res (Some (res)) t_with_ghosts
         end
         else

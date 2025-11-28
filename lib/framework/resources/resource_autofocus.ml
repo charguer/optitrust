@@ -486,6 +486,7 @@ let process_args (args : trm list) (f_recurse : trm -> trm list * trm) : trm lis
   let ghosts_list, new_args = List.split results in
   (List.concat ghosts_list, new_args)
 
+(** [args_tl]: auxiliary function for seq_from_ghosts_list, returns a trm list containing ghost operations and bindings to handle correctly args needing resources. If an arg doesn't need any resources, it remains the same *)
 let rec args_tl (t : trm) : trm list * trm =
   match trm_apps_inv t with
   | None -> ([], t)
@@ -505,7 +506,7 @@ let rec args_tl (t : trm) : trm list * trm =
     )
   )
 
-(** [seq_from_ghosts_list] :  *)
+(** [seq_from_ghosts_list] :  Construct a trm seq from a trm_apps [t] with some elaboration needed (represented by [ghosts])*)
 let seq_from_ghosts_list ?(var = new_var "autofocus_tmp") (t : trm) (ghosts : elaboration_set) : trm
     =
   match trm_apps_inv t with
@@ -530,7 +531,6 @@ let elaborate (t : trm) =
   let rec aux t =
     match t.ctx.elaborate with
     | Some elab_set ->
-      Printf.printf "elaboration on going \n";
       Mark.trm_add_mark "autofoc_seq" (seq_from_ghosts_list t elab_set)
     | _ -> trm_map ~keep_ctx:true aux t in
   trm_map ~keep_ctx:true aux t
