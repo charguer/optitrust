@@ -79,12 +79,12 @@
 		  opam pin add -y menhirLib 20210419
 		  opam pin add -y pprint 20220103
 		  opam pin add -y conf-libclang 15 --no-depexts
-		  opam pin add -y clangml 4.8.0 --yes --no-action || true   # continue anyway
+		  opam pin add -y clangml 4.8.0 --no-depexts --yes --no-action || true   # continue anyway
 
 		  # ---- Install your required packages ----
-		  opam install -y ocaml-lsp-server dot-merlin-reader clangml dune refl pprint menhir menhirLib base64 ocamlbuild \
+		  opam install -y ocaml-lsp-server dot-merlin-reader clangml dune refl pprint menhir menhirLib base64 ocamlbuild --no-depexts \
 		    ocaml-lsp-server ppx_deriving
-		  opam install -y odoc lambdasoup dream
+		  opam install -y odoc lambdasoup dream --no-depexts
 
 		  opam init --no
 	  fi
