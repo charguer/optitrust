@@ -18,7 +18,7 @@ __ghost(define,
         "fun (i: int) (j: int) -> reduce_sum(p, fun k -> A(i, k) *. B(k, j))",
         "matmul <- x");
 
-float vect_vect_mul(float* a, float* b, int n) {
+float dot(float* a, float* b, int n) {
   __requires("A: int -> float");
   __requires("B: int -> float");
   __ensures("_Res =. reduce_sum(n, fun j -> A(j) *. B(j))");
