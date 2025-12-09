@@ -20,32 +20,36 @@ let _ = if part = 1 then Run.script_cpp (fun () ->
   !! Loop.tile (int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
 
   (* LATER: !! Variable.local_name ~var:"s" ~local_var:"t" [tSpanSeq [cForBody "bi"]]; *)
-  !! Sequence.intro ~mark:"t_scope" ~start:[tFirst; cForBody "bi"] ~stop:[tLast; cForBody "bi"] ();
-  !! Variable.local_name ~var:"s" ~local_var:"t" [cMark "t_scope"];
-  !! Sequence.elim [cMark "t_scope"];
+  !! (
+    Sequence.intro ~mark:"t_scope" ~start:[tFirst; cForBody "bi"] ~stop:[tLast; cForBody "bi"] ();
+    Variable.local_name ~var:"s" ~local_var:"t" [cMark "t_scope"];
+    Sequence.elim [cMark "t_scope"];
+  );
 
   (* DEPRECATED? !! Sequence_basic.insert (trm_let (new_var "d", typ_f32) (trm_get (trm_find_var "s" []))) [tFirst; cForBody "bi"]; *)
-  !! Variable.insert ~name:"d" ~typ:typ_f32 ~value:(trm_get (trm_find_var "s" [])) [cForBody "bi"; tFirst];
+  !! (
+    Variable.insert ~name:"d" ~typ:typ_f32 ~value:(trm_get (trm_find_var "s" [])) [cForBody "bi"; tFirst];
 
-  (* at this line, the output is the equivalent of vectvectmul0_gen.cpp,
+  (* at this line, the output is the equivalent of dot0_gen.cpp,
     beware that "==" needs to be replaced with "=." and all the "__is_true" must be removed;
     some +. and + need to be fixed
-    ----> LATER: tweak display so that the output of _after.cpp is exactly  vectvectmul0.cpp *)
+    ----> LATER: tweak display so that the output of _after.cpp is exactly  dot0.cpp *)
 (* )
 
 (* Part 2: *)
 let _ = if part = 2 then Run.script_cpp ~filename:"vv1.cpp" (fun () ->
 *)
   (* Why nbMulti? !! Accesses.shift_var ~inv:true ~factor:(trm_find_var "d" []) [nbMulti; cVarDef "t"]; *)
-  !! Accesses.shift_var ~inv:true ~factor:(trm_find_var "d" []) [cFor "bi"; cVarDef "t"];
-  !! Variable.inline [cVarDef "d"];
-  !! Arith.simpl_surrounding_expr Arith.gather_rec [nbMulti; cVar "s"];
+    Accesses.shift_var ~inv:true ~factor:(trm_find_var "d" []) [cFor "bi"; cVarDef "t"];
+    Variable.inline [cVarDef "d"];
+    Arith.simpl_surrounding_expr Arith.gather_rec [nbMulti; cVar "s"];
+  );
 (* )
 
 (* Part 3: *)
 let _ = if part = 3 then Run.script_cpp ~filename:"vv2.cpp" (fun () ->
 *)
-  !! Resources.loop_minimize [cFor "i"];
+  (* !! Resources.loop_minimize [cFor "i"]; *)
 
   !! Loop.hoist [cVarDef "t"];
   !! Loop.fission [tBefore; cFor "bi"; cWriteVar "s"];
