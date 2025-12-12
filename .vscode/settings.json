@@ -50,9 +50,9 @@
       ]
     },
   ],
-  //"ocaml.sandbox": {
-  //  "kind": "opam",
-  //  "switch": "${workspaceFolder}"
-  //},
+  "ocaml.sandbox": {
+    "kind": "opam",
+    "switch": "4.14.2+options"
+  },
   "makefile.configureOnOpen": false,
 }
