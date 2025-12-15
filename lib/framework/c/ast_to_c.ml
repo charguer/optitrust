@@ -464,6 +464,7 @@ and decorate_trm style ?(semicolon : bool = false) ?(force_expr : bool = false) 
 
   let t_marks = trm_get_marks t in
 
+  (* TODO not sure what to do with this in relation to thread for annotation printing *)
   if style.print_annot then failwith "NOT YET IMPLEMENTED: Ast_to_c printing of annotations";
 
   let dt =
@@ -634,11 +635,16 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       let dcond = decorate_trm style cond in
       let dstep = decorate_trm style step in
       let dbody = decorate_trm style ~semicolon:true body in
-      dattr ^^ string "for" ^^ blank 1 ^^
+      let is_threadfor = Option.is_some (List.find_opt (fun a -> a = ThreadFor) (trm_get_attr t)) in
+      (* TODO : the output in OptiTrust trace should be different than the C++ output file? (thread for doesnt compile)_*)
+      (* Or do we not care because you will need CUDA prinnter to do anything with this construct anyway? *)
+      let for_name = if is_threadfor then "thread for" else "for" in
+      dattr ^^ string for_name ^^ blank 1 ^^
         parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
           blank 1 ^^ dbody
     | Trm_for (l_range, body, loop_spec) ->
-      let full_loop = (unpack_trm_for : ?loc:trm_loc -> loop_range -> trm -> trm) ?loc:t.loc l_range body in
+      (* TODO: do we actually always want to copy the annotations from the trm_for into the expanded trm_for_c? *)
+      let full_loop = (unpack_trm_for : ?annot:trm_annot -> ?loc:trm_loc -> loop_range -> trm -> trm) ?annot:(Option.some t.annot) ?loc:t.loc l_range body in
       let dt = decorate_trm style full_loop in
       dt
       (* print_contract_internal_repr is handled in C_encoding, printing it here might be useful if encoding is heavily broken
@@ -1329,7 +1335,7 @@ and routine_to_doc (r : omp_routine) : document =
 
 (** [unpack_trm_for ~loc index start direction stop step body]: converts a simple for loop to a complex one before converting it to a pprint document *)
 (* FIXME: #odoc why is annotation required on callees? *)
-and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
+and unpack_trm_for ?(annot:trm_annot option) ?(loc: location) (range : loop_range) (body : trm) : trm =
   let init = trm_let (range.index, typ_int) range.start in
   let cond = begin match range.direction with
     | DirUp -> trm_apps (trm_binop typ_int Binop_lt) [trm_var range.index; range.stop]
@@ -1356,7 +1362,7 @@ and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
       else
         trm_apps (trm_prim typ_int (Prim_compound_assign_op Binop_sub) ) [trm_var range.index; range.step]
     end in
-    trm_for_c ?loc init cond step body
+    trm_for_c ?annot ?loc init cond step body
 
 and formula_to_doc style (f: formula): document =
   let open Resource_formula in

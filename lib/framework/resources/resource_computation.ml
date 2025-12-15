@@ -1846,8 +1846,11 @@ let rec compute_resources
 
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
     | Trm_for (range, body, contract) ->
+      let is_threadfor = Option.is_some (List.find_opt (fun a -> a = ThreadFor) (trm_get_attr t)) in
       let contract_ctx = pure_env res in
       let contract_ctx = { contract_ctx with res = (range.index, typ_int) :: contract_ctx.res } in
+      (* TODO: Since this is just checking the pure types of the contract, I don't think thread for adds anything?
+      And even if there is a mistake and it needs something else, I think it would only result in more programs being rejected, not a soundness bug? *)
       check_loop_contract_types ~pure_ctx:contract_ctx contract;
 
       let outer_contract = contract_outside_loop range contract in
@@ -2072,7 +2075,10 @@ let init_ctx = Resource_set.make ~pure:[
   typ_const_var, typ_pure_simple_fun [typ_type] typ_type;
   typ_range_var, typ_type;
   Resource_formula.var_range, typ_pure_simple_fun [typ_int; typ_int; typ_int] typ_range;
+  Resource_formula.var_range_plus, typ_pure_simple_fun [typ_int; typ_int] typ_range;
   Resource_formula.var_group, typ_pure_simple_fun [typ_range; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
+  Resource_formula.var_desyncgroup, typ_pure_simple_fun [typ_range; typ_int; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
+  Resource_formula.var_threadsctx, typ_pure_simple_fun [typ_range] typ_hprop;
   Resource_formula.var_frac, typ_type;
   Resource_formula.var_read_only, typ_pure_simple_fun [Resource_formula.typ_frac; typ_hprop] typ_hprop;
   Resource_formula.var_is_true, typ_pure_simple_fun [typ_bool] typ_prop;

@@ -274,6 +274,11 @@ let trm_range = trm_var var_range
 let formula_range (start: trm) (stop: trm) (step: trm) =
   trm_apps ~annot:formula_annot trm_range [start; stop; step]
 
+let var_range_plus = toplevel_var "range_plus"
+let trm_range_plus = trm_var var_range_plus
+let formula_range_plus (start: trm) (len: trm) =
+  trm_apps ~annot:formula_annot trm_range_plus [start; len]
+
 let var_group = toplevel_var "Group"
 let trm_group = trm_var var_group
 let formula_group (index: var) (range: trm) (fi: formula) =
@@ -287,6 +292,18 @@ let formula_group_inv (t: trm): (var * trm * formula) option =
     | _ -> None
     end
   | _ -> None
+
+let var_desyncgroup = toplevel_var "DesyncGroup"
+let trm_desyncgroup = trm_var var_desyncgroup
+let formula_desyncgroup (index: var) (bound: trm) (range: trm) (fi: formula) =
+  trm_apps ~annot:formula_annot trm_desyncgroup [range; bound; formula_fun [index, typ_int] fi]
+
+let var_threadsctx = toplevel_var "ThreadsCtx"
+
+let trm_threadsctx = trm_var var_threadsctx
+
+let formula_threadsctx (range: trm) =
+  trm_apps ~annot:formula_annot trm_threadsctx [range]
 
 (*let var_into_uninit = toplevel_var "_Uninit"
 let trm_into_uninit = trm_var var_into_uninit

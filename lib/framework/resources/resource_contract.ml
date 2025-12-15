@@ -177,9 +177,52 @@ let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: 'clause_t
       | Resource_clexer.SyntaxError err -> failwith "Failed to lex resources '%s' : %s" desc err
     ) clauses empty_contract
 
+(* Thread for info data structure: Need to know:
+  - Rin: trm (a range thing)
+  - Rout: trm (the range inside the loop, which is R_out(i) in the typing rule,
+   but note we do NOT use the trm_apps inside the contract! we dont want to have to beta-reduce this (we CANT do this at unification in general, ok well we can since its nonterminating but its arbitrary complexity - dependent types stuff).)
+   it can also be var -> trm if the index var is not avail. in the thread for extract fn for some reason
+  - M: the bounds of the thread for loop
+
+  NOTE: THESE NOMENCLATURES ARE CONFUSING: SWAP RIN and ROUT because the sense i mean it here is input and output,
+    when it should be inner and outer to be consistent, so it should be swapped
+*)
+
+(* Steps to extract the above data structure from the thread for.
+1. Check the well-formedness of thread for, based on loop_range data structure. If everything is good, give R.end (=M in on-paper typing rule). Return option trm
+2. Check that Rin is well-formed (this I think is technically a typechecking step but not sure? idk)
+  For this we have to look for a ThreadsCtx in the context. If we find none, or more than one, we have not succesfully typechecked
+  (TODO: Is this bad?? This seems like it's duplicating the effort of the normal contract checking, but maybe that's ok because it just means it will be safer (two extra checks)??)
+  Then we match on the structure of the range inside the threadsctx according to the rules I've put in the on-paper rule.
+  We extract:
+  - an upper list of dimensions DN+K-1..DK+1, and a lower list DK-1..D1 (M=DK is sandwiched between)
+  - a list of indices tN..t2
+  - the arity N (but it's inferrable from the first two lists so idk)
+  This stays in the function. It does not go in the data structure above.
+  If all of this pattern matching passes, we save Rin to the thread for info data structure.
+  Note we don't save ThreadsCtx(Rin) currently, so technically we have to reconstruct this term in the outer pre and post
+  we could store it instead but yeah who knows.
+3. Create the inner range term R_out (kind of confusing once again see above).
+  Pretty easy to just construct the MINDEX, MSIZE, RangePlus terms based on the above lists we extracted.
+
+Note the extraction runs at the very start of compute_resources (or maybe after doing pure typechecking of inner contract?).
+*)
+
 (** [contract_outside_loop range contract] takes the [contract] of a for-loop over [range] and returns
   the contract of the for instruction. *)
 let contract_outside_loop range contract =
+  (* First Check that contract.invariant is empty for thread for *)
+  (* Pre: better have
+      - Rin = tin..+N with very specific requirements with MINDEX, MSIZE, etc. => COMPUTE THIS INFO FIRST AND MAKE A STRUCT
+      - ThreadsCtx(Rin)
+      - DesyncGroup of all of our xpre with Rin and 0..loop range
+      - Check the loop range somehow (but this is not a contract or types thing just a thread for well formedness moreso) => GOES IN THE SAME HELPER AS #1 (extract_thread_for_info)
+      - *)
+  (* Post: produce
+      - Rin : same
+      - ThreadsCtx(Rin)
+      - DesyncGroup with same Rin and range
+      *)
   let invariant_before = Resource_set.subst_loop_range_start range contract.invariant in
   let pre = Resource_set.group_range range contract.iter_contract.pre in
   let pre = Resource_set.union invariant_before (Resource_set.add_linear_list contract.parallel_reads pre) in
@@ -199,6 +242,14 @@ let parallel_reads_inside_loop range par_reads =
 (** [contract_inside_loop range contract] takes the [contract] of a for-loop over [range] and returns
   the contract of its body. *)
 let contract_inside_loop range contract =
+  (*  (Optionally check emptyness of contract here as well for thread for)
+  (assume same loop range requirements) Pre: give
+    - i in range 0..N
+    - ThreadsCtx(R_out(i)) (calculate R_out from R_in etc.)
+    *)
+  (* Post: expect
+    - i in range 0..N
+    - ThreadsCtx(R_out(i)) (preserved)*)
   let par_reads_inside = parallel_reads_inside_loop range contract.parallel_reads in
   let pre = Resource_set.union contract.invariant (Resource_set.add_linear_list par_reads_inside contract.iter_contract.pre) in
   let index_in_range_hyp = (new_anon_hyp (), formula_in_range (trm_var range.index) (formula_loop_range range)) in

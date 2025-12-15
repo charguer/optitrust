@@ -480,6 +480,7 @@ and cpragma = directive
 and attribute =
   | Alignas of trm (* Placed on types like in: alignas(64) double* deposit; *)
   | GhostInstr (* Used for ghost annotations (__ghost syntax in C) *)
+  | ThreadFor (* Used to differentiate the special GPU "thread for" loop from the standard seq/parallel for *)
 
 (** [trm_annot]: a record containing all kinds of annotations used on the AST of OptiTrust. *)
 and trm_annot = {
