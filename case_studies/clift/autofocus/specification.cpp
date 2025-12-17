@@ -86,7 +86,30 @@ void get_set_test(float*x, float *y, int n){
 
   x[MINDEX1(n,0)] = y[MINDEX1(n,0)];
 }
+void test_get_set_same_variable(float *x, float *y, int n) {
+  __modifies("x ~> Matrix1(n)");
 
+  x[MINDEX1(n, 0)] = x[MINDEX1(n, 1)] + 1.f;
+}
+
+void multi_get(float *x, float *y, int n) {
+  __reads("x ~> Matrix1(n)");
+  __reads("y ~> Matrix1(n)");
+  __pure();
+}
+void multi_get_caller(float *x, int m, int n) {
+  __reads("x ~> Matrix2(m,n)");
+  multi_get(&x[MINDEX2(m, n, 0, 0)], &x[MINDEX2(m, n, 1, 0)], n);
+}
+// void multi_get_values(float x1,float x2){
+//   __pure();
+//   __admitted();
+// }
+// void multi_get_values_caller(float*x, int n)
+// {
+//   __reads("x~>Matrix1(n)");
+//   multi_get_values(x[MINDEX1(n,0)], x[MINDEX1(n,1)]);
+// }
 
 ///////////////// Complex Access Patern
 // Indices are compose with sub-expressions

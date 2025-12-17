@@ -8,10 +8,7 @@ void rmsnorm(int col_count, float *y, float *x, float *w, float epsilon) {
   // calculate sum of squares
   float ss = 0.0f;
   for (int j = 0; j < col_count; j++) {
-    ss +=
-        x[MINDEX1(col_count, j)] *
-        x[MINDEX1(col_count,
-                  j)];
+    ss += x[MINDEX1(col_count, j)] * x[MINDEX1(col_count, j)];
   }
   ss /= col_count;
   ss += epsilon;
@@ -20,8 +17,7 @@ void rmsnorm(int col_count, float *y, float *x, float *w, float epsilon) {
   // normalize and scale
   for (int j = 0; j < col_count; j++) {
     y[MINDEX1(col_count, j)] =
-        w[MINDEX1(col_count, j)] *
-        (ss * x[MINDEX1(col_count, j)]);
+        w[MINDEX1(col_count, j)] * (ss * x[MINDEX1(col_count, j)]);
   }
 }
 
@@ -31,8 +27,7 @@ void softmax(int col_count, int col_stride, float *x) {
   float max_val = x[MINDEX1(col_count, 0)];
   for (int j = 1; j < col_count; j++) {
     if (x[MINDEX1(col_count, j)] > max_val) {
-      max_val =
-          x[MINDEX1(col_count, j)];
+      max_val = x[MINDEX1(col_count, j)];
     }
   }
   // exp and sum
@@ -52,9 +47,7 @@ void matvec(int col_count, int red_count, float *y, float *x, float *w) {
     y[MINDEX1(col_count, j)] = 0.0f;
     for (int k = 0; k < red_count; k++) {
       y[MINDEX1(col_count, j)] +=
-          x[MINDEX1(red_count, k)] *
-          w[MINDEX2(col_count, red_count, j, k)];
-
+          x[MINDEX1(red_count, k)] * w[MINDEX2(col_count, red_count, j, k)];
     }
   }
 }
@@ -115,7 +108,7 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
   float *const ffn_out = MALLOC1(float, embedding_dim);
   // Get embedding representation of each token in the token sequence
   for (int e = 0; e < embedding_dim; e++) {
-    embedding[MINDEX1(embedding_dim, e)] = //embedding[e]
+    embedding[MINDEX1(embedding_dim, e)] = // embedding[e]
         embedding_weight[MINDEX2(vocabulary_len, embedding_dim, token, e)]; //
   }
 
@@ -245,9 +238,9 @@ void forward(int token, int vocabulary_len, int context_len, int layer_count,
   rmsnorm(embedding_dim, &embedding[MINDEX0()], &embedding[MINDEX0()],
           out_norm_weight, epsilon);
   // classifier into logits
-  if(logits_count) {
-  matvec(vocabulary_len, embedding_dim, &logits[MINDEX0()],
-         &embedding[MINDEX0()], out_weight);
+  if (logits_count) {
+    matvec(vocabulary_len, embedding_dim, &logits[MINDEX0()],
+           &embedding[MINDEX0()], out_weight);
   }
   free(embedding);
   free(mha_norm);

@@ -139,7 +139,8 @@ let rec pull_nested_seq_on (t:trm): trm =
   | _ -> trm_map ~keep_ctx:true pull_nested_seq_on t
 
 let %transfo autofocus_elaboration (tg:target) : unit =
-apply_at_target_paths pull_nested_seq_on tg
+ ensure_computed();
+ apply_at_target_paths pull_nested_seq_on tg
 
 
 (** Specification of loop minimization.

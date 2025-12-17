@@ -22,8 +22,6 @@ let _ =
       !!Loop.reorder_at ~order:[ "q"; "i" ] [ nbMulti; f; cForBody "q"; dSeqNth 0 ];
       !!Loop.reorder_at ~order:[ "h"; "i" ] [ nbMulti; f; cForBody "h"; dSeqNth 0 ];
       !!Matrix.reorder_dims ~order:[ 1; 0; 2 ] [ nbMulti; f; cVarDefs [ "mha_q"; "mha_score"; "mha_blend" ] ];
-      let q_head_per_kv_head_count = trm_find_var "q_head_per_kv_head_count" [ cFunDefAndDecl "generate_prompt_proc" ] in
-      let kv_headcount = trm_find_var "kv_head_count" [ cFunDefAndDecl "generate_prompt_proc" ] in
       !!Matrix.tile ~block_size:q_head_per_kv_head_count ~nb_blocks:kv_headcount ~index_dim:0
         [ nbMulti; f; cVarDefs [ "mha_q"; "mha_score"; "mha_blend" ] ];
       !!Loop_basic.grid_enumerate [ ("h2", kv_headcount); ("q2", q_head_per_kv_head_count) ] [ nbMulti; f; cFor "q" ];
