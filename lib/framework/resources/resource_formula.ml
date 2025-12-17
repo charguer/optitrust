@@ -300,8 +300,17 @@ let formula_group_inv (t: trm): (var * trm * formula) option =
 
 let var_desyncgroup = toplevel_var "DesyncGroup"
 let trm_desyncgroup = trm_var var_desyncgroup
-let formula_desyncgroup (index: var) (bound: trm) (range: trm) (fi: formula) =
+let formula_desyncgroup (index: var) (range: trm) (bound: trm) (fi: formula) =
   trm_apps ~annot:formula_annot trm_desyncgroup [range; bound; formula_fun [index, typ_int] fi]
+
+let formula_desyncgroup_inv (t: trm): (var * trm * trm * formula) option =
+  match trm_apps_inv t with
+  | Some ({ desc = Trm_var v }, [range; bound; items]) when var_eq v var_desyncgroup ->
+    begin match trm_fun_inv items with
+    | Some ([index, _], _, body, _) -> Some (index, range, bound, body)
+    | _ -> None
+    end
+  | _ -> None
 
 let var_threadsctx = toplevel_var "ThreadsCtx"
 
@@ -313,6 +322,20 @@ let formula_threadsctx (range: trm) =
 let formula_threadsctx_inv (t: trm): (trm) option =
   match trm_apps_inv t with
   | Some ({ desc = Trm_var v }, [range]) when var_eq v var_threadsctx -> Some range
+  | _ -> None
+
+let var_sync = toplevel_var "Sync"
+
+let trm_sync = trm_var var_sync
+
+(* NOTE: RANGE HAS BEEN REMOVED !!!
+Not needed with DesyncGroups. See proof in Appendix A of spec document. *)
+let formula_sync (mem_fn: trm) (res: formula) =
+  trm_apps ~annot:formula_annot trm_sync [mem_fn;res]
+
+let formula_sync_inv (t: trm): (trm * formula) option =
+  match trm_apps_inv t with
+  | Some ({ desc = Trm_var v }, [mem_fn; res]) when var_eq v var_sync -> Some (mem_fn, res)
   | _ -> None
 
 (*let var_into_uninit = toplevel_var "_Uninit"
@@ -438,6 +461,16 @@ module Pattern = struct
       k
     | None -> raise Next
 
+  let formula_desyncgroup f_index f_range f_bound f_group_body k t =
+    match formula_desyncgroup_inv t with
+    | Some (index, range, bound, body) ->
+      let k = f_index k index in
+      let k = f_range k range in
+      let k = f_bound k bound in
+      let k = f_group_body k body in
+      k
+    | None -> raise Next
+
   let formula_range (f_begin: 'a -> trm -> 'b) (f_end: 'b -> trm -> 'c) (f_step: 'c -> trm -> 'd) =
     trm_apps3 (trm_specific_var var_range) f_begin f_end f_step
 
@@ -536,7 +569,7 @@ let formula_desyncgroup_range (range: loop_range) (r_t: trm) : formula -> formul
   formula_map_under_read_only (fun fi ->
     let range_var = new_var ~namespaces:range.index.namespaces range.index.name in
     let fi = trm_subst_var range.index (trm_var range_var) fi in
-    formula_desyncgroup range_var range.stop r_t fi
+    formula_desyncgroup range_var r_t range.stop fi
   )
 
 let formula_matrix_inv (f: formula): (trm * trm list * (trm*mem_typ) option) option =

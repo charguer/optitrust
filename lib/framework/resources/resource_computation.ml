@@ -1221,7 +1221,9 @@ let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): uni
   ()
 
 (* TODO: kind of a stupid function as we can just access the range from the place that its called; maybe this should just return bool or something *)
+(* Note: cant be part of typechecker because range is never a resource in the context, only a syntactic construct *)
 let simplify_thread_for_range (range: loop_range): (var * trm) option =
+  (* cleanup with Option.Monad? *)
   let range_s = Option.some (range.index, range.stop) in
   let range_s = Option.bind (trm_int_inv range.start) (fun s -> if s = 0 then range_s else None) in
   let range_s = Option.bind (trm_int_inv range.step) (fun s -> if s = 1 then range_s else None) in
@@ -1271,6 +1273,30 @@ let compute_thread_for_info (range: loop_range) (res: resource_set): thread_for_
     r_in;
   }
 
+let sync_normalization (res: resource_set): resource_set =
+  let find_mem_fn_proof (mem_fn: trm) (mem: trm) =
+    let proof_type = (trm_apps mem_fn [mem]) in
+    List.find_opt (fun (_,r) -> Trm_unify.are_same_trm proof_type r) res.pure in
+  (* TODO: Could use a trm_map below, but will it always commute with permissions that wrap others? *)
+  (* TODO: I have opted to allow incremental sync normalization. If it encounters a p ~~>[M] v, and doesn't find fM M in context,
+    it will simply wrap it back in Sync(fM, p ~~>[M] v).
+    The implications of this decision for the correctness proof are documented in Appendix A of spec doc.*)
+  let rec normalize_sync (t: trm) (mem_fn: trm) = Pattern.pattern_match t [
+    Pattern.(formula_group !__ !__ !__) (fun idx range sub () ->
+      formula_group idx range (normalize_sync mem_fn sub));
+    Pattern.(formula_desyncgroup !__ __ !__ !__) (fun idx bound sub () ->
+      formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (normalize_sync mem_fn sub));
+    Pattern.(formula_points_to !__ !__ !__) (fun var model mem_typ () ->
+      match (find_mem_fn_proof mem_fn mem_typ) with
+      | Some _ -> t
+      | None -> formula_sync mem_fn t
+      );
+    Pattern.__ (fun () -> t)
+  ] in
+  let normalize_sync_or_id (t: trm) = match (formula_sync_inv t) with
+  | Some (mem_fn, t) -> normalize_sync t mem_fn
+  | _ -> t in
+  { res with linear = List.map (fun (v,t) -> (v,normalize_sync_or_id t)) res.linear}
 
 let check_loop_contract_types ~(pure_ctx: pure_env) (contract: loop_contract): unit =
   let pure_ctx = check_pure_resource_types ~pure_ctx contract.loop_ghosts in
@@ -1763,7 +1789,7 @@ let rec compute_resources
           usage_map, { res with pure = List.rev rev_pure_res; aliases; fun_specs }
         in
         let usage_map, res_after = elim_pure_vars arg_ensured_vars usage_map res_after in
-
+        let res_after = sync_normalization res_after in
         Some usage_map, Some res_after
 
       with
