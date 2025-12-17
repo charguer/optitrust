@@ -4,13 +4,11 @@
 #include <optitrust_models.h>
 
 __DECL(GMem, "MemType");
-__DECL(GpuThread, "int * int -> HProp");
-__DECL(GpuBlock, "int * int -> HProp");
 
 template <typename T> T __GMEM_GET_IMPL(T* p);
 template <typename T> T __GMEM_GET(T* p) {
   __requires("v: T, t: int");
-  __preserves("GpuThread(t, 1)");
+  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
   __reads("p ~~>[GMem] v");
   __ensures("__spec_override_ret(T, v)");
   __admitted();
@@ -20,7 +18,7 @@ template <typename T> T __GMEM_GET(T* p) {
 template <typename T> void __GMEM_SET_IMPL(T* p, T v);
 template <typename T> void __GMEM_SET(T* p, T v) {
   __requires("t: int");
-  __preserves("GpuThread(t, 1)");
+  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
   __writes("p ~~>[GMem] v");
   __ensures("__spec_override_noret()");
   __admitted();
@@ -32,7 +30,7 @@ template <typename T> void __GMEM_SET(T* p, T v) {
 template <typename T> T* __GMEM_ALLOC_FN_IMPL();
 template <typename T> T* __GMEM_ALLOC_FN() {
   __requires("t: int");
-  __preserves("GpuThread(t, 1)");
+  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
   __produces("_Res ~> UninitCellOf(GMem)");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
@@ -43,7 +41,7 @@ template <typename T> T* __GMEM_ALLOC_FN() {
 template <typename T> void __GMEM_FREE_IMPL(T* p);
 template <typename T> void __GMEM_FREE(T* p) {
   __requires("t: int");
-  __preserves("GpuThread(t, 1)");
+  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
   __consumes("p ~> UninitCellOf(GMem)");
   __ensures("__spec_override_noret()");
   __admitted();

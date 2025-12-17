@@ -1281,7 +1281,7 @@ let sync_normalization (res: resource_set): resource_set =
   (* TODO: I have opted to allow incremental sync normalization. If it encounters a p ~~>[M] v, and doesn't find fM M in context,
     it will simply wrap it back in Sync(fM, p ~~>[M] v).
     The implications of this decision for the correctness proof are documented in Appendix A of spec doc.*)
-  let rec normalize_sync (t: trm) (mem_fn: trm) = Pattern.pattern_match t [
+   let rec normalize_sync (mem_fn: trm) (t: trm) = Pattern.pattern_match t [
     Pattern.(formula_group !__ !__ !__) (fun idx range sub () ->
       formula_group idx range (normalize_sync mem_fn sub));
     Pattern.(formula_desyncgroup !__ __ !__ !__) (fun idx bound sub () ->
@@ -1294,7 +1294,7 @@ let sync_normalization (res: resource_set): resource_set =
     Pattern.__ (fun () -> t)
   ] in
   let normalize_sync_or_id (t: trm) = match (formula_sync_inv t) with
-  | Some (mem_fn, t) -> normalize_sync t mem_fn
+  | Some (mem_fn, t) -> normalize_sync mem_fn t
   | _ -> t in
   { res with linear = List.map (fun (v,t) -> (v,normalize_sync_or_id t)) res.linear}
 
@@ -2179,6 +2179,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_formula.var_group, typ_pure_simple_fun [typ_range; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_desyncgroup, typ_pure_simple_fun [typ_range; typ_int; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_threadsctx, typ_pure_simple_fun [typ_range] typ_hprop;
+  Resource_formula.var_sync, typ_pure_simple_fun [typ_pure_simple_fun [typ_mem_type] typ_prop; typ_hprop] typ_hprop;
   Resource_formula.var_frac, typ_type;
   Resource_formula.var_read_only, typ_pure_simple_fun [Resource_formula.typ_frac; typ_hprop] typ_hprop;
   Resource_formula.var_is_true, typ_pure_simple_fun [typ_bool] typ_prop;
