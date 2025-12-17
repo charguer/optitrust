@@ -279,6 +279,11 @@ let trm_range_plus = trm_var var_range_plus
 let formula_range_plus (start: trm) (len: trm) =
   trm_apps ~annot:formula_annot trm_range_plus [start; len]
 
+let formula_range_plus_inv (t: trm): (trm * trm) option =
+  match trm_apps_inv t with
+  | Some ({ desc = Trm_var v }, [base; len]) when var_eq v var_range_plus -> Some (base,len)
+  | _ -> None
+
 let var_group = toplevel_var "Group"
 let trm_group = trm_var var_group
 let formula_group (index: var) (range: trm) (fi: formula) =
@@ -304,6 +309,11 @@ let trm_threadsctx = trm_var var_threadsctx
 
 let formula_threadsctx (range: trm) =
   trm_apps ~annot:formula_annot trm_threadsctx [range]
+
+let formula_threadsctx_inv (t: trm): (trm) option =
+  match trm_apps_inv t with
+  | Some ({ desc = Trm_var v }, [range]) when var_eq v var_threadsctx -> Some range
+  | _ -> None
 
 (*let var_into_uninit = toplevel_var "_Uninit"
 let trm_into_uninit = trm_var var_into_uninit
@@ -518,6 +528,15 @@ let formula_group_range (range: loop_range) : formula -> formula =
     let range_var = new_var ~namespaces:range.index.namespaces range.index.name in
     let fi = trm_subst_var range.index (trm_var range_var) fi in
     formula_group range_var (formula_loop_range range) fi
+  )
+
+let formula_desyncgroup_range (range: loop_range) (r_t: trm) : formula -> formula =
+  (* FIXME: Need to generalize models ! *)
+  (* FIXME: under read only, OK to or should ask for group instead of desyncgroup? IDK *)
+  formula_map_under_read_only (fun fi ->
+    let range_var = new_var ~namespaces:range.index.namespaces range.index.name in
+    let fi = trm_subst_var range.index (trm_var range_var) fi in
+    formula_desyncgroup range_var range.stop r_t fi
   )
 
 let formula_matrix_inv (f: formula): (trm * trm list * (trm*mem_typ) option) option =

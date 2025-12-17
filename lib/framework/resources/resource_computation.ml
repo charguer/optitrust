@@ -347,6 +347,13 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
         if not (is_typ_integer arg_typ) then failwith "MINDEX should only be applied on integer arguments but here has argument '%s' of type '%s'" (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ)
         ) args;
       typ_int
+    | Trm_var xf, _ when var_eq xf (Matrix_trm.msize_var (List.length args)) ->
+      (* TODO: This should not be a special case. We should add a way to register pure arithmetic functions that can be used both in code and in specs *)
+      List.iter (fun arg ->
+        let arg_typ = compute_pure_typ env arg in
+        if not (is_typ_integer arg_typ) then failwith "MSIZE should only be applied on integer arguments but here has argument '%s' of type '%s'" (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ)
+        ) args;
+      typ_int
     | Trm_var xf, _ when var_eq xf typ_fun_var ->
       List.iter (fun arg ->
         let arg_sort = compute_pure_typ env arg in
@@ -988,6 +995,17 @@ let global_errors : (resource_error_phase * exn) list ref = ref []
     storing the error messages. *)
 exception ResourceError of trm * resource_error_phase * exn
 
+(* TODO: better eror messages for the structural wellformedness check of the thread for using this? *)
+(*type thread_for_malformed_issue = NonzeroStart | NonunitaryStep | BadDirection
+exception ThreadForMalformed of thread_for_malformed_issue
+
+let thread_for_issue_to_string (issue: thread_for_malformed_issue) : string =
+  match issue with
+  | NonzeroStart -> "non-zero start index"
+  | NonunitaryStep -> "loop increment is not 1"
+  | BadDirection -> "loop index should only increment"*)
+
+
 (* let debug_1108 = ref (fun (item: resource_item) (context: resource_item list) -> ()) *)
 
 let _ = Printexc.register_printer (function
@@ -1004,6 +1022,8 @@ let _ = Printexc.register_printer (function
     Some (Printf.sprintf "Fraction constraint unsatisfied: %s <= %s (currently we only reason about fractions of the form a - a/n - ... - a/n)" (formula_to_string efrac) (formula_to_string bigger_frac))
   | ResourceError (_t, phase, err) ->
     Some (Printf.sprintf "%s error: %s" (resource_error_phase_to_string phase) (Printexc.to_string err));
+  (*| ThreadForMalformed (issue) ->
+    Some (Printf.sprintf "malformed thread for: %s" (thread_for_issue_to_string issue));*)
   | _ -> None)
 
 
@@ -1199,6 +1219,58 @@ let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): uni
   let pure_ctx = check_resource_set_types ~pure_ctx contract.pre in
   let _ = check_resource_set_types ~pure_ctx contract.post in
   ()
+
+(* TODO: kind of a stupid function as we can just access the range from the place that its called; maybe this should just return bool or something *)
+let simplify_thread_for_range (range: loop_range): (var * trm) option =
+  let range_s = Option.some (range.index, range.stop) in
+  let range_s = Option.bind (trm_int_inv range.start) (fun s -> if s = 0 then range_s else None) in
+  let range_s = Option.bind (trm_int_inv range.step) (fun s -> if s = 1 then range_s else None) in
+  if (range.direction = DirUp) then range_s else None
+
+let extract_threadsctx (res: resource_set): trm =
+  match (List.find_map (fun (_,f) -> formula_threadsctx_inv f) res.linear) with
+  | Some tctx -> tctx
+  | _ -> failwith "Cannot find ThreadsCtx in context"
+
+type thread_range_components = (trm list * trm list * trm list)
+
+let extract_thread_range_components (r_t: trm): thread_range_components =
+  let (tid,sz) = Option.unsome ~error:"Expected range_plus in ThreadsCtx" (formula_range_plus_inv r_t) in
+  let dims_low = match Matrix_trm.msize_inv sz with
+  | Some (_::dims_low) -> dims_low (* Lowest dimension should be equal to our loop range *)
+  | _ -> failwith "Expected at least 1 dimension in ThreadsCtx size!" in
+  let (dims_high_1,inds_1) = Option.unsome (Matrix_trm.mindex_inv tid) in
+  let (dims_high,_) = List.unlast dims_high_1 in (* Last dimension should be equal to our thread context size *)
+  let (inds,_) = List.unlast inds_1 in (* Last index should be zero *)
+  (dims_high,dims_low,inds)
+
+let gen_outside_loop_thread_range (cs: thread_range_components) (loop_end: trm): trm =
+  let dims_high,dims_low,inds_high = cs in
+  let sz = Matrix_trm.msize (loop_end::dims_low) in
+  let dims = dims_high @ [sz] in
+  let inds = inds_high @ [trm_int 0] in
+  formula_range_plus (Matrix_trm.mindex dims inds) sz
+
+let gen_inside_loop_thread_range (cs: thread_range_components) (loop_ind: var) (loop_end: trm): trm =
+  let dims_high,dims_low,inds_high = cs in
+  let sz = Matrix_trm.msize dims_low in
+  let dims = dims_high @ [loop_end; sz] in
+  let inds = inds_high @ [trm_var loop_ind; trm_int 0] in
+  formula_range_plus (Matrix_trm.mindex dims inds) sz
+
+(* Reads the context of the thread for, and turns it into the expected thread ranges in the inside and outside of the loop.
+  This is because we can't really have variadic contracts, so we have to infer the arity of things from what's actually in the context. *)
+let compute_thread_for_info (range: loop_range) (res: resource_set): thread_for_info =
+  let (loop_ind,loop_end) = Option.unsome ~error:"Malformed thread for range" (simplify_thread_for_range range) in
+  let r_out = extract_threadsctx res in
+  let cs = extract_thread_range_components r_out in
+  let r_out_exp = gen_outside_loop_thread_range cs loop_end in
+  let r_in = gen_inside_loop_thread_range cs loop_ind loop_end in
+  {
+    r_out = r_out_exp;
+    r_in;
+  }
+
 
 let check_loop_contract_types ~(pure_ctx: pure_env) (contract: loop_contract): unit =
   let pure_ctx = check_pure_resource_types ~pure_ctx contract.loop_ghosts in
@@ -1846,17 +1918,19 @@ let rec compute_resources
 
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
     | Trm_for (range, body, contract) ->
-      let is_threadfor = Option.is_some (List.find_opt (fun a -> a = ThreadFor) (trm_get_attr t)) in
+      let threadfor_info = Option.bind
+        (List.find_opt (fun a -> a = ThreadFor) (trm_get_attr t))
+        (fun _ -> Some (compute_thread_for_info range res)) in
       let contract_ctx = pure_env res in
       let contract_ctx = { contract_ctx with res = (range.index, typ_int) :: contract_ctx.res } in
       (* TODO: Since this is just checking the pure types of the contract, I don't think thread for adds anything?
       And even if there is a mistake and it needs something else, I think it would only result in more programs being rejected, not a soundness bug? *)
       check_loop_contract_types ~pure_ctx:contract_ctx contract;
 
-      let outer_contract = contract_outside_loop range contract in
+      let outer_contract = contract_outside_loop threadfor_info range contract in
       let usage_map, res_after = compute_contract_invoc outer_contract res t in
 
-      let inner_contract = contract_inside_loop range contract in
+      let inner_contract = contract_inside_loop threadfor_info range contract in
       (* If the contract is not strict put all the framed resources inside the invariant *)
       let inner_contract, included_frame_hyps = if contract.strict then inner_contract, Var_set.empty else
         let frame = (Option.get t.ctx.ctx_resources_contract_invoc).contract_frame in
@@ -2099,6 +2173,7 @@ let init_ctx = Resource_set.make ~pure:[
   var_ignore, typ_auto;
   mem_typ_any_var, typ_mem_type;
 ] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_specs) ()
+(* TODO: MSIZE HERE HAS TO BE A PURE FUNCTION  AS WELL !*)
 
 (** Compute resources inside [t] in place.
   Type errors are saved in a global list, and errors

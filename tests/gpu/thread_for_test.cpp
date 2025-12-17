@@ -1,17 +1,16 @@
 #include "optitrust_models.h"
 
-void stuff(int *a, int *s, int N) {
+void stuff(int *a, int N) {
   /*__writes("a ~~> 1");
   *a = 1;
   *a = 2;*/
   __requires("N: int, A: int -> int");
-  __preserves("ThreadsCtx(range_plus(0, N))");
-  __preserves("DesyncGroup(range_plus(0,N), N, fun i -> &a[i] ~~> A(i))");
-  __writes("s ~~> 0");
-  *s = 0;
+  __preserves("ThreadsCtx(range_plus(MINDEX1(MSIZE1(N),0), MSIZE1(N)))");
+  __consumes("DesyncGroup(range_plus(MINDEX1(MSIZE1(N),0), MSIZE1(N)), N, fun i -> &a[i] ~~> 0)");
+  __produces("DesyncGroup(range_plus(MINDEX1(MSIZE1(N),0), MSIZE1(N)), N, fun i -> &a[i] ~~> 1)");
   for (int i = 0; i < N; i++) {
-    __spreserves("s ~~> 0");
-    *s = 1;
-    *s = 0;
+    __xconsumes("&a[i] ~~> 0");
+    __xproduces("&a[i] ~~> 1");
+    a[i] = 1;
   }
 }

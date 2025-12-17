@@ -210,7 +210,7 @@ Note the extraction runs at the very start of compute_resources (or maybe after 
 
 (** [contract_outside_loop range contract] takes the [contract] of a for-loop over [range] and returns
   the contract of the for instruction. *)
-let contract_outside_loop range contract =
+let [@warning "-21"] contract_outside_loop threadfor_info range contract =
   (* First Check that contract.invariant is empty for thread for *)
   (* Pre: better have
       - Rin = tin..+N with very specific requirements with MINDEX, MSIZE, etc. => COMPUTE THIS INFO FIRST AND MAKE A STRUCT
@@ -223,12 +223,22 @@ let contract_outside_loop range contract =
       - ThreadsCtx(Rin)
       - DesyncGroup with same Rin and range
       *)
+  let grp_apply_fn = match threadfor_info with
+    | Some info ->
+      if not (Resource_set.is_empty contract.invariant) then failwith "Invariant not allowed inside threadfor!" else ();
+      (* TODO: should the pre & post share the threadsctx variable or no? *)
+      let tctx = (new_anon_hyp (),formula_threadsctx info.r_out) in
+      fun range res -> (
+        let res = Resource_set.desyncgroup_range info.r_out range res in
+        { res with linear = tctx :: res.linear }
+      )
+    | _ ->  Resource_set.group_range in
   let invariant_before = Resource_set.subst_loop_range_start range contract.invariant in
-  let pre = Resource_set.group_range range contract.iter_contract.pre in
+  let pre = grp_apply_fn range contract.iter_contract.pre in
   let pre = Resource_set.union invariant_before (Resource_set.add_linear_list contract.parallel_reads pre) in
   let pre = { pre with pure = contract.loop_ghosts @ pre.pure } in
   let invariant_after = Resource_set.subst_loop_range_end range contract.invariant in
-  let post = Resource_set.group_range range contract.iter_contract.post in
+  let post = grp_apply_fn range contract.iter_contract.post in
   let post = Resource_set.add_linear_list contract.parallel_reads post in
   let post = Resource_set.union invariant_after post in
   { pre; post }
@@ -241,7 +251,7 @@ let parallel_reads_inside_loop range par_reads =
 
 (** [contract_inside_loop range contract] takes the [contract] of a for-loop over [range] and returns
   the contract of its body. *)
-let contract_inside_loop range contract =
+let contract_inside_loop threadfor_info range contract =
   (*  (Optionally check emptyness of contract here as well for thread for)
   (assume same loop range requirements) Pre: give
     - i in range 0..N
@@ -257,7 +267,14 @@ let contract_inside_loop range contract =
   let invariant_after_one_iter = Resource_set.subst_loop_range_step range contract.invariant in
   let post = Resource_set.add_linear_list par_reads_inside contract.iter_contract.post in
   let post = Resource_set.union invariant_after_one_iter post in
-  { pre; post }
+  match threadfor_info with
+  | Some info ->
+    if not (Resource_set.is_empty contract.invariant) then failwith "Invariant not allowed inside threadfor!" else ();
+    (* TODO: should the pre & post share the threadsctx variable or no? *)
+    let tctx = (new_anon_hyp (),formula_threadsctx info.r_in) in
+    let add_tctx res = { res with linear = tctx :: res.linear } in
+    { pre = add_tctx pre; post = add_tctx post }
+  | _ -> { pre; post }
 
 (** [revert_fun_contract contract] returns a contract that swaps the resources produced and consumed. *)
 let revert_fun_contract contract =

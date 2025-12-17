@@ -87,6 +87,14 @@ let group_range (range: loop_range) (res: resource_set): resource_set =
     aliases = res.aliases; (* FIXME: Probably wrong when aliasing variables from [pure] *)
     struct_fields = res.struct_fields; }
 
+(** Given a resource set [res] that may depend on the [i] index of [range], produces the resource set resulting from applying DesyncGroup to resource items forall [i]. *)
+let desyncgroup_range (r_t: trm) (range: loop_range) (res: resource_set): resource_set =
+  { pure = List.map (fun (x, fi) -> (x, formula_forall_range range fi)) res.pure;
+    linear = List.map (fun (x, fi) -> (x, formula_desyncgroup_range range r_t fi)) res.linear;
+    fun_specs = res.fun_specs;
+    aliases = res.aliases; (* FIXME: Probably wrong when aliasing variables from [pure] *)
+    struct_fields = res.struct_fields; }
+
 (** Given a resource set, produces a resource set with read-only access to its resources that can be duplicated: RW_in => RO_out; RO_out => RO_out * (trm_copy RO_out); *)
 let read_only (res: resource_set): resource_set =
   let frac_var, frac_item = new_frac () in
