@@ -5,6 +5,8 @@
 
 __DECL(GMem, "MemType");
 
+extern const int __threadfor;
+
 template <typename T> T __GMEM_GET_IMPL(T* p);
 template <typename T> T __GMEM_GET(T* p) {
   __requires("v: T, t: int");

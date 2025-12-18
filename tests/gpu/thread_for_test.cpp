@@ -43,10 +43,10 @@ void stuff(int *a, int N, int M) {
   // Trm_for should have an extra argument
   // Smart constructor for trm_for should have a default
   // actual Trm_for does not appear so often
-  __thread; for (int j = 0; j < N; j++) {
+  __threadfor; for (int j = 0; j < N; j++) {
     __xconsumes("DesyncGroup(range_plus(MINDEX2(N,MSIZE1(M),j,0), MSIZE1(M)), M, fun k -> &a[MINDEX2(N,M,j,k)] ~~>[GMem] 0)");
     __xproduces("DesyncGroup(range_plus(MINDEX2(N,MSIZE1(M),j,0), MSIZE1(M)), M, fun k -> &a[MINDEX2(N,M,j,k)] ~~>[GMem] 1)");
-    for (int k = 0; k < M; k++) {
+    __threadfor; for (int k = 0; k < M; k++) {
       __xconsumes("&a[MINDEX2(N,M,j,k)] ~~>[GMem] 0");
       __xproduces("&a[MINDEX2(N,M,j,k)] ~~>[GMem] 1");
       __GMEM_SET(&a[MINDEX2(N,M,j,k)],1);
@@ -55,14 +55,14 @@ void stuff(int *a, int N, int M) {
   sync_test();
 }
 
-
+/*
 void stuff2(int *a, int N, int M) {
   __requires("N: int, M: int, A: int * int -> int");
   __consumes("for i in 0..N -> for j in 0..M+i -> &a[MINDEX2(N,M,i,j)] ~~> 0");
   __produces("for i in 0..N -> for j in 0..M+i -> &a[MINDEX2(N,M,i,j)] ~~> 1");
   __DEF(Arange, "fun (i: int) -> 0..M+i");
-  /*__DEF(Acell, "fun (v: int) (i1: int) (i2: int) -> &a[MINDEX2(N,M,i1,i2)] ~~> v");
-    __DEF(Agroup, "fun (v: int) (i1: int) -> Group(r, fun i2 -> Acell(v, i1, i2))");*/
+  __DEF(Acell, "fun (v: int) (i1: int) (i2: int) -> &a[MINDEX2(N,M,i1,i2)] ~~> v");
+    __DEF(Agroup, "fun (v: int) (i1: int) -> Group(r, fun i2 -> Acell(v, i1, i2))");
   for (int i1 = 0; i1 < N; i1++) {
     //__xrequires("r: Range");
     __xconsumes("Group(Arange(i1), fun i2 -> &a[MINDEX2(N,M,i1,i2)] ~~> 0)");
@@ -77,3 +77,4 @@ void stuff2(int *a, int N, int M) {
     }
   }
 }
+*/
