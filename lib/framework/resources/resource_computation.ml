@@ -1789,6 +1789,7 @@ let rec compute_resources
           usage_map, { res with pure = List.rev rev_pure_res; aliases; fun_specs }
         in
         let usage_map, res_after = elim_pure_vars arg_ensured_vars usage_map res_after in
+        (* TODO document that this only works if sync is a postcondition*)
         let res_after = sync_normalization res_after in
         Some usage_map, Some res_after
 
