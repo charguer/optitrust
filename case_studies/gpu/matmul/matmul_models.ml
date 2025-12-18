@@ -9,22 +9,27 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_script
 
 (* let _ = Flags.report_exectime := true *)
 
-(* Reproducing a TVM schedule for matrix multiplication:
-   1. improve data locality by blocking the computation of C and preloading B with a packed memory layout
-   2. unroll loops and introduce parallelism with vectorization and multi-threading
-
-   c.f. README.md
-*)
-
-let int = trm_int
-
 let bm = 32
+let bn  = 32
+let bk = 4
+let tm = 8
+let tn = 4
 
 let current_stage = 1
 
 let _ = if current_stage = 1 then begin
 Run.script_cpp (fun () ->
-  (* !! Matrix.local_name ~type_and_dims:(~var:"c" ~local_var:"c_gmem" [cFor "i"]; *)
+  let def_tile_sizes (tile_dim_name, tile_dim_size) =
+    Variable.insert ~name:tile_dim_name ~typ:typ_int ~value:(trm_int tile_dim_size) [tFirst]
+  in
+    !! List.iter def_tile_sizes [
+      "tm", tm;
+      "tn", tn;
+      "bk", bk;
+      "bn", bn;
+      "bm", bm
+    ];
+
   !! Matrix.local_name_tile ~uninit_pre:true ~var:"c" ~local_var:"c_gmem" [cFor "i"];
   !! Matrix.local_name_tile ~uninit_post:true ~var:"a" ~local_var:"a_gmem" [cFor "i"];
   !! Matrix.local_name_tile ~uninit_post:true ~var:"b" ~local_var:"b_gmem" [cFor "i"];
@@ -32,22 +37,23 @@ Run.script_cpp (fun () ->
   let rec tiles (loop_id, tile_name_sizes) =
     match tile_name_sizes with
     | (tile_name, tile_size) :: rest ->
-      Loop.tile (int tile_size) ~index:tile_name ~bound:TileDivides [cFor loop_id];
+      Loop.tile tile_size ~index:tile_name ~bound:TileDivides [cFor loop_id];
       tiles (loop_id, rest)
     | [] -> ()
     in
   !! List.iter tiles [
-    "i", ["bi", bm; "ti", 8];
-    "j", ["bj", 32; "tj", 4];
-    "k", ["bkIdx", 4]
+    "i", ["bi", (trm_find_var "bm" []); "ti", (trm_find_var "tm" [])]; (*trm_int tm)]; *)
+    "j", ["bj", (trm_find_var "bn" []); "tj", (trm_find_var "tn" [])];
+    "k", ["bkIdx", (trm_find_var "bk" [])]
   ];
+  (* FIXME using vars for tm and tn breaks reordering. *)
   !! Loop.reorder_at ~order:["bi"; "bj"; "bkIdx"; "ti"; "tj"; "k"; "i"; "j"] [cPlusEq ~lhs:[cVar "sum"] ()];
 
   !! Cleanup.std ()
   (* !! Matrix.local_name_tile ~uninit_post:true ~var:"a_gmem" ~local_var:"a_smem" [cFor "bkIdx"; cFor "ti"]; *)
   (* !! Matrix.local_name_tile ~uninit_post:true ~var:"b_gmem" ~local_var:"b_smem" [cFor "bkIdx"; cFor "ti"]; *)
 )
-  end
+end
 
 let _ =  if current_stage = 2 then begin
 Run.script_cpp ~filename:"matmul_models_out.cpp" (fun () ->
