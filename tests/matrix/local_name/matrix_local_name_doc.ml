@@ -6,6 +6,6 @@ let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun _ ->
   let (a, _) = find_var "a" [] in
-  !! Matrix_basic.local_name a ~into:"b" [cFor "i"];
+  !! Matrix_basic.local_name ~var:a ~local_var:"b" [cFor "i"];
 
 )

@@ -250,7 +250,7 @@ let formula_points_to_inv (t: formula): (trm * formula * mem_typ) option =
   ]
 
 
-let formula_uninit_cell ~mem_typ (addr: trm): formula =
+let formula_uninit_cell ?(mem_typ = mem_typ_any) (addr: trm): formula =
   formula_repr addr (trm_uninit_cell ~mem_typ ())
 
 let formula_uninit_cell_inv (t: formula): (trm * typ) option =

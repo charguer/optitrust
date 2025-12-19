@@ -140,7 +140,7 @@ let swap_on (t: trm): trm =
         swaps_post)
     );
     Pattern.__ (fun () ->
-      if !Flags.check_validity then failwith "Loop.swap: not targetting two nested for-loop";
+      if !Flags.check_validity then failwith "Loop.swap: not targeting two nested for-loop";
       swap_on_any_loop t)
   ]
 
@@ -290,6 +290,8 @@ let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = 
       Ghost_pair.reintro_pairs_at loop_pairs seq_p;
 
       Ghost_pure.move_surrounding_inside [cPath seq_p; cMark inner_loop_m];
+      (* TODO: this is required if other transformations like Variable_basic.inline don't eagerly do it. *)
+      Resources.make_strict_loop_contracts [cPath seq_p; cMark outer_loop_m];
       swap_basic [cPath seq_p; cMark outer_loop_m];
     end
   )

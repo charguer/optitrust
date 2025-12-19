@@ -50,6 +50,8 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
       in
 
       let m_loops = next_mark () in
+      (* TODO: this is required if other transformations like Variable_basic.inline don't eagerly do it. *)
+      Resources.make_strict_loop_contracts [cPath p_loop];
       fission_basic ~mark_loops:m_loops ~mark_between_loops:m_between [cPath p_loop_body; cMark m_interstice];
       if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
         Ghost_pair.minimize_all_in_seq [nbExact 2; cPath p_outer_seq; cMark m_loops; dBody];
@@ -268,6 +270,8 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
       Instr.move_in_seq ~dest:[tFirst] (target_of_path p);
       let seq_p, _ = Path.extract_last_dir p in
       Ghost_pure.minimize_all_in_seq (target_of_path seq_p);
+      (* TODO: this is required if other transformations like Variable_basic.inline don't eagerly do it. *)
+      Resources.make_strict_loop_contracts [];
       let path = Target.resolve_target_exactly_one [cMark instr_mark; tBefore] in
       let p_seq, instr_index = Path.extract_last_dir_before path in
       for _ = 0 to instr_index - 1 do
