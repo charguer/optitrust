@@ -1464,7 +1464,7 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) ?(f
       if (share_if_no_change && init' == init && cond' == cond && step' == step && body' == body && invariant' == invariant)
         then t
         else (trm_for_c ~annot ?loc ?invariant:invariant' ~ctx init' cond' step' body')
-  | Trm_for (range, _, body, contract) ->
+  | Trm_for (range, mode, body, contract) ->
     let start = f range.start in
     let stop = f range.stop in
     let step = f range.step in
@@ -1476,7 +1476,7 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) ?(f
     let contract' = loop_contract_map contract in
     if (share_if_no_change && range' == range && body' == body && contract' == contract)
       then t
-      else (trm_for ~annot ?loc ~contract:contract' ~ctx range' body')
+      else (trm_for ~mode ~annot ?loc ~contract:contract' ~ctx range' body')
   | Trm_switch (cond, cases) ->
       let cond' = f cond in
       let cases' = list_map
@@ -1646,7 +1646,7 @@ let trm_map_vars_ret_ctx
       in
       (cont_ctx, t')
 
-    | Trm_for (range, _, body, contract) ->
+    | Trm_for (range, mode, body, contract) ->
       let loop_ctx, index = map_binder (enter_scope ctx t) range.index false in
       let _, start = f_map loop_ctx range.start in
       let _, stop = f_map loop_ctx range.stop in
@@ -1659,7 +1659,7 @@ let trm_map_vars_ret_ctx
       let loop_ctx, body' = f_map loop_ctx body in
       let t' = if (range' == range && body' == body && contract == contract')
         then t
-        else (trm_for ~annot ?loc ~ctx:t_ctx ~contract:contract' range' body')
+        else (trm_for ~mode ~annot ?loc ~ctx:t_ctx ~contract:contract' range' body')
       in
       let ctx = exit_scope ctx loop_ctx t' in
       (ctx, t')
