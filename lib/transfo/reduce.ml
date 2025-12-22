@@ -168,7 +168,7 @@ let%transfo elim ?(unroll : bool = false) ?(inline : bool = false) (tg : target)
 let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
   (* FIXME: needs refactor, do at least unrolling with combi *)
   let error = "expected for loop" in
-  let (range, instrs, contract) = trm_inv ~error trm_for_inv_instrs t in
+  let (range, mode, instrs, contract) = trm_inv ~error trm_for_inv_instrs t in
   if not (trm_is_one range.step) then
     trm_fail t "non-unary loop range not yet supported";
   if range.direction <> DirUp then
@@ -257,7 +257,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
       Trm (trm_set (trm_copy (subst_start_index out)) (trm_var_get acc));
       TrmMlist (Mlist.map (fun t -> trm_copy (subst_start_index t)) after_instrs);
       TrmList roll_ghosts;
-      Trm (trm_for new_range ~contract:new_contract (trm_seq_helper [
+      Trm (trm_for ~mode new_range ~contract:new_contract (trm_seq_helper [
         TrmList subrange_assumptions;
         TrmMlist before_instrs;
         (* trm_compound_assign Binop_add (trm_var acc) value *)
@@ -274,7 +274,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
       Trm (trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) base_reduce));
       Trm (trm_set (trm_copy (subst_start_index out)) (trm_var_get acc));
       TrmMlist (Mlist.map (fun t -> trm_copy (subst_start_index t)) after_instrs);
-      Trm (trm_for new_range (trm_seq_helper [
+      Trm (trm_for ~mode new_range (trm_seq_helper [
         TrmMlist before_instrs;
         (* trm_compound_assign Binop_add (trm_var acc) value *)
         Trm (trm_set (trm_var acc) (trm_sub_int (trm_add_int (trm_var_get acc) rec_reduce_add) rec_reduce_sub));

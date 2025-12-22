@@ -1845,10 +1845,12 @@ let rec compute_resources
       end
 
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
-    | Trm_for (range, body, contract) ->
+    | Trm_for (range, mode, body, contract) ->
       let contract_ctx = pure_env res in
       let contract_ctx = { contract_ctx with res = (range.index, typ_int) :: contract_ctx.res } in
       check_loop_contract_types ~pure_ctx:contract_ctx contract;
+
+      if (not (Resource_set.is_empty contract.invariant)) && mode <> Sequential then failwith "non-sequential for loop cannot have sequential invariant";
 
       let outer_contract = contract_outside_loop range contract in
       let usage_map, res_after = compute_contract_invoc outer_contract res t in

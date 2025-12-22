@@ -408,23 +408,24 @@ let cVarsDef ?(regexp : bool = false) ?(substr : bool = false) ?(body : target =
   let ty_pred = make_typ_constraint ~typ ~typ_pred () in
   Constr_decl_vars (ty_pred, ro, body)
 
-(** [cFor ~start ~direction ~stop ~step ~body index] matches simple for loops
+(** [cFor ~mode ~start ~direction ~stop ~step ~body index] matches simple for loops
+     [mode] - match based on the loop execution mode
      [start] - match based on the initial value trm
      [direction] - match based on the direction of the loop
      [stop] - match based on the bound value trm
      [body] - match based on the step value trm
      [index] - match based on the index. *)
-let cFor ?(start : target = []) ?(direction : loop_dir option) ?(stop : target = []) ?(step : target = [])
+let cFor ?(mode : loop_mode option) ?(start : target = []) ?(direction : loop_dir option) ?(stop : target = []) ?(step : target = [])
   ?(body : target = []) (index : string) : constr =
   let ro = string_to_rexp_opt ~regexp:false ~substr:false index TrmKind_Instr in
-  Constr_for (ro, start, direction, stop, step, body)
+  Constr_for (ro, mode, start, direction, stop, step, body)
 
 let cFors (vars : string list) : constr =
   cOr (List.map (fun v -> [cFor v]) vars)
 
-let cForBody ?(start : target = []) ?(direction : loop_dir option) ?(stop : target = []) ?(step : target = [])
+let cForBody ?(mode : loop_mode option) ?(start : target = []) ?(direction : loop_dir option) ?(stop : target = []) ?(step : target = [])
   ?(body : target = []) (index : string) : constr =
-  cTarget [cFor ~start ?direction ~stop ~step ~body index; dBody]
+  cTarget [cFor ?mode ~start ?direction ~stop ~step ~body index; dBody]
 
 
 (** [cForNestedAtDepth i]: matches the loop at depth [i] on a nested loops trm. *)
