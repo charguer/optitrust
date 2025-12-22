@@ -8,7 +8,5 @@ let _ = Flags.dump_ast_details := true
 let _ = Run.script_cpp (fun () ->
   (*!! Instr_basic.move ~dest:[tBefore; cWriteVar "a"; occFirst] [cWriteVar "a"; occLast];*)
   (*!! Gpu_basic.thread_for [cFor "i"];*)
-(*!! Gpu_basic.thread_for [cFor "j"];
-  !! Gpu_basic.thread_for [cFor "k"];*)
   !! Resources.ensure_computed ();
   );

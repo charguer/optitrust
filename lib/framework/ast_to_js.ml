@@ -238,7 +238,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         let children = (child_to_json "fun" (aux f)) :: args_children in
         [ kind_to_field "app";
           children_to_field children]
-    | Trm_for (range, body, _) ->
+    | Trm_for (range, _, body, _) ->
       [ kind_to_field "simple_for";
           (strquote "index", strquote range.index.name); (* TODO: #var-id , also encode namespaces and id ? *)
           children_to_field [

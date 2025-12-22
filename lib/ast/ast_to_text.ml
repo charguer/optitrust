@@ -150,7 +150,6 @@ and print_attribute style (a : attribute) : document =
   | Alignas t ->
      string "Alignas" ^^ blank 1 ^^ print_trm style t
   | GhostInstr -> string "GhostInstr"
-  | ThreadFor -> string "ThreadFor"
 
 (** [print_var]: converts [v] into a docuemnt. *)
 and print_var style (v : var) : document =
@@ -213,7 +212,12 @@ and print_trm_desc style (t : trm_desc) : document =
      let dbody = print_trm style body in
      print_node "Trm_for_c" ^^ parens (separate (comma ^^ break 1)
        [dinit; dcond; dstep; dbody])
-  | Trm_for (range, body, _) ->
+  | Trm_for (range, mode, body, _) ->
+    let dmode = match mode with
+    | Sequential -> string "seq"
+    | Parallel -> string "par"
+    | GpuThread -> string "thread"
+    in
     let dstart = print_trm style range.start in
     let dstop = print_trm style range.stop in
     let ddir  = match range.direction with
@@ -225,7 +229,7 @@ and print_trm_desc style (t : trm_desc) : document =
     let dstep = print_trm style range.step in
     let dbody = print_trm style body in
     print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
-      [print_var style range.index; dstart; ddir; dstop; dstep; dbody])
+      [dmode; print_var style range.index; dstart; ddir; dstop; dstep; dbody])
   | Trm_switch (cond, cases) ->
      let dcond = print_trm style cond in
      let dcases =

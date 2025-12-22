@@ -89,8 +89,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
         { t with desc = Trm_let (tx, body)}
       | Dir_let_body, Trm_let (tx, body) ->
         trm_replace (Trm_let (tx, aux body)) t
-      | Dir_body, Trm_for (l_range, body, contract) ->
-        { t with desc = Trm_for (l_range, aux body, contract) }
+      | Dir_body, Trm_for (l_range, l_mode, body, contract) ->
+        { t with desc = Trm_for (l_range, l_mode, aux body, contract) }
       | Dir_body, Trm_for_c (init, cond, step, body, contract) ->
         { t with desc = Trm_for_c (init, cond, step, aux body, contract) }
       | Dir_body, Trm_while (cond, body) ->
@@ -101,12 +101,12 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
         { t with desc = Trm_abort (Ret (Some (aux body)))}
       | Dir_body, Trm_fun (params, tyret, body, contract) ->
         trm_replace (Trm_fun (params, tyret, aux body, contract)) t
-      | Dir_for_start, Trm_for (range, body, contract) ->
-        { t with desc = Trm_for ({ range with start = aux range.start }, body, contract)}
-      | Dir_for_stop, Trm_for (range, body, contract) ->
-        { t with desc = Trm_for ({ range with stop = aux range.stop }, body, contract)}
-      | Dir_for_step, Trm_for (range, body, contract) ->
-        { t with desc = Trm_for ({ range with step = aux range.step }, body, contract)}
+      | Dir_for_start, Trm_for (range, mode, body, contract) ->
+        { t with desc = Trm_for ({ range with start = aux range.start }, mode, body, contract)}
+      | Dir_for_stop, Trm_for (range, mode, body, contract) ->
+        { t with desc = Trm_for ({ range with stop = aux range.stop }, mode, body, contract)}
+      | Dir_for_step, Trm_for (range, mode, body, contract) ->
+        { t with desc = Trm_for ({ range with step = aux range.step }, mode, body, contract)}
       | Dir_for_c_init, Trm_for_c (init, cond, step, body, contract) ->
         { t with desc = Trm_for_c (aux init, cond, step, body, contract)}
       | Dir_for_c_step, Trm_for_c (init, cond, step, body, contract) ->
@@ -181,21 +181,21 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
         let post = apply_on_resource_set resource_set_dir i contract.post in
         trm_replace (Trm_fun (params, tyret, body, FunSpecContract { contract with post })) t
 
-      | Dir_contract (Contract_pre, resource_set_dir, i), Trm_for (range, body, contract) ->
+      | Dir_contract (Contract_pre, resource_set_dir, i), Trm_for (range, mode, body, contract) ->
         let pre = apply_on_resource_set resource_set_dir i contract.iter_contract.pre in
-        trm_replace (Trm_for (range, body, { contract with iter_contract = { contract.iter_contract with pre } })) t
-      | Dir_contract (Contract_post, resource_set_dir, i), Trm_for (range, body, contract) ->
+        trm_replace (Trm_for (range, mode, body, { contract with iter_contract = { contract.iter_contract with pre } })) t
+      | Dir_contract (Contract_post, resource_set_dir, i), Trm_for (range, mode, body, contract) ->
         let post = apply_on_resource_set resource_set_dir i contract.iter_contract.post in
-        trm_replace (Trm_for (range, body, { contract with iter_contract = { contract.iter_contract with post } })) t
-      | Dir_contract (Contract_loop_ghosts, Resource_set_pure, i), Trm_for (range, body, contract) ->
+        trm_replace (Trm_for (range, mode, body, { contract with iter_contract = { contract.iter_contract with post } })) t
+      | Dir_contract (Contract_loop_ghosts, Resource_set_pure, i), Trm_for (range, mode, body, contract) ->
         let loop_ghosts = List.update_nth i aux_resource_item contract.loop_ghosts in
-        trm_replace (Trm_for (range, body, { contract with loop_ghosts })) t
-      | Dir_contract (Contract_parallel_reads, Resource_set_linear, i), Trm_for (range, body, contract) ->
+        trm_replace (Trm_for (range, mode, body, { contract with loop_ghosts })) t
+      | Dir_contract (Contract_parallel_reads, Resource_set_linear, i), Trm_for (range, mode, body, contract) ->
         let parallel_reads = List.update_nth i aux_resource_item contract.parallel_reads in
-        trm_replace (Trm_for (range, body, { contract with parallel_reads })) t
-      | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for (range, body, contract) ->
+        trm_replace (Trm_for (range, mode, body, { contract with parallel_reads })) t
+      | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for (range, mode, body, contract) ->
         let invariant = apply_on_resource_set resource_set_dir i contract.invariant in
-        trm_replace (Trm_for (range, body, { contract with invariant })) t
+        trm_replace (Trm_for (range, mode, body, { contract with invariant })) t
 
       | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for_c (start, cond, incr, body, Some invariant) ->
         let invariant = apply_on_resource_set resource_set_dir i invariant in
@@ -291,7 +291,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         | _ -> aux body ctx
         end *)
         aux body
-      | Dir_body, Trm_for (_, body, _) ->
+      | Dir_body, Trm_for (_, _, body, _) ->
         aux body
       | Dir_var_body, Trm_let (_, body) ->
         (* DEPRECATED:
@@ -304,11 +304,11 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         | Dir_body, Trm_do_while (body, _)
         | Dir_body, Trm_abort (Ret (Some body)) ->
         aux body
-      | Dir_for_start, Trm_for (range, _, _) ->
+      | Dir_for_start, Trm_for (range, _, _, _) ->
         aux range.start
-      | Dir_for_stop, Trm_for (range, _, _) ->
+      | Dir_for_stop, Trm_for (range, _, _, _) ->
         aux range.stop
-      | Dir_for_step, Trm_for (range, _, _) ->
+      | Dir_for_step, Trm_for (range, _, _, _) ->
         aux range.step
       | Dir_for_c_init, Trm_for_c (init, _, _, _, _) ->
         aux init
@@ -381,15 +381,15 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         aux_resource_set resource_set_dir i contract.pre
       | Dir_contract (Contract_post, resource_set_dir, i), Trm_fun (params, tyret, body, FunSpecContract contract) ->
         aux_resource_set resource_set_dir i contract.post
-      | Dir_contract (Contract_pre, resource_set_dir, i), Trm_for (range, body, contract) ->
+      | Dir_contract (Contract_pre, resource_set_dir, i), Trm_for (range, mode, body, contract) ->
         aux_resource_set resource_set_dir i contract.iter_contract.pre
-      | Dir_contract (Contract_post, resource_set_dir, i), Trm_for (range, body, contract) ->
+      | Dir_contract (Contract_post, resource_set_dir, i), Trm_for (range, mode, body, contract) ->
         aux_resource_set resource_set_dir i contract.iter_contract.post
-      | Dir_contract (Contract_loop_ghosts, Resource_set_pure, i), Trm_for (range, body, contract) ->
+      | Dir_contract (Contract_loop_ghosts, Resource_set_pure, i), Trm_for (range, mode, body, contract) ->
         aux_resource_item (List.nth contract.loop_ghosts i)
-      | Dir_contract (Contract_parallel_reads, Resource_set_linear, i), Trm_for (range, body, contract) ->
+      | Dir_contract (Contract_parallel_reads, Resource_set_linear, i), Trm_for (range, mode, body, contract) ->
         aux_resource_item (List.nth contract.parallel_reads i)
-      | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for (range, body, contract) ->
+      | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for (range, mode, body, contract) ->
         aux_resource_set resource_set_dir i contract.invariant
       | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for_c (start, cond, incr, body, Some invariant) ->
         aux_resource_set resource_set_dir i invariant

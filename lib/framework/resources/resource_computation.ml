@@ -1944,15 +1944,17 @@ let rec compute_resources
       end
 
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
-    | Trm_for (range, body, contract) ->
-      let threadfor_info = Option.bind
-        (List.find_opt (fun a -> a = ThreadFor) (trm_get_attr t))
-        (fun _ -> Some (compute_thread_for_info range res)) in
+    | Trm_for (range, mode, body, contract) ->
+      let threadfor_info = match mode with
+      | GpuThread -> Some (compute_thread_for_info range res)
+      | _ -> None in
       let contract_ctx = pure_env res in
       let contract_ctx = { contract_ctx with res = (range.index, typ_int) :: contract_ctx.res } in
       (* TODO: Since this is just checking the pure types of the contract, I don't think thread for adds anything?
       And even if there is a mistake and it needs something else, I think it would only result in more programs being rejected, not a soundness bug? *)
       check_loop_contract_types ~pure_ctx:contract_ctx contract;
+
+      if (not (Resource_set.is_empty contract.invariant)) && mode <> Sequential then failwith "non-sequential for loop cannot have sequential invariant";
 
       let outer_contract = contract_outside_loop threadfor_info range contract in
       let usage_map, res_after = compute_contract_invoc outer_contract res t in

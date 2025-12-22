@@ -210,7 +210,7 @@ Note the extraction runs at the very start of compute_resources (or maybe after 
 
 (** [contract_outside_loop range contract] takes the [contract] of a for-loop over [range] and returns
   the contract of the for instruction. *)
-let [@warning "-21"] contract_outside_loop threadfor_info range contract =
+let contract_outside_loop threadfor_info range contract =
   (* First Check that contract.invariant is empty for thread for *)
   (* Pre: better have
       - Rin = tin..+N with very specific requirements with MINDEX, MSIZE, etc. => COMPUTE THIS INFO FIRST AND MAKE A STRUCT
@@ -225,7 +225,6 @@ let [@warning "-21"] contract_outside_loop threadfor_info range contract =
       *)
   let grp_apply_fn = match threadfor_info with
     | Some info ->
-      if not (Resource_set.is_empty contract.invariant) then failwith "Invariant not allowed inside threadfor!" else ();
       (* TODO: should the pre & post share the threadsctx variable or no? *)
       let tctx = (new_anon_hyp (),formula_threadsctx info.r_out) in
       fun range res -> (

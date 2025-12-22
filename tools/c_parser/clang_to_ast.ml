@@ -350,8 +350,8 @@ and tr_stmt (s : stmt) : trm =
     let instrs = List.fold_left (fun instrs inst -> Pattern.pattern_match inst [
       Pattern.(trm_var_with_name "__threadfor") (fun () ->
         thread_for_seen := true; instrs);
-      Pattern.(trm_for __ __ __) (fun () ->
-        let inst = if !thread_for_seen then trm_add_attribute ThreadFor inst else inst in
+      Pattern.(trm_for !__ __ !__ !__) (fun range body contract () ->
+        let inst = if !thread_for_seen then (trm_like ~old:inst (trm_for ~contract ~mode:GpuThread range body)) else inst in
         thread_for_seen := false; instrs @ [inst]);
       Pattern.__ (fun () ->  thread_for_seen := false; instrs @ [inst])
     ]) [] instrs in
