@@ -336,13 +336,13 @@ let move_in_loop_on (i : int) (t : trm) : trm =
     | Some v -> if v <> ghost_name then trm_fail t "Move ghost_pair_in: Not the same ghost instruction" else v
     | _ -> trm_fail t "move_in_loop: Expected a ghost end juste after the loop"
   in
-  let range, body_instrs, contract =
+  let range, mode, body_instrs, contract =
     trm_inv ~error:"move_in_loop: expeted the target to be pointing at a for loop" trm_for_inv_instrs t_for
   in
   let new_contract = remove_resource_in_contract produced contract in
   let new_body = trm_seq_helper [ Trm ghost_begin; TrmMlist body_instrs; Trm ghost_end ] in
   trm_seq_helper
-    [ TrmMlist (Mlist.pop_back lbefore); Trm (trm_for ~contract:new_contract range new_body); TrmMlist (Mlist.pop_front lafter) ]
+    [ TrmMlist (Mlist.pop_back lbefore); Trm (trm_for ~mode ~contract:new_contract range new_body); TrmMlist (Mlist.pop_front lafter) ]
 
 (** [move_in_loop tg]: Expects the target to point at a loop
 Will try to ove the first ghost pairs inside the loop body :

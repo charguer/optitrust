@@ -315,7 +315,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
             ) field_list)
           );
           (* TODO: also do other contracts *)
-          Pattern.(trm_for !__ !__ !__) (fun range body spec () ->
+          Pattern.(trm_for !__ !__ !__ !__) (fun range mode body spec () ->
             let fracs_map = fracs_map_init spec.loop_ghosts in
             let contract = { spec with
               invariant = aux_resource_set fracs_map spec.invariant;
@@ -325,7 +325,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
             let contract = { contract with
               loop_ghosts = fracs_map_update_fracs fracs_map spec.loop_ghosts;
             } in
-            trm_map aux (trm_for ~annot:t.annot ~contract range body)
+            trm_map aux (trm_for ~mode ~annot:t.annot ~contract range body)
           );
           Pattern.(trm_fun_with_contract !__ !__ !__) (fun args body contract () ->
             let fracs_map = fracs_map_init contract.pre.pure in

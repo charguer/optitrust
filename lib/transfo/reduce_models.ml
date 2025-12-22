@@ -200,8 +200,8 @@ let%transfo slide
 
     (* 3. find loops with [__spreserves("&s ~~> reduce_int_sum(i, k, f_elem)");] contract. *)
     let error = "expected for loop instrs" in
-    let (i_range, for_i_instrs, _) = trm_inv ~error trm_for_inv_instrs for_i in
-    let (k_range, for_k_instrs, for_k_contract) = begin
+    let (i_range, _, for_i_instrs, _) = trm_inv ~error trm_for_inv_instrs for_i in
+    let (k_range, _, for_k_instrs, for_k_contract) = begin
       Option.unsome ~error:"expected inner for loop instrs" (Mlist.find_map trm_for_inv_instrs for_i_instrs)
     end in
     let s = Option.unsome ~error:"could not find contract on reduction" (List.find_map (fun (_, r) ->

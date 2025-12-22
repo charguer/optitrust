@@ -64,13 +64,13 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           let aux = trm_map ~f_formula:perform_subst_formula perform_subst_trm in
           Pattern.pattern_match t [
             Pattern.(trm_specific_var x) (fun () -> trm_copy init);
-            Pattern.(trm_for !__ !__ !__) (fun range body spec () ->
+            Pattern.(trm_for !__ !__ !__ !__) (fun range mode body spec () ->
               (* NOTE: erase contracts on the way, the inline expression might require more resources. *)
               let t2 = aux t in
               Pattern.pattern_match t2 [
-                Pattern.(trm_for !__ !__ !__) (fun range body spec () ->
+                Pattern.(trm_for !__  !__ !__ !__) (fun range mode body spec () ->
                   let contract = { spec with strict = false } in
-                  trm_for ~annot:t.annot ~contract range body
+                  trm_for ~mode ~annot:t.annot ~contract range body
                 )
               ]
             );

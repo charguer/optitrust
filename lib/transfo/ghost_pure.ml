@@ -203,8 +203,8 @@ let copy_inside_from_seq (index: int) (seq: trm): trm =
       None) (Mlist.to_list tl_before) in
 
   let new_t = Pattern.pattern_match t [
-    Pattern.(trm_for !__ (trm_seq !__ __) !__) (fun range body contract () ->
-      trm_like ~old:t (trm_for ~contract range (trm_seq_helper [TrmList pure_ghosts_before; TrmMlist body]))
+    Pattern.(trm_for !__ !__ (trm_seq !__ __) !__) (fun range mode body contract () ->
+      trm_like ~old:t (trm_for ~mode ~contract range (trm_seq_helper [TrmList pure_ghosts_before; TrmMlist body]))
     );
     (* LATER: Manage other kinds of terms with a notion of inside *)
     Pattern.__ (fun () -> failwith "Ghost_pair.copy_inside_from_seq: the targetted item is not handled")
@@ -227,8 +227,8 @@ let move_inside_from_seq (index: int) (seq: trm): trm =
   let tl_before, pure_ghosts_before = Mlist.split last_impure_instr tl_before in
 
   let new_t = Pattern.pattern_match t [
-    Pattern.(trm_for !__ (trm_seq !__ __) !__) (fun range body contract () ->
-      trm_like ~old:t (trm_for ~contract range (trm_seq_helper [TrmMlist pure_ghosts_before; TrmMlist body]))
+    Pattern.(trm_for !__ !__ (trm_seq !__ __) !__) (fun range mode body contract () ->
+      trm_like ~old:t (trm_for ~mode ~contract range (trm_seq_helper [TrmMlist pure_ghosts_before; TrmMlist body]))
     );
     (* LATER: Manage other kinds of terms with a notion of inside *)
     Pattern.__ (fun () -> failwith "Ghost_pair.move_inside_from_seq: the targetted item is not handled")

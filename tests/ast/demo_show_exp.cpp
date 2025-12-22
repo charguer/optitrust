@@ -14,8 +14,10 @@ int main() {
 CAPTURED STDOUT:
 AST:
 
+
+
   int main ()  {
-  int a, b;
+  int  a,  b;
   int x = 3;
   x--;
   for (int i = 0; i < 3; i++) {
@@ -24,7 +26,8 @@ AST:
     x++;
   }
 }
-for-trm-internal-desc: Trm_for (i,
+for-trm-internal-desc: Trm_for (seq,
+  i,
   Trm_lit (Lit_int 0),
   Up,
   Trm_lit (Lit_int 3),

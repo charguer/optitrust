@@ -110,7 +110,7 @@ and constr =
   (* for: init, cond, step, body *)
   | Constr_for_c of target * target * target * target
   (* for index, start, stop, step, body *)
-  | Constr_for of constr_name * target * loop_dir option * target * target * target
+  | Constr_for of constr_name * loop_mode option * target * loop_dir option * target * target * target
   (* while: cond, body *)
   | Constr_while of target * target
   (* do while: body, cond *)
@@ -306,12 +306,12 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
      let s_step = aux p_step in
      let s_body = aux p_body in
      Constr_for_c (s_init, s_cond, s_step, s_body)
-  | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body) ->
+  | Constr_for (p_index, p_mode, p_start, p_direction, p_stop, p_step, p_body) ->
       let s_start = aux p_start in
       let s_stop = aux p_stop in
       let s_step = aux p_step in
       let s_body = aux p_body in
-      Constr_for (p_index, s_start, p_direction, s_stop, s_step, s_body)
+      Constr_for (p_index, p_mode, s_start, p_direction, s_stop, s_step, s_body)
   | Constr_while (p_cond, p_body) ->
      let s_cond = aux p_cond in
      let s_body = aux p_body in
@@ -732,12 +732,15 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
     check_target p_cond cond &&
     check_target p_step step &&
     check_target p_body body
-  | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body), Trm_for(range, body, _) ->
+  | Constr_for (p_index, p_mode, p_start, p_direction, p_stop, p_step, p_body), Trm_for(range, mode, body, _) ->
     let direction_match = match p_direction with
     | None -> true
     | Some d -> d = range.direction in
+    let mode_match = match p_mode with
+    | None -> true
+    | Some m -> m = mode in
     check_name p_index range.index.name &&
-    direction_match &&
+    direction_match && mode_match &&
     check_target p_start range.start &&
     check_target p_stop range.stop &&
     check_target p_step range.step &&
@@ -1359,7 +1362,7 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
       end
     | Trm_abort (Ret (Some body)) ->
       add_dir Dir_body (aux body)
-    | Trm_for (range, body, contract) ->
+    | Trm_for (range, mode, body, contract) ->
       (add_dir Dir_for_start (aux range.start)) @
       (add_dir Dir_for_stop (aux range.stop)) @
       (add_dir Dir_for_step (aux range.step)) @
@@ -1474,7 +1477,7 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
     add_dir Dir_let_body (aux body)
   | Dir_body, Trm_fun (_, _, body, _)
   | Dir_body, Trm_for_c (_, _, _, body, _)
-  | Dir_body, Trm_for (_, body, _)
+  | Dir_body, Trm_for (_, _, body, _)
   | Dir_body, Trm_while (_, body)
   | Dir_body, Trm_do_while (body, _)
   | Dir_body, Trm_abort (Ret (Some body)) ->
@@ -1483,9 +1486,9 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
      add_dir Dir_for_c_init (aux init)
   | Dir_for_c_step, Trm_for_c (_, _, step, _, _) ->
      add_dir Dir_for_c_step (aux step)
-  | Dir_for_start, Trm_for (range, _, _) ->
+  | Dir_for_start, Trm_for (range, _, _, _) ->
      add_dir Dir_for_start (aux range.start)
-  | Dir_for_stop, Trm_for (range, _, _) ->
+  | Dir_for_stop, Trm_for (range, _, _, _) ->
      add_dir Dir_for_stop (aux range.stop)
   | Dir_app_fun, Trm_apps (f, _, _, _) -> add_dir Dir_app_fun (aux f)
   | Dir_arg_nth n, Trm_apps (_, tl, _, _) ->

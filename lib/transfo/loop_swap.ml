@@ -82,10 +82,10 @@ let ghost_swap (outer_range: loop_range) inner_range (_, formula) =
 let swap_on (t: trm): trm =
   (* TODO: refactor *)
   Pattern.pattern_match t [
-    Pattern.(!(trm_for !__ (
-      trm_seq (mlist (!(trm_for !__ !__ !strict_loop_contract) ^:: nil)) __)
+    Pattern.(!(trm_for !__ !__ (
+      trm_seq (mlist (!(trm_for !__ !__ !__ !strict_loop_contract) ^:: nil)) __)
       !strict_loop_contract))
-    (fun outer_loop outer_range inner_loop inner_range body inner_contract outer_contract () ->
+    (fun outer_loop outer_range outer_mode inner_loop inner_range inner_mode body inner_contract outer_contract () ->
       let open Resource_contract in
       if outer_contract.invariant <> Resource_set.empty then
         if not !Flags.check_validity then raise_notrace Pattern.Next else
@@ -135,8 +135,8 @@ let swap_on (t: trm): trm =
       let new_outer_contract = { loop_ghosts; invariant = new_outer_inv; parallel_reads = new_outer_par_reads; iter_contract = { pre = new_outer_pre; post = new_outer_post }; strict = true } in
 
       trm_seq_nobrace_nomarks (swaps_pre @
-        [trm_for inner_range ~annot:inner_loop.annot ~contract:new_outer_contract (trm_seq_nomarks [
-          trm_copy (trm_for outer_range ~annot:outer_loop.annot ~contract:new_inner_contract body)])] @
+        [trm_for inner_range ~mode:inner_mode ~annot:inner_loop.annot ~contract:new_outer_contract (trm_seq_nomarks [
+          trm_copy (trm_for outer_range ~mode:outer_mode ~annot:outer_loop.annot ~contract:new_inner_contract body)])] @
         swaps_post)
     );
     Pattern.__ (fun () ->

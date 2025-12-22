@@ -196,7 +196,7 @@ let decode_stackvar (t : trm) : trm =
         | Some r when is_var_mutable !env r -> trm_fail t "C_encoding.decode_stackvar: the result of a sequence cannot be a mutable variable"
         | _ -> t
       )
-    | Trm_for (range, _, _) ->
+    | Trm_for (range, _, _, _) ->
         onscope env t (fun t -> add_var env range.index Var_immutable; trm_map aux t)
     | Trm_for_c _ ->
         onscope env t (fun t -> trm_map aux t)
@@ -281,7 +281,7 @@ let encode_stackvar (t : trm) : trm =
       end*)
     | Trm_seq _ when not (trm_is_nobrace_seq t) ->
       onscope env t (trm_map aux)
-    | Trm_for (range, _, _) ->
+    | Trm_for (range, _, _, _) ->
       onscope env t (fun t -> begin add_var env range.index Var_immutable; trm_map aux t end)
     | Trm_for_c _ -> onscope env t (fun t -> trm_map aux t)
     | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get);_}, [{desc = Trm_var x; _} as t1], _, _) when is_var_mutable !env x -> t1
@@ -1021,13 +1021,13 @@ let decode_contract (t: trm): trm =
     | None -> trm_map aux t
     end
 
-  | Trm_for (range, body, contract) ->
+  | Trm_for (range, mode, body, contract) ->
     assert (contract = empty_loop_contract);
     begin match trm_seq_inv body with
     | Some (body_seq, result) ->
       let contract, new_body = extract_loop_contract body_seq in
       let new_body = Mlist.map aux new_body in
-      trm_alter ~desc:(Trm_for (range, trm_seq ?result new_body, contract)) t
+      trm_alter ~desc:(Trm_for (range, mode, trm_seq ?result new_body, contract)) t
     | None -> trm_map aux t
     end
 
@@ -1280,7 +1280,7 @@ let rec encode_contract (style: style) (t: trm): trm =
       then t
       else trm_like ~old:t (trm_fun args ty body)
 
-  | Trm_for (range, body0, contract) ->
+  | Trm_for (range, mode, body0, contract) ->
     let body = encode_contract style body0 in
     let used_vars = loop_contract_used_vars contract in
     let preserves_clause = if !Flags.use_resources_with_models then __xpreserves else __xmodifies in
@@ -1306,7 +1306,7 @@ let rec encode_contract (style: style) (t: trm): trm =
       else body in
     if body == body0
       then t
-      else trm_like ~old:t (trm_for range body)
+      else trm_like ~old:t (trm_for ~mode range body)
 
   | Trm_seq (instrs, result) ->
     trm_like ~old:t (trm_seq ?result (Mlist.map (encode_contract style) instrs))

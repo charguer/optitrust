@@ -145,10 +145,11 @@ let trm_let_fun name ret args body spec k t =
     k
   | _ -> raise Next
 
-let trm_for range body spec k t =
+let trm_for range mode body spec k t =
   match t.desc with
-  | Trm_for (trange, tbody, tspec) ->
+  | Trm_for (trange, tmode, tbody, tspec) ->
     let k = range k trange in
+    let k = mode k tmode in
     let k = body k tbody in
     let k = spec k tspec in
     k

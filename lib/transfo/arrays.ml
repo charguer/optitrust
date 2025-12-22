@@ -5,7 +5,7 @@ open Prelude
 (* returns the [i] and [indices - i] if [t] is a loop over index [i]. *)
 let inv_loop_with_index_in (indices : Var_set.t) (t : trm) : (var * Var_set.t) option =
   match trm_for_inv t with
-  | Some ({ index }, _, _) when Var_set.mem index indices ->
+  | Some ({ index }, _, _, _) when Var_set.mem index indices ->
     Some (index, Var_set.remove index indices)
   | _ -> None
 

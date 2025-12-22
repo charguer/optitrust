@@ -320,12 +320,12 @@ let minimize_loop_contract contract post_inst usage =
   }
 
 let loop_minimize_on (t: trm): trm =
-  let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
+  let range, mode, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
 
   let body_usage = usage_of_trm body in
   let post_inst = post_inst body in
   let new_contract = minimize_loop_contract contract post_inst body_usage in
-  trm_like ~old:t (trm_for range ~contract:new_contract body)
+  trm_like ~old:t (trm_for range ~mode ~contract:new_contract body)
 
 (** [loop_minimize]: minimize linear invariants of a loop contract *)
 let%transfo loop_minimize (*?(indepth : bool = false)*) (tg: target) : unit =
@@ -348,7 +348,7 @@ let%transfo fix_types_in_contracts (_u: unit): unit =
   Trace.justif "Only changing type annotations"
 
 let make_strict_loop_contract_on (t: trm): trm =
-  let range, body, contract = trm_inv ~error:"make_strict_loop_contract_on: not a for loop" trm_for_inv t in
+  let range, mode, body, contract = trm_inv ~error:"make_strict_loop_contract_on: not a for loop" trm_for_inv t in
   if contract.strict then trm_fail t "make_strict_loop_contract_on: the loop already has a strict contract";
 
   let body_res_usage = usage_of_trm body in
@@ -377,7 +377,7 @@ let make_strict_loop_contract_on (t: trm): trm =
     iter_contract = contract.iter_contract;
     strict = true }
   in
-  trm_alter ~desc:(Trm_for (range, body, contract)) t
+  trm_alter ~desc:(Trm_for (range, mode, body, contract)) t
 
 let rec make_strict_loop_contract_rec (t: trm): trm =
   match t.ctx.ctx_resources_before with
@@ -385,7 +385,7 @@ let rec make_strict_loop_contract_rec (t: trm): trm =
   | Some _ ->
     let t = trm_map ~keep_ctx:true make_strict_loop_contract_rec t in
     match t.desc with
-    | Trm_for (_, _, contract) when not contract.strict ->
+    | Trm_for (_, _, _, contract) when not contract.strict ->
       make_strict_loop_contract_on t
     | _ -> t
 
@@ -449,8 +449,8 @@ let%transfo set_fun_contract (contract: unparsed_fun_contract) (tg : Target.targ
   Target.apply_at_target_paths (set_fun_contract_on (parse_fun_contract contract)) tg
 
 let set_loop_contract_on (contract: loop_contract) (t: trm): trm =
-  let range, body, _ = trm_inv ~error:"Resource.set_loop_contract_on: Expected for loop" trm_for_inv t in
-  trm_like ~old:t (trm_for ~contract range body)
+  let range, mode, body, _ = trm_inv ~error:"Resource.set_loop_contract_on: Expected for loop" trm_for_inv t in
+  trm_like ~old:t (trm_for ~contract ~mode range body)
 
 let%transfo set_loop_contract ?(strict:bool=true) (contract: unparsed_loop_contract) (tg: Target.target): unit =
   Target.apply_at_target_paths (set_loop_contract_on (parse_loop_contract ~strict contract)) tg;
@@ -463,7 +463,7 @@ let%transfo set_loop_contract ?(strict:bool=true) (contract: unparsed_loop_contr
 let ghost_ro_group_focus = toplevel_var "ro_group_focus"
 
 let detach_loop_ro_focus_on (t: trm): trm =
-  let range, body, contract = trm_inv ~error:"detach_loop_ro_focus_on: not a for loop" trm_for_inv t in
+  let range, mode, body, contract = trm_inv ~error:"detach_loop_ro_focus_on: not a for loop" trm_for_inv t in
   let iter_reads, iter_pre, iter_post = filter_common_resources ~filter_map_left:(fun formula -> Option.map (fun _ -> formula) (formula_read_only_inv formula)) contract.iter_contract.pre.linear contract.iter_contract.post.linear in
   let new_par_reads = List.map (fun (x, formula) -> (x, formula_group_range range formula)) iter_reads in
   let contract = { contract with
@@ -481,7 +481,7 @@ let detach_loop_ro_focus_on (t: trm): trm =
     Resource_trm.ghost_scope (ghost_call ghost_ro_group_focus ["i", (trm_var range.index); "items", items])) iter_reads new_body
   in
   let new_body = trm_like ~old:body new_body in
-  trm_like ~old:t (trm_for range ~contract new_body)
+  trm_like ~old:t (trm_for range ~mode ~contract new_body)
 
 (** [detach_loop_ro_focus tg] transforms all the ressources that are in a reads clause (xreads) into a resource in a par_read (sreads) clause with a focus around the loop body. *)
 let%transfo detach_loop_ro_focus (tg: target): unit =

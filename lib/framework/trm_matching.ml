@@ -287,8 +287,10 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
         aux then1 then2;
         aux else1 else2
 
-    | Trm_for (range1, body1, _),
-      Trm_for (range2, body2, _) ->
+    | Trm_for (range1, mode1, body1, _),
+      Trm_for (range2, mode2, body2, _) ->
+        (* TODO: direction check wasn't here before? *)
+        if range1.direction <> range2.direction || mode1 <> mode2 then mismatch();
         aux range1.start range2.start;
         aux range1.stop range2.stop;
         aux range1.step range2.step;

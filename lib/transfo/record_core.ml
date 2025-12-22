@@ -485,13 +485,13 @@ let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field 
         ) fields)
       );
       (* TODO: also do other contracts *)
-      Pattern.(trm_for !__ !__ !__) (fun range body spec () ->
+      Pattern.(trm_for !__ !__ !__ !__) (fun range mode body spec () ->
         let contract = { spec with
           invariant = aux_resource_set spec.invariant;
           parallel_reads = aux_resource_items spec.parallel_reads;
           iter_contract = aux_fun_contract spec.iter_contract;
         } in
-        trm_map aux (trm_for ~annot:t.annot ~contract range body)
+        trm_map aux (trm_for ~mode ~annot:t.annot ~contract range body)
       );
       Pattern.(trm_fun_with_contract !__ !__ !__) (fun args body contract () ->
         let contract = aux_fun_contract contract in

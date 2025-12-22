@@ -637,7 +637,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       dattr ^^ string "for" ^^ blank 1 ^^
         parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
           blank 1 ^^ dbody
-    | Trm_for (l_range, body, loop_spec) ->
+    | Trm_for (l_range, _, body, loop_spec) -> (* loop_mode currently ignored in C printing *)
       let full_loop = (unpack_trm_for : ?loc:trm_loc -> loop_range -> trm -> trm) ?loc:t.loc l_range body in
       let dt = decorate_trm style full_loop in
       dt
