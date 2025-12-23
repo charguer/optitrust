@@ -86,6 +86,12 @@ __GHOST(rewrite_float_linear_admitted) {
   __admitted();
 }
 
+__GHOST(eq_refl) {
+  __requires("x:int");
+  __ensures("x = x");
+  __admitted();
+}
+
 __GHOST(eq_refl_float) {
   __requires("x:float");
   __ensures("x =. x");
