@@ -86,12 +86,6 @@ __GHOST(rewrite_float_linear_admitted) {
   __admitted();
 }
 
-__GHOST(eq_refl) {
-  __requires("x:int");
-  __ensures("x = x");
-  __admitted();
-}
-
 __GHOST(eq_refl_float) {
   __requires("x:float");
   __ensures("x =. x");
@@ -402,6 +396,7 @@ __GHOST(tiled_index_in_range) {
   __admitted();
 }
 
+__AXIOM(eq_refl, "forall (n: int) -> n = n");
 __AXIOM(eq_sym, "forall (m n: int) (eq: m = n) -> n = m");
 __AXIOM(zero_mul_intro, "forall (n: int) -> 0 = 0 * n");
 __AXIOM(plus_zero_intro, "forall (n: int) -> n = n + 0");

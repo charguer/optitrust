@@ -58,6 +58,15 @@ __GHOST(rewrite_range) {
   __admitted();
 }
 
+__GHOST(rewrite_linear_range) {
+  __requires("inside: Range -> HProp");
+  __requires("from: Range, to: Range");
+  __requires("by: range_eq(from, to)");
+  __consumes("inside(from)");
+  __produces("inside(to)");
+  __admitted();
+}
+
 // TODO: handle > 2 cases where we have > MINDEX1
 __GHOST(chunk_range_plus2) {
   __requires("D1: int, D2: int");
@@ -85,13 +94,12 @@ __GHOST(group_to_desyncgroup2) {
 __GHOST(desyncgroup_tile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
-    "size: int, items: int -> HProp,"
+    "items: int -> HProp,"
     "br: Range, r: int -> Range,"
-    "div_check: size = MSIZE2(tile_count,tile_size),"
     "inner_range_check: forall (i: int) -> range_eq(chunk_range(br, tile_count, i), r(i)),"
     "positive_tile_size: tile_size >= 0"
   );
-  __consumes("DesyncGroup(br, size, items)");
+  __consumes("DesyncGroup(br, MSIZE2(tile_count,tile_size), items)");
   __produces("DesyncGroup(br, tile_count, fun bi -> "
                "DesyncGroup(r(bi), tile_size, fun i -> items(MINDEX2(tile_count, tile_size, bi, i) ) ) )");
   __admitted();
@@ -101,13 +109,14 @@ __GHOST(desyncgroup_untile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
     "size: int, items: int -> HProp,"
-    "br: Range, r: int -> Range,"
-    "div_check: size = MSIZE2(tile_count,tile_size),"
+    "rf: Range, br: Range, r: int -> Range,"
+    "div_check: MSIZE2(tile_count,tile_size) = size,"
+    "outer_range_check: range_eq(br, rf),"
     "positive_tile_size: tile_size >= 0"
   );
   __consumes("DesyncGroup(br, tile_count, fun bi -> "
     "DesyncGroup(r(bi), tile_size, fun i -> items(MINDEX2(tile_count, tile_size, bi, i)) ))");
-  __produces("DesyncGroup(br, size, items)");
+  __produces("DesyncGroup(rf, size, items)");
   __admitted();
 }
 

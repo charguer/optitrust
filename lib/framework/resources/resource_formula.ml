@@ -514,6 +514,7 @@ let () = Printexc.register_printer (function
 let rec formula_uninit (formula: formula): formula =
   Pattern.pattern_match formula [
     Pattern.(formula_either_cell !__ !__) (fun addr mem_typ () -> formula_uninit_cell ~mem_typ addr);
+    Pattern.(formula_desyncgroup !__ !__ !__ !__) (fun idx range bound sub () -> formula_desyncgroup idx range bound (formula_uninit sub));
     Pattern.(formula_group !__ !__ !__) (fun idx range sub () -> formula_group idx range (formula_uninit sub));
     Pattern.__ (fun () -> raise (CannotTransformIntoUninit formula))
   ]
@@ -521,6 +522,7 @@ let rec formula_uninit (formula: formula): formula =
 let rec is_formula_uninit (formula: formula): bool =
   Pattern.pattern_match formula [
     Pattern.(formula_uninit_cell __ __) (fun () -> true);
+    Pattern.(formula_desyncgroup __ __ __ !__) (fun sub () -> is_formula_uninit sub);
     Pattern.(formula_group __ __ !__) (fun sub () -> is_formula_uninit sub);
     Pattern.__ (fun () -> false)
   ]
@@ -532,6 +534,7 @@ let rec raw_formula_uninit (formula: formula): formula =
       formula_uninit_cell ~mem_typ addr
     );
     Pattern.(trm_apps2 (trm_var_with_name var_group.name) !__ (trm_fun (pair !__ __ ^:: nil) __ !__ __)) (fun range idx sub () -> formula_group idx range (raw_formula_uninit sub));
+    Pattern.(trm_apps3 (trm_var_with_name var_desyncgroup.name) !__ !__ (trm_fun (pair !__ __ ^:: nil) __ !__ __)) (fun range bound idx sub () -> formula_desyncgroup idx range bound (raw_formula_uninit sub));
     Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_apps (trm_var !(check (fun v -> String.starts_with ~prefix:"Matrix" v.name))) !__ __ __)) (fun addr matrix_repr matrix_args () ->
       let size =
         if !Flags.use_resources_with_models then

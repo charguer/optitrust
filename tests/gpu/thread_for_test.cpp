@@ -50,13 +50,12 @@ void test2(int *a, int N, int M) {
       __GMEM_SET(&a[MINDEX2(N,M,i,j)], 1);
     }
   }
-
-  __ghost(eq_refl, "x := MSIZE2(N,M)");
-  __ghost(desyncgroup_untile_divides, "items := fun k -> &a[k] ~~>[GMem] 1, size := MSIZE2(N,M), tile_count := N, tile_size := M");
-  __ghost(rewrite_linear, "from := MSIZE2(N,M), to := MSIZE2(N*M/32, 32), inside := fun (sz: int) -> DesyncGroup(r1(sz), MSIZE2(N,M), fun j -> &a[j] ~~>[GMem] 1)");
-  __ghost(rewrite_linear, "from := MSIZE2(N,M), to := MSIZE2(N*M/32, 32), inside := fun (sz: int) -> ThreadsCtx(range_plus(MINDEX1(sz,0), sz))");
+  __ghost(rewrite_range, "rf := r1, from := MSIZE2(N,M), to := MSIZE2(N*M/32, 32)");
+  __ghost(desyncgroup_untile_divides, "items := fun k -> &a[k] ~~>[GMem] 1,  div_check := eq_retile");
   __ghost(chunk_range_plus2, "D2 := N*M/32, D1 := 32");
   __ghost(desyncgroup_tile_divides, "items := fun i -> &a[i] ~~>[GMem] 1, tile_count := N*M/32, tile_size := 32");
+
+  __ghost(rewrite_linear_range, "from := r1(MSIZE2(N,M)), to := r1(MSIZE2(N*M/32, 32)), inside := fun (r: Range) -> ThreadsCtx(r)");
 
   __threadfor; for (int i = 0; i < N*M/32; i++) {
     __xconsumes("DesyncGroup(r3(i), 32, fun j -> &a[MINDEX2(N*M/32,32,i,j)] ~~>[GMem] 1)");
@@ -69,14 +68,67 @@ void test2(int *a, int N, int M) {
     }
   }
 
-  __ghost(eq_refl, "x := MSIZE2(N*M/32,32)");
-  __ghost(desyncgroup_untile_divides, "items := fun k -> &a[k] ~~>[GMem] 1+1, size := MSIZE2(N*M/32,32), tile_count := N*M/32, tile_size := 32");
   __PROOF_OF(eq_retile_sym, "MSIZE2(N*M/32, 32) = MSIZE2(N,M)", "eq_sym(MSIZE2(N,M), MSIZE2(N*M/32, 32), eq_retile)");
-  __ghost(rewrite_linear, "from := MSIZE2(N*M/32, 32), to := MSIZE2(N,M), inside := fun (sz: int) -> DesyncGroup(r1(sz), MSIZE2(N*M/32,32), fun j -> &a[j] ~~>[GMem] 1+1)");
-  __ghost(rewrite_linear, "from := MSIZE2(N*M/32, 32), to := MSIZE2(N,M), inside := fun (sz: int) -> ThreadsCtx(range_plus(MINDEX1(sz,0), sz))");
+
+  __ghost(rewrite_range, "rf := r1, from := MSIZE2(N*M/32, 32), to := MSIZE2(N,M)");
+  __ghost(desyncgroup_untile_divides, "items := fun k -> &a[k] ~~>[GMem] 1 + 1, div_check := eq_retile_sym");
   __ghost(chunk_range_plus2, "D2 := N, D1 := M");
-  __ghost(desyncgroup_tile_divides, "items := fun i -> &a[i] ~~>[GMem] 1+1, tile_count := N, tile_size := M");
+  __ghost(desyncgroup_tile_divides, "items := fun i -> &a[i] ~~>[GMem] 1 + 1, tile_count := N, tile_size := M");
+
+  __ghost(rewrite_linear_range, "from := r1(MSIZE2(N*M/32, 32)), to := r1(MSIZE2(N,M)), inside := fun (r: Range) -> ThreadsCtx(r)");
 
   blocksync(); __with("H := DesyncGroup(r1(MSIZE2(N,M)), N, fun i -> DesyncGroup(r2(i), M, fun j -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1+1))");
 }
 
+__DEF(rr1, "fun (sz: int) -> range_plus(MINDEX1(MSIZE1(sz),0), MSIZE1(sz))");
+
+void write_test1(int *a, int N) {
+  __preserves("ThreadsCtx(rr1(N))");
+  __writes("DesyncGroup(rr1(N), N, fun i -> &a[i] ~~>[GMem] 1)");
+
+  __threadfor; for (int i = 0; i < N; i++) {
+    __xwrites("&a[i] ~~>[GMem] 1");
+    __GMEM_SET(&a[i], 1);
+  }
+}
+
+void write_test2(int *a, int N) {
+  __requires("bpg: int, smem_sz: int");
+  __reads("KernelParams(MSIZE1(N), bpg, smem_sz)");
+  __preserves("ThreadsCtx(rr1(N))");
+  __consumes("for i in 0..N -> &a[i] ~~>[GMem] 0");
+  __produces("for i in 0..N -> &a[i] ~~>[GMem] 1");
+
+  __ghost(group_to_desyncgroup1, "items := fun i -> &a[i] ~~>[GMem]0");
+
+  write_test1(a, N);
+
+  blocksync(); __with("H := DesyncGroup(rr1(N), N, fun i -> &a[i] ~~>[GMem] 1)");
+}
+
+__DECL(reduce_sum, "int * (int -> int) -> int");
+__AXIOM(reduce_sum_empty, "forall (f: int -> int) -> 0 = reduce_sum(0, f)");
+__AXIOM(reduce_sum_add_right, "forall (n: int) (f: int -> int) (_: n >= 0) -> reduce_sum(n, f) + f(n) = reduce_sum(n + 1, f)");
+
+void read_test1(int *a, int *b, int N) {
+  __requires("B: int -> int");
+  __preserves("ThreadsCtx(rr1(N))");
+  __writes("DesyncGroup(rr1(N), N, fun i -> &a[i] ~~>[GMem] reduce_sum(N, B))");
+  __reads("for i in 0..N -> &b[MINDEX1(N,i)] ~~> B(i)");
+
+  __threadfor; for (int i = 0; i < N; i++) {
+    __xwrites("&a[i] ~~>[GMem] reduce_sum(N, B)");
+    int sum = 0;
+    __ghost(rewrite_linear, "inside := (fun v -> &sum ~~> v), by := reduce_sum_empty(B)");
+    for (int j = 0; j < N; j++) {
+      __spreserves("&sum ~~> reduce_sum(j, B)");
+
+      __GHOST_BEGIN(focus, ro_matrix1_focus, "b, j");
+      sum += b[MINDEX1(N,j)];
+      __GHOST_END(focus);
+      __ghost(in_range_bounds, "j", "j_geq_0 <- lower_bound");
+      __ghost(rewrite_linear, "inside := (fun v -> &sum ~~> v), by := reduce_sum_add_right(j, B, j_geq_0)");
+    }
+    __GMEM_SET(&a[i], sum);
+  }
+}
