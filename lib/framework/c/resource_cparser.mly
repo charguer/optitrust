@@ -29,7 +29,7 @@
 %token <float> FLOAT_LIT
 %token LPAR RPAR LBRACKET RBRACKET
 %token COLON COMMA AMPERSAND ARROW SQUIG_ARROW LONG_SQUIG_ARROW COLON_EQUAL REV_ARROW DOT DOTDOT UNDERSCORE
-%token FUN FORALL FOR IN EOF
+%token FUN FORALL FOR DESYNC_FOR IN EOF
 %token PLUS MINUS STAR SLASH PERCENT
 %token EQUAL LT GT LEQ GEQ NEQ
 
@@ -184,6 +184,8 @@ formula:
     { formula_forall_in index range body }
   | FOR; index=binder; IN; range=formula_cmp; ARROW; body=formula;
     { formula_group index range body }
+  | DESYNC_FOR; LPAR; range=formula_cmp; RPAR; index=binder; IN; DOTDOT; bound=arith_term; ARROW; body=formula;
+    { formula_desyncgroup index range bound body }
 
 resource:
   | f=formula

@@ -1386,6 +1386,9 @@ and formula_to_doc style (f: formula): document =
     Pattern.(trm_apps2 (trm_specific_var ~ignore_unset_id:true var_group) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
       string "for" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc style range ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
     );
+    Pattern.(trm_apps3 (trm_specific_var ~ignore_unset_id:true var_desyncgroup) !__ !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range bound (index, _) body () ->
+      string "desync_for" ^^ string "(" ^^ trm_to_doc style range ^^ string ")" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ string ".." ^^ trm_to_doc style bound ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
+    );
     Pattern.(formula_frac_div !__ !__) (fun base divisor () ->
       Pattern.when_ (style.pretty_fraction_notation);
       trm_to_doc style base ^^ space ^^ string "/" ^^ space ^^ trm_to_doc style divisor

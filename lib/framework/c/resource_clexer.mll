@@ -20,6 +20,7 @@ rule lex_resources = parse
   | "~~>" { LONG_SQUIG_ARROW }
   | "fun" { FUN }
   | "for" { FOR }
+  | "desync_for" { DESYNC_FOR }
   | "forall" { FORALL }
   | "in" { IN }
   | ":=" { COLON_EQUAL }

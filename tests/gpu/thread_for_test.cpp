@@ -15,16 +15,17 @@ void test1(int *a, int N, int M) {
   __DEF(r2, "fun (i: int) -> range_plus(MINDEX2(N,MSIZE1(M),i,0), MSIZE1(M))");
 
   __threadfor; for (int i = 0; i < N; i++) {
-    __xconsumes("DesyncGroup(r2(i), M, fun j -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0)");
-    __xproduces("DesyncGroup(r2(i), M, fun j -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1)");
+    __xconsumes("desync_for(r2(i)) j in ..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
+    __xproduces("desync_for(r2(i)) j in ..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
     __threadfor; for (int j = 0; j < M; j++) {
       __xconsumes("&a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
       __xproduces("&a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
       __GMEM_SET(&a[MINDEX2(N,M,i,j)],1);
     }
   }
-  blocksync(); __with("H := DesyncGroup(r1, N, fun i -> DesyncGroup(r2(i), M, fun j -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1))");
+  blocksync(); __with("H := desync_for(r1) i in ..N -> desync_for(r2(i)) j in ..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
 }
+
 
 void test2(int *a, int N, int M) {
   __requires("N: int, M: int, A: int * int -> int");
@@ -42,8 +43,8 @@ void test2(int *a, int N, int M) {
   __DEF(r3, "fun (i: int) -> range_plus(MINDEX2(N*M/32,MSIZE1(32),i,0), MSIZE1(32))");
 
   __threadfor; for (int i = 0; i < N; i++) {
-    __xconsumes("DesyncGroup(r2(i), M, fun j -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0)");
-    __xproduces("DesyncGroup(r2(i), M, fun j -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1)");
+    __xconsumes("desync_for(r2(i)) j in ..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
+    __xproduces("desync_for(r2(i)) j in ..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
     __threadfor; for (int j = 0; j < M; j++) {
       __xconsumes("&a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
       __xproduces("&a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
@@ -77,14 +78,14 @@ void test2(int *a, int N, int M) {
 
   __ghost(rewrite_linear_range, "from := r1(MSIZE2(N*M/32, 32)), to := r1(MSIZE2(N,M)), inside := fun (r: Range) -> ThreadsCtx(r)");
 
-  blocksync(); __with("H := DesyncGroup(r1(MSIZE2(N,M)), N, fun i -> DesyncGroup(r2(i), M, fun j -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1+1))");
+  blocksync(); __with("H := desync_for(r1(MSIZE2(N,M))) i in ..N -> desync_for(r2(i)) j in ..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1+1");
 }
 
 __DEF(rr1, "fun (sz: int) -> range_plus(MINDEX1(MSIZE1(sz),0), MSIZE1(sz))");
 
 void write_test1(int *a, int N) {
   __preserves("ThreadsCtx(rr1(N))");
-  __writes("DesyncGroup(rr1(N), N, fun i -> &a[i] ~~>[GMem] 1)");
+  __writes("desync_for(rr1(N)) i in ..N -> &a[i] ~~>[GMem] 1");
 
   __threadfor; for (int i = 0; i < N; i++) {
     __xwrites("&a[i] ~~>[GMem] 1");
@@ -102,8 +103,7 @@ void write_test2(int *a, int N) {
   __ghost(group_to_desyncgroup1, "items := fun i -> &a[i] ~~>[GMem]0");
 
   write_test1(a, N);
-
-  blocksync(); __with("H := DesyncGroup(rr1(N), N, fun i -> &a[i] ~~>[GMem] 1)");
+  blocksync(); __with("H := desync_for(rr1(N)) i in ..N -> &a[i] ~~>[GMem] 1");
 }
 
 __DECL(reduce_sum, "int * (int -> int) -> int");
@@ -113,7 +113,7 @@ __AXIOM(reduce_sum_add_right, "forall (n: int) (f: int -> int) (_: n >= 0) -> re
 void read_test1(int *a, int *b, int N) {
   __requires("B: int -> int");
   __preserves("ThreadsCtx(rr1(N))");
-  __writes("DesyncGroup(rr1(N), N, fun i -> &a[i] ~~>[GMem] reduce_sum(N, B))");
+  __writes("desync_for(rr1(N)) i in ..N -> &a[i] ~~>[GMem] reduce_sum(N, B)");
   __reads("for i in 0..N -> &b[MINDEX1(N,i)] ~~> B(i)");
 
   __threadfor; for (int i = 0; i < N; i++) {
@@ -149,7 +149,7 @@ void read_test2(int *a, int *b, int N) {
     __ghost(rewrite_linear, "inside := (fun v -> &a[MINDEX1(N,t)] ~~>[GMem] v), by := reduce_sum_empty(B)");
   }
 
-  blocksync(); __with("H := DesyncGroup(rr1(N), N, fun i -> &a[MINDEX1(N,i)] ~~>[GMem] reduce_sum(0,B))");
+  blocksync(); __with("H := desync_for(rr1(N)) i in ..N -> &a[MINDEX1(N,i)] ~~>[GMem] reduce_sum(0,B)");
 
   for (int i = 0; i < N; i++) {
     __spreserves("for j in 0..N -> &a[MINDEX1(N,j)] ~~>[GMem] reduce_sum(i, B)");
@@ -164,6 +164,7 @@ void read_test2(int *a, int *b, int N) {
       __ghost(in_range_bounds, "i", "i_geq_0 <- lower_bound");
       __ghost(rewrite_linear, "inside := (fun v -> &a[MINDEX1(N,t)] ~~>[GMem] v), by := reduce_sum_add_right(i, B, i_geq_0)");
     }
-    blocksync(); __with("H := DesyncGroup(rr1(N), N, fun j -> &a[MINDEX1(N,j)] ~~>[GMem] reduce_sum(i+1,B))");
+    blocksync(); __with("H := desync_for(rr1(N)) j in ..N -> &a[MINDEX1(N,j)] ~~>[GMem] reduce_sum(i+1,B)");
   }
 }
+*/
