@@ -167,4 +167,3 @@ void read_test2(int *a, int *b, int N) {
     blocksync(); __with("H := desync_for(rr1(N)) j in ..N -> &a[MINDEX1(N,j)] ~~>[GMem] reduce_sum(i+1,B)");
   }
 }
-*/
