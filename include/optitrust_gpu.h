@@ -99,6 +99,15 @@ __GHOST(ro_matrix1_unfocus_generic) {
   __ghost(close_wand);
 }
 
+template <typename T> void gmem_free(T* p) {
+  __requires("H: HProp");
+  __preserves("HostCtx");
+  __consumes("Free(p, H)");
+  __consumes("H");
+  __ensures("__spec_override_noret()");
+  __admitted();
+}
+
 template <typename T> T* __gmem_malloc1_impl(int N1);
 template <typename T> T* __gmem_malloc1(int N1) {
   __preserves("HostCtx");
@@ -110,33 +119,55 @@ template <typename T> T* __gmem_malloc1(int N1) {
 }
 #define gmem_malloc1(T, N1) __call_with(__gmem_malloc1<T>(N1), "T := "#T);
 
-template <typename T> void gmem_free(T* p) {
-  __requires("H: HProp");
-  __preserves("HostCtx");
-  __consumes("Free(p, H)");
-  __consumes("H");
-  __ensures("__spec_override_noret()");
-  __admitted();
-}
-
-template <typename T> void memcpy_host_to_device_impl(T* dest, T* src, int N1);
-template <typename T> void memcpy_host_to_device(T* dest, T* src, int N1) {
+template <typename T> void memcpy_host_to_device1_impl(T* dest, T* src, int N1);
+template <typename T> void memcpy_host_to_device1(T* dest, T* src, int N1) {
   __requires("A: int -> T");
   __reads("for i in 0..N1 -> &src[MINDEX1(N1,i)] ~~> A(i)");
   __writes("for i in 0..N1 -> &dest[MINDEX1(N1,i)] ~~>[GMem] A(i)");
   __ensures("__spec_override_noret()");
   __admitted();
-  return memcpy_host_to_device_impl<T>(dest, src, N1);
+  return memcpy_host_to_device1_impl<T>(dest, src, N1);
 }
 
-template <typename T> void memcpy_device_to_host_impl(T* dest, T* src, int N1);
-template <typename T> void memcpy_device_to_host(T* dest, T* src, int N1) {
+template <typename T> void memcpy_device_to_host1_impl(T* dest, T* src, int N1);
+template <typename T> void memcpy_device_to_host1(T* dest, T* src, int N1) {
   __requires("A: int -> T");
   __reads("for i in 0..N1 -> &src[MINDEX1(N1,i)] ~~>[GMem] A(i)");
   __writes("for i in 0..N1 -> &dest[MINDEX1(N1,i)] ~~> A(i)");
   __ensures("__spec_override_noret()");
   __admitted();
-  return memcpy_device_to_host_impl<T>(dest, src, N1);
+  return memcpy_device_to_host1_impl<T>(dest, src, N1);
+}
+
+template <typename T> T* __gmem_malloc2_impl(int N1, int N2);
+template <typename T> T* __gmem_malloc2(int N1, int N2) {
+  __preserves("HostCtx");
+  __produces("_Res ~> UninitMatrixOf2(N1, N2, GMem)");
+  __produces("Free(_Res, _Res ~> UninitMatrixOf2(N1, N2, GMem))");
+  __ensures("__spec_override_ret_implicit(ptr(T))");
+  __admitted();
+  return __gmem_malloc2_impl<T>(N1);
+}
+#define gmem_malloc2(T, N1, N2) __call_with(__gmem_malloc2<T>(N1,N2), "T := "#T);
+
+template <typename T> void memcpy_host_to_device2_impl(T* dest, T* src, int N1, int N2);
+template <typename T> void memcpy_host_to_device2(T* dest, T* src, int N1, int N2) {
+  __requires("A: int * int -> T");
+  __reads("src ~> Matrix2(N1,N2, A)");
+  __writes("dest ~> MatrixOf2(N1,N2, GMem, A)");
+  __ensures("__spec_override_noret()");
+  __admitted();
+  return memcpy_host_to_device2_impl<T>(dest, src, N1, N2);
+}
+
+template <typename T> void memcpy_device_to_host2_impl(T* dest, T* src, int N1, int N2);
+template <typename T> void memcpy_device_to_host2(T* dest, T* src, int N1, int N2) {
+  __requires("A: int * int -> T");
+  __reads("src ~> MatrixOf2(N1,N2, GMem, A)");
+  __writes("dest ~> Matrix2(N1,N2, A)");
+  __ensures("__spec_override_noret()");
+  __admitted();
+  return memcpy_device_to_host2_impl<T>(dest, src, N1, N2);
 }
 
 /* ---- DesyncGroup ghosts ---- */

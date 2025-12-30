@@ -5,7 +5,7 @@ __DEF(arr_add, "fun (A: int -> float) (B: int -> float) -> fun (i : int) -> A(i)
 __DEF(rr1, "fun (sz: int) -> range_plus(MINDEX1(sz,0), sz)");
 
 void vector_add(float *a, float *b, float *c, int N) {
-  __requires("A: int -> float, B: int -> float, t: int");
+  __requires("A: int -> float, B: int -> float");
   __requires("n_factor: N/256 * 256 = MSIZE1(N)");
   __preserves("HostCtx");
   __reads("for i in 0..N -> &a[MINDEX1(N,i)] ~~> A(i)");
@@ -16,8 +16,8 @@ void vector_add(float *a, float *b, float *c, int N) {
   float* const d_b = gmem_malloc1(float, N);
   float* const d_c = gmem_malloc1(float, N);
 
-  memcpy_host_to_device(d_a, a, N);
-  memcpy_host_to_device(d_b, b, N);
+  memcpy_host_to_device1(d_a, a, N);
+  memcpy_host_to_device1(d_b, b, N);
 
   __ghost(rewrite_range, "rf := rr1, by := n_factor");
   kernel_start(256, N/256, 0);__with("r := rr1(MSIZE1(N))");
@@ -39,7 +39,7 @@ void vector_add(float *a, float *b, float *c, int N) {
 
   kernel_end();
 
-  memcpy_device_to_host(c, d_c, N);
+  memcpy_device_to_host1(c, d_c, N);
 
   gmem_free(d_a);
   gmem_free(d_b);

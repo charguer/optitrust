@@ -84,11 +84,18 @@ let rec desugar_formula (formula: formula): formula =
     Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_apps (trm_var !__) !__ __ __)) (fun var f args () ->
         if !Flags.use_resources_with_models && f.name = sprintf "Matrix%d" (List.length args - 1) then
           let size, model = List.unlast args in
-          formula_matrix var ~mem_typ:(mem_typ_any) size ~model (* TODO: other memory types in matrices (#23) *)
+          formula_matrix var ~mem_typ:(mem_typ_any) size ~model
+        else if !Flags.use_resources_with_models && f.name = sprintf "MatrixOf%d" (List.length args - 2) then (* TODO: only bothering with models mode for now, seems like there is a better way to organize this though *)
+          let args, model = List.unlast args in
+          let size, mem = List.unlast args in
+          formula_matrix var ~mem_typ:(mem) size ~model
         else if not (!Flags.use_resources_with_models) && f.name = sprintf "Matrix%d" (List.length args) then
           formula_matrix var ~mem_typ:(mem_typ_any) args
         else if f.name = sprintf "UninitMatrix%d" (List.length args) then
           formula_uninit_matrix ~mem_typ:(mem_typ_any) var args
+        else if !Flags.use_resources_with_models && f.name = sprintf "UninitMatrixOf%d" (List.length args - 1) then
+          let size, mem = List.unlast args in
+          formula_uninit_matrix ~mem_typ:(mem) var size
         else raise Pattern.Next
       );
     (* Allow using operators / and - in first argument of RO(_,_) while normally they are reserved for integers *)
