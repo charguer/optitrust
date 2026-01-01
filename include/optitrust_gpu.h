@@ -6,6 +6,7 @@
 extern const int __threadfor;
 
 __DECL(GMem, "MemType");
+__DECL(SMem, "MemType");
 __DECL(KernelParams, "int * int * int -> HProp");
 __DECL(SMemAlloc, "int -> HProp");
 
@@ -146,7 +147,7 @@ template <typename T> T* __gmem_malloc2(int N1, int N2) {
   __produces("Free(_Res, _Res ~> UninitMatrixOf2(N1, N2, GMem))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
-  return __gmem_malloc2_impl<T>(N1);
+  return __gmem_malloc2_impl<T>(N1, N2);
 }
 #define gmem_malloc2(T, N1, N2) __call_with(__gmem_malloc2<T>(N1,N2), "T := "#T);
 
@@ -168,6 +169,54 @@ template <typename T> void memcpy_device_to_host2(T* dest, T* src, int N1, int N
   __ensures("__spec_override_noret()");
   __admitted();
   return memcpy_device_to_host2_impl<T>(dest, src, N1, N2);
+}
+
+template <typename T> T __SMEM_GET_IMPL(T* p);
+template <typename T> T __SMEM_GET(T* p) {
+  __requires("v: T, t: int");
+  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
+  __reads("p ~~>[SMem] v");
+  __ensures("__spec_override_ret(T, v)");
+  __admitted();
+  return __SMEM_GET_IMPL(p);
+}
+
+template <typename T> void __SMEM_SET_IMPL(T* p, T v);
+template <typename T> void __SMEM_SET(T* p, T v) {
+  __requires("t: int");
+  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
+  __writes("p ~~>[SMem] v");
+  __ensures("__spec_override_noret()");
+  __admitted();
+  __SMEM_SET_IMPL(p, v);
+}
+
+template <typename T> T* __smem_malloc2_impl(int N1, int N2);
+template <typename T> T* __smem_malloc2(int N1, int N2) {
+  __requires("tpb: int, bpg: int, t: int");
+  __reads("KernelParams(tpb, bpg, MSIZE2(N1,N2))");
+  __preserves("ThreadsCtx(range_plus(t, tpb))");
+  __consumes("SMemAlloc(MSIZE2(N1,N2))"); // TODO multiple shared memory allocations
+  __produces("SMemAlloc(0)");
+  __produces("_Res ~> UninitMatrixOf2(N1, N2, SMem)");
+  __produces("Free(_Res, _Res ~> UninitMatrixOf2(N1, N2, SMem))");
+  __ensures("__spec_override_ret_implicit(ptr(T))");
+  __admitted();
+  return __smem_malloc2_impl<T>(N1, N2);
+}
+#define smem_malloc2(T, N1, N2) __call_with(__smem_malloc2<T>(N1,N2), "T := "#T);
+
+
+template <typename T> void smem_free(T* p) {
+  __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int");
+  __reads("KernelParams(tpb, bpg, smem_sz)");
+  __preserves("ThreadsCtx(range_plus(t, tpb))");
+  __consumes("SMemAlloc(0)");  // TODO multiple shared memory allocations
+  __produces("SMemAlloc(smem_sz)");
+  __consumes("Free(p, H)"); // TODO: need to add memory type to free predicate? Otherwise I can free any H
+  __consumes("H");
+  __ensures("__spec_override_noret()");
+  __admitted();
 }
 
 /* ---- DesyncGroup ghosts ---- */
@@ -192,19 +241,27 @@ __GHOST(rewrite_linear_range) {
 // TODO: handle > 2 cases where we have > MINDEX1
 __GHOST(chunk_range_plus2) {
   __requires("D1: int, D2: int");
-  __ensures("forall (i: int) -> range_eq( chunk_range(range_plus(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)), D2, i), range_plus(MINDEX2(D2,MSIZE1(D1),i,0), MSIZE1(D1)) )");
+  __ensures("P: forall (i: int) -> range_eq( chunk_range(range_plus(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)), D2, i), range_plus(MINDEX2(D2,MSIZE1(D1),i,0), MSIZE1(D1)) )");
+  __admitted();
+}
+
+// oof
+__GHOST(chunk_range_plus4) {
+  __requires("D1: int, D2: int, D3: int, D4: int");
+  __ensures("P: forall (i: int) -> range_eq( chunk_range(range_plus(MINDEX1(MSIZE4(D4,D3,D2,D1),0), MSIZE4(D4,D3,D2,D1)), D4, i), range_plus(MINDEX2(D4,MSIZE3(D3,D2,D1),i,0), MSIZE3(D3,D2,D1)) )");
   __admitted();
 }
 
 
-__GHOST(group_to_desyncgroup1) {
-  __requires("D1: int, items: int -> HProp");
-  __preserves("ThreadsCtx(range_plus(MINDEX1(MSIZE1(D1),0), MSIZE1(D1)))");
-  __consumes("for i in 0..D1 -> items(i)");
-  __produces("DesyncGroup(range_plus(MINDEX1(MSIZE1(D1),0), MSIZE1(D1)), D1, fun i -> items(i))");
+__GHOST(group_to_desyncgroup) {
+  __requires("N: int, items: int -> HProp, r: Range");
+  __preserves("ThreadsCtx(r)");
+  __consumes("for i in 0..N -> items(i)");
+  __produces("desync_for(r) i in ..N -> items(i)");
   __admitted();
 }
 
+// TODO: remove
 __GHOST(group_to_desyncgroup2) {
   __requires("D1: int, D2: int, items: int*int -> HProp");
   __preserves("ThreadsCtx(range_plus(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)))");

@@ -2,7 +2,7 @@ open Ast
 open Trm
 open Typ
 
-let max_nb_dims = 4
+let max_nb_dims = 5
 (** TODO : MINDEX and MINDEX INV warning when overflow*)
 
 let toplevel_var_with_dim name_pattern =

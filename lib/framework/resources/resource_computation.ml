@@ -2127,18 +2127,24 @@ let rec trm_deep_copy (t: trm) : trm =
   t
 
 (* LATER: MINDEX should not be such a special case *)
-let mindex_specs =
+let mindex_msize_specs =
   List.fold_left (fun specs n ->
     let mindex_name = Matrix_trm.mindex_var n in
+    let msize_name = Matrix_trm.msize_var n in
     let dims = List.map (fun i -> new_var (sprintf "N%s" (string_of_int i))) (List.range 1 n) in
     let indices = List.map (fun i -> new_var (sprintf "i%s" (string_of_int i))) (List.range 1 n) in
     let args = dims @ indices in
     let typed_args = List.map (fun arg -> (arg, typ_int)) args in
+    let typed_dims = List.map (fun arg -> (arg, typ_int)) dims in
     let mindex_spec = { args; contract = {
       pre = Resource_set.make ~pure:typed_args ();
       post = Resource_set.make ~pure:[var_result, typ_int] ~aliases:(Var_map.singleton var_result (trm_apps (trm_var mindex_name) (List.map trm_var args))) ()
     }; inverse = None } in
-    Var_map.add mindex_name mindex_spec specs
+    let msize_spec = { args = dims; contract = {
+      pre = Resource_set.make ~pure:typed_dims ();
+      post = Resource_set.make ~pure:[var_result, typ_int] ~aliases:(Var_map.singleton var_result (trm_apps (trm_var msize_name) (List.map trm_var dims))) ()
+    }; inverse = None } in
+    Var_map.add mindex_name mindex_spec (Var_map.add msize_name msize_spec specs)
   ) Var_map.empty (List.range 0 Matrix_trm.max_nb_dims)
 
 let ignore_spec =
@@ -2202,7 +2208,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_trm.var_admitted, typ_auto;
   var_ignore, typ_auto;
   mem_typ_any_var, typ_mem_type;
-] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_specs) ()
+] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_msize_specs) ()
 (* TODO: MSIZE HERE HAS TO BE A PURE FUNCTION  AS WELL !*)
 
 (** Compute resources inside [t] in place.

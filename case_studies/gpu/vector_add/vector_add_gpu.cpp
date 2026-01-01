@@ -21,7 +21,7 @@ void vector_add(float *a, float *b, float *c, int N) {
 
   __ghost(rewrite_range, "rf := rr1, by := n_factor");
   kernel_start(256, N/256, 0);__with("r := rr1(MSIZE1(N))");
-  __ghost(group_to_desyncgroup1, "D1 := N, items := fun i -> &d_c[MINDEX1(N,i)] ~> UninitCellOf(GMem)");
+  __ghost(group_to_desyncgroup, "N := N, items := fun i -> &d_c[MINDEX1(N,i)] ~> UninitCellOf(GMem)");
 
   __threadfor; for (int i = 0; i < N; i++) {
     __xwrites("&d_c[MINDEX1(N,i)] ~~>[GMem] (arr_add(A,B))(i)");

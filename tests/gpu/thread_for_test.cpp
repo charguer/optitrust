@@ -100,7 +100,7 @@ void write_test2(int *a, int N) {
   __consumes("for i in 0..N -> &a[i] ~~>[GMem] 0");
   __produces("for i in 0..N -> &a[i] ~~>[GMem] 1");
 
-  __ghost(group_to_desyncgroup1, "items := fun i -> &a[i] ~~>[GMem]0");
+  __ghost(group_to_desyncgroup, "items := fun i -> &a[i] ~~>[GMem]0");
 
   write_test1(a, N);
   blocksync(); __with("H := desync_for(rr1(N)) i in ..N -> &a[i] ~~>[GMem] 1");
@@ -141,7 +141,7 @@ void read_test2(int *a, int *b, int N) {
   __writes("for i in 0..N -> &a[MINDEX1(N,i)] ~~>[GMem] reduce_sum(N,B)");
   __reads("for i in 0..N -> &b[MINDEX1(N,i)] ~~> B(i)");
 
-  __ghost(group_to_desyncgroup1, "items := fun i -> &a[MINDEX1(N,i)] ~> UninitCellOf(GMem)");
+  __ghost(group_to_desyncgroup, "items := fun i -> &a[MINDEX1(N,i)] ~> UninitCellOf(GMem)");
 
   __threadfor; for (int t = 0; t < N; t++) {
     __xwrites("&a[MINDEX1(N,t)] ~~>[GMem] reduce_sum(0, B)");
@@ -153,7 +153,7 @@ void read_test2(int *a, int *b, int N) {
 
   for (int i = 0; i < N; i++) {
     __spreserves("for j in 0..N -> &a[MINDEX1(N,j)] ~~>[GMem] reduce_sum(i, B)");
-    __ghost(group_to_desyncgroup1, "items := fun j -> &a[MINDEX1(N,j)] ~~>[GMem] reduce_sum(i,B)");
+    __ghost(group_to_desyncgroup, "items := fun j -> &a[MINDEX1(N,j)] ~~>[GMem] reduce_sum(i,B)");
     __threadfor; for (int t = 0; t < N; t++) {
       __xconsumes("&a[MINDEX1(N,t)] ~~>[GMem] reduce_sum(i, B)");
       __xproduces("&a[MINDEX1(N,t)] ~~>[GMem] reduce_sum(i+1, B)");
