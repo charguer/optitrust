@@ -41,6 +41,7 @@ void kernel_end() {
 
 __DECL(block_sync_mem, "MemType -> Prop");
 __AXIOM(gmem_block_sync_mem, "block_sync_mem(GMem)");
+__AXIOM(smem_block_sync_mem, "block_sync_mem(SMem)");
 
 void blocksync() {
   __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int");
@@ -96,6 +97,24 @@ __GHOST(ro_matrix1_focus_generic) {
 
 __GHOST(ro_matrix1_unfocus_generic) {
   __reverts(ro_matrix1_focus_generic);
+  __admitted(); // for efficiency
+  __ghost(close_wand);
+}
+
+__GHOST(ro_matrix2_focus_generic) {
+  __requires("T: Type, matrix: ptr(T), i: int, j: int, m: int, n: int, MT: MemType, M: int * int -> T, f: _Fraction");
+  __requires("bound_check_i: in_range(i, 0..m)");
+  __requires("bound_check_j: in_range(j, 0..n)");
+  __consumes("_RO(f, matrix ~> MatrixOf2(m, n, MT, M))");
+  __produces("Wand(_RO(f, &matrix[MINDEX2(m, n, i, j)] ~~>[MT] M(i, j)), _RO(f, matrix ~> MatrixOf2(m, n, MT, M))), _RO(f, &matrix[MINDEX2(m, n, i, j)] ~~>[MT] M(i, j))");
+  __admitted(); // for efficiency
+  __ghost(ro_group_focus, "f := f, i := i, bound_check := bound_check_i");
+  __ghost(ro_group_focus, "f := f, i := j, bound_check := bound_check_j");
+  __ghost(wand_simplify);
+}
+
+__GHOST(ro_matrix2_unfocus_generic) {
+  __reverts(ro_matrix2_focus_generic);
   __admitted(); // for efficiency
   __ghost(close_wand);
 }
