@@ -151,6 +151,7 @@ void read_test2(int *a, int *b, int N) {
 
   blocksync(); __with("H := desync_for(rr1(N)) i in ..N -> &a[MINDEX1(N,i)] ~~>[GMem] reduce_sum(0,B)");
 
+  // TODO: is this right? shouldn't the outputs shift every iteration
   for (int i = 0; i < N; i++) {
     __spreserves("for j in 0..N -> &a[MINDEX1(N,j)] ~~>[GMem] reduce_sum(i, B)");
     __ghost(group_to_desyncgroup, "items := fun j -> &a[MINDEX1(N,j)] ~~>[GMem] reduce_sum(i,B)");

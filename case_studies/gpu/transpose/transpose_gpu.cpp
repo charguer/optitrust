@@ -171,6 +171,21 @@ void transpose(float *a, float *b, int W, int H) {
         }
       }
 
+      /*
+        tile = smem_alloc(...);
+        tile ~> Group(), Free(tile, tile ~> Group())
+        thread for ... {
+          tile[i] = ...
+        }
+        tile ~> DesyncGroup(0..N, ...);
+
+        smem_free();
+      */
+
+
+
+      // tile ~> DesyncGroup(DesyncGroup(()))
+
       // TODO: should not be necessary to sync again just to free,
       // but since we produce the Free(p,...) resource with the Group at the beginning,
       // we have to do some kind of synchronization. Maybe there is a way to give a sync token that only works for freeing
