@@ -153,8 +153,8 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
         div_check_assert ::
         ghosts_before @
         rew_ghosts_before_outer @ [
-        trm_for ~contract:contract_outer outer_range (trm_seq_nomarks (rew_ghosts_before_inner @ [
-          trm_copy (trm_for ~contract:contract_inner inner_range body)
+        trm_for ~mode ~contract:contract_outer outer_range (trm_seq_nomarks (rew_ghosts_before_inner @ [
+          trm_copy (trm_for ~mode ~contract:contract_inner inner_range body)
         ] @ rew_ghosts_after_inner))
       ] @ rew_ghosts_after_outer @ ghosts_after)
 

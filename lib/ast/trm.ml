@@ -1476,7 +1476,7 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) ?(f
     let contract' = loop_contract_map contract in
     if (share_if_no_change && range' == range && body' == body && contract' == contract)
       then t
-      else (trm_for ~annot ~mode ?loc ~contract:contract' ~ctx range' body')
+      else (trm_for ~mode ~annot ?loc ~contract:contract' ~ctx range' body')
   | Trm_switch (cond, cases) ->
       let cond' = f cond in
       let cases' = list_map
