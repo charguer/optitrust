@@ -127,7 +127,7 @@ template <typename T> void gmem_free(T* p) {
   __ensures("__spec_override_noret()");
   __admitted();
 }
-
+// TODO convert to Matrix sugar
 template <typename T> T* __gmem_malloc1_impl(int N1);
 template <typename T> T* __gmem_malloc1(int N1) {
   __preserves("HostCtx");
@@ -142,6 +142,7 @@ template <typename T> T* __gmem_malloc1(int N1) {
 template <typename T> void memcpy_host_to_device1_impl(T* dest, T* src, int N1);
 template <typename T> void memcpy_host_to_device1(T* dest, T* src, int N1) {
   __requires("A: int -> T");
+  __preserves("HostCtx");
   __reads("for i in 0..N1 -> &src[MINDEX1(N1,i)] ~~> A(i)");
   __writes("for i in 0..N1 -> &dest[MINDEX1(N1,i)] ~~>[GMem] A(i)");
   __ensures("__spec_override_noret()");
@@ -152,6 +153,7 @@ template <typename T> void memcpy_host_to_device1(T* dest, T* src, int N1) {
 template <typename T> void memcpy_device_to_host1_impl(T* dest, T* src, int N1);
 template <typename T> void memcpy_device_to_host1(T* dest, T* src, int N1) {
   __requires("A: int -> T");
+  __preserves("HostCtx");
   __reads("for i in 0..N1 -> &src[MINDEX1(N1,i)] ~~>[GMem] A(i)");
   __writes("for i in 0..N1 -> &dest[MINDEX1(N1,i)] ~~> A(i)");
   __ensures("__spec_override_noret()");
@@ -173,6 +175,7 @@ template <typename T> T* __gmem_malloc2(int N1, int N2) {
 template <typename T> void memcpy_host_to_device2_impl(T* dest, T* src, int N1, int N2);
 template <typename T> void memcpy_host_to_device2(T* dest, T* src, int N1, int N2) {
   __requires("A: int * int -> T");
+  __preserves("HostCtx");
   __reads("src ~> Matrix2(N1,N2, A)");
   __writes("dest ~> MatrixOf2(N1,N2, GMem, A)");
   __ensures("__spec_override_noret()");
@@ -183,6 +186,7 @@ template <typename T> void memcpy_host_to_device2(T* dest, T* src, int N1, int N
 template <typename T> void memcpy_device_to_host2_impl(T* dest, T* src, int N1, int N2);
 template <typename T> void memcpy_device_to_host2(T* dest, T* src, int N1, int N2) {
   __requires("A: int * int -> T");
+  __preserves("HostCtx");
   __reads("src ~> MatrixOf2(N1,N2, GMem, A)");
   __writes("dest ~> Matrix2(N1,N2, A)");
   __ensures("__spec_override_noret()");
