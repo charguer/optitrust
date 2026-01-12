@@ -89,7 +89,7 @@ let rec find_var_filter_on (candidates : typ option varmap ref) (filter : var ->
     Pattern.(trm_var !__) (fun v () -> update_map v t.typ);
     Pattern.(trm_let !__ !__ __) (fun v typ () -> update_map v (Some typ));
     Pattern.(trm_let_fun !__ __ __ __ __) (fun v () -> update_map v None);
-    Pattern.(trm_for !__ __ __) (fun range () -> update_map range.index range.start.typ);
+    Pattern.(trm_for !__ __ __ __) (fun range () -> update_map range.index range.start.typ);
     Pattern.__ (fun () -> ())
   ];
   trm_iter (find_var_filter_on candidates filter) t

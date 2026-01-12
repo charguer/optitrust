@@ -201,7 +201,7 @@ let toplevel_decl ?(accept_predecl:bool=false) (x : var) : trm option =
     ordered list of their indices where the order is the depth order *)
 let rec get_loop_nest_indices (t : trm) : 'a list =
   match t.desc with
-  | Trm_for (range, body, _) ->
+  | Trm_for (range, _, body, _) ->
     begin match body.desc with
     | Trm_seq (tl, _) when Mlist.length tl = 1  ->
       let f_loop = Mlist.nth tl 0 in
@@ -224,8 +224,8 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
   match t.desc with
   | Trm_for_c (init, cond, step, body, _) ->
     Some ((fun b -> trm_for_c init cond step b), body)
-  | Trm_for (l_range, body, _) ->
-    Some ((fun b -> trm_for l_range b), body)
+  | Trm_for (l_range, l_mode, body, _) ->
+    Some ((fun b -> trm_for ~mode:l_mode l_range b), body)
   | _ ->
     trm_fail t "Internal.extract_loop: expected a loop"
 
@@ -280,8 +280,8 @@ let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ )
 (** [change_loop_body loop body]: change the current body of loop [loop] with [body] *)
 let change_loop_body (loop : trm) (body : trm) : trm =
   match loop.desc with
-  | Trm_for (l_range, _, contract) ->
-    trm_for ~contract l_range body
+  | Trm_for (l_range, l_mode, _, contract) ->
+    trm_for ~contract ~mode:l_mode l_range body
   | Trm_for_c (init, cond, step, _, invariant) ->
     trm_for_c ?invariant init cond step body
   | _-> trm_fail loop "Internal.change_loop_body: expected for loop"

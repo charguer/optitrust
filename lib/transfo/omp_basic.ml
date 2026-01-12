@@ -54,13 +54,13 @@ let%transfo flush (vl : vars) (tg : target) : unit =
   apply_at_target_paths (trm_add_pragma (Flush vl)) tg
 
 let add_pragma_on_parallelizable_for (directive: directive) (t: trm): trm =
+  let error = "OMP transformation is invalid: it is not applied on a for loop." in
+  let range, _, body, contract = trm_inv ~error trm_for_inv t in
   if !Flags.check_validity then begin
-    let error = "OMP transformation is invalid: it is not applied on a for loop." in
-    let _, _, contract = trm_inv ~error trm_for_inv t in
     let error = "OMP transformation is invalid" in
     Resources.justif_parallelizable_loop_contract ~error contract;
   end;
-  trm_add_pragma directive t
+  trm_add_pragma directive (trm_like ~old:t (trm_for ~contract ~mode:Parallel range body))
 
 let%transfo for_ ?(clause : clause list = []) (tg : target) : unit =
   apply_at_target_paths (add_pragma_on_parallelizable_for (For clause)) tg

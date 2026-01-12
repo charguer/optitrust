@@ -88,7 +88,7 @@ let check_unique_var_ids (t : trm) : unit =
       add_var x
     | Trm_let_mult bs ->
       List.iter (fun ((x, _), _) -> add_var x) bs
-    | Trm_for (range, _, _) ->
+    | Trm_for (range, _, _, _) ->
       add_var range.index
     (* | Trm_typedef td -> *)
     | _ -> ()
