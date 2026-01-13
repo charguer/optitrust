@@ -213,7 +213,7 @@ Launching a terminal, doing `nix develop`, and then running `code .` can be cumb
 
 1. [Install direnv](https://direnv.net/docs/installation.html). You don't have to add the shell hook as written on the website. Just do step 1.
 
-2. [Install nix-direnv](https://direnv.net/docs/installation.html). You are following the "from source" instructions here.
+2. [Install nix-direnv](https://github.com/nix-community/nix-direnv?tab=readme-ov-file#from-source). You are following the "from source" instructions here.
 
 3. [Install direnv extension for VSCode](https://marketplace.visualstudio.com/items?itemName=mkhl.direnv).
 
