@@ -9,6 +9,7 @@ __DECL(GMem, "MemType");
 __DECL(SMem, "MemType");
 __DECL(KernelParams, "int * int * int -> HProp");
 __DECL(SMemAlloc, "int -> HProp");
+__DECL(DeadKernelCtx, "HProp");
 
 __DECL(chunk_range, "Range * int * int -> Range");
 __DECL(range_eq, "Range * Range -> Prop");
@@ -23,17 +24,24 @@ void kernel_start(int tpb, int bpg, int smem_sz) {
   __consumes("HostCtx");
   __produces("ThreadsCtx(r)");
   __produces("KernelParams(tpb, bpg, smem_sz)");
-  __produces("desync_for(r) b in ..bpg -> SMemAlloc(smem_sz)");
   __admitted();
 }
 
 void kernel_end() {
-  __requires("tpb: int, bpg: int, smem_sz: int, r: Range");
+  __requires("tpb: int, bpg: int, smem_sz: int");
+  __consumes("DeadKernelCtx");
+  __consumes("KernelParams(tpb, bpg, smem_sz)");
+  __produces("HostCtx");
+  __admitted();
+}
+
+__GHOST(kill_threads) {
+  __requires("r: Range");
+  __requires("tpb: int, bpg: int, smem_sz: int");
+  __preserves("KernelParams(tpb, bpg, smem_sz)");
   __requires("by: range_eq(range_plus(MINDEX1(bpg * tpb, 0), bpg * tpb), r)");
   __consumes("ThreadsCtx(r)");
-  __consumes("KernelParams(tpb, bpg, smem_sz)");
-  __consumes("desync_for(r) b in ..bpg -> SMemAlloc(smem_sz)");
-  __produces("HostCtx");
+  __produces("DeadKernelCtx");
   __admitted();
 }
 
@@ -53,10 +61,8 @@ void blocksync() {
 }
 
 __GHOST(kernel_end_sync) {
-  __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int, N: int");
-  __requires("by: bpg * tpb = N");
-  __preserves("KernelParams(tpb, bpg, smem_sz)");
-  __preserves("ThreadsCtx(range_plus(t, N))");
+  __requires("H: HProp");
+  __reads("DeadKernelCtx");
   __consumes("H");
   __produces("Sync(block_sync_mem, H)");
   __admitted();
@@ -194,54 +200,6 @@ template <typename T> void memcpy_device_to_host2(T* dest, T* src, int N1, int N
   return memcpy_device_to_host2_impl<T>(dest, src, N1, N2);
 }
 
-template <typename T> T __SMEM_GET_IMPL(T* p);
-template <typename T> T __SMEM_GET(T* p) {
-  __requires("v: T, t: int");
-  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
-  __reads("p ~~>[SMem] v");
-  __ensures("__spec_override_ret(T, v)");
-  __admitted();
-  return __SMEM_GET_IMPL(p);
-}
-
-template <typename T> void __SMEM_SET_IMPL(T* p, T v);
-template <typename T> void __SMEM_SET(T* p, T v) {
-  __requires("t: int");
-  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
-  __writes("p ~~>[SMem] v");
-  __ensures("__spec_override_noret()");
-  __admitted();
-  __SMEM_SET_IMPL(p, v);
-}
-
-template <typename T> T* __smem_malloc2_impl(int N1, int N2);
-template <typename T> T* __smem_malloc2(int N1, int N2) {
-  __requires("tpb: int, bpg: int, t: int");
-  __reads("KernelParams(tpb, bpg, MSIZE2(N1,N2))");
-  __preserves("ThreadsCtx(range_plus(t, tpb))");
-  __consumes("SMemAlloc(MSIZE2(N1,N2))"); // TODO multiple shared memory allocations
-  __produces("SMemAlloc(0)");
-  __produces("_Res ~> UninitMatrixOf2(N1, N2, SMem)");
-  __produces("Free(_Res, _Res ~> UninitMatrixOf2(N1, N2, SMem))");
-  __ensures("__spec_override_ret_implicit(ptr(T))");
-  __admitted();
-  return __smem_malloc2_impl<T>(N1, N2);
-}
-#define smem_malloc2(T, N1, N2) __call_with(__smem_malloc2<T>(N1,N2), "T := "#T);
-
-
-template <typename T> void smem_free(T* p) {
-  __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int");
-  __reads("KernelParams(tpb, bpg, smem_sz)");
-  __preserves("ThreadsCtx(range_plus(t, tpb))");
-  __consumes("SMemAlloc(0)");  // TODO multiple shared memory allocations
-  __produces("SMemAlloc(smem_sz)");
-  __consumes("Free(p, H)"); // TODO: need to add memory type to free predicate? Otherwise I can free any H
-  __consumes("H");
-  __ensures("__spec_override_noret()");
-  __admitted();
-}
-
 /* ---- DesyncGroup ghosts ---- */
 
 __GHOST(rewrite_range) {
@@ -274,7 +232,6 @@ __GHOST(chunk_range_plus4) {
   __ensures("P: forall (i: int) -> range_eq( chunk_range(range_plus(MINDEX1(MSIZE4(D4,D3,D2,D1),0), MSIZE4(D4,D3,D2,D1)), D4, i), range_plus(MINDEX2(D4,MSIZE3(D3,D2,D1),i,0), MSIZE3(D3,D2,D1)) )");
   __admitted();
 }
-
 
 __GHOST(group_to_desyncgroup) {
   __requires("N: int, items: int -> HProp, r: Range");

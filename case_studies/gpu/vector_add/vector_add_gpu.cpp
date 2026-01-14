@@ -35,7 +35,8 @@ void vector_add(float *a, float *b, float *c, int N) {
     __GHOST_END(focusB);
   }
 
-  __ghost(kernel_end_sync, "by := n_factor, H := desync_for(rr1(MSIZE1(N))) i in ..N -> &d_c[MINDEX1(N,i)] ~~>[GMem] (arr_add(A,B))(i)");
+  __ghost(kill_threads);
+  __ghost(kernel_end_sync, "H := desync_for(rr1(MSIZE1(N))) i in ..N -> &d_c[MINDEX1(N,i)] ~~>[GMem] (arr_add(A,B))(i)");
 
   kernel_end();
 

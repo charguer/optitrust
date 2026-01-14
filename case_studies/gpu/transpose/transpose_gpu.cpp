@@ -3,6 +3,86 @@
 
 __DEF(rr1, "fun (sz: int) -> range_plus(MINDEX1(sz,0), sz)");
 
+/* Inlining shared memory definitions here */
+
+void kernel_start_shm(int tpb, int bpg, int smem_sz) {
+  __requires("r: Range");
+  __requires("by: range_eq(range_plus(MINDEX1(bpg * tpb, 0), bpg * tpb), r)");
+  __consumes("HostCtx");
+  __produces("ThreadsCtx(r)");
+  __produces("KernelParams(tpb, bpg, smem_sz)");
+  __produces("desync_for(r) b in ..bpg -> SMemAlloc(smem_sz)");
+  __admitted();
+}
+
+void kernel_end_shm() {
+  __requires("tpb: int, bpg: int, smem_sz: int, r: Range");
+  __requires("by: range_eq(range_plus(MINDEX1(bpg * tpb, 0), bpg * tpb), r)");
+  __consumes("ThreadsCtx(r)");
+  __consumes("KernelParams(tpb, bpg, smem_sz)");
+  __consumes("desync_for(r) b in ..bpg -> SMemAlloc(smem_sz)");
+  __produces("HostCtx");
+  __admitted();
+}
+
+__GHOST(kernel_end_sync_shm) {
+  __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int, N: int");
+  __requires("by: bpg * tpb = N");
+  __preserves("KernelParams(tpb, bpg, smem_sz)");
+  __preserves("ThreadsCtx(range_plus(t, N))");
+  __consumes("H");
+  __produces("Sync(block_sync_mem, H)");
+  __admitted();
+}
+
+template <typename T> T __SMEM_GET_IMPL(T* p);
+template <typename T> T __SMEM_GET(T* p) {
+  __requires("v: T, t: int");
+  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
+  __reads("p ~~>[SMem] v");
+  __ensures("__spec_override_ret(T, v)");
+  __admitted();
+  return __SMEM_GET_IMPL(p);
+}
+
+template <typename T> void __SMEM_SET_IMPL(T* p, T v);
+template <typename T> void __SMEM_SET(T* p, T v) {
+  __requires("t: int");
+  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
+  __writes("p ~~>[SMem] v");
+  __ensures("__spec_override_noret()");
+  __admitted();
+  __SMEM_SET_IMPL(p, v);
+}
+
+template <typename T> T* __smem_malloc2_impl(int N1, int N2);
+template <typename T> T* __smem_malloc2(int N1, int N2) {
+  __requires("tpb: int, bpg: int, t: int");
+  __reads("KernelParams(tpb, bpg, MSIZE2(N1,N2))");
+  __preserves("ThreadsCtx(range_plus(t, tpb))");
+  __consumes("SMemAlloc(MSIZE2(N1,N2))"); // TODO multiple shared memory allocations
+  __produces("SMemAlloc(0)");
+  __produces("_Res ~> UninitMatrixOf2(N1, N2, SMem)");
+  __produces("Free(_Res, _Res ~> UninitMatrixOf2(N1, N2, SMem))");
+  __ensures("__spec_override_ret_implicit(ptr(T))");
+  __admitted();
+  return __smem_malloc2_impl<T>(N1, N2);
+}
+#define smem_malloc2(T, N1, N2) __call_with(__smem_malloc2<T>(N1,N2), "T := "#T);
+
+
+template <typename T> void smem_free(T* p) {
+  __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int");
+  __reads("KernelParams(tpb, bpg, smem_sz)");
+  __preserves("ThreadsCtx(range_plus(t, tpb))");
+  __consumes("SMemAlloc(0)");  // TODO multiple shared memory allocations
+  __produces("SMemAlloc(smem_sz)");
+  __consumes("Free(p, H)"); // TODO: need to add memory type to free predicate? Otherwise I can free any H
+  __consumes("H");
+  __ensures("__spec_override_noret()");
+  __admitted();
+}
+
 void transpose(float *a, float *b, int W, int H) {
   __requires("A: int * int -> float");
   __requires("H_tile: H = H/32 * 32");
@@ -46,7 +126,7 @@ void transpose(float *a, float *b, int W, int H) {
   // TODO does not need to be an assumption
   __ghost(assume, "P := bpg * tpb = grid", "thread_tile <- H");
   __ghost(rewrite_range, "rf := rr1, by := thread_tile");
-  kernel_start(tpb, bpg, MSIZE2(32,32));__with("r := rr1(grid)");
+  kernel_start_shm(tpb, bpg, MSIZE2(32,32));__with("r := rr1(grid)");
 
   __ghost(swap_groups, "items := b0_inside0");
   __ghost(tile_divides, "items := fun y -> for x in 0..W -> b0_inside0(x, y), div_check := H_tile");
@@ -205,7 +285,7 @@ void transpose(float *a, float *b, int W, int H) {
   __ghost(rewrite_range, "rf := rr1, by := eq_refl(MSIZE4(H/32,W/32,16,32))");
   __ghost(desyncgroup_untile_divides, "items := fun b -> SMemAlloc(MSIZE2(32,32)), div_check := eq_refl(MSIZE2(H/32,W/32))");
 
-  __ghost(kernel_end_sync, "by := thread_tile, H := desync_for(rr1(grid)) by in ..H/32 -> desync_for(r2(by)) bx in ..W/32 -> desync_for(r3(by,bx)) ty in ..16 -> desync_for(r4(by,bx,ty)) tx in ..32 -> for j in 0..2 -> (bf_inside3(by,bx,ty))(j,tx)");
+  __ghost(kernel_end_sync_shm, "by := thread_tile, H := desync_for(rr1(grid)) by in ..H/32 -> desync_for(r2(by)) bx in ..W/32 -> desync_for(r3(by,bx)) ty in ..16 -> desync_for(r4(by,bx,ty)) tx in ..32 -> for j in 0..2 -> (bf_inside3(by,bx,ty))(j,tx)");
 
   /*
   for by in 0..(H / 32) -> for bx in 0..(W / 32) -> for ty in "
@@ -236,7 +316,7 @@ void transpose(float *a, float *b, int W, int H) {
   __ghost(untile_divides, "items := fun y -> for x in 0..W -> (bf_inside0)(x,y), div_check := H_tile");
   __ghost(swap_groups, "items := fun (y x: int) -> bf_inside0(x,y)");
 
-  kernel_end();
+  kernel_end_shm();
 
   memcpy_device_to_host2(b, d_b, W, H);
 
