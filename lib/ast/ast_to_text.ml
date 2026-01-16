@@ -150,6 +150,7 @@ and print_attribute style (a : attribute) : document =
   | Alignas t ->
      string "Alignas" ^^ blank 1 ^^ print_trm style t
   | GhostInstr -> string "GhostInstr"
+  | CudaKernelBracketArg -> string "CudaKernelBracketArg"
 
 (** [print_var]: converts [v] into a docuemnt. *)
 and print_var style (v : var) : document =

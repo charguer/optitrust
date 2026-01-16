@@ -1469,6 +1469,7 @@ let encode_to_c (style : style) : trm -> trm =
   debug_before_after_trm "encode_to_c" (fun t ->
   t |>
   Scope_computation.infer_var_ids |>
+  Cuda_lowering.lower_to_cuda |>
   encode_alloc style |>
   encode_formula_sugar |>
   encode_expr_in_seq |>

@@ -487,6 +487,7 @@ and cpragma = directive
 and attribute =
   | Alignas of trm (* Placed on types like in: alignas(64) double* deposit; *)
   | GhostInstr (* Used for ghost annotations (__ghost syntax in C) *)
+  | CudaKernelBracketArg
 
 (** [trm_annot]: a record containing all kinds of annotations used on the AST of OptiTrust. *)
 and trm_annot = {
