@@ -872,14 +872,18 @@ and aux_fun_to_doc style ?(semicolon : bool = false) ?(const : bool = false) ?(i
 
 (** [trm_let_fun_to_doc style]: converts any OptiTrust function declaration(definition) to a pprint document. *)
 and trm_let_fun_to_doc style ?(semicolon : bool = false) (fun_annot : cstyle_annot list) (f : var) (r : typ) (args : typed_vars) (b : trm) : document =
-  if List.exists (function  | Class_constructor _ -> true | _ -> false ) fun_annot
+  let cuda_attributes = List.fold_left (fun doc a -> (match a with
+    | CudaGlobal -> string "__global__"
+    | CudaDevice -> string "__device__"
+    | _ -> empty) ^^ doc) empty fun_annot in
+  cuda_attributes ^^ (if List.exists (function  | Class_constructor _ -> true | _ -> false ) fun_annot
     then aux_class_constructor_to_doc style fun_annot f args [] b
     else if List.exists (function  | Class_destructor _ -> true | _ -> false ) fun_annot
       then aux_class_destructor_to_doc style ~semicolon fun_annot f b
     else
       let inline = List.mem Fun_inline fun_annot in
       let const = List.mem Const_method fun_annot in
-      aux_fun_to_doc style ~semicolon ~const ~inline f r args b
+      aux_fun_to_doc style ~semicolon ~const ~inline f r args b)
 
 (** [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function from a resource formula to a pprint document. *)
 and formula_fun_to_doc style (ty : typ) (tvl : typed_vars) (b : trm) : document =
@@ -951,7 +955,12 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
 and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_type: bool) (f : trm) (tl : trms) : document =
   let (prec, assoc) = precedence_trm f in
   let aux_arguments f_as_doc =
-      f_as_doc ^^ list_to_doc ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm style ~force_expr:true) tl)
+      let cuda_args,args = List.partition (trm_has_cstyle CudaKernelBracketArg) tl in
+      let cuda_args_doc = list_to_doc ~sep:comma ~bounds:[string "<<<"; string ">>>"] (List.map (decorate_trm style ~force_expr:true) cuda_args) in
+      let args_doc = list_to_doc ~sep:comma ~bounds:[lparen; rparen] (List.map (decorate_trm style ~force_expr:true) args) in
+      match cuda_args with
+      | [] -> f_as_doc ^^ args_doc
+      | _ -> f_as_doc ^^ cuda_args_doc ^^ args_doc
       in
   let is_get_implicit_this t =
     match trm_get_inv t with
