@@ -302,7 +302,27 @@ let rec tr_type_desc ?(loc : location) ?(namespaces = []) (d : type_desc) : typ 
     typ_typeof tr_e
   | SubstTemplateTypeParm tys ->
     redundant_template_definition_type := true;
-    typ_var (name_to_typvar tys)
+    (* TODO temporary fix to get templated function calls working with primitive operators *)
+    let tv = List.find_map (fun (name,bty) -> if name = tys then Some (typ_builtin bty) else None)
+    [
+      typ_f64_var.name, Typ_float 64;
+      typ_f32_var.name, Typ_float 32;
+      typ_int_var.name, Typ_int Signed;
+      typ_uint_var.name, Typ_int Unsigned;
+      typ_isize_var.name, Typ_size Signed;
+      typ_usize_var.name, Typ_size Unsigned;
+      typ_i8_var.name, Typ_fixed_int (Signed, 8);
+      typ_u8_var.name, Typ_fixed_int (Unsigned, 8);
+      typ_i16_var.name, Typ_fixed_int (Signed, 16);
+      typ_u16_var.name, Typ_fixed_int (Unsigned, 16);
+      typ_i32_var.name, Typ_fixed_int (Signed, 32);
+      typ_u32_var.name, Typ_fixed_int (Unsigned, 32);
+      typ_i64_var.name, Typ_fixed_int (Signed, 64);
+      typ_u64_var.name, Typ_fixed_int (Unsigned, 64);
+      typ_char_var.name, Typ_char;
+      typ_bool_var.name, Typ_bool
+    ] in
+    Option.unsome_or_else tv (fun () -> typ_var (name_to_typvar tys))
   | InjectedClassName {desc = q_d; _} ->
     let tq = tr_type_desc ?loc q_d in
     trm_add_cstyle InjectedClassName tq
@@ -627,7 +647,7 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
           Pattern.(typ_ptr __) (fun () ->
             (* When performing comparison, pointers are the same as usize *)
             if cmp then Typ_size Unsigned else
-            failwith "%s: Direct arithmetic on pointers is not supported (use &p[i] syntax instead of (p+i))" (loc_to_string loc));
+              failwith "%s: Direct arithmetic on pointers is not supported (use &p[i] syntax instead of (p+i))" (loc_to_string loc));
           Pattern.__ (fun () -> failwith "%s: Arithmetic operand has a non standard type (%s)" (loc_to_string loc) (Ast_to_text.typ_to_string ty))
         ]
       in
