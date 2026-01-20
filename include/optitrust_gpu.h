@@ -70,59 +70,25 @@ __GHOST(kernel_end_sync) {
 
 /* --- Memory management ---- */
 
-template <typename T> T __GMEM_GET_IMPL(T* p);
-template <typename T> T __GMEM_GET(T* p) {
+// To appease C++ typechecker
+template <typename T> T __get_sig_generic(T* p);
+template <typename T> T* __alloc_sig_generic();
+
+template <typename T> T __gmem_get(T* p) {
   __requires("v: T, t: int");
   __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
   __reads("p ~~>[GMem] v");
   __ensures("__spec_override_ret(T, v)");
   __admitted();
-  return __GMEM_GET_IMPL(p);
+  return __get_sig_generic<T>(p);
 }
 
-template <typename T> void __GMEM_SET_IMPL(T* p, T v);
-template <typename T> void __GMEM_SET(T* p, T v) {
+template <typename T> void __gmem_set(T* p, T v) {
   __requires("t: int");
   __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
   __writes("p ~~>[GMem] v");
   __ensures("__spec_override_noret()");
   __admitted();
-  __GMEM_SET_IMPL(p, v);
-}
-
-// TODO: integrate into optitrust_models (possibly requires reworking existing case_studies/testbenches)
-// TODO: syntax sugar for matrix1 with memory types
-__GHOST(ro_matrix1_focus_generic) {
-  __requires("T: Type, matrix: ptr(T), i: int, n: int, MT: MemType, M: int -> T, f: _Fraction");
-  __requires("bound_check: in_range(i, 0..n)");
-  __consumes("_RO(f, for i in 0..n -> &matrix[MINDEX1(n,i)] ~~>[MT] M(i))");
-  __produces("Wand(_RO(f, &matrix[MINDEX1(n, i)] ~~>[MT] M(i)), _RO(f, for i in 0..n -> &matrix[MINDEX1(n,i)] ~~>[MT] M(i))), _RO(f, &matrix[MINDEX1(n, i)] ~~>[MT] M(i))");
-  __admitted(); // for efficiency
-  __ghost(ro_group_focus, "f := f, i := i, bound_check := bound_check");
-}
-
-__GHOST(ro_matrix1_unfocus_generic) {
-  __reverts(ro_matrix1_focus_generic);
-  __admitted(); // for efficiency
-  __ghost(close_wand);
-}
-
-__GHOST(ro_matrix2_focus_generic) {
-  __requires("T: Type, matrix: ptr(T), i: int, j: int, m: int, n: int, MT: MemType, M: int * int -> T, f: _Fraction");
-  __requires("bound_check_i: in_range(i, 0..m)");
-  __requires("bound_check_j: in_range(j, 0..n)");
-  __consumes("_RO(f, matrix ~> MatrixOf2(m, n, MT, M))");
-  __produces("Wand(_RO(f, &matrix[MINDEX2(m, n, i, j)] ~~>[MT] M(i, j)), _RO(f, matrix ~> MatrixOf2(m, n, MT, M))), _RO(f, &matrix[MINDEX2(m, n, i, j)] ~~>[MT] M(i, j))");
-  __admitted(); // for efficiency
-  __ghost(ro_group_focus, "f := f, i := i, bound_check := bound_check_i");
-  __ghost(ro_group_focus, "f := f, i := j, bound_check := bound_check_j");
-  __ghost(wand_simplify);
-}
-
-__GHOST(ro_matrix2_unfocus_generic) {
-  __reverts(ro_matrix2_focus_generic);
-  __admitted(); // for efficiency
-  __ghost(close_wand);
 }
 
 template <typename T> void gmem_free(T* p) {
@@ -133,52 +99,35 @@ template <typename T> void gmem_free(T* p) {
   __ensures("__spec_override_noret()");
   __admitted();
 }
-// TODO convert to Matrix sugar
-template <typename T> T* __gmem_malloc1_impl(int N1);
+
 template <typename T> T* __gmem_malloc1(int N1) {
   __preserves("HostCtx");
-  __produces("for i in 0..N1 -> &_Res[MINDEX1(N1,i)] ~> UninitCellOf(GMem)");
-  __produces("Free(_Res, for i in 0..N1 -> &_Res[MINDEX1(N1,i)] ~> UninitCellOf(GMem))");
+  __produces("_Res ~> UninitMatrixOf1(N1, GMem)");
+  __produces("Free(_Res, _Res ~> UninitMatrixOf1(N1, GMem))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
-  return __gmem_malloc1_impl<T>(N1);
+  return __alloc_sig_generic<T>();
 }
-#define gmem_malloc1(T, N1) __call_with(__gmem_malloc1<T>(N1), "T := "#T);
+#define GMEM_MALLOC1(T, N1) __call_with(__gmem_malloc1<T>(N1), "T := "#T)
 
-template <typename T> void memcpy_host_to_device1_impl(T* dest, T* src, int N1);
-template <typename T> void memcpy_host_to_device1(T* dest, T* src, int N1) {
-  __requires("A: int -> T");
-  __preserves("HostCtx");
-  __reads("for i in 0..N1 -> &src[MINDEX1(N1,i)] ~~> A(i)");
-  __writes("for i in 0..N1 -> &dest[MINDEX1(N1,i)] ~~>[GMem] A(i)");
-  __ensures("__spec_override_noret()");
-  __admitted();
-  return memcpy_host_to_device1_impl<T>(dest, src, N1);
-}
-
-template <typename T> void memcpy_device_to_host1_impl(T* dest, T* src, int N1);
-template <typename T> void memcpy_device_to_host1(T* dest, T* src, int N1) {
-  __requires("A: int -> T");
-  __preserves("HostCtx");
-  __reads("for i in 0..N1 -> &src[MINDEX1(N1,i)] ~~>[GMem] A(i)");
-  __writes("for i in 0..N1 -> &dest[MINDEX1(N1,i)] ~~> A(i)");
-  __ensures("__spec_override_noret()");
-  __admitted();
-  return memcpy_device_to_host1_impl<T>(dest, src, N1);
-}
-
-template <typename T> T* __gmem_malloc2_impl(int N1, int N2);
 template <typename T> T* __gmem_malloc2(int N1, int N2) {
   __preserves("HostCtx");
   __produces("_Res ~> UninitMatrixOf2(N1, N2, GMem)");
   __produces("Free(_Res, _Res ~> UninitMatrixOf2(N1, N2, GMem))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
-  return __gmem_malloc2_impl<T>(N1, N2);
+  return __alloc_sig_generic<T>();
 }
-#define gmem_malloc2(T, N1, N2) __call_with(__gmem_malloc2<T>(N1,N2), "T := "#T);
+#define GMEM_MALLOC2(T, N1, N2) __call_with(__gmem_malloc2<T>(N1,N2), "T := "#T)
 
-template <typename T> void memcpy_host_to_device2_impl(T* dest, T* src, int N1, int N2);
+template <typename T> void memcpy_host_to_device1(T* dest, T* src, int N1) {
+  __requires("A: int -> T");
+  __preserves("HostCtx");
+  __reads("src ~> Matrix1(N1, A)");
+  __writes("dest ~> MatrixOf1(N1, GMem, A)");
+  __ensures("__spec_override_noret()");
+  __admitted();
+}
 template <typename T> void memcpy_host_to_device2(T* dest, T* src, int N1, int N2) {
   __requires("A: int * int -> T");
   __preserves("HostCtx");
@@ -186,10 +135,16 @@ template <typename T> void memcpy_host_to_device2(T* dest, T* src, int N1, int N
   __writes("dest ~> MatrixOf2(N1,N2, GMem, A)");
   __ensures("__spec_override_noret()");
   __admitted();
-  return memcpy_host_to_device2_impl<T>(dest, src, N1, N2);
 }
 
-template <typename T> void memcpy_device_to_host2_impl(T* dest, T* src, int N1, int N2);
+template <typename T> void memcpy_device_to_host1(T* dest, T* src, int N1) {
+  __requires("A: int -> T");
+  __preserves("HostCtx");
+  __reads("src ~> MatrixOf1(N1, GMem, A)");
+  __writes("dest ~> Matrix1(N1, A)");
+  __ensures("__spec_override_noret()");
+  __admitted();
+}
 template <typename T> void memcpy_device_to_host2(T* dest, T* src, int N1, int N2) {
   __requires("A: int * int -> T");
   __preserves("HostCtx");
@@ -197,7 +152,6 @@ template <typename T> void memcpy_device_to_host2(T* dest, T* src, int N1, int N
   __writes("dest ~> Matrix2(N1,N2, A)");
   __ensures("__spec_override_noret()");
   __admitted();
-  return memcpy_device_to_host2_impl<T>(dest, src, N1, N2);
 }
 
 /* ---- DesyncGroup ghosts ---- */
@@ -219,14 +173,12 @@ __GHOST(rewrite_linear_range) {
   __admitted();
 }
 
-// TODO: handle > 2 cases where we have > MINDEX1
+// TODO: Add more of these? Or change the thread for typechecker rule to produce the chunk_range equality automatically?
 __GHOST(chunk_range_plus2) {
   __requires("D1: int, D2: int");
   __ensures("P: forall (i: int) -> range_eq( chunk_range(range_plus(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)), D2, i), range_plus(MINDEX2(D2,MSIZE1(D1),i,0), MSIZE1(D1)) )");
   __admitted();
 }
-
-// oof
 __GHOST(chunk_range_plus4) {
   __requires("D1: int, D2: int, D3: int, D4: int");
   __ensures("P: forall (i: int) -> range_eq( chunk_range(range_plus(MINDEX1(MSIZE4(D4,D3,D2,D1),0), MSIZE4(D4,D3,D2,D1)), D4, i), range_plus(MINDEX2(D4,MSIZE3(D3,D2,D1),i,0), MSIZE3(D3,D2,D1)) )");
@@ -241,7 +193,8 @@ __GHOST(group_to_desyncgroup) {
   __admitted();
 }
 
-// TODO: remove
+// TODO: Consider removing?
+// have just one standard way of doing the conversion to avoid confusion (group_to_desyncgroup alone is equally expressive)
 __GHOST(group_to_desyncgroup2) {
   __requires("D1: int, D2: int, items: int*int -> HProp");
   __preserves("ThreadsCtx(range_plus(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)))");

@@ -35,27 +35,23 @@ __GHOST(kernel_end_sync_shm) {
   __admitted();
 }
 
-template <typename T> T __SMEM_GET_IMPL(T* p);
-template <typename T> T __SMEM_GET(T* p) {
+template <typename T> T __smem_get(T* p) {
   __requires("v: T, t: int");
   __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
   __reads("p ~~>[SMem] v");
   __ensures("__spec_override_ret(T, v)");
   __admitted();
-  return __SMEM_GET_IMPL(p);
+  return __get_sig_generic(p);
 }
 
-template <typename T> void __SMEM_SET_IMPL(T* p, T v);
-template <typename T> void __SMEM_SET(T* p, T v) {
+template <typename T> void __smem_set(T* p, T v) {
   __requires("t: int");
   __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
   __writes("p ~~>[SMem] v");
   __ensures("__spec_override_noret()");
   __admitted();
-  __SMEM_SET_IMPL(p, v);
 }
 
-template <typename T> T* __smem_malloc2_impl(int N1, int N2);
 template <typename T> T* __smem_malloc2(int N1, int N2) {
   __requires("tpb: int, bpg: int, t: int");
   __reads("KernelParams(tpb, bpg, MSIZE2(N1,N2))");
@@ -66,10 +62,9 @@ template <typename T> T* __smem_malloc2(int N1, int N2) {
   __produces("Free(_Res, _Res ~> UninitMatrixOf2(N1, N2, SMem))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
-  return __smem_malloc2_impl<T>(N1, N2);
+  return __alloc_sig_generic<T>();
 }
-#define smem_malloc2(T, N1, N2) __call_with(__smem_malloc2<T>(N1,N2), "T := "#T);
-
+#define SMEM_MALLOC2(T, N1, N2) __call_with(__smem_malloc2<T>(N1,N2), "T := "#T);
 
 template <typename T> void smem_free(T* p) {
   __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int");
@@ -94,8 +89,8 @@ void transpose(float *a, float *b, int W, int H) {
   __reads("a ~> Matrix2(H, W, A)");
   __writes("b ~> Matrix2(W, H, fun (i : int) (j: int) -> A(j,i))");
 
-  float* const d_a = gmem_malloc2(float, H, W);
-  float* const d_b = gmem_malloc2(float, W, H);
+  float* const d_a = GMEM_MALLOC2(float, H, W);
+  float* const d_b = GMEM_MALLOC2(float, W, H);
 
   memcpy_host_to_device2(d_a, a, H, W);
 
@@ -166,7 +161,7 @@ void transpose(float *a, float *b, int W, int H) {
       __ghost(tile_divides, "items := fun ty -> for tx in 0..32 -> (b0_inside2(by,bx))(ty, tx), div_check := tile32");
       __ghost(group_to_desyncgroup, "items := fun ty -> for j in 0..2 -> for tx in 0..32 -> (b0_inside3(by,bx,ty))(j,tx)");
 
-      float* const tile = smem_malloc2(float, 32,32);
+      float* const tile = SMEM_MALLOC2(float, 32,32);
 
       __DEF(tile_inside0, "fun (y x: int) -> &tile[MINDEX2(32, 32, y, x)] ~> UninitCellOf(SMem)");
       __DEF(tile_inside1, "fun (yo yi x: int) -> &tile[MINDEX2(32, 32, yo*2 + yi, x)] ~> UninitCellOf(SMem)");
@@ -199,10 +194,10 @@ void transpose(float *a, float *b, int W, int H) {
             __ghost(assume, "P := in_range(iy, 0..H)");
             __ghost(assume, "P := in_range(ix, 0..W)");
 
-            __GHOST_BEGIN(focusA, ro_matrix2_focus_generic, "d_a, iy, ix");
-            const float v = __GMEM_GET(&d_a[MINDEX2(H, W, iy, ix)]);
+            __GHOST_BEGIN(focusA, ro_matrix2_focus, "d_a, iy, ix");
+            const float v = __gmem_get(&d_a[MINDEX2(H, W, iy, ix)]);
             __GHOST_END(focusA);
-            __SMEM_SET(&tile[MINDEX2(32,32,ty * 2 + j,tx)], v);
+            __smem_set(&tile[MINDEX2(32,32,ty * 2 + j,tx)], v);
           }
         }
       }
@@ -245,8 +240,8 @@ void transpose(float *a, float *b, int W, int H) {
               __xconsumes("(b0_inside3(by,bx,ty))(j,tx)");
               __xproduces("(bf_inside3(by,bx,ty))(j,tx)");
 
-              const float v = __SMEM_GET(&tile[MINDEX2(32,32,tx,ty*2+j)]);
-              __GMEM_SET(&d_b[MINDEX2(W, H, bx * 32 + (ty * 2 + j), by * 32 + tx)], v);
+              const float v = __smem_get(&tile[MINDEX2(32,32,tx,ty*2+j)]);
+              __gmem_set(&d_b[MINDEX2(W, H, bx * 32 + (ty * 2 + j), by * 32 + tx)], v);
           }
         }
       }

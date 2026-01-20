@@ -339,7 +339,7 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
       assert (is_typ_ptr ptr_typ);
       assert (is_typ_hprop alloc_cells_typ);
       typ_hprop
-    | Trm_var xf, _ when var_eq xf (Matrix_trm.mindex_var (List.length args / 2)) ->
+    | Trm_var xf, _ when (List.length args / 2) <= (Matrix_trm.max_nb_dims) && var_eq xf (Matrix_trm.mindex_var (List.length args / 2)) ->
       (* TODO: This should not be a special case. We should add a way to register pure arithmetic functions that can be used both in code and in specs *)
       assert ((List.length args) mod 2 = 0);
       List.iter (fun arg ->
@@ -347,7 +347,7 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
         if not (is_typ_integer arg_typ) then failwith "MINDEX should only be applied on integer arguments but here has argument '%s' of type '%s'" (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ)
         ) args;
       typ_int
-    | Trm_var xf, _ when var_eq xf (Matrix_trm.msize_var (List.length args)) ->
+    | Trm_var xf, _ when (List.length args) <= (Matrix_trm.max_nb_dims) && var_eq xf (Matrix_trm.msize_var (List.length args)) ->
       (* TODO: This should not be a special case. We should add a way to register pure arithmetic functions that can be used both in code and in specs *)
       List.iter (fun arg ->
         let arg_typ = compute_pure_typ env arg in
