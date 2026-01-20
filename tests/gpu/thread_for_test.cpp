@@ -2,6 +2,7 @@
 #include "optitrust_gpu.h"
 
 
+__device;
 void test1(int *a, int N, int M) {
   __requires("N: int, M: int, A: int * int -> int");
   __requires("bpg: int, smem_sz: int");
@@ -27,6 +28,7 @@ void test1(int *a, int N, int M) {
 }
 
 
+__device;
 void test2(int *a, int N, int M) {
   __requires("N: int, M: int, A: int * int -> int");
   __requires("eq_retile: MSIZE2(N,M) = MSIZE2(N*M/32, 32)");
@@ -83,6 +85,7 @@ void test2(int *a, int N, int M) {
 
 __DEF(rr1, "fun (sz: int) -> range_plus(MINDEX1(MSIZE1(sz),0), MSIZE1(sz))");
 
+__device;
 void write_test1(int *a, int N) {
   __preserves("ThreadsCtx(rr1(N))");
   __writes("desync_for(rr1(N)) i in ..N -> &a[i] ~~>[GMem] 1");
@@ -93,6 +96,7 @@ void write_test1(int *a, int N) {
   }
 }
 
+__device;
 void write_test2(int *a, int N) {
   __requires("bpg: int, smem_sz: int");
   __reads("KernelParams(MSIZE1(N), bpg, smem_sz)");
@@ -110,36 +114,38 @@ __DECL(reduce_sum, "int * (int -> int) -> int");
 __AXIOM(reduce_sum_empty, "forall (f: int -> int) -> 0 = reduce_sum(0, f)");
 __AXIOM(reduce_sum_add_right, "forall (n: int) (f: int -> int) (_: n >= 0) -> reduce_sum(n, f) + f(n) = reduce_sum(n + 1, f)");
 
+__device;
 void read_test1(int *a, int *b, int N) {
   __requires("B: int -> int");
   __preserves("ThreadsCtx(rr1(N))");
   __writes("desync_for(rr1(N)) i in ..N -> &a[i] ~~>[GMem] reduce_sum(N, B)");
-  __reads("for i in 0..N -> &b[MINDEX1(N,i)] ~~> B(i)");
+  __reads("for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i)");
 
   __threadfor; for (int i = 0; i < N; i++) {
     __xwrites("&a[i] ~~>[GMem] reduce_sum(N, B)");
-    int sum = 0;
-    __ghost(rewrite_linear, "inside := (fun v -> &sum ~~> v), by := reduce_sum_empty(B)");
+    __GMEM_SET(&a[i],0);
+    __ghost(rewrite_linear, "inside := (fun v -> &a[i] ~~>[GMem] v), by := reduce_sum_empty(B)");
     for (int j = 0; j < N; j++) {
-      __spreserves("&sum ~~> reduce_sum(j, B)");
-
-      __GHOST_BEGIN(focus, ro_matrix1_focus, "b, j");
-      sum += b[MINDEX1(N,j)];
+      __spreserves("&a[i] ~~>[GMem] reduce_sum(j, B)");
+      __GHOST_BEGIN(focus, ro_matrix1_focus_generic, "b, j");
+      const int v = __GMEM_GET(&b[MINDEX1(N,j)]);
+      const int vv = __GMEM_GET(&a[i]);
+      __GMEM_SET(&a[i], vv + v);
       __GHOST_END(focus);
       __ghost(in_range_bounds, "j", "j_geq_0 <- lower_bound");
-      __ghost(rewrite_linear, "inside := (fun v -> &sum ~~> v), by := reduce_sum_add_right(j, B, j_geq_0)");
+      __ghost(rewrite_linear, "inside := (fun v -> &a[i] ~~>[GMem] v), by := reduce_sum_add_right(j, B, j_geq_0)");
     }
-    __GMEM_SET(&a[i], sum);
   }
 }
 
+__device;
 void read_test2(int *a, int *b, int N) {
   __requires("B: int -> int");
   __requires("bpg: int, smem_sz: int");
   __reads("KernelParams(MSIZE1(N), bpg, smem_sz)");
   __preserves("ThreadsCtx(rr1(N))");
   __writes("for i in 0..N -> &a[MINDEX1(N,i)] ~~>[GMem] reduce_sum(N,B)");
-  __reads("for i in 0..N -> &b[MINDEX1(N,i)] ~~> B(i)");
+  __reads("for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i)");
 
   __ghost(group_to_desyncgroup, "items := fun i -> &a[MINDEX1(N,i)] ~> UninitCellOf(GMem)");
 
@@ -158,9 +164,10 @@ void read_test2(int *a, int *b, int N) {
     __threadfor; for (int t = 0; t < N; t++) {
       __xconsumes("&a[MINDEX1(N,t)] ~~>[GMem] reduce_sum(i, B)");
       __xproduces("&a[MINDEX1(N,t)] ~~>[GMem] reduce_sum(i+1, B)");
-      __GHOST_BEGIN(focus, ro_matrix1_focus, "b, i");
+      __GHOST_BEGIN(focus, ro_matrix1_focus_generic, "b, i");
       const int v = __GMEM_GET(&a[MINDEX1(N,t)]);
-      __GMEM_SET(&a[MINDEX1(N,t)], v + b[MINDEX1(N,i)]);
+      const int vv = __GMEM_GET(&b[MINDEX1(N,i)]);
+      __GMEM_SET(&a[MINDEX1(N,t)], v + vv);
       __GHOST_END(focus);
       __ghost(in_range_bounds, "i", "i_geq_0 <- lower_bound");
       __ghost(rewrite_linear, "inside := (fun v -> &a[MINDEX1(N,t)] ~~>[GMem] v), by := reduce_sum_add_right(i, B, i_geq_0)");

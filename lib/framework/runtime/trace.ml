@@ -532,11 +532,11 @@ exception MissingAst
 let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
   if ast = trm_dummy then raise MissingAst;
   let use_clang_format = beautify && !Flags.use_clang_format in
-  let file_prog = prefix ^ ctx.extension in
+  let file_prog = prefix ^ (if !Flags.cuda_codegen then ".cu" else ctx.extension) in
   let out_prog = open_out file_prog in
   begin try
     (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
-    output_string out_prog ctx.header;
+    if !Flags.cuda_codegen then () else output_string out_prog ctx.header;
     (* Convert contracts into code *)
     let fromto_style = C_encoding.style_of_output_style style in
     let ast = C_encoding.computed_resources_intro fromto_style ast in

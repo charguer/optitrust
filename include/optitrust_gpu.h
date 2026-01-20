@@ -4,6 +4,7 @@
 #include <optitrust_models.h>
 
 extern const int __threadfor;
+#define __device extern void __device__()
 
 __DECL(GMem, "MemType");
 __DECL(SMem, "MemType");
@@ -125,6 +126,7 @@ __GHOST(ro_matrix2_unfocus_generic) {
   __ghost(close_wand);
 }
 
+template <typename T> void __gmem_free_impl(T* p);
 template <typename T> void gmem_free(T* p) {
   __requires("H: HProp");
   __preserves("HostCtx");
@@ -132,7 +134,9 @@ template <typename T> void gmem_free(T* p) {
   __consumes("H");
   __ensures("__spec_override_noret()");
   __admitted();
+  __gmem_free_impl<T>(p);
 }
+
 // TODO convert to Matrix sugar
 template <typename T> T* __gmem_malloc1_impl(int N1);
 template <typename T> T* __gmem_malloc1(int N1) {
@@ -143,7 +147,7 @@ template <typename T> T* __gmem_malloc1(int N1) {
   __admitted();
   return __gmem_malloc1_impl<T>(N1);
 }
-#define gmem_malloc1(T, N1) __call_with(__gmem_malloc1<T>(N1), "T := "#T);
+#define gmem_malloc1(T, N1) __call_with(__gmem_malloc1<T>(N1), "T := "#T)
 
 template <typename T> void memcpy_host_to_device1_impl(T* dest, T* src, int N1);
 template <typename T> void memcpy_host_to_device1(T* dest, T* src, int N1) {
@@ -176,7 +180,7 @@ template <typename T> T* __gmem_malloc2(int N1, int N2) {
   __admitted();
   return __gmem_malloc2_impl<T>(N1, N2);
 }
-#define gmem_malloc2(T, N1, N2) __call_with(__gmem_malloc2<T>(N1,N2), "T := "#T);
+#define gmem_malloc2(T, N1, N2) __call_with(__gmem_malloc2<T>(N1,N2), "T := "#T)
 
 template <typename T> void memcpy_host_to_device2_impl(T* dest, T* src, int N1, int N2);
 template <typename T> void memcpy_host_to_device2(T* dest, T* src, int N1, int N2) {

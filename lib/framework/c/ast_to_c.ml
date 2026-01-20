@@ -585,7 +585,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
         end
       end
     | Trm_seq (tl, result) ->
-      if (not !Flags.display_includes) && (trm_is_include t) then
+      if (!Flags.cuda_codegen || not !Flags.display_includes) && (trm_is_include t) then
         empty
       else
         let dl = Mlist.flatten_marks (decorate_trm style ~semicolon:true)
@@ -602,10 +602,11 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
             if style.hide_seq then
               string "{...}"
             else if trm_is_mainfile t then
+              let header = if !Flags.cuda_codegen then string "\n#include <optitrust_gpu_cuda.cuh>\n" else empty in
               let header =
                 if style.pretty_matrix_notation
-                  then (string "// NOTE: using pretty matrix notation") ^^ hardline
-                  else empty
+                  then header ^^ (string "// NOTE: using pretty matrix notation") ^^ hardline
+                  else header
                 in
                 header ^^ (separate (twice hardline) dl)
             else

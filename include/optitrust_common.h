@@ -201,6 +201,7 @@ inline int exact_div(int n, int b) {
   return n / b;
 }
 
+#ifndef OPTITRUST_CUDA_RUNTIME
 inline int min(int a, int b) {
   __pure();
   __admitted();
@@ -212,6 +213,8 @@ inline int max(int a, int b) {
   __admitted();
   return a > b ? a : b;
 }
+#endif // OPTITRUST_CUDA_RUNTIME
+
 inline float maxf(float a, float b) {
   __pure();
   __admitted();

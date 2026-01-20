@@ -871,7 +871,7 @@ let remove_ghost_annot (t : trm) : trm =
   Nobrace.remove_after_trm_op (Resource_trm.delete_annots_on ~delete_contracts:false ~delete_ghost:true) t
 
 let encode_or_remove_ghost_annot (style: style) (t: trm) : trm =
-  if style.typing.typing_ghost
+  if (style.typing.typing_ghost && not !Flags.cuda_codegen)
     then encode_ghost_annot style t
     else remove_ghost_annot t
 
@@ -1191,7 +1191,7 @@ let computed_resources_intro (style: style) (t: trm): trm =
   aux t
 
 let rec encode_contract (style: style) (t: trm): trm =
-  if not style.typing.typing_contracts || trm_has_cstyle BodyHiddenForLightDiff t then t else
+  if !Flags.cuda_codegen || not style.typing.typing_contracts || trm_has_cstyle BodyHiddenForLightDiff t then t else
 
   (* debug_current_stage "encode_contract"; *)
   let push_named_formulas (contract_prim: var) ?(used_vars: Var_set.t option) (named_formulas: resource_item list) (t: trm): trm =
@@ -1442,12 +1442,36 @@ let rec decode_template_decl (t : trm) : trm =
     Pattern.__ (fun () -> trm_map decode_template_decl t)
   ]
 
+(****************************** GPU syntax sugar ***************************************)
+
+let rec decode_gpu_sugar (t: trm) : trm =
+  match (trm_seq_inv t) with
+  | Some (instrs,res) ->
+    let instrs = (Mlist.fold_left (fun acc instr ->
+      let instr = decode_gpu_sugar instr in
+      match acc with
+      | [] -> instr :: acc
+      | hd::tl ->
+        match (hd.desc,instr.desc) with
+        | (Trm_var v,Trm_for (range,mode,body,contract)) when (var_has_name "__threadfor" v) ->
+          (trm_like ~old:instr (trm_for ~contract ~mode:GpuThread range body)) :: tl
+        | (Trm_predecl (v,_),Trm_let (tv,t)) when (var_has_name "__device__" v) ->
+          let t = match (trm_fun_inv t) with
+          | Some _ -> (trm_add_cstyle CudaDevice t)
+          | _ -> t in
+          (trm_alter ~desc:(Trm_let (tv,t)) instr) :: tl
+        | _ -> instr :: acc
+    ) [] instrs) |> List.rev |> Mlist.of_list in
+    trm_alter ~desc:(Trm_seq (instrs,res)) t
+  | _ -> trm_map decode_gpu_sugar t
+
 (*************************************** Main entry points *********************************************)
 
 (** [decode_from_c t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let decode_from_c: trm -> trm =
   debug_before_after_trm "decode_from_c" (fun t -> t |>
+  decode_gpu_sugar |>
   decode_contract |>
   decode_ghost_annot |>
   decode_class_member |>
@@ -1469,7 +1493,7 @@ let encode_to_c (style : style) : trm -> trm =
   debug_before_after_trm "encode_to_c" (fun t ->
   t |>
   Scope_computation.infer_var_ids |>
-  Cuda_lowering.lower_to_cuda |>
+  (if !Flags.cuda_codegen then (Cuda_lowering.lower_to_cuda) else (fun x -> x)) |>
   encode_alloc style |>
   encode_formula_sugar |>
   encode_expr_in_seq |>

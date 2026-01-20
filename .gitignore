@@ -3,6 +3,7 @@ _build
 tmp
 _doc
 *.ast
+*_out.cu
 *_out.cpp
 *_out.c
 *_before.cpp
