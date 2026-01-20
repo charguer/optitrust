@@ -66,8 +66,7 @@ void test2(int *a, int N, int M) {
     __threadfor; for (int j = 0; j < 32; j++) {
       __xconsumes("&a[MINDEX2(N*M/32,32,i,j)] ~~>[GMem] 1");
       __xproduces("&a[MINDEX2(N*M/32,32,i,j)] ~~>[GMem] 1+1");
-      const int v = __GMEM_GET(&a[MINDEX2(N*M/32,32,i,j)]);
-      __GMEM_SET(&a[MINDEX2(N*M/32,32,i,j)], v + 1);
+      __GMEM_SET(&a[MINDEX2(N*M/32,32,i,j)], __GMEM_GET(&a[MINDEX2(N*M/32,32,i,j)]) + 1);
     }
   }
 
@@ -129,8 +128,7 @@ void read_test1(int *a, int *b, int N) {
       __spreserves("&a[i] ~~>[GMem] reduce_sum(j, B)");
       __GHOST_BEGIN(focus, ro_matrix1_focus_generic, "b, j");
       const int v = __GMEM_GET(&b[MINDEX1(N,j)]);
-      const int vv = __GMEM_GET(&a[i]);
-      __GMEM_SET(&a[i], vv + v);
+      __GMEM_SET(&a[i], __GMEM_GET(&a[i]) + v); // TODO: contracts still won't allow multiple __GMEM_GETs because of ThreadsCtx
       __GHOST_END(focus);
       __ghost(in_range_bounds, "j", "j_geq_0 <- lower_bound");
       __ghost(rewrite_linear, "inside := (fun v -> &a[i] ~~>[GMem] v), by := reduce_sum_add_right(j, B, j_geq_0)");
@@ -166,8 +164,7 @@ void read_test2(int *a, int *b, int N) {
       __xproduces("&a[MINDEX1(N,t)] ~~>[GMem] reduce_sum(i+1, B)");
       __GHOST_BEGIN(focus, ro_matrix1_focus_generic, "b, i");
       const int v = __GMEM_GET(&a[MINDEX1(N,t)]);
-      const int vv = __GMEM_GET(&b[MINDEX1(N,i)]);
-      __GMEM_SET(&a[MINDEX1(N,t)], v + vv);
+      __GMEM_SET(&a[MINDEX1(N,t)], v + __GMEM_GET(&b[MINDEX1(N,i)]));
       __GHOST_END(focus);
       __ghost(in_range_bounds, "i", "i_geq_0 <- lower_bound");
       __ghost(rewrite_linear, "inside := (fun v -> &a[MINDEX1(N,t)] ~~>[GMem] v), by := reduce_sum_add_right(i, B, i_geq_0)");

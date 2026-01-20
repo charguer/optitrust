@@ -30,6 +30,8 @@ let flatten_thread_loops (grid_size: var) (tid: var) (t: trm): trm =
       let index' = { range.index with name = "__" ^ range.index.name ^ (string_of_int !num_vars)} in
       loop_vars := Var_map.add range.index index' !loop_vars;
       incr num_vars;
+      (* TODO: this will have a performance hit if introduced inside hot paths; hoist to top of kernel?
+        what about device functions? *)
       let decl = trm_let (range.index, typ_int) (trm_trunc_div_int (trm_trunc_mod_int tid (size_from_dims dims)) (size_from_dims (range.stop::dims))) in
       let instrs = Mlist.map (fun instr -> aux (range.stop::dims) instr) instrs in
       Nobrace.trm_seq (Mlist.push_front decl instrs)
@@ -129,6 +131,10 @@ let lower_to_cuda (t: trm): trm =
   let rec fix_device_fn_calls t = Pattern.pattern_match t [
     Pattern.(trm_apps !(trm_var (check is_device_fun)) !__ !__ !__)
       (fun f args ga gb () ->
+        (* TODO: Grid size is not correct here!!
+        We do not want to pass the global grid size, but rather whatever is the size of the current threads context at the call site.
+        Unclear how to bring this out into the generated code. Maybe there can be some other ghost which makes it explicit.
+        At least rename these variables for now, to be something like __ctx_size ? *)
         let args = (typ_var (var__grid_size ())) :: (typ_var (var__tid ())) :: args in
         trm_alter ~desc:(Trm_apps (f,args,ga,gb)) t);
     Pattern.__ (fun () -> trm_map fix_device_fn_calls t)
