@@ -6,44 +6,63 @@ open Contextualized_error
 let trm__syncthreads () = trm_var (new_var "__syncthreads")
 let trm__syncwarp () = trm_var (new_var "__syncwarp")
 
-let var__grid_size () = new_var "__grid_sz"
+let var__ctx_size () = new_var "__ctx_sz"
 let var__tid () = new_var "__tid"
-let make_kernel_header (grid_size: var) (tid: var): trm =
+
+
+
+let make_kernel_header (ctx_size: var) (tid: var): trm =
   let var_threadIdx = trm_var (new_var "threadIdx") in
   let var_blockDim = trm_var (new_var "blockDim") in
   let var_blockIdx = trm_var (new_var "blockIdx") in
   let var_gridDim = trm_var (new_var "gridDim") in
   let access_x v = trm_struct_get ~struct_typ:typ_auto v "x" in
-  let grid_sz_decl = (trm_let (grid_size,typ_int) (trm_mul_int (access_x var_gridDim) (access_x var_blockDim))) in
+  let ctx_sz_decl = (trm_let (ctx_size,typ_int) (trm_mul_int (access_x var_gridDim) (access_x var_blockDim))) in
   let tid_decl = (trm_let (tid,typ_int) (trm_add_int (trm_mul_int (access_x var_blockIdx) (access_x var_blockDim)) (access_x var_threadIdx))) in
-  (Nobrace.trm_seq (Mlist.of_list [grid_sz_decl;tid_decl]))
+  (Nobrace.trm_seq (Mlist.of_list [ctx_sz_decl;tid_decl]))
 
-let flatten_thread_loops (grid_size: var) (tid: var) (t: trm): trm =
-  let grid_size = trm_var grid_size in
-  let tid = trm_var tid in
-  let loop_vars = ref Var_map.empty in
-  let num_vars = ref 0 in
-  let rec aux (dims: trm list) (t: trm) =
+let flatten_thread_loops (ctx_size: var) (tid: var) (t: trm): trm =
+  let ind_vars = ref Var_map.empty in
+  let decls = ref [] in
+
+  let rec aux (ctx_size_last: var) (t: trm) =
     match (trm_for_inv_instrs t) with
     | Some (range, GpuThread, instrs, _) ->
-      let size_from_dims dims = (trm_trunc_div_int grid_size (List.fold_left (trm_mul_int) (trm_lit (Lit_int (typ_int,1))) dims)) in
-      let index' = { range.index with name = "__" ^ range.index.name ^ (string_of_int !num_vars)} in
-      loop_vars := Var_map.add range.index index' !loop_vars;
-      incr num_vars;
-      (* TODO: this will have a performance hit if introduced inside hot paths; hoist to top of kernel?
-        what about device functions? *)
-      let decl = trm_let (range.index, typ_int) (trm_trunc_div_int (trm_trunc_mod_int tid (size_from_dims dims)) (size_from_dims (range.stop::dims))) in
-      let instrs = Mlist.map (fun instr -> aux (range.stop::dims) instr) instrs in
-      Nobrace.trm_seq (Mlist.push_front decl instrs)
-    | _ -> trm_map (aux dims) t
-  in Nobrace.remove_after_trm_op (fun t -> t |> (aux []) |> (trm_vars_subst !loop_vars)) t (* TODO: nobrace needed here ? *)
+      let num_vars = List.length (!decls) / 2 in
+
+      let ctx_size_new = new_var (ctx_size.name ^ "_" ^ (string_of_int num_vars)) in
+      let sz_decl = trm_let (ctx_size_new, typ_int) (trm_trunc_div_int (trm_var ctx_size_last) range.stop) in
+
+      let index' = { range.index with name = "__" ^ range.index.name ^ (string_of_int num_vars)} in
+      ind_vars := Var_map.add range.index index' !ind_vars;
+      let ind_decl = trm_let (range.index, typ_int) (trm_trunc_div_int (trm_trunc_mod_int (trm_var tid) (trm_var ctx_size_last)) (trm_var ctx_size_new)) in
+      decls := ind_decl :: sz_decl :: !decls;
+
+      Nobrace.trm_seq (Mlist.map (aux ctx_size_new) instrs)
+    | _ ->
+      let t = trm_map (aux ctx_size_last) t in
+      match (trm_apps_inv t) with
+      | Some (f, args) when (trm_has_cstyle CudaDevice t) ->
+          let args = (trm_var ctx_size_last) :: (trm_var tid) :: args in
+          trm_like ~old:t (trm_apps f args)
+      | _ -> t
+  in Nobrace.remove_after_trm_op (fun t -> t
+    |> (aux ctx_size)
+    |> (fun t ->
+        let decls = (Mlist.of_list (List.rev !decls)) in
+        match (trm_seq_inv t) with
+        | Some (tl, result) ->
+          let tl = Mlist.merge decls tl in
+          trm_alter ~desc:(Trm_seq (tl, result)) t
+        | _ -> trm_seq (Mlist.push_back t decls))
+    |> (trm_vars_subst !ind_vars)) t
 
 let rec generalize_mem_ops (t: trm): trm = Pattern.pattern_match t [
-  Pattern.(trm_apps2 (trm_var_with_name "__GMEM_SET") !__ !__) (fun p v () ->
+  Pattern.(trm_apps2 (trm_var_with_name "__gmem_set") !__ !__) (fun p v () ->
     let p = generalize_mem_ops p in
     let v = generalize_mem_ops v in
     trm_set p v);
-  Pattern.(trm_apps1 (trm_var_with_name "__GMEM_GET") !__) (fun p () ->
+  Pattern.(trm_apps1 (trm_var_with_name "__gmem_get") !__) (fun p () ->
     let p = generalize_mem_ops p in
     trm_get p);
   (* TODO: check also the variety of other operations that exist on Any cells, like increment, struct access, etc.*)
@@ -86,9 +105,9 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
       ]) (fun () -> raise Pattern.Next) in
       let _, body = Mlist.extract 1 (Mlist.length instrs - 2) instrs in
 
-      let grid_size,tid = var__grid_size (), var__tid () in
-      let body = trm_seq ~typ:(typ_unit) (Mlist.push_front (make_kernel_header grid_size tid) body) in
-      let body = lower_device_code grid_size tid body in
+      let ctx_size,tid = var__ctx_size (), var__tid () in
+      let body = trm_seq ~typ:(typ_unit) (Mlist.push_front (make_kernel_header ctx_size tid) body) in
+      let body = lower_device_code ctx_size tid body in
       let start_args = List.map (fun arg -> trm_add_cstyle CudaKernelBracketArg arg) start_args in
       let kernel_args = Var_set.inter (trm_free_vars body) bound_vars in
       let kernel_args = Var_set.fold (fun var acc -> (var,Var_map.find var !bound_vars_typs) :: acc) kernel_args [] in
@@ -113,9 +132,9 @@ let lower_to_cuda (t: trm): trm =
       let* xf, _, tf = trm_let_inv t in
       let* args, ret_ty, body, fun_spec = trm_fun_inv tf in
       if (trm_has_cstyle CudaDevice tf) then (
-        let grid_size,tid = var__grid_size (), var__tid () in
-        let args = (grid_size,typ_int)::(tid,typ_int)::args in
-        let body = lower_device_code grid_size tid body in
+        let ctx_size,tid = var__ctx_size (), var__tid () in
+        let args = (ctx_size,typ_int)::(tid,typ_int)::args in
+        let body = lower_device_code ctx_size tid body in
         let tf = trm_alter ~desc:(Trm_fun (args,ret_ty,body,fun_spec)) tf in
         device_fns := Var_set.add xf !device_fns;
         Some (trm_alter ~desc:(Trm_let ((xf,tf), tf)) t)
@@ -127,16 +146,13 @@ let lower_to_cuda (t: trm): trm =
     match ot () with
     | Some tv -> tv
     | _ -> trm_map lower_fns t in
-  let is_device_fun v = Var_set.mem v (!device_fns) in
-  let rec fix_device_fn_calls t = Pattern.pattern_match t [
-    Pattern.(trm_apps !(trm_var (check is_device_fun)) !__ !__ !__)
-      (fun f args ga gb () ->
-        (* TODO: Grid size is not correct here!!
-        We do not want to pass the global grid size, but rather whatever is the size of the current threads context at the call site.
-        Unclear how to bring this out into the generated code. Maybe there can be some other ghost which makes it explicit.
-        At least rename these variables for now, to be something like __ctx_size ? *)
-        let args = (typ_var (var__grid_size ())) :: (typ_var (var__tid ())) :: args in
-        trm_alter ~desc:(Trm_apps (f,args,ga,gb)) t);
-    Pattern.__ (fun () -> trm_map fix_device_fn_calls t)
-  ] in
-  Nobrace.remove_after_trm_op (fun t -> t |> lower_fns |> fix_device_fn_calls) t
+  let rec check_device_fn_calls t =
+    (match (trm_apps_inv t) with
+    | Some ({ desc = Trm_var v }, _) ->
+      (if (Var_set.mem v (!device_fns)) <> (trm_has_cstyle CudaDevice t) then
+        failwith "Device function call should be to a device function!"
+      else trm_iter check_device_fn_calls t)
+    | _ -> trm_iter check_device_fn_calls t;)
+  in
+  let check_device_fn_calls t = check_device_fn_calls t; t in
+  Nobrace.remove_after_trm_op (fun t -> t |> lower_fns |> check_device_fn_calls) t

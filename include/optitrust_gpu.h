@@ -5,6 +5,7 @@
 
 extern const int __threadfor;
 #define __device extern void __device__()
+extern const int __device_call;
 
 __DECL(GMem, "MemType");
 __DECL(SMem, "MemType");

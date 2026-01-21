@@ -1455,6 +1455,8 @@ let rec decode_gpu_sugar (t: trm) : trm =
         match (hd.desc,instr.desc) with
         | (Trm_var v,Trm_for (range,mode,body,contract)) when (var_has_name "__threadfor" v) ->
           (trm_like ~old:instr (trm_for ~contract ~mode:GpuThread range body)) :: tl
+        | (Trm_var v,Trm_apps _) when (var_has_name "__device_call" v) ->
+          (trm_add_cstyle CudaDevice instr) :: tl
         | (Trm_predecl (v,_),Trm_let (tv,t)) when (var_has_name "__device__" v) ->
           let t = match (trm_fun_inv t) with
           | Some _ -> (trm_add_cstyle CudaDevice t)

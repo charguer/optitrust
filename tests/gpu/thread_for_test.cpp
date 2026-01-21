@@ -104,7 +104,7 @@ void write_test2(int *a, int N) {
 
   __ghost(group_to_desyncgroup, "items := fun i -> &a[i] ~~>[GMem]0");
 
-  write_test1(a, N);
+  __device_call; write_test1(a, N);
   blocksync(); __with("H := desync_for(rr1(N)) i in ..N -> &a[i] ~~>[GMem] 1");
 }
 
@@ -112,6 +112,7 @@ __DECL(reduce_sum, "int * (int -> int) -> int");
 __AXIOM(reduce_sum_empty, "forall (f: int -> int) -> 0 = reduce_sum(0, f)");
 __AXIOM(reduce_sum_add_right, "forall (n: int) (f: int -> int) (_: n >= 0) -> reduce_sum(n, f) + f(n) = reduce_sum(n + 1, f)");
 
+__device;
 void read_test1(int *a, int *b, int N) {
   __requires("B: int -> int");
   __preserves("ThreadsCtx(rr1(N))");
