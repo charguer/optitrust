@@ -43,10 +43,10 @@ __GHOST(matrix1_unfocus) {
 }*/
 
 __GHOST(ro_matrix1_focus) {
-  __requires("T: Type, matrix: ptr(T), i: int, n: int, M: int -> T, f: _Fraction");
+  __requires("T: Type, matrix: ptr(T), i: int, n: int, MT: MemType, M: int -> T, f: _Fraction");
   __requires("bound_check: in_range(i, 0..n)");
-  __consumes("_RO(f, matrix ~> Matrix1(n, M))");
-  __produces("Wand(_RO(f, &matrix[MINDEX1(n, i)] ~~> M(i)), _RO(f, matrix ~> Matrix1(n, M))), _RO(f, &matrix[MINDEX1(n, i)] ~~> M(i))");
+  __consumes("_RO(f, matrix ~> MatrixOf1(n, MT, M))");
+  __produces("Wand(_RO(f, &matrix[MINDEX1(n, i)] ~~>[MT] M(i)), _RO(f, matrix ~> MatrixOf1(n, MT, M))), _RO(f, &matrix[MINDEX1(n, i)] ~~>[MT] M(i))");
   __admitted(); // for efficiency
   __ghost(ro_group_focus, "f := f, i := i, bound_check := bound_check");
 }
@@ -58,11 +58,11 @@ __GHOST(ro_matrix1_unfocus) {
 }
 
 __GHOST(ro_matrix2_focus) {
-  __requires("T: Type, matrix: ptr(T), i: int, j: int, m: int, n: int, M: int * int -> T, f: _Fraction");
+  __requires("T: Type, matrix: ptr(T), i: int, j: int, m: int, n: int, MT: MemType, M: int * int -> T, f: _Fraction");
   __requires("bound_check_i: in_range(i, 0..m)");
   __requires("bound_check_j: in_range(j, 0..n)");
-  __consumes("_RO(f, matrix ~> Matrix2(m, n, M))");
-  __produces("Wand(_RO(f, &matrix[MINDEX2(m, n, i, j)] ~~> M(i, j)), _RO(f, matrix ~> Matrix2(m, n, M))), _RO(f, &matrix[MINDEX2(m, n, i, j)] ~~> M(i, j))");
+  __consumes("_RO(f, matrix ~> MatrixOf2(m, n, MT, M))");
+  __produces("Wand(_RO(f, &matrix[MINDEX2(m, n, i, j)] ~~>[MT] M(i, j)), _RO(f, matrix ~> MatrixOf2(m, n, MT, M))), _RO(f, &matrix[MINDEX2(m, n, i, j)] ~~>[MT] M(i, j))");
   __admitted(); // for efficiency
   __ghost(ro_group_focus, "f := f, i := i, bound_check := bound_check_i");
   __ghost(ro_group_focus, "f := f, i := j, bound_check := bound_check_j");

@@ -12,9 +12,9 @@ void vector_add(float *a, float *b, float *c, int N) {
   __reads("for i in 0..N -> &b[MINDEX1(N,i)] ~~> B(i)");
   __writes("for i in 0..N -> &c[MINDEX1(N,i)] ~~> (arr_add(A,B))(i)");
 
-  float* const d_a = gmem_malloc1(float, N);
-  float* const d_b = gmem_malloc1(float, N);
-  float* const d_c = gmem_malloc1(float, N);
+  float* const d_a = GMEM_MALLOC1(float, N);
+  float* const d_b = GMEM_MALLOC1(float, N);
+  float* const d_c = GMEM_MALLOC1(float, N);
 
   memcpy_host_to_device1(d_a, a, N);
   memcpy_host_to_device1(d_b, b, N);
@@ -27,11 +27,11 @@ void vector_add(float *a, float *b, float *c, int N) {
     __threadfor; for (int i = 0; i < N; i++) {
       __xwrites("&d_c[MINDEX1(N,i)] ~~>[GMem] (arr_add(A,B))(i)");
 
-      __GHOST_BEGIN(focusA, ro_matrix1_focus_generic, "d_a, i");
-      __GHOST_BEGIN(focusB, ro_matrix1_focus_generic, "d_b, i");
-      const float va = __GMEM_GET(&d_a[MINDEX1(N,i)]);
-      const float vb = __GMEM_GET(&d_b[MINDEX1(N,i)]);
-      __GMEM_SET(&d_c[MINDEX1(N,i)], va + vb);
+      __GHOST_BEGIN(focusA, ro_matrix1_focus, "d_a, i");
+      __GHOST_BEGIN(focusB, ro_matrix1_focus, "d_b, i");
+      const float va = __gmem_get(&d_a[MINDEX1(N,i)]);
+      const float vb = __gmem_get(&d_b[MINDEX1(N,i)]);
+      __gmem_set(&d_c[MINDEX1(N,i)], va + vb);
       __GHOST_END(focusA);
       __GHOST_END(focusB);
     }

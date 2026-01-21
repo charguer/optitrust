@@ -1,7 +1,6 @@
 #include "optitrust_models.h"
 #include "optitrust_gpu.h"
 
-
 __device;
 void test1(int *a, int N, int M) {
   __requires("N: int, M: int, A: int * int -> int");
@@ -21,12 +20,11 @@ void test1(int *a, int N, int M) {
     __threadfor; for (int j = 0; j < M; j++) {
       __xconsumes("&a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
       __xproduces("&a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
-      __GMEM_SET(&a[MINDEX2(N,M,i,j)],1);
+      __gmem_set(&a[MINDEX2(N,M,i,j)],1);
     }
   }
   blocksync(); __with("H := desync_for(r1) i in ..N -> desync_for(r2(i)) j in ..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
 }
-
 
 __device;
 void test2(int *a, int N, int M) {
@@ -50,7 +48,7 @@ void test2(int *a, int N, int M) {
     __threadfor; for (int j = 0; j < M; j++) {
       __xconsumes("&a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
       __xproduces("&a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
-      __GMEM_SET(&a[MINDEX2(N,M,i,j)], 1);
+      __gmem_set(&a[MINDEX2(N,M,i,j)], 1);
     }
   }
   __ghost(rewrite_range, "rf := r1, from := MSIZE2(N,M), to := MSIZE2(N*M/32, 32)");
@@ -66,7 +64,8 @@ void test2(int *a, int N, int M) {
     __threadfor; for (int j = 0; j < 32; j++) {
       __xconsumes("&a[MINDEX2(N*M/32,32,i,j)] ~~>[GMem] 1");
       __xproduces("&a[MINDEX2(N*M/32,32,i,j)] ~~>[GMem] 1+1");
-      __GMEM_SET(&a[MINDEX2(N*M/32,32,i,j)], __GMEM_GET(&a[MINDEX2(N*M/32,32,i,j)]) + 1);
+      const int va = __gmem_get(&a[MINDEX2(N*M/32,32,i,j)]);
+      __gmem_set(&a[MINDEX2(N*M/32,32,i,j)], va + 1);
     }
   }
 
@@ -91,7 +90,7 @@ void write_test1(int *a, int N) {
 
   __threadfor; for (int i = 0; i < N; i++) {
     __xwrites("&a[i] ~~>[GMem] 1");
-    __GMEM_SET(&a[i], 1);
+    __gmem_set(&a[i], 1);
   }
 }
 
@@ -113,7 +112,6 @@ __DECL(reduce_sum, "int * (int -> int) -> int");
 __AXIOM(reduce_sum_empty, "forall (f: int -> int) -> 0 = reduce_sum(0, f)");
 __AXIOM(reduce_sum_add_right, "forall (n: int) (f: int -> int) (_: n >= 0) -> reduce_sum(n, f) + f(n) = reduce_sum(n + 1, f)");
 
-__device;
 void read_test1(int *a, int *b, int N) {
   __requires("B: int -> int");
   __preserves("ThreadsCtx(rr1(N))");
@@ -122,13 +120,14 @@ void read_test1(int *a, int *b, int N) {
 
   __threadfor; for (int i = 0; i < N; i++) {
     __xwrites("&a[i] ~~>[GMem] reduce_sum(N, B)");
-    __GMEM_SET(&a[i],0);
+    __gmem_set(&a[i],0);
     __ghost(rewrite_linear, "inside := (fun v -> &a[i] ~~>[GMem] v), by := reduce_sum_empty(B)");
     for (int j = 0; j < N; j++) {
       __spreserves("&a[i] ~~>[GMem] reduce_sum(j, B)");
-      __GHOST_BEGIN(focus, ro_matrix1_focus_generic, "b, j");
-      const int v = __GMEM_GET(&b[MINDEX1(N,j)]);
-      __GMEM_SET(&a[i], __GMEM_GET(&a[i]) + v); // TODO: contracts still won't allow multiple __GMEM_GETs because of ThreadsCtx
+      __GHOST_BEGIN(focus, ro_matrix1_focus, "b, j");
+      const int va = __gmem_get(&a[i]);
+      const int vb = __gmem_get(&b[MINDEX1(N,j)]);
+      __gmem_set(&a[i], va + vb);
       __GHOST_END(focus);
       __ghost(in_range_bounds, "j", "j_geq_0 <- lower_bound");
       __ghost(rewrite_linear, "inside := (fun v -> &a[i] ~~>[GMem] v), by := reduce_sum_add_right(j, B, j_geq_0)");
@@ -149,7 +148,7 @@ void read_test2(int *a, int *b, int N) {
 
   __threadfor; for (int t = 0; t < N; t++) {
     __xwrites("&a[MINDEX1(N,t)] ~~>[GMem] reduce_sum(0, B)");
-    __GMEM_SET(&a[MINDEX1(N,t)], 0);
+    __gmem_set(&a[MINDEX1(N,t)], 0);
     __ghost(rewrite_linear, "inside := (fun v -> &a[MINDEX1(N,t)] ~~>[GMem] v), by := reduce_sum_empty(B)");
   }
 
@@ -162,9 +161,10 @@ void read_test2(int *a, int *b, int N) {
     __threadfor; for (int t = 0; t < N; t++) {
       __xconsumes("&a[MINDEX1(N,t)] ~~>[GMem] reduce_sum(i, B)");
       __xproduces("&a[MINDEX1(N,t)] ~~>[GMem] reduce_sum(i+1, B)");
-      __GHOST_BEGIN(focus, ro_matrix1_focus_generic, "b, i");
-      const int v = __GMEM_GET(&a[MINDEX1(N,t)]);
-      __GMEM_SET(&a[MINDEX1(N,t)], v + __GMEM_GET(&b[MINDEX1(N,i)]));
+      __GHOST_BEGIN(focus, ro_matrix1_focus, "b, i");
+      const int va = __gmem_get(&a[MINDEX1(N,t)]);
+      const int vb = __gmem_get(&b[MINDEX1(N,i)]);
+      __gmem_set(&a[MINDEX1(N,t)], va + vb);
       __GHOST_END(focus);
       __ghost(in_range_bounds, "i", "i_geq_0 <- lower_bound");
       __ghost(rewrite_linear, "inside := (fun v -> &a[MINDEX1(N,t)] ~~>[GMem] v), by := reduce_sum_add_right(i, B, i_geq_0)");
