@@ -83,11 +83,15 @@ let lower_device_code (grid_size: var) (tid: var) (t: trm): trm =
     |> lower_syncs
 
 let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): trm =
-  let rec scan_bound_vars t = match (trm_let_inv (t)) with
-  | Some (var,typ,_) ->
-    bound_vars_typs := Var_map.add var typ !bound_vars_typs;
-    trm_iter scan_bound_vars t
-  | _ -> trm_iter scan_bound_vars t in
+  let rec scan_bound_vars t = match t.desc with
+    | Trm_let ((var,typ),_) ->
+      bound_vars_typs := Var_map.add var typ !bound_vars_typs;
+    | Trm_for ({index = var; _},_,_,_) ->
+      bound_vars_typs := Var_map.add var (typ_int) !bound_vars_typs;
+    (* TODO: Handle other cases. I don't think map_binder in trm_map_vars
+    will work because I don't think the ctx can be used to associate vars with types. *)
+    | _ -> ();
+    trm_iter scan_bound_vars t in
   scan_bound_vars t;
   let bound_vars = Var_set.of_seq (fst (Seq.split (Var_map.to_seq !bound_vars_typs))) in
 
@@ -106,11 +110,19 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
       let _, body = Mlist.extract 1 (Mlist.length instrs - 2) instrs in
 
       let ctx_size,tid = var__ctx_size (), var__tid () in
-      let body = trm_seq ~typ:(typ_unit) (Mlist.push_front (make_kernel_header ctx_size tid) body) in
+      let body = trm_seq ~typ:(typ_unit) body in
       let body = lower_device_code ctx_size tid body in
+      let body =
+        match (trm_seq_inv body) with
+        | Some (tl, result) ->
+          let tl = (Mlist.push_front (make_kernel_header ctx_size tid) tl) in
+          trm_alter ~desc:(Trm_seq (tl, result)) t
+        | _ -> failwith "expected seq" in
+
       let start_args = List.map (fun arg -> trm_add_cstyle CudaKernelBracketArg arg) start_args in
       let kernel_args = Var_set.inter (trm_free_vars body) bound_vars in
       let kernel_args = Var_set.fold (fun var acc -> (var,Var_map.find var !bound_vars_typs) :: acc) kernel_args [] in
+
       let kernel_fn = (trm_add_cstyle CudaGlobal (trm_fun kernel_args (typ_unit) body)) in
       let kernel_var = new_var ("__kernel" ^ (string_of_int (!k_id))) in
       incr k_id;

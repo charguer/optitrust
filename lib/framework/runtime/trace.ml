@@ -603,6 +603,10 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
 (*                                   Reparse                                  *)
 (******************************************************************************)
 
+(* Ast_to_cuda.print *)
+(* TODO define a cuda_print similar to this
+Take filename etc. *)
+
 (** [reparse_trm ctx ast]: prints [ast] in a temporary file and reparses it using Clang. *)
 let reparse_trm ?(info : string = "") (ctx : context) (ast : trm) : trm =
   (* Disable caching for reparsing *)

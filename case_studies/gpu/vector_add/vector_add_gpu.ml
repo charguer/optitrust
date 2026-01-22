@@ -10,5 +10,10 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
 let _ = Flags.cuda_codegen := true
 
 (* Trace.apply (Cuda_lowering.lower_to_cuda)*)
+(* script_cuda ? *)
+(* Print both for unit tests *)
+(* Check Reparse transformation, show transfo *)
 let _ = Run.script_cpp (fun () ->
-  Resources.ensure_computed ();)
+  Resources.ensure_computed ();
+
+  (* CUDA OUT *) )

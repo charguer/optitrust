@@ -26,6 +26,11 @@ let option_to_doc (string_none : string) (f : 'a -> doc) (opt : 'a option) : doc
 (*----------------------------------------------------------------------------------*)
 (* Options for printing *)
 
+(* TODO:
+type dialect =
+  | Cpp
+  | Cuda *)
+
 (** Style object controlling printing options *)
 type style = {
   print_contract_internal_repr: bool; (* print internal loop contract *)
@@ -41,6 +46,7 @@ type style = {
   pretty_fraction_notation: bool; (* print 1-1/2 instead of __frac_sub(__full,__frac_div(__full, 2)) *)
   commented_pragma: bool; (* comment out pragram lines, for better tabulation by clang-format *)
   hide_seq: bool; (* hide the content of sequences with {...},  used to avoid weird matches with stringrepr *)
+  (* TODO : c_dialect: dialect; *)
 }
 
 (** Default style, depends on the global flags *)
