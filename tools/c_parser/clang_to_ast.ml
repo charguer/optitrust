@@ -346,15 +346,6 @@ and tr_stmt (s : stmt) : trm =
   match s.desc with
   | Compound sl ->
     let instrs = List.map tr_stmt sl in
-    let thread_for_seen = ref false in
-    let instrs = List.fold_left (fun instrs inst -> Pattern.pattern_match inst [
-      Pattern.(trm_var_with_name "__threadfor") (fun () ->
-        thread_for_seen := true; instrs);
-      Pattern.(trm_for !__ __ !__ !__) (fun range body contract () ->
-        let inst = if !thread_for_seen then (trm_like ~old:inst (trm_for ~contract ~mode:GpuThread range body)) else inst in
-        thread_for_seen := false; instrs @ [inst]);
-      Pattern.__ (fun () ->  thread_for_seen := false; instrs @ [inst])
-    ]) [] instrs in
     let open Option in
     let instrs, result, typ =
       if instrs = [] then
