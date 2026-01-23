@@ -83,18 +83,18 @@ let lower_device_code (grid_size: var) (tid: var) (t: trm): trm =
     |> lower_syncs
 
 let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): trm =
-  let rec scan_bound_vars t = match t.desc with
-    | Trm_let ((var,typ),_) ->
+  let rec scan_bound_vars t = (
+    trm_iter scan_bound_vars t;
+    match t.desc with
+    | Trm_let ((var,typ),body) ->
       bound_vars_typs := Var_map.add var typ !bound_vars_typs;
     | Trm_for ({index = var; _},_,_,_) ->
       bound_vars_typs := Var_map.add var (typ_int) !bound_vars_typs;
-    (* TODO: Handle other cases. I don't think map_binder in trm_map_vars
-    will work because I don't think the ctx can be used to associate vars with types. *)
-    | _ -> ();
-    trm_iter scan_bound_vars t in
+      (* TODO: Handle other cases. I don't think map_binder in trm_map_vars
+      will work because I don't think the ctx can be used to associate vars with types. *)
+    | _ -> ()) in
   scan_bound_vars t;
   let bound_vars = Var_set.of_seq (fst (Seq.split (Var_map.to_seq !bound_vars_typs))) in
-
   let kernels = ref [] in
   let rec lower_kernel_call t = Pattern.pattern_match t [
     Pattern.(trm_seq !__ __) (fun instrs () ->
