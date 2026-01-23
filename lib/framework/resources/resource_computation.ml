@@ -1011,8 +1011,6 @@ let _ = Printexc.register_printer (function
     Some (Printf.sprintf "Fraction constraint unsatisfied: %s <= %s (currently we only reason about fractions of the form a - a/n - ... - a/n)" (formula_to_string efrac) (formula_to_string bigger_frac))
   | ResourceError (_t, phase, err) ->
     Some (Printf.sprintf "%s error: %s" (resource_error_phase_to_string phase) (Printexc.to_string err));
-  (*| ThreadForMalformed (issue) ->
-    Some (Printf.sprintf "malformed thread for: %s" (thread_for_issue_to_string issue));*)
   | _ -> None)
 
 
