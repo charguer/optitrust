@@ -298,6 +298,9 @@ let formula_group_inv (t: trm): (var * trm * formula) option =
     end
   | _ -> None
 
+(* TODO with TK: Should we explain how the GPU constructs work in comments here,
+ or should this be left to some kind of external documentation? *)
+
 let var_desyncgroup = toplevel_var "DesyncGroup"
 let trm_desyncgroup = trm_var var_desyncgroup
 let formula_desyncgroup (index: var) (range: trm) (bound: trm) (fi: formula) =
@@ -328,8 +331,6 @@ let var_sync = toplevel_var "Sync"
 
 let trm_sync = trm_var var_sync
 
-(* NOTE: RANGE HAS BEEN REMOVED !!!
-Not needed with DesyncGroups. See proof in Appendix A of spec document. *)
 let formula_sync (mem_fn: trm) (res: formula) =
   trm_apps ~annot:formula_annot trm_sync [mem_fn;res]
 
@@ -568,7 +569,11 @@ let formula_group_range (range: loop_range) : formula -> formula =
 
 let formula_desyncgroup_range (range: loop_range) (r_t: trm) : formula -> formula =
   (* FIXME: Need to generalize models ! *)
-  (* FIXME: under read only, OK to or should ask for group instead of desyncgroup? IDK *)
+  (* TODO: under read only, should convert to group or desyncgroup?
+    In theory group seems correct because if each thread exclusively owns a non-full fraction,
+    they cannot make changes that the other threads wouldn't be able to see.
+    However, it is easier to say any thread-exclusive permission may be modified -> desyncgroup is required.
+    In any case you can just use __sreads instead. *)
   formula_map_under_read_only (fun fi ->
     let range_var = new_var ~namespaces:range.index.namespaces range.index.name in
     let fi = trm_subst_var range.index (trm_var range_var) fi in

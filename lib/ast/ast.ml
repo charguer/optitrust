@@ -649,11 +649,6 @@ and loop_contract = {
   strict: bool; (* Non strict loop contracts take all the resources in the frame after instantiation as additional invariants *)
 }
 
-and thread_for_info = {
-  r_out: trm; (* Outside of loop thread range term *)
-  r_in: trm; (* Inside loop thread range term *)
-}
-
 and used_resource_item = {
   hyp: var;
   inst_by: formula;
