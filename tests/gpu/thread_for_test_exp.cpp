@@ -4,8 +4,6 @@
 // NOTE: using pretty matrix notation
 
 void basic(int* a, int N, int M) {
-  __requires("N: int");
-  __requires("M: int");
   __requires("A: int * int -> int");
   __requires("bpg: int");
   __requires("smem_sz: int");
@@ -36,8 +34,6 @@ void basic(int* a, int N, int M) {
 }
 
 void retile_desyncgroups(int* a, int N, int M) {
-  __requires("N: int");
-  __requires("M: int");
   __requires("A: int * int -> int");
   __requires("eq_retile: __is_true(MSIZE2(N, M) == MSIZE2(N * M / 32, 32))");
   __requires("__is_true(32 >= 0)");
@@ -114,8 +110,6 @@ void retile_desyncgroups(int* a, int N, int M) {
 }
 
 void sync_required(int* a, int N, int M) {
-  __requires("N: int");
-  __requires("M: int");
   __requires("A: int * int -> int");
   __requires("msize_commute: __is_true(MSIZE2(N, M) == MSIZE2(M, N))");
   __requires("bpg: int");

@@ -2,7 +2,7 @@
 #include "optitrust_gpu.h"
 
 void basic(int *a, int N, int M) {
-  __requires("N: int, M: int, A: int * int -> int");
+  __requires("A: int * int -> int");
   __requires("bpg: int, smem_sz: int");
   __reads("KernelParams(MSIZE2(N,M), bpg, smem_sz)");
   __preserves("ThreadsCtx( MINDEX1(MSIZE2(N,M),0) ..+ MSIZE2(N,M) )");
@@ -26,7 +26,7 @@ void basic(int *a, int N, int M) {
 }
 
 void retile_desyncgroups(int *a, int N, int M) {
-  __requires("N: int, M: int, A: int * int -> int");
+  __requires("A: int * int -> int");
   __requires("eq_retile: MSIZE2(N,M) = MSIZE2(N*M/32, 32)");
   __requires("32 >= 0, M >= 0");
   __requires("bpg: int, smem_sz: int");
@@ -80,7 +80,7 @@ void retile_desyncgroups(int *a, int N, int M) {
 }
 
 void sync_required(int *a, int N, int M) {
-  __requires("N: int, M: int, A: int * int -> int");
+  __requires("A: int * int -> int");
   __requires("msize_commute: MSIZE2(N,M) = MSIZE2(M,N)");
   __requires("bpg: int, smem_sz: int");
   __reads("KernelParams(MSIZE2(N,M), bpg, smem_sz)");

@@ -200,6 +200,14 @@ List.map (fun (x, formula) ->
 
 (****************************** GPU thread for handling ***************************************)
 
+(*
+[threadsctx_range_components] = (dims_high, dims_low, inds)
+when
+                          |---------- N args -----------|   |-N args-|           |- M-1 args -|
+r = counted_range(MINDEXN(dims_high, MSIZEM(_, dims_low),  inds, _  ), MSIZEM(_, dims_low))
+
+given ThreadsCtx(r) in the current context.
+*)
 type threadsctx_range_components = (trm list * trm list * trm list)
 
 type thread_for_info = {
@@ -208,7 +216,7 @@ type thread_for_info = {
 }
 
 (* Wellformedness check on thread for loop ranges; should always start at 0, and step up by 1. *)
-let simplify_thread_for_range (range: loop_range): (var * trm) =
+let check_thread_for_range_wellformedness (range: loop_range): (var * trm) =
   let open Option.Monad in
   let range_s =
     let* range_s = Some (range.index, range.stop) in
@@ -254,7 +262,7 @@ let gen_inside_loop_threadsctx_range (cs: threadsctx_range_components) (loop_ind
   We have to construct these terms for the contract based on the context [res] since we don't have variadic contracts.
   The loop end and index variable in [range] are also used to construct the ThreadsCtx terms. *)
 let compute_thread_for_ctx_ranges (range: loop_range) (res: resource_set): thread_for_info =
-  let loop_ind,loop_end = simplify_thread_for_range range in
+  let loop_ind,loop_end = check_thread_for_range_wellformedness range in
   let r_out = extract_threadsctx res in
   let cs = extract_threadsctx_range_components r_out in
   let r_out_exp = gen_outside_loop_threadsctx_range cs loop_end in
@@ -270,14 +278,14 @@ let compute_thread_for_ctx_ranges (range: loop_range) (res: resource_set): threa
   the inside (loop body) and outside (for instruction) contract (in case only one is needed).
   [loop_mode] is used for loops with custom contracts.
   [?res] may be needed to generate contracts for some loop modes. *)
-let get_loop_contract_generators ?res loop_mode range contract: (unit -> fun_contract) * (unit -> fun_contract) =
+let [@warning "-11"] get_loop_contract_generators ?res loop_mode range contract: (unit -> fun_contract) * (unit -> fun_contract) =
   (match loop_mode with
   | Sequential -> ()
-  (* Assume other loop modes are parallel *)
-  | _ ->
+  | Parallel | GpuThread ->
     if (not (Resource_set.is_empty contract.invariant)) then
       failwith "Loop with mode %s cannot have sequential invariant (non parallelizable contract)" (show_loop_mode loop_mode)
-    else ());
+    else ()
+  | _ -> failwith "Resource_contract.get_loop_contract_generators: unsupported loop mode %s" (show_loop_mode loop_mode));
   let threadfor_info = match loop_mode with
   | GpuThread -> Some
     (compute_thread_for_ctx_ranges range (Option.unsome ~error:"Need typing context to compute thread for contract" res))
