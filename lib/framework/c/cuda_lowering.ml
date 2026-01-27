@@ -83,6 +83,7 @@ let lower_device_code (grid_size: var) (tid: var) (t: trm): trm =
     |> lower_syncs
 
 let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): trm =
+  (* trm_find_var could be useful to get the type *)
   let rec scan_bound_vars t = (
     trm_iter scan_bound_vars t;
     match t.desc with

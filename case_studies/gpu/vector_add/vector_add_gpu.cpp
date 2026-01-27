@@ -8,9 +8,9 @@ void vector_add(float *a, float *b, float *c, int N) {
   __requires("A: int -> float, B: int -> float");
   __requires("n_factor: N/256 * 256 = MSIZE1(N)");
   __preserves("HostCtx");
-  __reads("for i in 0..N -> &a[MINDEX1(N,i)] ~~> A(i)");
-  __reads("for i in 0..N -> &b[MINDEX1(N,i)] ~~> B(i)");
-  __writes("for i in 0..N -> &c[MINDEX1(N,i)] ~~> (arr_add(A,B))(i)");
+  __reads("a ~> Matrix1(N, A)");             // for i in 0..N -> &a[MINDEX1(N,i)] ~~> A(i)
+  __reads("b ~> Matrix1(N, B)");             // for i in 0..N -> &b[MINDEX1(N,i)] ~~> B(i)
+  __writes("c ~> Matrix1(N, arr_add(A,B))"); // for i in 0..N -> &c[MINDEX1(N,i)] ~~> (arr_add(A,B))(i)
 
   float* const d_a = GMEM_MALLOC1(float, N);
   float* const d_b = GMEM_MALLOC1(float, N);
