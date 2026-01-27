@@ -3,7 +3,7 @@ open Prelude
 
 let _ = Flags.check_validity := true
 let _ = Flags.pretty_matrix_notation := true
-let _ = Flags.recompute_resources_between_steps := true
+let _ = Flags.recompute_resources_between_steps := false
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_script
 
@@ -42,9 +42,9 @@ Run.script_cpp (fun () ->
     | [] -> ()
     in
   !! List.iter tiles [
-    "i", ["bi", (trm_find_var "bm" []); "ti", (trm_find_var "tm" [])]; (*trm_int tm)]; *)
-    "j", ["bj", (trm_find_var "bn" []); "tj", (trm_find_var "tn" [])];
-    "k", ["bkIdx", (trm_find_var "bk" [])]
+    "i", ["bi", (trm_int bm); "ti", (trm_int tm)]; (*trm_int tm)]; *)
+    "j", ["bj", (trm_int bn); "tj", (trm_int tn)];
+    "k", ["bkIdx", (trm_int bk)]
   ];
   (* FIXME using vars for tm and tn breaks reordering. *)
   !! Loop.reorder_at ~order:["bi"; "bj"; "bkIdx"; "ti"; "tj"; "k"; "i"; "j"] [cPlusEq ~lhs:[cVar "sum"] ()];
