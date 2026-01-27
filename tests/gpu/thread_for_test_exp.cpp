@@ -217,10 +217,10 @@ void read_thread_outer(int* a, int* b, int N) {
   __requires("B: int -> int");
   __preserves("ThreadsCtx(rr1(N))");
   __writes("desync_for(rr1(N)) i in ..N -> &a[i] ~~>[GMem] reduce_sum(N, B)");
-  __reads("b ~> Matrix1(N, B)");
+  __reads("b ~> Matrix1Of(N, GMem, B)");
   thread for (int t = 0; t < N; t++) {
     __strict();
-    __sreads("b ~> Matrix1(N, B)");
+    __sreads("b ~> Matrix1Of(N, GMem, B)");
     __xwrites("&a[t] ~~>[GMem] reduce_sum(N, B)");
     __gmem_set(&a[t], 0);
     __ghost(rewrite_linear,
@@ -229,7 +229,7 @@ void read_thread_outer(int* a, int* b, int N) {
       __strict();
       __spreserves("ThreadsCtx(MINDEX2(N, MSIZE0(), t, 0)..+MSIZE0())");
       __spreserves("&a[t] ~~>[GMem] reduce_sum(i, B)");
-      __sreads("b ~> Matrix1(N, B)");
+      __sreads("b ~> Matrix1Of(N, GMem, B)");
       const __ghost_fn focus =
           __ghost_begin(ro_matrix1_focus, "matrix := b, i := i");
       const int va = __gmem_get(&a[t]);
@@ -251,7 +251,7 @@ void read_thread_inner(int* a, int* b, int N) {
   __preserves("ThreadsCtx(rr1(N))");
   __writes("desync_for(rr1(N)) i in ..N -> &a[i] ~~>[GMem] reduce_sum(N, B)");
   __reads("KernelParams(MSIZE1(N), bpg, smem_sz)");
-  __reads("b ~> Matrix1(N, B)");
+  __reads("b ~> Matrix1Of(N, GMem, B)");
   thread for (int t = 0; t < N; t++) {
     __strict();
     __xwrites("&a[t] ~~>[GMem] reduce_sum(0, B)");
@@ -264,10 +264,10 @@ void read_thread_inner(int* a, int* b, int N) {
     __spreserves("ThreadsCtx(MINDEX1(MSIZE1(N), 0)..+MSIZE1(N))");
     __spreserves(
         "desync_for(rr1(N)) t in ..N -> &a[t] ~~>[GMem] reduce_sum(i, B)");
-    __sreads("b ~> Matrix1(N, B)");
+    __sreads("b ~> Matrix1Of(N, GMem, B)");
     thread for (int t = 0; t < N; t++) {
       __strict();
-      __sreads("b ~> Matrix1(N, B)");
+      __sreads("b ~> Matrix1Of(N, GMem, B)");
       __xconsumes("&a[t] ~~>[GMem] reduce_sum(i, B)");
       __xproduces("&a[t] ~~>[GMem] reduce_sum(i + 1, B)");
       const __ghost_fn focus =

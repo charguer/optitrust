@@ -94,6 +94,8 @@ template <typename T> void __gmem_set(T* p, T v) {
 template <typename T> void gmem_free(T* p) {
   __requires("H: HProp");
   __preserves("HostCtx");
+  // TODO: Free(p,H) needs to store a memory type as well.
+  // Don't know that `p` is a pointer to GMem, or that H is a permission on GMem cells.
   __consumes("Free(p, H)");
   __consumes("H");
   __ensures("__spec_override_noret()");
@@ -102,8 +104,8 @@ template <typename T> void gmem_free(T* p) {
 
 template <typename T> T* __gmem_malloc1(int N1) {
   __preserves("HostCtx");
-  __produces("_Res ~> UninitMatrixOf1(N1, GMem)");
-  __produces("Free(_Res, _Res ~> UninitMatrixOf1(N1, GMem))");
+  __produces("_Res ~> UninitMatrix1Of(N1, GMem)");
+  __produces("Free(_Res, _Res ~> UninitMatrix1Of(N1, GMem))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
   return __alloc_sig_generic<T>();
@@ -112,8 +114,8 @@ template <typename T> T* __gmem_malloc1(int N1) {
 
 template <typename T> T* __gmem_malloc2(int N1, int N2) {
   __preserves("HostCtx");
-  __produces("_Res ~> UninitMatrixOf2(N1, N2, GMem)");
-  __produces("Free(_Res, _Res ~> UninitMatrixOf2(N1, N2, GMem))");
+  __produces("_Res ~> UninitMatrix2Of(N1, N2, GMem)");
+  __produces("Free(_Res, _Res ~> UninitMatrix2Of(N1, N2, GMem))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
   return __alloc_sig_generic<T>();
@@ -124,7 +126,7 @@ template <typename T> void memcpy_host_to_device1(T* dest, T* src, int N1) {
   __requires("A: int -> T");
   __preserves("HostCtx");
   __reads("src ~> Matrix1(N1, A)");
-  __writes("dest ~> MatrixOf1(N1, GMem, A)");
+  __writes("dest ~> Matrix1Of(N1, GMem, A)");
   __ensures("__spec_override_noret()");
   __admitted();
 }
@@ -132,7 +134,7 @@ template <typename T> void memcpy_host_to_device2(T* dest, T* src, int N1, int N
   __requires("A: int * int -> T");
   __preserves("HostCtx");
   __reads("src ~> Matrix2(N1,N2, A)");
-  __writes("dest ~> MatrixOf2(N1,N2, GMem, A)");
+  __writes("dest ~> Matrix2Of(N1,N2, GMem, A)");
   __ensures("__spec_override_noret()");
   __admitted();
 }
@@ -140,7 +142,7 @@ template <typename T> void memcpy_host_to_device2(T* dest, T* src, int N1, int N
 template <typename T> void memcpy_device_to_host1(T* dest, T* src, int N1) {
   __requires("A: int -> T");
   __preserves("HostCtx");
-  __reads("src ~> MatrixOf1(N1, GMem, A)");
+  __reads("src ~> Matrix1Of(N1, GMem, A)");
   __writes("dest ~> Matrix1(N1, A)");
   __ensures("__spec_override_noret()");
   __admitted();
@@ -148,7 +150,7 @@ template <typename T> void memcpy_device_to_host1(T* dest, T* src, int N1) {
 template <typename T> void memcpy_device_to_host2(T* dest, T* src, int N1, int N2) {
   __requires("A: int * int -> T");
   __preserves("HostCtx");
-  __reads("src ~> MatrixOf2(N1,N2, GMem, A)");
+  __reads("src ~> Matrix2Of(N1,N2, GMem, A)");
   __writes("dest ~> Matrix2(N1,N2, A)");
   __ensures("__spec_override_noret()");
   __admitted();

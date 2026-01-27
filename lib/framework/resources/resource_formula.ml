@@ -583,7 +583,7 @@ let formula_desyncgroup_range (range: loop_range) (r_t: trm) : formula -> formul
     formula_desyncgroup range_var r_t range.stop fi
   )
 
-let formula_matrix_inv (f: formula): (trm * trm list * (trm*mem_typ) option) option =
+let formula_matrix_inv (f: formula): (trm * trm list * (trm option) * mem_typ) option =
   let open Option.Monad in
   let rec nested_group_inv (f: formula): (formula * var list * trm list) =
     Pattern.pattern_match f [
@@ -607,23 +607,23 @@ let formula_matrix_inv (f: formula): (trm * trm list * (trm*mem_typ) option) opt
   in
 
   let* location, repr = formula_repr_inv inner_formula in
-  let* model_memtype = Pattern.pattern_match_opt repr [
-    Pattern.(trm_uninit_cell __) (fun () -> None);
+  let* model,mem_typ = Pattern.pattern_match_opt repr [
+    Pattern.(trm_uninit_cell !__) (fun mem_typ () -> None, mem_typ);
     Pattern.(trm_cell !__) (fun mem_typ () ->
       Pattern.when_ (not !Flags.use_resources_with_models);
-      Some (trm_cell ~mem_typ (), mem_typ)
+      Some (trm_cell ~mem_typ ()), mem_typ
     );
     Pattern.(trm_apps1 (trm_cell !__) (trm_apps !__ !__ __ __)) (fun mem_typ model args () ->
       Pattern.when_ (!Flags.use_resources_with_models);
       Pattern.when_ (has_matching_indices args indices);
-      Some (model, mem_typ)
+      Some (model), mem_typ
     )
   ] in
   let* matrix, mindex_dims, mindex_indices = Matrix_trm.access_inv location in
   let* () = if List.length mindex_dims = List.length dims then Some () else None in
   let* () = if List.for_all2 Trm_unify.are_same_trm mindex_dims dims then Some () else None in
   if has_matching_indices mindex_indices indices
-    then Some (matrix, dims, model_memtype)
+    then Some (matrix, dims, model, mem_typ)
     else None
 
 let var_arith_checked = toplevel_var "__arith_checked"

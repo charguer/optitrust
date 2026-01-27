@@ -62,8 +62,8 @@ template <typename T> T* __smem_malloc2(int N1, int N2) {
   __preserves("ThreadsCtx(t ..+ tpb)");
   __consumes("SMemAlloc(MSIZE2(N1,N2))"); // TODO multiple shared memory allocations
   __produces("SMemAlloc(0)");
-  __produces("_Res ~> UninitMatrixOf2(N1, N2, SMem)");
-  __produces("Free(_Res, _Res ~> UninitMatrixOf2(N1, N2, SMem))");
+  __produces("_Res ~> UninitMatrix2Of(N1, N2, SMem)");
+  __produces("Free(_Res, _Res ~> UninitMatrix2Of(N1, N2, SMem))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
   return __alloc_sig_generic<T>();
@@ -86,12 +86,13 @@ void transpose(float *a, float *b, int W, int H) {
   __requires("A: int * int -> float");
   __requires("H_tile: H = H/32 * 32");
   __requires("W_tile: W = W/32 * 32");
-  __requires("tile32: 32 = 16 * 2");
   __requires("32 >= 0");
   __requires("W/32 >= 0");
   __preserves("HostCtx");
   __reads("a ~> Matrix2(H, W, A)");
   __writes("b ~> Matrix2(W, H, fun (i : int) (j: int) -> A(j,i))");
+
+  __ghost(assume, "32 = 16 * 2", "tile32 <- H");
 
   float* const d_a = GMEM_MALLOC2(float, H, W);
   float* const d_b = GMEM_MALLOC2(float, W, H);
