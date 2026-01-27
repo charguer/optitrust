@@ -11,15 +11,13 @@ void basic(int* a, int N, int M) {
   __requires("smem_sz: int");
   __consumes("for i in 0..N -> for j in 0..M -> &a[i][j] ~~>[GMem] 0");
   __produces("for i in 0..N -> for j in 0..M -> &a[i][j] ~~>[GMem] 1");
-  __preserves("ThreadsCtx(range_plus(MINDEX1(MSIZE2(N, M), 0), MSIZE2(N, M)))");
+  __preserves("ThreadsCtx(MINDEX1(MSIZE2(N, M), 0)..+MSIZE2(N, M))");
   __reads("KernelParams(MSIZE2(N, M), bpg, smem_sz)");
   __ghost(group_to_desyncgroup2, "items := fun i j -> &a[i][j] ~~>[GMem] 0");
-  __ghost(define, "x := range_plus(MINDEX1(MSIZE2(N, M), 0), MSIZE2(N, M))",
-          "r1 <- x");
-  __ghost(
-      define,
-      "x := fun (i: int) -> range_plus(MINDEX2(N, MSIZE1(M), i, 0), MSIZE1(M))",
-      "r2 <- x");
+  __ghost(define, "x := MINDEX1(MSIZE2(N, M), 0)..+MSIZE2(N, M)", "r1 <- x");
+  __ghost(define,
+          "x := fun (i: int) -> MINDEX2(N, MSIZE1(M), i, 0)..+MSIZE1(M)",
+          "r2 <- x");
   thread for (int i = 0; i < N; i++) {
     __strict();
     __xconsumes("desync_for(r2(i)) j in ..M -> &a[i][j] ~~>[GMem] 0");
@@ -48,19 +46,17 @@ void retile_desyncgroups(int* a, int N, int M) {
   __requires("smem_sz: int");
   __consumes("for i in 0..N -> for j in 0..M -> &a[i][j] ~~>[GMem] 0");
   __produces("for i in 0..N -> for j in 0..M -> &a[i][j] ~~>[GMem] 1 + 1");
-  __preserves("ThreadsCtx(range_plus(MINDEX1(MSIZE2(N, M), 0), MSIZE2(N, M)))");
+  __preserves("ThreadsCtx(MINDEX1(MSIZE2(N, M), 0)..+MSIZE2(N, M))");
   __reads("KernelParams(MSIZE2(N, M), bpg, smem_sz)");
   __ghost(group_to_desyncgroup2, "items := fun i j -> &a[i][j] ~~>[GMem] 0");
-  __ghost(define, "x := fun (sz: int) -> range_plus(MINDEX1(sz, 0), sz)",
-          "r1 <- x");
+  __ghost(define, "x := fun (sz: int) -> MINDEX1(sz, 0)..+sz", "r1 <- x");
+  __ghost(define,
+          "x := fun (i: int) -> MINDEX2(N, MSIZE1(M), i, 0)..+MSIZE1(M)",
+          "r2 <- x");
   __ghost(
       define,
-      "x := fun (i: int) -> range_plus(MINDEX2(N, MSIZE1(M), i, 0), MSIZE1(M))",
-      "r2 <- x");
-  __ghost(define,
-          "x := fun (i: int) -> range_plus(MINDEX2(N * M / 32, MSIZE1(32), i, "
-          "0), MSIZE1(32))",
-          "r3 <- x");
+      "x := fun (i: int) -> MINDEX2(N * M / 32, MSIZE1(32), i, 0)..+MSIZE1(32)",
+      "r3 <- x");
   thread for (int i = 0; i < N; i++) {
     __strict();
     __xconsumes("desync_for(r2(i)) j in ..M -> &a[i][j] ~~>[GMem] 0");
@@ -76,7 +72,7 @@ void retile_desyncgroups(int* a, int N, int M) {
           "rf := r1, from := MSIZE2(N, M), to := MSIZE2(N * M / 32, 32)");
   __ghost(desyncgroup_untile_divides,
           "items := fun k -> &a[k] ~~>[GMem] 1, div_check := eq_retile");
-  __ghost(chunk_range_plus2, "D2 := N * M / 32, D1 := 32");
+  __ghost(chunk_counted_range2, "D2 := N * M / 32, D1 := 32");
   __ghost(desyncgroup_tile_divides,
           "items := fun i -> &a[i] ~~>[GMem] 1, tile_count := N * M / 32, "
           "tile_size := 32");
@@ -104,7 +100,7 @@ void retile_desyncgroups(int* a, int N, int M) {
   __ghost(
       desyncgroup_untile_divides,
       "items := fun k -> &a[k] ~~>[GMem] 1 + 1, div_check := eq_retile_sym");
-  __ghost(chunk_range_plus2, "D2 := N, D1 := M");
+  __ghost(chunk_counted_range2, "D2 := N, D1 := M");
   __ghost(desyncgroup_tile_divides,
           "items := fun i -> &a[i] ~~>[GMem] 1 + 1, tile_count := N, tile_size "
           ":= M");
@@ -126,19 +122,16 @@ void sync_required(int* a, int N, int M) {
   __requires("smem_sz: int");
   __consumes("for i in 0..N -> for j in 0..M -> &a[i][j] ~~>[GMem] 0");
   __produces("for i in 0..N -> for j in 0..M -> &a[i][j] ~~>[GMem] 1 + 1");
-  __preserves("ThreadsCtx(range_plus(MINDEX1(MSIZE2(N, M), 0), MSIZE2(N, M)))");
+  __preserves("ThreadsCtx(MINDEX1(MSIZE2(N, M), 0)..+MSIZE2(N, M))");
   __reads("KernelParams(MSIZE2(N, M), bpg, smem_sz)");
   __ghost(group_to_desyncgroup2, "items := fun i j -> &a[i][j] ~~>[GMem] 0");
-  __ghost(define, "x := fun (sz: int) -> range_plus(MINDEX1(sz, 0), sz)",
-          "r1 <- x");
-  __ghost(
-      define,
-      "x := fun (i: int) -> range_plus(MINDEX2(N, MSIZE1(M), i, 0), MSIZE1(M))",
-      "r2 <- x");
-  __ghost(
-      define,
-      "x := fun (i: int) -> range_plus(MINDEX2(M, MSIZE1(N), i, 0), MSIZE1(N))",
-      "r3 <- x");
+  __ghost(define, "x := fun (sz: int) -> MINDEX1(sz, 0)..+sz", "r1 <- x");
+  __ghost(define,
+          "x := fun (i: int) -> MINDEX2(N, MSIZE1(M), i, 0)..+MSIZE1(M)",
+          "r2 <- x");
+  __ghost(define,
+          "x := fun (i: int) -> MINDEX2(M, MSIZE1(N), i, 0)..+MSIZE1(N)",
+          "r3 <- x");
   thread for (int i = 0; i < N; i++) {
     __strict();
     __xconsumes("desync_for(r2(i)) j in ..M -> &a[i][j] ~~>[GMem] 0");
@@ -181,8 +174,7 @@ void sync_required(int* a, int N, int M) {
   __ghost(swap_groups, "items := fun i j -> &a[j][i] ~~>[GMem] 1 + 1");
 }
 
-__ghost(define,
-        "x := fun (sz: int) -> range_plus(MINDEX1(MSIZE1(sz), 0), MSIZE1(sz))",
+__ghost(define, "x := fun (sz: int) -> MINDEX1(MSIZE1(sz), 0)..+MSIZE1(sz)",
         "rr1 <- x");
 
 void write_test1(int* a, int N) {
@@ -235,8 +227,7 @@ void read_thread_outer(int* a, int* b, int N) {
             "inside := fun v -> &a[t] ~~>[GMem] v, by := reduce_sum_empty(B)");
     for (int i = 0; i < N; i++) {
       __strict();
-      __spreserves(
-          "ThreadsCtx(range_plus(MINDEX2(N, MSIZE0(), t, 0), MSIZE0()))");
+      __spreserves("ThreadsCtx(MINDEX2(N, MSIZE0(), t, 0)..+MSIZE0())");
       __spreserves("&a[t] ~~>[GMem] reduce_sum(i, B)");
       __sreads("b ~> Matrix1(N, B)");
       const __ghost_fn focus =
@@ -270,7 +261,7 @@ void read_thread_inner(int* a, int* b, int N) {
   }
   for (int i = 0; i < N; i++) {
     __strict();
-    __spreserves("ThreadsCtx(range_plus(MINDEX1(MSIZE1(N), 0), MSIZE1(N)))");
+    __spreserves("ThreadsCtx(MINDEX1(MSIZE1(N), 0)..+MSIZE1(N))");
     __spreserves(
         "desync_for(rr1(N)) t in ..N -> &a[t] ~~>[GMem] reduce_sum(i, B)");
     __sreads("b ~> Matrix1(N, B)");

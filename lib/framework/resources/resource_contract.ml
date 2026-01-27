@@ -220,7 +220,7 @@ let extract_threadsctx (res: resource_set): trm =
   | _ -> failwith "Cannot find ThreadsCtx in context"
 
 let extract_threadsctx_range_components (r_t: trm): threadsctx_range_components =
-  let (tid,sz) = Option.unsome ~error:"Expected range_plus in ThreadsCtx" (formula_range_plus_inv r_t) in
+  let (tid,sz) = Option.unsome ~error:"Expected counted_range in ThreadsCtx" (formula_counted_range_inv r_t) in
   let dims_low = match Matrix_trm.msize_inv sz with
   | Some (_::dims_low) -> dims_low (* Lowest dimension should be equal to our loop range *)
   | _ -> failwith "Expected at least 1 dimension in ThreadsCtx size!" in
@@ -234,14 +234,14 @@ let gen_outside_loop_threadsctx_range (cs: threadsctx_range_components) (loop_en
   let sz = Matrix_trm.msize (loop_end::dims_low) in
   let dims = dims_high @ [sz] in
   let inds = inds_high @ [trm_int 0] in
-  formula_range_plus (Matrix_trm.mindex dims inds) sz
+  formula_counted_range (Matrix_trm.mindex dims inds) sz
 
 let gen_inside_loop_threadsctx_range (cs: threadsctx_range_components) (loop_ind: var) (loop_end: trm): trm =
   let dims_high,dims_low,inds_high = cs in
   let sz = Matrix_trm.msize dims_low in
   let dims = dims_high @ [loop_end; sz] in
   let inds = inds_high @ [trm_var loop_ind; trm_int 0] in
-  formula_range_plus (Matrix_trm.mindex dims inds) sz
+  formula_counted_range (Matrix_trm.mindex dims inds) sz
 
 (* [compute_thread_for_ctx_ranges range res] generates the ranges belonging to the expected ThreadsCtx terms in the inner and outer thread for loop contract.
   We have to construct these terms for the contract based on the context [res] since we don't have variadic contracts.

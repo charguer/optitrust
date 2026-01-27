@@ -274,14 +274,14 @@ let trm_range = trm_var var_range
 let formula_range (start: trm) (stop: trm) (step: trm) =
   trm_apps ~annot:formula_annot trm_range [start; stop; step]
 
-let var_range_plus = toplevel_var "range_plus"
-let trm_range_plus = trm_var var_range_plus
-let formula_range_plus (start: trm) (len: trm) =
-  trm_apps ~annot:formula_annot trm_range_plus [start; len]
+let var_counted_range = toplevel_var "counted_range"
+let trm_counted_range = trm_var var_counted_range
+let formula_counted_range (start: trm) (len: trm) =
+  trm_apps ~annot:formula_annot trm_counted_range [start; len]
 
-let formula_range_plus_inv (t: trm): (trm * trm) option =
+let formula_counted_range_inv (t: trm): (trm * trm) option =
   match trm_apps_inv t with
-  | Some ({ desc = Trm_var v }, [base; len]) when var_eq v var_range_plus -> Some (base,len)
+  | Some ({ desc = Trm_var v }, [base; len]) when var_eq v var_counted_range -> Some (base,len)
   | _ -> None
 
 let var_group = toplevel_var "Group"
@@ -474,6 +474,9 @@ module Pattern = struct
 
   let formula_range (f_begin: 'a -> trm -> 'b) (f_end: 'b -> trm -> 'c) (f_step: 'c -> trm -> 'd) =
     trm_apps3 (trm_specific_var var_range) f_begin f_end f_step
+
+  let formula_counted_range (f_begin: 'a -> trm -> 'b) (f_count: 'b -> trm -> 'c) =
+    trm_apps2 (trm_specific_var var_counted_range) f_begin f_count
 
   let formula_frac_div f_base f_div =
     trm_apps2 (trm_specific_var var_frac_div) f_base f_div

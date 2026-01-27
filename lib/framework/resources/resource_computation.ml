@@ -2112,7 +2112,7 @@ let init_ctx = Resource_set.make ~pure:[
   typ_const_var, typ_pure_simple_fun [typ_type] typ_type;
   typ_range_var, typ_type;
   Resource_formula.var_range, typ_pure_simple_fun [typ_int; typ_int; typ_int] typ_range;
-  Resource_formula.var_range_plus, typ_pure_simple_fun [typ_int; typ_int] typ_range;
+  Resource_formula.var_counted_range, typ_pure_simple_fun [typ_int; typ_int] typ_range;
   Resource_formula.var_group, typ_pure_simple_fun [typ_range; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_desyncgroup, typ_pure_simple_fun [typ_range; typ_int; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_threadsctx, typ_pure_simple_fun [typ_range] typ_hprop;

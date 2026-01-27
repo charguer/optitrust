@@ -1380,6 +1380,9 @@ and formula_to_doc style (f: formula): document =
     Pattern.(formula_range !__ !__ (trm_int (eq 1))) (fun start stop () ->
       decorate_trm ~prec:16 style start ^^ string ".." ^^ decorate_trm ~prec:16 style stop
     );
+    Pattern.(formula_counted_range !__ !__) (fun start count () ->
+      decorate_trm ~prec:16 style start ^^ string "..+" ^^ decorate_trm ~prec:16 style count
+    );
     Pattern.(trm_fun !__ !__ !__ __) (fun tvl ty_opt body () -> formula_fun_to_doc style ty_opt tvl body
     );
     Pattern.(trm_apps2 (trm_specific_var ~ignore_unset_id:true var_group) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
