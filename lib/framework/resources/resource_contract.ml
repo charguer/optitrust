@@ -274,11 +274,11 @@ let compute_thread_for_ctx_ranges (range: loop_range) (res: resource_set): threa
 
 (****************************** End GPU thread for handling ***********************************)
 
-(** [get_loop_contract_generators ?res loop_mode range contract] takes the [contract] of a for-loop over [range] and gives delayed versions of
+(** [get_loop_contract_generators res loop_mode range contract] takes the [contract] of a for-loop over [range] and gives delayed versions of
   the inside (loop body) and outside (for instruction) contract (in case only one is needed).
   [loop_mode] is used for loops with custom contracts.
-  [?res] may be needed to generate contracts for some loop modes. *)
-let [@warning "-11"] get_loop_contract_generators ?res loop_mode range contract: (unit -> fun_contract) * (unit -> fun_contract) =
+  [res] is the typing context at the loop. *)
+let [@warning "-11"] get_loop_contract_generators res loop_mode range contract: (unit -> fun_contract) * (unit -> fun_contract) =
   (match loop_mode with
   | Sequential -> ()
   | Parallel | GpuThread ->
@@ -288,7 +288,7 @@ let [@warning "-11"] get_loop_contract_generators ?res loop_mode range contract:
   | _ -> failwith "Resource_contract.get_loop_contract_generators: unsupported loop mode %s" (show_loop_mode loop_mode));
   let threadfor_info = match loop_mode with
   | GpuThread -> Some
-    (compute_thread_for_ctx_ranges range (Option.unsome ~error:"Need typing context to compute thread for contract" res))
+    (compute_thread_for_ctx_ranges range res)
   | _ -> None in
   let grp_apply_fn = match threadfor_info with
     | Some info ->

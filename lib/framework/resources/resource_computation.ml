@@ -1882,7 +1882,7 @@ let rec compute_resources
       let contract_ctx = { contract_ctx with res = (range.index, typ_int) :: contract_ctx.res } in
       check_loop_contract_types ~pure_ctx:contract_ctx contract;
 
-      let contract_inside_loop, contract_outside_loop = get_loop_contract_generators ~res mode range contract in
+      let contract_inside_loop, contract_outside_loop = get_loop_contract_generators res mode range contract in
 
       let outer_contract = contract_outside_loop () in
       let usage_map, res_after = compute_contract_invoc outer_contract res t in
