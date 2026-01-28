@@ -1442,12 +1442,31 @@ let rec decode_template_decl (t : trm) : trm =
     Pattern.__ (fun () -> trm_map decode_template_decl t)
   ]
 
+(****************************** GPU syntax sugar ***************************************)
+
+let rec decode_gpu_sugar (t: trm) : trm =
+  match (trm_seq_inv t) with
+  | Some (instrs,res) ->
+    let instrs = (Mlist.fold_left (fun acc instr ->
+      let instr = decode_gpu_sugar instr in
+      match acc with
+      | [] -> instr :: acc
+      | hd::tl ->
+        match (hd.desc,instr.desc) with
+        | (Trm_var v,Trm_for (range,mode,body,contract)) when (var_has_name "__threadfor" v) ->
+          (trm_like ~old:instr (trm_for ~contract ~mode:GpuThread range body)) :: tl
+        | _ -> instr :: acc
+    ) [] instrs) |> List.rev |> Mlist.of_list in
+    trm_alter ~desc:(Trm_seq (instrs,res)) t
+  | _ -> trm_map decode_gpu_sugar t
+
 (*************************************** Main entry points *********************************************)
 
 (** [decode_from_c t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let decode_from_c: trm -> trm =
   debug_before_after_trm "decode_from_c" (fun t -> t |>
+  decode_gpu_sugar |>
   decode_contract |>
   decode_ghost_annot |>
   decode_class_member |>

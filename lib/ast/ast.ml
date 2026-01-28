@@ -231,6 +231,7 @@ type loop_dir =
 type loop_mode =
   | Sequential     (* Sequential for loop (default) *)
   | Parallel       (* Parallel for loop e.g. #pragma omp parallel for *)
+  | GpuThread      (* Loop over parallel GPU threads/blocks *)
 [@@deriving show]
 
 (** [code_kind]; code kind entered by the user *)

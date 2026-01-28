@@ -216,6 +216,7 @@ and print_trm_desc style (t : trm_desc) : document =
     let dmode = match mode with
     | Sequential -> string "seq"
     | Parallel -> string "par"
+    | GpuThread -> string "thread"
     in
     let dstart = print_trm style range.start in
     let dstop = print_trm style range.stop in

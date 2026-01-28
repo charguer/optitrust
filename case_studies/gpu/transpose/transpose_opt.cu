@@ -84,6 +84,8 @@ __global__ void transposeCoalesced(float *odata, float *idata, int width, int he
   yIndex        = blockIdx.x * TILE_DIM + threadIdx.y;
   int index_out = xIndex + (yIndex)*height;
 
+  //MINDEX2(width, height, bx * 32 + ty*2 + j, by * 32 + tx);
+
   for (int i = 0; i < TILE_DIM; i += BLOCK_ROWS) {
     tile[threadIdx.y + i][threadIdx.x] = idata[index_in + i * width];
   }

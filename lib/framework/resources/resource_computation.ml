@@ -339,12 +339,19 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
       assert (is_typ_ptr ptr_typ);
       assert (is_typ_hprop alloc_cells_typ);
       typ_hprop
-    | Trm_var xf, _ when var_eq xf (Matrix_trm.mindex_var (List.length args / 2)) ->
+    | Trm_var xf, _ when (List.length args / 2) <= (Matrix_trm.max_nb_dims) && var_eq xf (Matrix_trm.mindex_var (List.length args / 2)) ->
       (* TODO: This should not be a special case. We should add a way to register pure arithmetic functions that can be used both in code and in specs *)
       assert ((List.length args) mod 2 = 0);
       List.iter (fun arg ->
         let arg_typ = compute_pure_typ env arg in
         if not (is_typ_integer arg_typ) then failwith "MINDEX should only be applied on integer arguments but here has argument '%s' of type '%s'" (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ)
+        ) args;
+      typ_int
+    | Trm_var xf, _ when (List.length args) <= (Matrix_trm.max_nb_dims) && var_eq xf (Matrix_trm.msize_var (List.length args)) ->
+      (* TODO: This should not be a special case. We should add a way to register pure arithmetic functions that can be used both in code and in specs *)
+      List.iter (fun arg ->
+        let arg_typ = compute_pure_typ env arg in
+        if not (is_typ_integer arg_typ) then failwith "MSIZE should only be applied on integer arguments but here has argument '%s' of type '%s'" (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ)
         ) args;
       typ_int
     | Trm_var xf, _ when var_eq xf typ_fun_var ->
@@ -1200,6 +1207,30 @@ let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): uni
   let _ = check_resource_set_types ~pure_ctx contract.post in
   ()
 
+(* [sync_simplification res]: eagerly simplify any Sync(fM, H) permissions in [res],
+  turning DesyncGroups to Groups. Simplification gets stuck if a term of the form
+    p ~~>[M] v is encountered in H and M does not satisfy the memory type predicate fM. *)
+let sync_simplification (res: resource_set): resource_set =
+  let find_mem_fn_proof (mem_fn: trm) (mem: trm) =
+    let proof_type = (trm_apps mem_fn [mem]) in
+    List.find_opt (fun (_,r) -> Trm_unify.are_same_trm proof_type r) res.pure in
+  let rec simplify (mem_fn: trm) (t: trm) = Pattern.pattern_match t [
+    Pattern.(formula_group !__ !__ !__) (fun idx range sub () ->
+      formula_group idx range (simplify mem_fn sub));
+    Pattern.(formula_desyncgroup !__ __ !__ !__) (fun idx bound sub () ->
+      formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (simplify mem_fn sub));
+    Pattern.(formula_points_to !__ !__ !__) (fun var model mem_typ () ->
+      match (find_mem_fn_proof mem_fn mem_typ) with
+      | Some _ -> t
+      | None -> formula_sync mem_fn t
+      );
+    Pattern.__ (fun () -> t)
+  ] in
+  let simplify_if_sync (t: trm) = match (formula_sync_inv t) with
+  | Some (mem_fn, t) -> simplify mem_fn t
+  | _ -> t in
+  { res with linear = List.map (fun (v,t) -> (v, simplify_if_sync t)) res.linear}
+
 let check_loop_contract_types ~(pure_ctx: pure_env) (contract: loop_contract): unit =
   let pure_ctx = check_pure_resource_types ~pure_ctx contract.loop_ghosts in
   check_fun_contract_types ~pure_ctx contract.iter_contract;
@@ -1691,7 +1722,8 @@ let rec compute_resources
           usage_map, { res with pure = List.rev rev_pure_res; aliases; fun_specs }
         in
         let usage_map, res_after = elim_pure_vars arg_ensured_vars usage_map res_after in
-
+        (* TODO: a solution for Sync(...) as a precondition; this only works when it is a postcondition *)
+        let res_after = sync_simplification res_after in
         Some usage_map, Some res_after
 
       with
@@ -1850,12 +1882,12 @@ let rec compute_resources
       let contract_ctx = { contract_ctx with res = (range.index, typ_int) :: contract_ctx.res } in
       check_loop_contract_types ~pure_ctx:contract_ctx contract;
 
-      if (not (Resource_set.is_empty contract.invariant)) && mode <> Sequential then failwith "non-sequential for loop cannot have sequential invariant";
+      let contract_inside_loop, contract_outside_loop = get_loop_contract_generators res mode range contract in
 
-      let outer_contract = contract_outside_loop range contract in
+      let outer_contract = contract_outside_loop () in
       let usage_map, res_after = compute_contract_invoc outer_contract res t in
 
-      let inner_contract = contract_inside_loop range contract in
+      let inner_contract = contract_inside_loop () in
       (* If the contract is not strict put all the framed resources inside the invariant *)
       let inner_contract, included_frame_hyps = if contract.strict then inner_contract, Var_set.empty else
         let frame = (Option.get t.ctx.ctx_resources_contract_invoc).contract_frame in
@@ -2023,18 +2055,24 @@ let rec trm_deep_copy (t: trm) : trm =
   t
 
 (* LATER: MINDEX should not be such a special case *)
-let mindex_specs =
+let mindex_msize_specs =
   List.fold_left (fun specs n ->
     let mindex_name = Matrix_trm.mindex_var n in
+    let msize_name = Matrix_trm.msize_var n in
     let dims = List.map (fun i -> new_var (sprintf "N%s" (string_of_int i))) (List.range 1 n) in
     let indices = List.map (fun i -> new_var (sprintf "i%s" (string_of_int i))) (List.range 1 n) in
     let args = dims @ indices in
     let typed_args = List.map (fun arg -> (arg, typ_int)) args in
+    let typed_dims = List.map (fun arg -> (arg, typ_int)) dims in
     let mindex_spec = { args; contract = {
       pre = Resource_set.make ~pure:typed_args ();
       post = Resource_set.make ~pure:[var_result, typ_int] ~aliases:(Var_map.singleton var_result (trm_apps (trm_var mindex_name) (List.map trm_var args))) ()
     }; inverse = None } in
-    Var_map.add mindex_name mindex_spec specs
+    let msize_spec = { args = dims; contract = {
+      pre = Resource_set.make ~pure:typed_dims ();
+      post = Resource_set.make ~pure:[var_result, typ_int] ~aliases:(Var_map.singleton var_result (trm_apps (trm_var msize_name) (List.map trm_var dims))) ()
+    }; inverse = None } in
+    Var_map.add mindex_name mindex_spec (Var_map.add msize_name msize_spec specs)
   ) Var_map.empty (List.range 0 Matrix_trm.max_nb_dims)
 
 let ignore_spec =
@@ -2074,7 +2112,11 @@ let init_ctx = Resource_set.make ~pure:[
   typ_const_var, typ_pure_simple_fun [typ_type] typ_type;
   typ_range_var, typ_type;
   Resource_formula.var_range, typ_pure_simple_fun [typ_int; typ_int; typ_int] typ_range;
+  Resource_formula.var_counted_range, typ_pure_simple_fun [typ_int; typ_int] typ_range;
   Resource_formula.var_group, typ_pure_simple_fun [typ_range; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
+  Resource_formula.var_desyncgroup, typ_pure_simple_fun [typ_range; typ_int; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
+  Resource_formula.var_threadsctx, typ_pure_simple_fun [typ_range] typ_hprop;
+  Resource_formula.var_sync, typ_pure_simple_fun [typ_pure_simple_fun [typ_mem_type] typ_prop; typ_hprop] typ_hprop;
   Resource_formula.var_frac, typ_type;
   Resource_formula.var_read_only, typ_pure_simple_fun [Resource_formula.typ_frac; typ_hprop] typ_hprop;
   Resource_formula.var_is_true, typ_pure_simple_fun [typ_bool] typ_prop;
@@ -2094,7 +2136,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_trm.var_admitted, typ_auto;
   var_ignore, typ_auto;
   mem_typ_any_var, typ_mem_type;
-] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_specs) ()
+] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_msize_specs) ()
 
 (** Compute resources inside [t] in place.
   Type errors are saved in a global list, and errors
