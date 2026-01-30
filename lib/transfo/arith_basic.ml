@@ -41,6 +41,9 @@ let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : 
   Trace.without_resource_computation_between_steps (fun () ->
     Target.apply_at_target_paths (fun t ->
       let f_postprocess (t: trm) (simpl_t: trm): trm =
+        if not !Flags.check_validity then begin
+          simpl_t
+        end else begin
         let open Resource_formula in
         if t != simpl_t && !Flags.use_resources_with_models && not (is_formula t) then begin
           let typ = Option.unsome ~error:"expected type" t.typ in
@@ -77,6 +80,7 @@ let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : 
           end
         end else begin
           simpl_t
+        end
         end in
       Arith_core.simplify indepth f ~f_postprocess t
     ) tg

@@ -7,7 +7,7 @@ open Target
       [t] - ast of the loop. *)
 let color_on (nb_colors : trm) (i_color : string option) (t : trm) : trm =
   let error = "Loop_core.color_aux: only simple loops are supported." in
-  let ({index; start; direction; stop; step}, body, _contract) = trm_inv ~error trm_for_inv t in
+  let ({index; start; direction; stop; step}, mode, body, _contract) = trm_inv ~error trm_for_inv t in
   let i_color = new_var (match i_color with
    | Some cl -> cl
    | _ -> "c" ^ index.name
@@ -15,7 +15,7 @@ let color_on (nb_colors : trm) (i_color : string option) (t : trm) : trm =
   let is_step_one = trm_is_one step in
   (* FIXME: Loop bounds are at least unintuitive and probably broken... *)
   let nb_colors = nb_colors in
-    trm_pass_labels t (trm_for { index = i_color; start; direction; stop = nb_colors; step = trm_step_one () } (
+    trm_pass_labels t (trm_for ~mode { index = i_color; start; direction; stop = nb_colors; step = trm_step_one () } (
       trm_seq_nomarks [
         trm_for { index; start = (if is_step_one then trm_var i_color else trm_mul ~typ:typ_isize (trm_var i_color) step); direction; stop;
           step = (if is_step_one then nb_colors else (trm_mul ~typ:typ_isize nb_colors step)) } body
@@ -45,7 +45,7 @@ let ghost_tiled_index_in_range = toplevel_var "tiled_index_in_range"
       [t] - ast of targeted loop. *)
 let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) : trm =
   let error = "Loop_core.tile_aux: only simple loops are supported." in
-  let ({index; start; direction; stop; step}, body, contract) = trm_inv ~error trm_for_inv t in
+  let ({index; start; direction; stop; step}, mode, body, contract) = trm_inv ~error trm_for_inv t in
   let tile_index = new_var (Tools.string_subst "${id}" index.name tile_index) in
   (* TODO: enable other styles for TileDivides *)
   if bound = TileDivides then begin
@@ -83,13 +83,13 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
         Trace.justif "loop range is checked to be dividable by tile size";
         trm_seq_nobrace_nomarks [
           div_check_assert;
-          trm_for outer_range (trm_seq_nomarks [
-            trm_for inner_range (trm_subst_var index new_index body)
+          trm_for ~mode outer_range (trm_seq_nomarks [
+            trm_for ~mode inner_range (trm_subst_var index new_index body)
           ])
         ]
       end else
-        trm_for outer_range (trm_seq_nomarks [
-          trm_for inner_range (trm_subst_var index new_index body)
+        trm_for ~mode outer_range (trm_seq_nomarks [
+          trm_for ~mode inner_range (trm_subst_var index new_index body)
         ])
     end else
       let open Resource_formula in
@@ -153,8 +153,8 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
         div_check_assert ::
         ghosts_before @
         rew_ghosts_before_outer @ [
-        trm_for ~contract:contract_outer outer_range (trm_seq_nomarks (rew_ghosts_before_inner @ [
-          trm_copy (trm_for ~contract:contract_inner inner_range body)
+        trm_for ~mode ~contract:contract_outer outer_range (trm_seq_nomarks (rew_ghosts_before_inner @ [
+          trm_copy (trm_for ~mode ~contract:contract_inner inner_range body)
         ] @ rew_ghosts_after_inner))
       ] @ rew_ghosts_after_outer @ ghosts_after)
 
@@ -197,7 +197,7 @@ let fusion_on_block_on (keep_label : bool) (t : trm) : trm =
     if n < 2 then trm_fail t "fusion_on_block_on: there must be >= 2 loops to apply fussion";
     let first_loop = Mlist.nth tl 0 in
     begin match first_loop.desc with
-    | Trm_for (l_range, _, contract) ->
+    | Trm_for (l_range, mode, _, contract) ->
       let fusioned_body = Mlist.fold_lefti (
         fun i acc loop ->
           if not (Internal.is_trm_loop loop) then trm_fail loop (Printf.sprintf "Loop_core.fusion_on_block_aux: cannot
@@ -205,7 +205,7 @@ let fusion_on_block_on (keep_label : bool) (t : trm) : trm =
            else
           acc @ (Mlist.to_list (for_loop_body_trms loop))
       ) [] tl in
-      let res = trm_for ~contract l_range (trm_seq_nomarks fusioned_body) in
+      let res = trm_for ~mode ~contract l_range (trm_seq_nomarks fusioned_body) in
       if keep_label then trm_pass_labels t res else res
     | _ -> trm_fail t "Loop_core.fusion_on_block_on: all loops should be simple loops"
     end
@@ -217,7 +217,7 @@ let fusion_on_block_on (keep_label : bool) (t : trm) : trm =
       [t] - ast of the loop. *)
 let grid_enumerate_on (indices_and_bounds : (string * trm) list) (t : trm) : trm =
   let error = "Loop_core.grid_enumerate_on: expected a simple for loop" in
-  let (range, body, _contract) = trm_inv ~error trm_for_inv t in
+  let (range, mode, body, _contract) = trm_inv ~error trm_for_inv t in
   let indices_and_bounds = List.map (fun (i, b) -> new_var i, b) indices_and_bounds in
   let new_body =
     begin match body.desc with
@@ -234,8 +234,8 @@ let grid_enumerate_on (indices_and_bounds : (string * trm) list) (t : trm) : trm
 
     List.fold_lefti (fun i acc (index, stop) ->
       if i = 0
-        then trm_for { index; start = trm_int 0; direction = range.direction; stop; step = trm_step_one () } acc
-        else trm_for { index; start = trm_int 0; direction = DirUp; stop; step = trm_step_one () } (trm_seq_nomarks [acc])
+        then trm_for ~mode { index; start = trm_int 0; direction = range.direction; stop; step = trm_step_one () } acc
+        else trm_for ~mode { index; start = trm_int 0; direction = DirUp; stop; step = trm_step_one () } (trm_seq_nomarks [acc])
     ) new_body (List.rev indices_and_bounds)
 
 let trm_unroll = trm_var (toplevel_var "unroll")
@@ -304,7 +304,7 @@ let unroll_ghost_pair (range : loop_range) (contract : loop_contract)
       [t] - ast of the loop. *)
 let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : mark) (t : trm) : trm =
   let error = "Loop_core.unroll_on: only simple loops supported" in
-  let (range, body, contract) = trm_inv ~error trm_for_inv t in
+  let (range, _, body, contract) = trm_inv ~error trm_for_inv t in
   let { index; start; direction; stop; step } = range in
   if direction <> DirUp then trm_fail t "Loop_core.unroll_on: only loops going upwards are supported";
   let step = trm_inv trm_int_inv step in
@@ -383,7 +383,7 @@ let unswitch_at (trm_index : int) (t : trm) : trm =
       [t] - ast of the loop to be transformed. *)
 let to_unit_steps_on (new_index : string) (t : trm) : trm =
   let error = "Loop_core.to_unit_steps: only simple loops are supported." in
-  let ({ index; start; direction; stop; step }, _, _) = trm_inv ~error trm_for_inv t in
+  let ({ index; start; direction; stop; step }, mode, _, _) = trm_inv ~error trm_for_inv t in
   let new_index = new_var (match new_index with
   | "" -> index.name ^ "_step"
   | _ -> new_index) in
@@ -405,7 +405,7 @@ let to_unit_steps_on (new_index : string) (t : trm) : trm =
   in
   (* TODO: this should be an immutable binding *)
   let new_decl = trm_let_mut (index, typ_int) (trm_add_int start (trm_mul_int (trm_var new_index) step)) in
-  trm_for { index = new_index; start = trm_int 0; direction; stop = new_stop; step = trm_step_one () }
+  trm_for ~mode { index = new_index; start = trm_int 0; direction; stop = new_stop; step = trm_step_one () }
     (trm_seq (Mlist.insert_at 0 new_decl body_trms ))
 
 (** [fold_at index start step t]: transforms a sequence of instructions into a for loop,
@@ -476,7 +476,7 @@ let split_range_at (nb : int) (cut : trm)
   (mark_loop1 : mark) (mark_loop2 : mark)
   (mark_simpl : mark) (t : trm) : trm =
   let error = "expected a target to a simple for loop" in
-  let (range, body, contract) = trm_inv ~error trm_for_inv t in
+  let (range, mode, body, contract) = trm_inv ~error trm_for_inv t in
   let split_index = match nb, cut with
     | 0, {desc = Trm_lit (Lit_unit); _} -> trm_fail t "one of the args nb or cut should be set "
     | 0, _ -> cut
@@ -511,15 +511,15 @@ let split_range_at (nb : int) (cut : trm)
   let new_body = trm_seq ~annot:body.annot new_body_instrs in
   trm_seq_helper ~braces:false [
     TrmList pre_ghosts;
-    Trm (trm_add_mark mark_loop1 (trm_for ~contract range1 new_body));
-    Trm (trm_add_mark mark_loop2 (trm_copy (trm_for ~contract range2 new_body)));
+    Trm (trm_add_mark mark_loop1 (trm_for ~mode ~contract range1 new_body));
+    Trm (trm_add_mark mark_loop2 (trm_copy (trm_for ~mode ~contract range2 new_body)));
     TrmList post_ghosts]
 
 (** [rename_index_on new_index]: renames the loop index variable *)
 let rename_index_on (new_index : string) (t: trm) : trm =
   let error = "Loop_core.shift: expected a target to a simple for loop" in
-  let (range, body, contract) = trm_inv ~error trm_for_inv t in
+  let (range, mode, body, contract) = trm_inv ~error trm_for_inv t in
   let new_index = { namespaces = []; name = new_index; id = range.index.id } in
   let new_body = trm_subst_var range.index (trm_var new_index) body in
   let new_contract = Resource_contract.loop_contract_subst (Var_map.singleton range.index (trm_var new_index)) contract in
-  trm_for ~annot:t.annot ~contract:new_contract { range with index = new_index } new_body
+  trm_for ~mode ~annot:t.annot ~contract:new_contract { range with index = new_index } new_body

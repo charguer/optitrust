@@ -7,15 +7,20 @@ let rec contains_only_ghost_code (t: trm): bool =
   match t.desc with
   | Trm_apps _ when trm_has_attribute GhostInstr t -> true
   | Trm_seq (seq, None) -> List.for_all contains_only_ghost_code (Mlist.to_list seq)
-  | Trm_for (_, body, _) -> contains_only_ghost_code body
+  | Trm_for (_, _, body, _) -> contains_only_ghost_code body
   | _ -> false
 
 let embed_loop_on (mark : mark) (t: trm): trm =
+  let res = Resources.before_trm t in
   let t = loop_minimize_on t in
   if not (contains_only_ghost_code t) then failwith "Ghost.embed_loop_on: the loop contains non ghost code";
-  let range, body, contract = trm_inv ~error:"Ghost.embed_loop_on: can only be applied on a for loop" trm_for_inv t in
-  let outer_contract = contract_outside_loop range contract in
-  trm_add_mark mark (Resource_trm.ghost (ghost_closure_call outer_contract (trm_seq (Mlist.of_list [trm_copy t]))))
+  let range, mode, body, contract = trm_inv ~error:"Ghost.embed_loop_on: can only be applied on a for loop" trm_for_inv t in
+  match mode with
+  | Sequential | Parallel ->
+    let _, outer_contract = get_loop_contract_generators res mode range contract in
+    trm_add_mark mark (Resource_trm.ghost (ghost_closure_call (outer_contract ()) (trm_seq (Mlist.of_list [trm_copy t]))))
+  | _ -> failwith "Ghost.embed_loop_on: loop mode %s is unsupported" (show_loop_mode mode)
+
 
 let%transfo embed_loop ?(mark : mark = "") (tg: target): unit =
   Resources.ensure_computed ();

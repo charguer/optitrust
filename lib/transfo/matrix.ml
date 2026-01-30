@@ -63,7 +63,7 @@ let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(ac
     Marks.with_marks (fun next_mark ->
     let middle_mark = Mark.reuse_or_next next_mark mark in
     let acc = match acc with | Some s -> s | _ -> "" in
-    Matrix_basic.local_name ~my_mark:middle_mark ?alloc_instr ~into ~indices ~local_ops:ops var tg;
+    Matrix_basic.local_name ~my_mark:middle_mark ?alloc_instr ~local_var:into ~indices ~local_ops:ops ~var tg;
 
     let any_mark = begin match use with | Some _ -> "any_mark_deloc" | _ -> "" end in
     Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops ~labels [cMark middle_mark];
@@ -176,6 +176,18 @@ let%transfo delete (tg : target) : unit =
   ) tg
 
 let delete_alias = delete
+
+let%transfo local_name
+  ?(my_mark : mark = no_mark)
+  ?(indices : (string list) = [])
+  ?(alloc_instr : target option) (* TODO: this should be supported at non-basic level *)
+  ?(type_and_dims : (typ * trms) option)
+  ~(var : string) ~(local_var : string)
+  ?(uninit_pre : bool = false) ?(uninit_post : bool = false)
+  ?(local_ops : local_ops = Local_arith (Lit_int (typ_int, 0), Binop_add))
+  (tg : target) : unit =
+  let (var, _) = find_var var tg in
+  Matrix_basic.local_name ~my_mark ~indices ?alloc_instr ?type_and_dims ~var ~local_var ~uninit_pre ~uninit_post ~local_ops tg
 
 (** [local_name_tile ?delete ?indices ?alloc_instr ?local_var tile ?simpl tg] is a convenient
   version of {!Matrix_basic.local_name_tile}. It deletes the original matrix if [delete = true]

@@ -201,13 +201,13 @@ let trm_goto ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_goto l)
 
 (** [trm_for ~annot ?loc ?ctx index start direction stop step body]: simple for loop *)
-let trm_for ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: loop_contract = empty_loop_contract)
+let trm_for ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(mode: loop_mode = Sequential) ?(contract: loop_contract = empty_loop_contract)
   (loop_range : loop_range) (body : trm) : trm =
-  trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_for (loop_range, body, contract))
+  trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_for (loop_range, mode, body, contract))
 
-let trm_for_instrs ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: loop_contract option)
+let trm_for_instrs ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(mode) ?(contract: loop_contract option)
 (loop_range : loop_range) (body_instrs : trm mlist) : trm =
-  trm_for ~annot ?loc ?ctx ?contract loop_range (trm_seq body_instrs)
+  trm_for ~annot ?loc ?ctx ?contract ?mode loop_range (trm_seq body_instrs)
 
 (** [code code_str ]: arbitrary code entered by the user *)
 let code (code_str : code_kind) : trm =
@@ -749,7 +749,7 @@ let vars_bound_in_trm_init (t : trm) : var list =
 (** [for_loop_index t]: returns the index of the loop [t] *)
 let for_loop_index (t : trm) : var =
   match t.desc with
-  | Trm_for (l_range,  _, _) ->
+  | Trm_for (l_range, _, _, _) ->
      l_range.index
   | Trm_for_c (init, _, _, _, _) ->
      (* covered cases:
@@ -768,7 +768,7 @@ let for_loop_index (t : trm) : var =
 (** [for_loop_body_trms t]: gets the list of trms from the body of the loop *)
 let for_loop_body_trms (t : trm) : trm mlist =
   match t.desc with
-  | Trm_for (_, body, _) ->
+  | Trm_for (_, _, body, _) ->
     begin match body.desc with
     | Trm_seq (tl, _) -> tl
     | _ -> trm_fail body "Ast.for_loop_body_trms: body of a simple loop should be a sequence"
@@ -779,6 +779,9 @@ let for_loop_body_trms (t : trm) : trm mlist =
     | _ -> trm_fail body "Ast.for_loop_body_trms: body of a generic loop should be a sequence"
     end
   | _ -> trm_fail t "Ast.for_loop_body_trms: expected a loop"
+
+(* TODO: add a for_loop_mode here? *)
+
 (** [body_inv t]: Where t is the body of a for loop, checks that the body is a sequence and return its items *)
   let body_inv (t : trm) : trm mlist =
     let items,res = trm_inv ~error:"for-loops must have a sequence as body" trm_seq_inv t in
@@ -945,17 +948,17 @@ let trm_is_unary_compound_assign (t : trm) : bool =
   | _ -> false
 
 (** [trm_for_inv t]: gets the loop range from loop [t] *)
-let trm_for_inv (t : trm) : (loop_range * trm * loop_contract)  option =
+let trm_for_inv (t : trm) : (loop_range * loop_mode * trm * loop_contract)  option =
 match t.desc with
-| Trm_for (l_range, body, contract) -> Some (l_range, body, contract)
+| Trm_for (l_range, l_mode, body, contract) -> Some (l_range, l_mode, body, contract)
 | _ -> None
 
 (** [trm_for_inv_instrs t]: gets the loop range and body instructions from loop [t]. *)
-let trm_for_inv_instrs (t : trm) : (loop_range * trm mlist * loop_contract) option =
+let trm_for_inv_instrs (t : trm) : (loop_range * loop_mode * trm mlist * loop_contract) option =
   let open Option.Monad in
-  let* r, b, c = trm_for_inv t in
+  let* r, m, b, c = trm_for_inv t in
   let* instrs, _ = trm_seq_inv b in
-  Some (r, instrs, c)
+  Some (r, m, instrs, c)
 
 (** [is_trm_seq t]: checks if [t] is a sequence. *)
 let is_trm_seq (t : trm) : bool =
@@ -983,7 +986,7 @@ let trm_fors_inv (nb : int) (t : trm) : ((loop_range * loop_contract) list * trm
       in
       let open Option.Monad in
       let* t in
-      let* range, body, contract = trm_for_inv t in
+      let* range, _, body, contract = trm_for_inv t in
       aux (nb - 1) ((range, contract) :: ranges_rev) body
   in
   aux nb [] t
@@ -991,7 +994,7 @@ let trm_fors_inv (nb : int) (t : trm) : ((loop_range * loop_contract) list * trm
 let trm_fors_depth (t : trm) : int =
   let rec aux (acc : int) (t : trm) : int =
     match trm_for_inv t with
-    | Some (l_range, body, _contract) ->
+    | Some (_, _, body, _contract) ->
       begin match Mlist.to_list (body_inv body)  with
       | [t_nested] -> aux (acc+1) t_nested
       | _ -> acc
@@ -1461,7 +1464,7 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) ?(f
       if (share_if_no_change && init' == init && cond' == cond && step' == step && body' == body && invariant' == invariant)
         then t
         else (trm_for_c ~annot ?loc ?invariant:invariant' ~ctx init' cond' step' body')
-  | Trm_for (range, body, contract) ->
+  | Trm_for (range, mode, body, contract) ->
     let start = f range.start in
     let stop = f range.stop in
     let step = f range.step in
@@ -1473,7 +1476,7 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) ?(f
     let contract' = loop_contract_map contract in
     if (share_if_no_change && range' == range && body' == body && contract' == contract)
       then t
-      else (trm_for ~annot ?loc ~contract:contract' ~ctx range' body')
+      else (trm_for ~mode ~annot ?loc ~contract:contract' ~ctx range' body')
   | Trm_switch (cond, cases) ->
       let cond' = f cond in
       let cases' = list_map
@@ -1643,7 +1646,7 @@ let trm_map_vars_ret_ctx
       in
       (cont_ctx, t')
 
-    | Trm_for (range, body, contract) ->
+    | Trm_for (range, mode, body, contract) ->
       let loop_ctx, index = map_binder (enter_scope ctx t) range.index false in
       let _, start = f_map loop_ctx range.start in
       let _, stop = f_map loop_ctx range.stop in
@@ -1656,7 +1659,7 @@ let trm_map_vars_ret_ctx
       let loop_ctx, body' = f_map loop_ctx body in
       let t' = if (range' == range && body' == body && contract == contract')
         then t
-        else (trm_for ~annot ?loc ~ctx:t_ctx ~contract:contract' range' body')
+        else (trm_for ~mode ~annot ?loc ~ctx:t_ctx ~contract:contract' range' body')
       in
       let ctx = exit_scope ctx loop_ctx t' in
       (ctx, t')
@@ -2292,7 +2295,7 @@ let trm_def_or_used_vars (t : trm) : Var_set.t =
     | Some (x, _, _, _, _) -> vars := Var_set.add x !vars
     | _ ->
     begin match trm_for_inv t with
-    | Some (range, _, _) -> vars := Var_set.add range.index !vars
+    | Some (range, _, _, _) -> vars := Var_set.add range.index !vars
     | _ -> ()
     end end end;
     trm_iter aux t

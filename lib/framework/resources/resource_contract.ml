@@ -84,11 +84,19 @@ let rec desugar_formula (formula: formula): formula =
     Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_apps (trm_var !__) !__ __ __)) (fun var f args () ->
         if !Flags.use_resources_with_models && f.name = sprintf "Matrix%d" (List.length args - 1) then
           let size, model = List.unlast args in
-          formula_matrix var ~mem_typ:(mem_typ_any) size ~model (* TODO: other memory types in matrices (#23) *)
+          formula_matrix var ~mem_typ:(mem_typ_any) size ~model
+        (* Note: MatrixNOf (i.e. sugar for matrices of different cell types) only works in models mode, although cell types in general work in shape mode. *)
+        else if !Flags.use_resources_with_models && f.name = sprintf "Matrix%dOf" (List.length args - 2) then
+          let args, model = List.unlast args in
+          let size, mem = List.unlast args in
+          formula_matrix var ~mem_typ:(mem) size ~model
         else if not (!Flags.use_resources_with_models) && f.name = sprintf "Matrix%d" (List.length args) then
           formula_matrix var ~mem_typ:(mem_typ_any) args
         else if f.name = sprintf "UninitMatrix%d" (List.length args) then
           formula_uninit_matrix ~mem_typ:(mem_typ_any) var args
+        else if !Flags.use_resources_with_models && f.name = sprintf "UninitMatrix%dOf" (List.length args - 1) then
+          let size, mem = List.unlast args in
+          formula_uninit_matrix ~mem_typ:(mem) var size
         else raise Pattern.Next
       );
     (* Allow using operators / and - in first argument of RO(_,_) while normally they are reserved for integers *)
@@ -109,13 +117,20 @@ let rec desugar_formula (formula: formula): formula =
   ]
 
 let rec encode_formula (formula: formula): formula =
+  let matrix_sugar_ext mem_typ =
+    match (trm_var_inv mem_typ) with
+    | Some v when (var_eq v mem_typ_any_var) -> "", []
+    | _ -> "Of", [mem_typ] in
   match formula_matrix_inv formula with
-  | Some (m, dims, None) -> formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "UninitMatrix%d" (List.length dims)))) dims)
-  | Some (m, dims, Some (model,_)) -> (* TODO: handle other hardware types *)
+  | Some (m, dims, None, mem_typ) ->
+    let ext,mt_args = matrix_sugar_ext mem_typ in
+    formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "UninitMatrix%d%s" (List.length dims) ext))) (dims @ mt_args))
+  | Some (m, dims, Some model, mem_typ) -> (* TODO: handle other hardware types *)
+    let ext,mt_args = matrix_sugar_ext mem_typ in
     if !Flags.use_resources_with_models then
-      formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "Matrix%d" (List.length dims)))) (dims @ [model]))
+      formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "Matrix%d%s" (List.length dims) ext))) (dims @ mt_args @ [model]))
     else
-      formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "Matrix%d" (List.length dims)))) dims)
+      formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "Matrix%d%s" (List.length dims) ext))) (dims @ mt_args))
   | None -> trm_map encode_formula formula
 
 let push_read_only_fun_contract_res ((name, formula): resource_item) (contract: fun_contract): fun_contract =
@@ -177,36 +192,142 @@ let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: 'clause_t
       | Resource_clexer.SyntaxError err -> failwith "Failed to lex resources '%s' : %s" desc err
     ) clauses empty_contract
 
-(** [contract_outside_loop range contract] takes the [contract] of a for-loop over [range] and returns
-  the contract of the for instruction. *)
-let contract_outside_loop range contract =
-  let invariant_before = Resource_set.subst_loop_range_start range contract.invariant in
-  let pre = Resource_set.group_range range contract.iter_contract.pre in
-  let pre = Resource_set.union invariant_before (Resource_set.add_linear_list contract.parallel_reads pre) in
-  let pre = { pre with pure = contract.loop_ghosts @ pre.pure } in
-  let invariant_after = Resource_set.subst_loop_range_end range contract.invariant in
-  let post = Resource_set.group_range range contract.iter_contract.post in
-  let post = Resource_set.add_linear_list contract.parallel_reads post in
-  let post = Resource_set.union invariant_after post in
-  { pre; post }
-
 let parallel_reads_inside_loop range par_reads =
-  List.map (fun (x, formula) ->
-      let { frac; formula } = formula_read_only_inv_all formula in
-      (x, formula_read_only ~frac:(formula_frac_div frac (formula_range_count (formula_loop_range range))) formula)
-    ) par_reads
+List.map (fun (x, formula) ->
+    let { frac; formula } = formula_read_only_inv_all formula in
+    (x, formula_read_only ~frac:(formula_frac_div frac (formula_range_count (formula_loop_range range))) formula)
+  ) par_reads
 
-(** [contract_inside_loop range contract] takes the [contract] of a for-loop over [range] and returns
-  the contract of its body. *)
-let contract_inside_loop range contract =
-  let par_reads_inside = parallel_reads_inside_loop range contract.parallel_reads in
-  let pre = Resource_set.union contract.invariant (Resource_set.add_linear_list par_reads_inside contract.iter_contract.pre) in
-  let index_in_range_hyp = (new_anon_hyp (), formula_in_range (trm_var range.index) (formula_loop_range range)) in
-  let pre = { pre with pure = (range.index, typ_int) :: index_in_range_hyp :: contract.loop_ghosts @ pre.pure } in
-  let invariant_after_one_iter = Resource_set.subst_loop_range_step range contract.invariant in
-  let post = Resource_set.add_linear_list par_reads_inside contract.iter_contract.post in
-  let post = Resource_set.union invariant_after_one_iter post in
-  { pre; post }
+(****************************** GPU thread for handling ***************************************)
+
+(*
+[threadsctx_range_components] = (dims_high, dims_low, inds)
+when
+                          |---------- N args -----------|   |-N args-|           |- M-1 args -|
+r = counted_range(MINDEXN(dims_high, MSIZEM(_, dims_low),  inds, _  ), MSIZEM(_, dims_low))
+
+given ThreadsCtx(r) in the current context.
+*)
+type threadsctx_range_components = (trm list * trm list * trm list)
+
+type thread_for_info = {
+  r_out: trm; (* Outside of loop thread range term *)
+  r_in: trm;  (* Inside loop thread range term *)
+}
+
+(* Wellformedness check on thread for loop ranges; should always start at 0, and step up by 1. *)
+let check_thread_for_range_wellformedness (range: loop_range): (var * trm) =
+  let open Option.Monad in
+  let range_s =
+    let* range_s = Some (range.index, range.stop) in
+    let* range_s = match (trm_int_inv range.start) with
+    | Some 0 -> Some range_s
+    | _ -> None in
+    let* range_s = match (trm_int_inv range.step) with
+    | Some 1 -> Some range_s
+    | _ -> None in
+    if (range.direction = DirUp) then Some range_s else None in
+  Option.unsome ~error:"Malformed thread for range" range_s
+
+let extract_threadsctx (res: resource_set): trm =
+  match (List.find_map (fun (_,f) -> formula_threadsctx_inv f) res.linear) with
+  | Some tctx -> tctx
+  | _ -> failwith "Cannot find ThreadsCtx in context"
+
+let extract_threadsctx_range_components (r_t: trm): threadsctx_range_components =
+  let (tid,sz) = Option.unsome ~error:"Expected counted_range in ThreadsCtx" (formula_counted_range_inv r_t) in
+  let dims_low = match Matrix_trm.msize_inv sz with
+  | Some (_::dims_low) -> dims_low (* Lowest dimension should be equal to our loop range *)
+  | _ -> failwith "Expected at least 1 dimension in ThreadsCtx size!" in
+  let (dims_high_1,inds_1) = Option.unsome (Matrix_trm.mindex_inv tid) in
+  let (dims_high,_) = List.unlast dims_high_1 in (* Last dimension should be equal to our thread context size *)
+  let (inds,_) = List.unlast inds_1 in (* Last index should be zero *)
+  (dims_high,dims_low,inds)
+
+let gen_outside_loop_threadsctx_range (cs: threadsctx_range_components) (loop_end: trm): trm =
+  let dims_high,dims_low,inds_high = cs in
+  let sz = Matrix_trm.msize (loop_end::dims_low) in
+  let dims = dims_high @ [sz] in
+  let inds = inds_high @ [trm_int 0] in
+  formula_counted_range (Matrix_trm.mindex dims inds) sz
+
+let gen_inside_loop_threadsctx_range (cs: threadsctx_range_components) (loop_ind: var) (loop_end: trm): trm =
+  let dims_high,dims_low,inds_high = cs in
+  let sz = Matrix_trm.msize dims_low in
+  let dims = dims_high @ [loop_end; sz] in
+  let inds = inds_high @ [trm_var loop_ind; trm_int 0] in
+  formula_counted_range (Matrix_trm.mindex dims inds) sz
+
+(* [compute_thread_for_ctx_ranges range res] generates the ranges belonging to the expected ThreadsCtx terms in the inner and outer thread for loop contract.
+  We have to construct these terms for the contract based on the context [res] since we don't have variadic contracts.
+  The loop end and index variable in [range] are also used to construct the ThreadsCtx terms. *)
+let compute_thread_for_ctx_ranges (range: loop_range) (res: resource_set): thread_for_info =
+  let loop_ind,loop_end = check_thread_for_range_wellformedness range in
+  let r_out = extract_threadsctx res in
+  let cs = extract_threadsctx_range_components r_out in
+  let r_out_exp = gen_outside_loop_threadsctx_range cs loop_end in
+  let r_in = gen_inside_loop_threadsctx_range cs loop_ind loop_end in
+  {
+    r_out = r_out_exp;
+    r_in;
+  }
+
+(****************************** End GPU thread for handling ***********************************)
+
+(** [get_loop_contract_generators res loop_mode range contract] takes the [contract] of a for-loop over [range] and gives delayed versions of
+  the inside (loop body) and outside (for instruction) contract (in case only one is needed).
+  [loop_mode] is used for loops with custom contracts.
+  [res] is the typing context at the loop. *)
+let [@warning "-11"] get_loop_contract_generators res loop_mode range contract: (unit -> fun_contract) * (unit -> fun_contract) =
+  (match loop_mode with
+  | Sequential -> ()
+  | Parallel | GpuThread ->
+    if (not (Resource_set.is_empty contract.invariant)) then
+      failwith "Loop with mode %s cannot have sequential invariant (non parallelizable contract)" (show_loop_mode loop_mode)
+    else ()
+  | _ -> failwith "Resource_contract.get_loop_contract_generators: unsupported loop mode %s" (show_loop_mode loop_mode));
+  let threadfor_info = match loop_mode with
+  | GpuThread -> Some
+    (compute_thread_for_ctx_ranges range res)
+  | _ -> None in
+  let grp_apply_fn = match threadfor_info with
+    | Some info ->
+      (* TODO: should the pre & post share the threadsctx variable or no? *)
+      let tctx = (new_anon_hyp (),formula_threadsctx info.r_out) in
+      fun range res -> (
+        let res = Resource_set.desyncgroup_range info.r_out range res in
+        { res with linear = tctx :: res.linear }
+      )
+    | _ ->  Resource_set.group_range in
+
+  let contract_outside_loop () =
+    let invariant_before = Resource_set.subst_loop_range_start range contract.invariant in
+    let pre = grp_apply_fn range contract.iter_contract.pre in
+    let pre = Resource_set.union invariant_before (Resource_set.add_linear_list contract.parallel_reads pre) in
+    let pre = { pre with pure = contract.loop_ghosts @ pre.pure } in
+    let invariant_after = Resource_set.subst_loop_range_end range contract.invariant in
+    let post = grp_apply_fn range contract.iter_contract.post in
+    let post = Resource_set.add_linear_list contract.parallel_reads post in
+    let post = Resource_set.union invariant_after post in
+    { pre; post } in
+
+  let contract_inside_loop () =
+    let par_reads_inside = parallel_reads_inside_loop range contract.parallel_reads in
+    let pre = Resource_set.union contract.invariant (Resource_set.add_linear_list par_reads_inside contract.iter_contract.pre) in
+    let index_in_range_hyp = (new_anon_hyp (), formula_in_range (trm_var range.index) (formula_loop_range range)) in
+    let pre = { pre with pure = (range.index, typ_int) :: index_in_range_hyp :: contract.loop_ghosts @ pre.pure } in
+    let invariant_after_one_iter = Resource_set.subst_loop_range_step range contract.invariant in
+    let post = Resource_set.add_linear_list par_reads_inside contract.iter_contract.post in
+    let post = Resource_set.union invariant_after_one_iter post in
+    (match threadfor_info with
+    | Some info ->
+      (* TODO: should the pre & post share the threadsctx variable or no? *)
+      let tctx = (new_anon_hyp (),formula_threadsctx info.r_in) in
+      let add_tctx res = { res with linear = tctx :: res.linear } in
+      { pre = add_tctx pre; post = add_tctx post }
+    | _ -> { pre; post }) in
+
+  (contract_inside_loop, contract_outside_loop)
 
 (** [revert_fun_contract contract] returns a contract that swaps the resources produced and consumed. *)
 let revert_fun_contract contract =

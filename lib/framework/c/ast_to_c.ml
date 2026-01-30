@@ -637,10 +637,16 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       dattr ^^ string "for" ^^ blank 1 ^^
         parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
           blank 1 ^^ dbody
-    | Trm_for (l_range, body, loop_spec) ->
+    | Trm_for (l_range, mode, body, loop_spec) ->
       let full_loop = (unpack_trm_for : ?loc:trm_loc -> loop_range -> trm -> trm) ?loc:t.loc l_range body in
       let dt = decorate_trm style full_loop in
-      dt
+      let dmode = match mode with
+      | GpuThread -> string "thread"
+      | _ -> empty in
+      (* prepend mode to loop; prints correct because annotations are cleared in full_loop *)
+      (* TODO : Prepending the mode like this, e.g. `thread for` would not parse in C++.
+        Is there anywhere in optitrust where we assume the output file can be reparsed, and will printing it like this break things? *)
+      dmode ^^ blank 1 ^^ dt
       (* print_contract_internal_repr is handled in C_encoding, printing it here might be useful if encoding is heavily broken
       if style.print_contract_internal_repr
         then string "/*" ^^ string "Contract: " ^^ loop_spec_to_doc style loop_spec ^^ string "*/" ^^ hardline ^^ dt
@@ -1374,10 +1380,16 @@ and formula_to_doc style (f: formula): document =
     Pattern.(formula_range !__ !__ (trm_int (eq 1))) (fun start stop () ->
       decorate_trm ~prec:16 style start ^^ string ".." ^^ decorate_trm ~prec:16 style stop
     );
+    Pattern.(formula_counted_range !__ !__) (fun start count () ->
+      decorate_trm ~prec:16 style start ^^ string "..+" ^^ decorate_trm ~prec:16 style count
+    );
     Pattern.(trm_fun !__ !__ !__ __) (fun tvl ty_opt body () -> formula_fun_to_doc style ty_opt tvl body
     );
     Pattern.(trm_apps2 (trm_specific_var ~ignore_unset_id:true var_group) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
       string "for" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc style range ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
+    );
+    Pattern.(trm_apps3 (trm_specific_var ~ignore_unset_id:true var_desyncgroup) !__ !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range bound (index, _) body () ->
+      string "desync_for" ^^ string "(" ^^ trm_to_doc style range ^^ string ")" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ string ".." ^^ trm_to_doc style bound ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
     );
     Pattern.(formula_frac_div !__ !__) (fun base divisor () ->
       Pattern.when_ (style.pretty_fraction_notation);

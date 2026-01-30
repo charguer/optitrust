@@ -159,6 +159,10 @@ inline int MINDEX4(int N1, int N2, int N3, int N4, int i1, int i2, int i3, int i
   return i1 * N2 * N3 * N4 + i2 * N3 * N4 + i3 * N4 + i4;
 }
 
+inline int MINDEX5(int N1, int N2, int N3, int N4, int N5, int i1, int i2, int i3, int i4, int i5) {
+  return i1 * N2 * N3 * N4 * N5 + i2 * N3 * N4 * N5 + i3 * N4 * N5 + i4 * N5 + i5;
+}
+
 inline size_t MSIZE0() {
   return 1;
 }
@@ -179,18 +183,24 @@ inline size_t MSIZE4(int N1, int N2, int N3, int N4) {
   return (size_t)N1 * (size_t)N2 * (size_t)N3 * (size_t)N4;
 }
 
+inline size_t MSIZE5(int N1, int N2, int N3, int N4, int N5) {
+  return (size_t)N1 * (size_t)N2 * (size_t)N3 * (size_t)N4 * (size_t)N5;
+}
+
 #define MALLOC(T) (T*) malloc(sizeof(T))
 #define MALLOC0(T) (T*) malloc(MSIZE0() * sizeof(T))
 #define MALLOC1(T, N1) (T*) malloc(MSIZE1(N1) * sizeof(T))
 #define MALLOC2(T, N1, N2) (T*) malloc(MSIZE2(N1, N2) * sizeof(T))
 #define MALLOC3(T, N1, N2, N3) (T*) malloc(MSIZE3(N1, N2, N3) * sizeof(T))
 #define MALLOC4(T, N1, N2, N3, N4) (T*) malloc(MSIZE4(N1, N2, N3, N4) * sizeof(T))
+#define MALLOC5(T, N1, N2, N3, N4, N5) (T*) malloc(MSIZE4(N1, N2, N3, N4, N5) * sizeof(T))
 
 #define CALLOC0(T) (T*) calloc(MSIZE0(), sizeof(T))
 #define CALLOC1(T, N1) (T*) calloc(MSIZE1(N1), sizeof(T))
 #define CALLOC2(T, N1, N2) (T*) calloc(MSIZE2(N1, N2), sizeof(T))
 #define CALLOC3(T, N1, N2, N3) (T*) calloc(MSIZE3(N1, N2, N3), sizeof(T))
 #define CALLOC4(T, N1, N2, N3, N4) (T*) calloc(MSIZE4(N1, N2, N3, N4), sizeof(T))
+#define CALLOC5(T, N1, N2, N3, N4, N5) (T*) calloc(MSIZE5(N1, N2, N3, N4, N5), sizeof(T))
 
 
 /* ---- Arithmetic Functions ---- */
@@ -396,6 +406,7 @@ __GHOST(tiled_index_in_range) {
   __admitted();
 }
 
+__AXIOM(eq_refl, "forall (n: int) -> n = n");
 __AXIOM(eq_sym, "forall (m n: int) (eq: m = n) -> n = m");
 __AXIOM(zero_mul_intro, "forall (n: int) -> 0 = 0 * n");
 __AXIOM(plus_zero_intro, "forall (n: int) -> n = n + 0");
