@@ -46,7 +46,7 @@
           pkgs.libev
 	        pkgs.ncurses
           customLLVM
-	        pkgs.gcc.cc.lib
+#	        pkgs.gcc.cc.lib  # removed because it was causing problems
         ];
 
         # ---- Ensure custom LLVM is used ----

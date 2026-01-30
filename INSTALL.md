@@ -2,13 +2,8 @@
 # OptiTrust Installation
 
 --------------------------------------------------------------------------------
-There are two installation options:
-- System installation
-- Nix flake
 
-The Nix flake is an isolated environment that contains all the necessary dependencies (OCaml packages, LLVM, other system libraries) to build and run OptiTrust. It has been tested against the common use cases of compiling OptiTrust, running unit tests, and running interactive transformation scripts, but since most of OptiTrust's development has happened on machines with a system installation, there may be edge cases that don't work. However, OptiTrust has very specific version dependencies that are difficult to get working outside of Ubuntu 22.04 and 24.04, and we only provide instructions for Ubuntu.
-
-Therefore, if you are running Ubuntu 22.04 or 24.04 already, we recommend using the [system installation](#system-installation), otherwise, use the nix flake.
+The system installation instructions below are provided for systems running Ubuntu. There is an experimental option to install using a Nix flake, which contains the required opam environment and LLVM dependencies in an isolated environment, but it is known to have issues on systems with a newer libc (such as Arch Linux), and does not integrate well with VSCode/ocaml LSP. Instructions for the nix flake [are also provided below](#nix-flake-installation-experimental).
 
 ## System Installation
 
@@ -123,7 +118,7 @@ Note: graphics is used by the pview tool only.
 
 Next, jump to the [Optitrust Setup](#optitrust-setup) section.
 
-## Nix flake installation
+## Nix flake installation (experimental)
 
 ### Install Nix
 
@@ -139,11 +134,11 @@ experimental-features = nix-command flakes
 
 ### Test that it works
 
-In the root of the OptiTrust repo, run `nix develop`. If it works, this will drop you into a shell with the special OptiTrust Nix environment. Note that unlike e.g. a Docker container, the binaries and libraries of your system are still exposed to the environment. The environment simply shadows all of the packages you have installed on your system. In some cases, this will break things because something on your system may for example depend on a newer version of `libc` than the Nix environment has. But usually many system programs can run, including VSCode which is how this setup is used interactively.
+In the root of the OptiTrust repo, run `nix develop`. If it works, this will drop you into a shell with the special OptiTrust Nix environment. Note that unlike e.g. a Docker container, the binaries and libraries of your system are still exposed to the environment. The environment simply shadows all of the packages you have installed on your system. In some cases, this will break things because something on your system may for example depend on a newer version of `libc` than the Nix environment has. Depending on your system's libc, you may be able to run the system VSCode inside this environment, otherwise you have to run nix develop inside the VS Code terminal.
 
 The first time running `nix develop` will take a while as it is setting up all the system packages for the environment, as well as installing OCaml and all of OptiTrust's OCaml dependencies. If it is working, you should not see any errors from the output of all the `opam` commands that were run to set up the environment for the first time.
 
-Note that any time you want to run commands related to OptiTrust (opam clang etc.), you will need to drop into this shell again with `nix develop`. After the first time, everything is cached so it is much faster. As mentioned you can run `code .` through this shell, even with a system VSCode installation, but we also show a solution later to allow triggering this environment even when VSCode is launched outside a `nix develop` shell.
+Note that any time you want to run commands related to OptiTrust (opam clang etc.), you will need to drop into this shell again with `nix develop`. After the first time, everything is cached so it is much faster. 
 
 Follow to the next section to test that your OptiTrust installation works.
 
@@ -207,9 +202,11 @@ may want to add into your `~/.bashrc` the line:
 (or use `sudo ln -s /usr/bin/codium /usr/bin/code`).
 
 
-### Direnv setup for automatic Nix shell activation in VSCode
+### Direnv setup for automatic Nix shell activation in VSCode (experimental)
 
-Launching a terminal, doing `nix develop`, and then running `code .` can be cumbersome, so there is a solution you can use. Note: all of this installation happens on your system.
+If vscode works within the nix shell on your system, there is a vscode extension which can activate the shell automatically whenever you open the repo. That way you don't have to launch a terminal, do `nix develop`, and then run `code .` As with the nix shell your mileage may vary.
+
+Note: all of this installation happens on your system.
 
 1. [Install direnv](https://direnv.net/docs/installation.html). You don't have to add the shell hook as written on the website. Just do step 1.
 
