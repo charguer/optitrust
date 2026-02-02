@@ -89,6 +89,10 @@ if [ -f "${OPTITRUST_FOLDER}/optitrust_flags.sh" ]; then
   source ${OPTITRUST_FOLDER}/optitrust_flags.sh
 fi
 
+if [ "${USE_LIBSTDCXX:-0}" = "1" ]; then
+  OPTIONS="${OPTIONS} -clang-use-libstdcxx"
+fi
+
 # Add EXECUTION MODE
 
 if [ "${MODE}" = "step_diff" ] || [ "${MODE}" = "step_diff_from_inter" ] || [ "${MODE}" = "step_result" ]; then
