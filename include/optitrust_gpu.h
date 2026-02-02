@@ -53,6 +53,7 @@ __DECL(block_sync_mem, "MemType -> Prop");
 __AXIOM(gmem_block_sync_mem, "block_sync_mem(GMem)");
 __AXIOM(smem_block_sync_mem, "block_sync_mem(SMem)");
 
+// TODO should take a list of HPROP
 void blocksync() {
   __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int");
   __reads("KernelParams(tpb, bpg, smem_sz)");
@@ -62,6 +63,7 @@ void blocksync() {
   __admitted();
 }
 
+// TODO could be merged with kill_threads when a list of HProps is supportedw
 __GHOST(kernel_end_sync) {
   __requires("H: HProp");
   __reads("DeadKernelCtx");
