@@ -36,7 +36,7 @@ sudo mv clang+llvm-15.0.0-x86_64-linux-gnu-rhel-8.4 /opt/clang-15.0.0
 Because LLVM does not ship C++ headers, you need to install them separately:
 ```sh
 # Install for C++ headers support:
-sudo apt-get install libc++abi-15-dev
+sudo apt-get install libc++-15-dev libc++abi-15-dev
 ```
 
 Depending on your prior installation, you might need to add the newly installed version of clang/llvm-config to the path, then select it among all of your versions :
@@ -82,11 +82,11 @@ Installation of the opam switch with relevant packages (it seems that it must be
 ```sh
    opam init
    opam switch create 4.14.2+options --packages=ocaml-variants.4.14.2+options,ocaml-option-flambda
-   opam pin add dune 3.18.2
-   opam pin add menhirLib 20210419
-   opam pin add pprint 20220103
-   opam pin add conf-libclang 15
-   opam pin add clangml 4.8.0  # -> continueanyway
+   opam pin add -y dune 3.18.2
+   opam pin add -y menhirLib 20210419
+   opam pin add -y pprint 20220103
+   opam pin add -y conf-libclang 15 --no-depexts
+   opam pin add -y clangml 4.8.0 --no-depexts --yes --no-action
    opam install dune refl pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving
 ```
 
@@ -138,7 +138,7 @@ In the root of the OptiTrust repo, run `nix develop`. If it works, this will dro
 
 The first time running `nix develop` will take a while as it is setting up all the system packages for the environment, as well as installing OCaml and all of OptiTrust's OCaml dependencies. If it is working, you should not see any errors from the output of all the `opam` commands that were run to set up the environment for the first time.
 
-Note that any time you want to run commands related to OptiTrust (opam clang etc.), you will need to drop into this shell again with `nix develop`. After the first time, everything is cached so it is much faster. 
+Note that any time you want to run commands related to OptiTrust (opam clang etc.), you will need to drop into this shell again with `nix develop`. After the first time, everything is cached so it is much faster.
 
 Follow to the next section to test that your OptiTrust installation works.
 
