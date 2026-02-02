@@ -1394,6 +1394,13 @@ let failure_expected (h : exn -> bool) (f : unit -> unit) : unit =
         if h e then () else Printexc.raise_with_backtrace e bt
   )
 
+(** [resource_error_expected f]: run [failure_expected] on [f],
+  expecting a [ResourceError] from typechecking *)
+let resource_error_expected (f: unit -> unit): unit =
+  failure_expected (function
+  | Resource_computation.ResourceError _ -> true
+  | _ -> false) f
+
 (** [apply f]: applies the transformation [f] to the current AST,
    and updates the current ast with the result of that transformation.
    If there are several active trace (e.g., after a [switch]),

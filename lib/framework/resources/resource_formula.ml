@@ -274,14 +274,14 @@ let trm_range = trm_var var_range
 let formula_range (start: trm) (stop: trm) (step: trm) =
   trm_apps ~annot:formula_annot trm_range [start; stop; step]
 
-let var_range_plus = toplevel_var "range_plus"
-let trm_range_plus = trm_var var_range_plus
-let formula_range_plus (start: trm) (len: trm) =
-  trm_apps ~annot:formula_annot trm_range_plus [start; len]
+let var_counted_range = toplevel_var "counted_range"
+let trm_counted_range = trm_var var_counted_range
+let formula_counted_range (start: trm) (len: trm) =
+  trm_apps ~annot:formula_annot trm_counted_range [start; len]
 
-let formula_range_plus_inv (t: trm): (trm * trm) option =
+let formula_counted_range_inv (t: trm): (trm * trm) option =
   match trm_apps_inv t with
-  | Some ({ desc = Trm_var v }, [base; len]) when var_eq v var_range_plus -> Some (base,len)
+  | Some ({ desc = Trm_var v }, [base; len]) when var_eq v var_counted_range -> Some (base,len)
   | _ -> None
 
 let var_group = toplevel_var "Group"
@@ -297,6 +297,9 @@ let formula_group_inv (t: trm): (var * trm * formula) option =
     | _ -> None
     end
   | _ -> None
+
+(* TODO with TK: Should we explain how the GPU constructs work in comments here,
+ or should this be left to some kind of external documentation? *)
 
 let var_desyncgroup = toplevel_var "DesyncGroup"
 let trm_desyncgroup = trm_var var_desyncgroup
@@ -328,8 +331,6 @@ let var_sync = toplevel_var "Sync"
 
 let trm_sync = trm_var var_sync
 
-(* NOTE: RANGE HAS BEEN REMOVED !!!
-Not needed with DesyncGroups. See proof in Appendix A of spec document. *)
 let formula_sync (mem_fn: trm) (res: formula) =
   trm_apps ~annot:formula_annot trm_sync [mem_fn;res]
 
@@ -474,6 +475,9 @@ module Pattern = struct
   let formula_range (f_begin: 'a -> trm -> 'b) (f_end: 'b -> trm -> 'c) (f_step: 'c -> trm -> 'd) =
     trm_apps3 (trm_specific_var var_range) f_begin f_end f_step
 
+  let formula_counted_range (f_begin: 'a -> trm -> 'b) (f_count: 'b -> trm -> 'c) =
+    trm_apps2 (trm_specific_var var_counted_range) f_begin f_count
+
   let formula_frac_div f_base f_div =
     trm_apps2 (trm_specific_var var_frac_div) f_base f_div
 
@@ -568,14 +572,18 @@ let formula_group_range (range: loop_range) : formula -> formula =
 
 let formula_desyncgroup_range (range: loop_range) (r_t: trm) : formula -> formula =
   (* FIXME: Need to generalize models ! *)
-  (* FIXME: under read only, OK to or should ask for group instead of desyncgroup? IDK *)
+  (* TODO: under read only, should convert to group or desyncgroup?
+    In theory group seems correct because if each thread exclusively owns a non-full fraction,
+    they cannot make changes that the other threads wouldn't be able to see.
+    However, it is easier to say any thread-exclusive permission may be modified -> desyncgroup is required.
+    In any case you can just use __sreads instead. *)
   formula_map_under_read_only (fun fi ->
     let range_var = new_var ~namespaces:range.index.namespaces range.index.name in
     let fi = trm_subst_var range.index (trm_var range_var) fi in
     formula_desyncgroup range_var r_t range.stop fi
   )
 
-let formula_matrix_inv (f: formula): (trm * trm list * (trm*mem_typ) option) option =
+let formula_matrix_inv (f: formula): (trm * trm list * (trm option) * mem_typ) option =
   let open Option.Monad in
   let rec nested_group_inv (f: formula): (formula * var list * trm list) =
     Pattern.pattern_match f [
@@ -599,23 +607,23 @@ let formula_matrix_inv (f: formula): (trm * trm list * (trm*mem_typ) option) opt
   in
 
   let* location, repr = formula_repr_inv inner_formula in
-  let* model_memtype = Pattern.pattern_match_opt repr [
-    Pattern.(trm_uninit_cell __) (fun () -> None);
+  let* model,mem_typ = Pattern.pattern_match_opt repr [
+    Pattern.(trm_uninit_cell !__) (fun mem_typ () -> None, mem_typ);
     Pattern.(trm_cell !__) (fun mem_typ () ->
       Pattern.when_ (not !Flags.use_resources_with_models);
-      Some (trm_cell ~mem_typ (), mem_typ)
+      Some (trm_cell ~mem_typ ()), mem_typ
     );
     Pattern.(trm_apps1 (trm_cell !__) (trm_apps !__ !__ __ __)) (fun mem_typ model args () ->
       Pattern.when_ (!Flags.use_resources_with_models);
       Pattern.when_ (has_matching_indices args indices);
-      Some (model, mem_typ)
+      Some (model), mem_typ
     )
   ] in
   let* matrix, mindex_dims, mindex_indices = Matrix_trm.access_inv location in
   let* () = if List.length mindex_dims = List.length dims then Some () else None in
   let* () = if List.for_all2 Trm_unify.are_same_trm mindex_dims dims then Some () else None in
   if has_matching_indices mindex_indices indices
-    then Some (matrix, dims, model_memtype)
+    then Some (matrix, dims, model, mem_typ)
     else None
 
 let var_arith_checked = toplevel_var "__arith_checked"

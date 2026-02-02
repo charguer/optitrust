@@ -28,7 +28,7 @@
 %token <int> INT_LIT
 %token <float> FLOAT_LIT
 %token LPAR RPAR LBRACKET RBRACKET
-%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW LONG_SQUIG_ARROW COLON_EQUAL REV_ARROW DOT DOTDOT UNDERSCORE
+%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW LONG_SQUIG_ARROW COLON_EQUAL REV_ARROW DOT DOTDOT DOTDOTPLUS UNDERSCORE
 %token FUN FORALL FOR DESYNC_FOR IN EOF
 %token PLUS MINUS STAR SLASH PERCENT
 %token EQUAL LT GT LEQ GEQ NEQ
@@ -134,6 +134,8 @@ formula_cmp:
     { formula_geq ~typ:typ_f32 a b }
   | a=arith_term; NEQ; DOT; b=arith_term;
     { formula_neq ~typ:typ_f32 a b }
+  | start=arith_term; DOTDOTPLUS; count=arith_term;
+    { formula_counted_range start count }
   | start=arith_term; DOTDOT; stop=arith_term;
     { formula_range start stop (trm_int 1) }
   | a=arith_term;

@@ -8,8 +8,5 @@ let _ = Run.script_cpp (fun () ->
   !! Resources.ensure_computed ();
   !! Omp_basic.parallel_for [cFor "i"];
   !! Loop.tile (trm_int 4) ~index:"ii" ~bound:TileDivides [cFor "i"];
-  !! Trace.failure_expected (function
-  | Resource_computation.ResourceError _ -> true
-  | _ -> false) (fun () ->
-    Resources.ensure_computed ());
+  !! Trace.resource_error_expected (fun () -> Resources.ensure_computed ());
   );

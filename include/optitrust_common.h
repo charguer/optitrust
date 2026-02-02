@@ -199,7 +199,8 @@ inline size_t MSIZE5(int N1, int N2, int N3, int N4, int N5) {
 #define CALLOC1(T, N1) (T*) calloc(MSIZE1(N1), sizeof(T))
 #define CALLOC2(T, N1, N2) (T*) calloc(MSIZE2(N1, N2), sizeof(T))
 #define CALLOC3(T, N1, N2, N3) (T*) calloc(MSIZE3(N1, N2, N3), sizeof(T))
-#define CALLOC4(T, N1, N2, N3, N4, N5) (T*) calloc(MSIZE4(N1, N2, N3, N4, N5), sizeof(T))
+#define CALLOC4(T, N1, N2, N3, N4) (T*) calloc(MSIZE4(N1, N2, N3, N4), sizeof(T))
+#define CALLOC5(T, N1, N2, N3, N4, N5) (T*) calloc(MSIZE5(N1, N2, N3, N4, N5), sizeof(T))
 
 
 /* ---- Arithmetic Functions ---- */

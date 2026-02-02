@@ -1,13 +1,17 @@
 #include <optitrust_models.h>
 #include <optitrust_gpu.h>
 
-__DEF(rr1, "fun (sz: int) -> range_plus(MINDEX1(sz,0), sz)");
+__DEF(rr1, "fun (sz: int) -> MINDEX1(sz,0) ..+ sz");
 
-/* Inlining shared memory definitions here */
+/* Inlining shared memory definitions here.
+These definitions have the kernel giving shared memory allocation, and smem_alloc/smem_free happening per block,
+but we would like the allocation and freeing to happen at the grid level instead.
+Since they are subject to change and not used elsewhere,
+they are excluded from optitrust_gpu.h at the moment. TODO */
 
 void kernel_start_shm(int tpb, int bpg, int smem_sz) {
   __requires("r: Range");
-  __requires("by: range_eq(range_plus(MINDEX1(bpg * tpb, 0), bpg * tpb), r)");
+  __requires("by: range_eq( (MINDEX1(bpg * tpb, 0) ..+ bpg * tpb), r)"); //
   __consumes("HostCtx");
   __produces("ThreadsCtx(r)");
   __produces("KernelParams(tpb, bpg, smem_sz)");
@@ -17,7 +21,7 @@ void kernel_start_shm(int tpb, int bpg, int smem_sz) {
 
 void kernel_end_shm() {
   __requires("tpb: int, bpg: int, smem_sz: int, r: Range");
-  __requires("by: range_eq(range_plus(MINDEX1(bpg * tpb, 0), bpg * tpb), r)");
+  __requires("by: range_eq((MINDEX1(bpg * tpb, 0) ..+ bpg * tpb), r)");
   __consumes("ThreadsCtx(r)");
   __consumes("KernelParams(tpb, bpg, smem_sz)");
   __consumes("desync_for(r) b in ..bpg -> SMemAlloc(smem_sz)");
@@ -29,7 +33,7 @@ __GHOST(kernel_end_sync_shm) {
   __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int, N: int");
   __requires("by: bpg * tpb = N");
   __preserves("KernelParams(tpb, bpg, smem_sz)");
-  __preserves("ThreadsCtx(range_plus(t, N))");
+  __preserves("ThreadsCtx(t ..+ N)");
   __consumes("H");
   __produces("Sync(block_sync_mem, H)");
   __admitted();
@@ -37,7 +41,7 @@ __GHOST(kernel_end_sync_shm) {
 
 template <typename T> T __smem_get(T* p) {
   __requires("v: T, t: int");
-  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
+  __preserves("ThreadsCtx(t ..+ MSIZE0())");
   __reads("p ~~>[SMem] v");
   __ensures("__spec_override_ret(T, v)");
   __admitted();
@@ -46,7 +50,7 @@ template <typename T> T __smem_get(T* p) {
 
 template <typename T> void __smem_set(T* p, T v) {
   __requires("t: int");
-  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
+  __preserves("ThreadsCtx(t ..+ MSIZE0())");
   __writes("p ~~>[SMem] v");
   __ensures("__spec_override_noret()");
   __admitted();
@@ -55,11 +59,11 @@ template <typename T> void __smem_set(T* p, T v) {
 template <typename T> T* __smem_malloc2(int N1, int N2) {
   __requires("tpb: int, bpg: int, t: int");
   __reads("KernelParams(tpb, bpg, MSIZE2(N1,N2))");
-  __preserves("ThreadsCtx(range_plus(t, tpb))");
+  __preserves("ThreadsCtx(t ..+ tpb)");
   __consumes("SMemAlloc(MSIZE2(N1,N2))"); // TODO multiple shared memory allocations
   __produces("SMemAlloc(0)");
-  __produces("_Res ~> UninitMatrixOf2(N1, N2, SMem)");
-  __produces("Free(_Res, _Res ~> UninitMatrixOf2(N1, N2, SMem))");
+  __produces("_Res ~> UninitMatrix2Of(N1, N2, SMem)");
+  __produces("Free(_Res, _Res ~> UninitMatrix2Of(N1, N2, SMem))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
   return __alloc_sig_generic<T>();
@@ -69,7 +73,7 @@ template <typename T> T* __smem_malloc2(int N1, int N2) {
 template <typename T> void smem_free(T* p) {
   __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int");
   __reads("KernelParams(tpb, bpg, smem_sz)");
-  __preserves("ThreadsCtx(range_plus(t, tpb))");
+  __preserves("ThreadsCtx(t ..+ tpb)");
   __consumes("SMemAlloc(0)");  // TODO multiple shared memory allocations
   __produces("SMemAlloc(smem_sz)");
   __consumes("Free(p, H)"); // TODO: need to add memory type to free predicate? Otherwise I can free any H
@@ -82,12 +86,13 @@ void transpose(float *a, float *b, int W, int H) {
   __requires("A: int * int -> float");
   __requires("H_tile: H = H/32 * 32");
   __requires("W_tile: W = W/32 * 32");
-  __requires("tile32: 32 = 16 * 2");
   __requires("32 >= 0");
   __requires("W/32 >= 0");
   __preserves("HostCtx");
   __reads("a ~> Matrix2(H, W, A)");
   __writes("b ~> Matrix2(W, H, fun (i : int) (j: int) -> A(j,i))");
+
+  __ghost(assume, "32 = 16 * 2", "tile32 <- H");
 
   float* const d_a = GMEM_MALLOC2(float, H, W);
   float* const d_b = GMEM_MALLOC2(float, W, H);
@@ -98,9 +103,9 @@ void transpose(float *a, float *b, int W, int H) {
   const int tpb = MSIZE2(16, 32);
   const int grid = MSIZE4(H/32, W/32, 16, 32);
 
-  __DEF(r2, "fun (by: int) -> range_plus(MINDEX2(H/32, MSIZE3(W/32, 16, 32), by, 0), MSIZE3(W/32, 16, 32))");
-  __DEF(r3, "fun (by bx: int) -> range_plus(MINDEX3(H/32, W/32, MSIZE2(16, 32), by, bx, 0), MSIZE2(16, 32))");
-  __DEF(r4, "fun (by bx ty: int) -> range_plus(MINDEX4(H/32, W/32, 16, MSIZE1(32), by, bx, ty, 0), MSIZE1(32))");
+  __DEF(r2, "fun (by: int) -> MINDEX2(H/32, MSIZE3(W/32, 16, 32), by, 0) ..+ MSIZE3(W/32, 16, 32)");
+  __DEF(r3, "fun (by bx: int) -> MINDEX3(H/32, W/32, MSIZE2(16, 32), by, bx, 0) ..+ MSIZE2(16, 32)");
+  __DEF(r4, "fun (by bx ty: int) -> MINDEX4(H/32, W/32, 16, MSIZE1(32), by, bx, ty, 0) ..+ MSIZE1(32)");
 
   __DEF(b0_inside0, "fun (x y: int) -> &d_b[MINDEX2(W, H, x, y)] ~> UninitCellOf(GMem)");
   __DEF(b0_inside1, "fun (by: int) -> fun (ty x: int) -> &d_b[MINDEX2(W, H, x, by * 32 + ty)] ~> UninitCellOf(GMem)");
@@ -116,7 +121,7 @@ void transpose(float *a, float *b, int W, int H) {
   __DEF(a_inside3, "fun (by bx ty tx j: int) -> &d_a[MINDEX2(H, W, by * 32 + (ty * 2 + j), bx * 32 + tx)] ~~>[GMem] A(by * 32 + (ty * 2 + j), bx * 32 + tx)");
 */
   //__DEF(bf_inside0, "fun (i j: int) -> &d_b[MINDEX2(W, H, i, j)] ~~>[GMem] 0.f");
-  //__DEF(r5, "fun by -> fun bx -> fun ty -> fun tx -> range_plus(MINDEX5(H/32, W/32, 16, 32, MSIZE0(), by, bx, ty, tx, 0), MSIZE0())");
+  //__DEF(r5, "fun by -> fun bx -> fun ty -> fun tx -> counted_range(MINDEX5(H/32, W/32, 16, 32, MSIZE0(), by, bx, ty, tx, 0), MSIZE0())");
 
   // TODO does not need to be an assumption
   __ghost(assume, "P := bpg * tpb = grid", "thread_tile <- H");
@@ -127,7 +132,7 @@ void transpose(float *a, float *b, int W, int H) {
   __ghost(tile_divides, "items := fun y -> for x in 0..W -> b0_inside0(x, y), div_check := H_tile");
   __ghost(group_to_desyncgroup, "items := fun by -> for ty in 0..32 -> for x in 0..W -> (b0_inside1(by))(ty, x)");
 
-  __ghost(chunk_range_plus4, "D4 := H/32, D3 := W/32, D2 := 16, D1 := 32", "grid_chunk <- P");
+  __ghost(chunk_counted_range4, "D4 := H/32, D3 := W/32, D2 := 16, D1 := 32", "grid_chunk <- P");
   __ghost(desyncgroup_tile_divides, "items := fun b -> SMemAlloc(MSIZE2(32,32)), tile_count := H/32, tile_size := W/32");
 
 

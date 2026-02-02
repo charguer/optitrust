@@ -470,7 +470,6 @@ and decorate_trm style ?(semicolon : bool = false) ?(force_expr : bool = false) 
 
   let t_marks = trm_get_marks t in
 
-  (* TODO not sure what to do with this in relation to thread for annotation printing *)
   if style.print_annot then failwith "NOT YET IMPLEMENTED: Ast_to_c printing of annotations";
 
   let dt =
@@ -642,18 +641,18 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       let dcond = decorate_trm style cond in
       let dstep = decorate_trm style step in
       let dbody = decorate_trm style ~semicolon:true body in
-      (* TODO : the output in OptiTrust trace should be different than the C++ output file? (thread for doesnt compile)_*)
-      (* Or do we not care because you will need CUDA prinnter to do anything with this construct anyway? *)
       dattr ^^ string "for" ^^ blank 1 ^^
         parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
           blank 1 ^^ dbody
-    | Trm_for (l_range, mode, body, loop_spec) -> (* loop_mode currently ignored in C printing *)
+    | Trm_for (l_range, mode, body, loop_spec) ->
       let full_loop = (unpack_trm_for : ?loc:trm_loc -> loop_range -> trm -> trm) ?loc:t.loc l_range body in
       let dt = decorate_trm style full_loop in
       let dmode = match mode with
       | GpuThread -> string "thread"
       | _ -> empty in
       (* prepend mode to loop; prints correct because annotations are cleared in full_loop *)
+      (* TODO : Prepending the mode like this, e.g. `thread for` would not parse in C++.
+        Is there anywhere in optitrust where we assume the output file can be reparsed, and will printing it like this break things? *)
       dmode ^^ blank 1 ^^ dt
       (* print_contract_internal_repr is handled in C_encoding, printing it here might be useful if encoding is heavily broken
       if style.print_contract_internal_repr
@@ -1396,6 +1395,9 @@ and formula_to_doc style (f: formula): document =
     );
     Pattern.(formula_range !__ !__ (trm_int (eq 1))) (fun start stop () ->
       decorate_trm ~prec:16 style start ^^ string ".." ^^ decorate_trm ~prec:16 style stop
+    );
+    Pattern.(formula_counted_range !__ !__) (fun start count () ->
+      decorate_trm ~prec:16 style start ^^ string "..+" ^^ decorate_trm ~prec:16 style count
     );
     Pattern.(trm_fun !__ !__ !__ __) (fun tvl ty_opt body () -> formula_fun_to_doc style ty_opt tvl body
     );

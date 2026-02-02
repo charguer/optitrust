@@ -2,7 +2,7 @@
 #include <optitrust_gpu.h>
 
 __DEF(arr_add, "fun (A: int -> float) (B: int -> float) -> fun (i : int) -> A(i) +. B(i)");
-__DEF(rr1, "fun (sz: int) -> range_plus(MINDEX1(sz,0), sz)");
+__DEF(rr1, "fun (sz: int) -> MINDEX1(sz,0) ..+ sz");
 
 // requires typechecker to have a definition for body of MSIZE (for unification)
 // __DEF(divisible, "fun (base: int) (n:int) -> base/n * n = base");

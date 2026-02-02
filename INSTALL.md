@@ -2,7 +2,10 @@
 # OptiTrust Installation
 
 --------------------------------------------------------------------------------
-## Installation
+
+The system installation instructions below are provided for systems running Ubuntu. There is an experimental option to install using a Nix flake, which contains the required opam environment and LLVM dependencies in an isolated environment, but it is known to have issues on systems with a newer libc (such as Arch Linux), and does not integrate well with VSCode/ocaml LSP. Instructions for the nix flake [are also provided below](#nix-flake-installation-experimental).
+
+## System Installation
 
 ### Install system packages
 
@@ -33,7 +36,7 @@ sudo mv clang+llvm-15.0.0-x86_64-linux-gnu-rhel-8.4 /opt/clang-15.0.0
 Because LLVM does not ship C++ headers, you need to install them separately:
 ```sh
 # Install for C++ headers support:
-sudo apt-get install libc++-dev libc++abi-15-dev
+sudo apt-get install libc++-15-dev libc++abi-15-dev
 ```
 
 Depending on your prior installation, you might need to add the newly installed version of clang/llvm-config to the path, then select it among all of your versions :
@@ -78,12 +81,12 @@ Installation of the opam switch with relevant packages (it seems that it must be
 
 ```sh
    opam init
-   opam switch create 4.14.1+options --packages=ocaml-variants.4.14.1+options,ocaml-option-flambda
-   opam pin add dune 3.18.0
-   opam pin add menhirLib 20210419
-   opam pin add pprint 20220103
-   opam pin add conf-libclang.15
-   opam pin add clangml 4.8.0  # -> continueanyway
+   opam switch create 4.14.2+options --packages=ocaml-variants.4.14.2+options,ocaml-option-flambda
+   opam pin add -y dune 3.18.2
+   opam pin add -y menhirLib 20210419
+   opam pin add -y pprint 20220103
+   opam pin add -y conf-libclang 15 --no-depexts
+   opam pin add -y clangml 4.8.0 --no-depexts --yes --no-action
    opam install dune refl pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving
 ```
 
@@ -107,11 +110,39 @@ Install remaining packages:
    eval $(opam env)
 ```
 
-Note: dune 3.19.0 is known to have an issue, when executing the tester script use 3.18.0 instead
+Note: dune 3.19.0 is known to have an issue, when executing the tester script use 3.18.2 instead
 
 Note: clangml 4.8.0 is from Sept 2022.
 
 Note: graphics is used by the pview tool only.
+
+Next, jump to the [Optitrust Setup](#optitrust-setup) section.
+
+## Nix flake installation (experimental)
+
+### Install Nix
+
+First make sure Nix is installed on your system. Follow [the instructions for a multi-user Nix installation](https://nixos.org/download/). We recommend using this install script instead of whatever package your distro may provide for Nix.
+
+### Enable Nix flakes
+
+We use flakes, which are still an experimental Nix feature. Add this line to `~/.config/nix/nix.conf` (create the directory if it doesn't exist) to permanently enable the feature:
+
+```
+experimental-features = nix-command flakes
+```
+
+### Test that it works
+
+In the root of the OptiTrust repo, run `nix develop`. If it works, this will drop you into a shell with the special OptiTrust Nix environment. Note that unlike e.g. a Docker container, the binaries and libraries of your system are still exposed to the environment. The environment simply shadows all of the packages you have installed on your system. In some cases, this will break things because something on your system may for example depend on a newer version of `libc` than the Nix environment has. Depending on your system's libc, you may be able to run the system VSCode inside this environment, otherwise you have to run nix develop inside the VS Code terminal.
+
+The first time running `nix develop` will take a while as it is setting up all the system packages for the environment, as well as installing OCaml and all of OptiTrust's OCaml dependencies. If it is working, you should not see any errors from the output of all the `opam` commands that were run to set up the environment for the first time.
+
+Note that any time you want to run commands related to OptiTrust (opam clang etc.), you will need to drop into this shell again with `nix develop`. After the first time, everything is cached so it is much faster.
+
+Follow to the next section to test that your OptiTrust installation works.
+
+## OptiTrust setup
 
 ### Install precommit hooks
 
@@ -146,7 +177,7 @@ If this works, try :
 
 ### Configure VScode (or VSCodium) for interactive usage
 
-You can install either VSCode or VSCodium (more open).
+You can install either VSCode or VSCodium (more open). You should install this on the system even if you are using the Nix environment.
 To install VSCode, visit: https://code.visualstudio.com/docs/?dv=linux64_deb
 
 Download the `.deb` package, then open it using "Software Install".
@@ -171,8 +202,24 @@ may want to add into your `~/.bashrc` the line:
 (or use `sudo ln -s /usr/bin/codium /usr/bin/code`).
 
 
+### Direnv setup for automatic Nix shell activation in VSCode (experimental)
+
+If vscode works within the nix shell on your system, there is a vscode extension which can activate the shell automatically whenever you open the repo. That way you don't have to launch a terminal, do `nix develop`, and then run `code .` As with the nix shell your mileage may vary.
+
+Note: all of this installation happens on your system.
+
+1. [Install direnv](https://direnv.net/docs/installation.html). You don't have to add the shell hook as written on the website. Just do step 1.
+
+2. [Install nix-direnv](https://github.com/nix-community/nix-direnv?tab=readme-ov-file#from-source). You are following the "from source" instructions here.
+
+3. [Install direnv extension for VSCode](https://marketplace.visualstudio.com/items?itemName=mkhl.direnv).
+
+Once installed, when you open the OptiTrust repo in VScode, you should first be prompted by the `direnv` extension in the bottom right to allow the `.envrc` in the repo to be run. Hit `Allow`. It should then ask you if you want to reload the window to activate the Nix environment. Once reloaded, the OCaml extension should also now be able to see the opam environment belonging to your Nix. Terminals you open in the editor will also now inherit the nix environment, so you don't have to type `nix develop` in them.
+
 --------------------------------------------------------------------------------
 ## Browser installation
+
+NOTE: If you're using the Nix shell, don't try to install a browser in the Nix environment, install it on the system as you would normally.
 
 Recommended: installation of Chromium browser, which is very fast for
 opening up the "diff" pages generated by OptiTrust:

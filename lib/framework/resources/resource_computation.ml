@@ -995,17 +995,6 @@ let global_errors : (resource_error_phase * exn) list ref = ref []
     storing the error messages. *)
 exception ResourceError of trm * resource_error_phase * exn
 
-(* TODO: better eror messages for the structural wellformedness check of the thread for using this? *)
-(*type thread_for_malformed_issue = NonzeroStart | NonunitaryStep | BadDirection
-exception ThreadForMalformed of thread_for_malformed_issue
-
-let thread_for_issue_to_string (issue: thread_for_malformed_issue) : string =
-  match issue with
-  | NonzeroStart -> "non-zero start index"
-  | NonunitaryStep -> "loop increment is not 1"
-  | BadDirection -> "loop index should only increment"*)
-
-
 (* let debug_1108 = ref (fun (item: resource_item) (context: resource_item list) -> ()) *)
 
 let _ = Printexc.register_printer (function
@@ -1022,8 +1011,6 @@ let _ = Printexc.register_printer (function
     Some (Printf.sprintf "Fraction constraint unsatisfied: %s <= %s (currently we only reason about fractions of the form a - a/n - ... - a/n)" (formula_to_string efrac) (formula_to_string bigger_frac))
   | ResourceError (_t, phase, err) ->
     Some (Printf.sprintf "%s error: %s" (resource_error_phase_to_string phase) (Printexc.to_string err));
-  (*| ThreadForMalformed (issue) ->
-    Some (Printf.sprintf "malformed thread for: %s" (thread_for_issue_to_string issue));*)
   | _ -> None)
 
 
@@ -1220,72 +1207,18 @@ let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): uni
   let _ = check_resource_set_types ~pure_ctx contract.post in
   ()
 
-(* TODO: kind of a stupid function as we can just access the range from the place that its called; maybe this should just return bool or something *)
-(* Note: cant be part of typechecker because range is never a resource in the context, only a syntactic construct *)
-let simplify_thread_for_range (range: loop_range): (var * trm) option =
-  (* cleanup with Option.Monad? *)
-  let range_s = Option.some (range.index, range.stop) in
-  let range_s = Option.bind (trm_int_inv range.start) (fun s -> if s = 0 then range_s else None) in
-  let range_s = Option.bind (trm_int_inv range.step) (fun s -> if s = 1 then range_s else None) in
-  if (range.direction = DirUp) then range_s else None
-
-let extract_threadsctx (res: resource_set): trm =
-  match (List.find_map (fun (_,f) -> formula_threadsctx_inv f) res.linear) with
-  | Some tctx -> tctx
-  | _ -> failwith "Cannot find ThreadsCtx in context"
-
-type thread_range_components = (trm list * trm list * trm list)
-
-let extract_thread_range_components (r_t: trm): thread_range_components =
-  let (tid,sz) = Option.unsome ~error:"Expected range_plus in ThreadsCtx" (formula_range_plus_inv r_t) in
-  let dims_low = match Matrix_trm.msize_inv sz with
-  | Some (_::dims_low) -> dims_low (* Lowest dimension should be equal to our loop range *)
-  | _ -> failwith "Expected at least 1 dimension in ThreadsCtx size!" in
-  let (dims_high_1,inds_1) = Option.unsome (Matrix_trm.mindex_inv tid) in
-  let (dims_high,_) = List.unlast dims_high_1 in (* Last dimension should be equal to our thread context size *)
-  let (inds,_) = List.unlast inds_1 in (* Last index should be zero *)
-  (dims_high,dims_low,inds)
-
-let gen_outside_loop_thread_range (cs: thread_range_components) (loop_end: trm): trm =
-  let dims_high,dims_low,inds_high = cs in
-  let sz = Matrix_trm.msize (loop_end::dims_low) in
-  let dims = dims_high @ [sz] in
-  let inds = inds_high @ [trm_int 0] in
-  formula_range_plus (Matrix_trm.mindex dims inds) sz
-
-let gen_inside_loop_thread_range (cs: thread_range_components) (loop_ind: var) (loop_end: trm): trm =
-  let dims_high,dims_low,inds_high = cs in
-  let sz = Matrix_trm.msize dims_low in
-  let dims = dims_high @ [loop_end; sz] in
-  let inds = inds_high @ [trm_var loop_ind; trm_int 0] in
-  formula_range_plus (Matrix_trm.mindex dims inds) sz
-
-(* Reads the context of the thread for, and turns it into the expected thread ranges in the inside and outside of the loop.
-  This is because we can't really have variadic contracts, so we have to infer the arity of things from what's actually in the context. *)
-let compute_thread_for_info (range: loop_range) (res: resource_set): thread_for_info =
-  let (loop_ind,loop_end) = Option.unsome ~error:"Malformed thread for range" (simplify_thread_for_range range) in
-  let r_out = extract_threadsctx res in
-  let cs = extract_thread_range_components r_out in
-  let r_out_exp = gen_outside_loop_thread_range cs loop_end in
-  let r_in = gen_inside_loop_thread_range cs loop_ind loop_end in
-  {
-    r_out = r_out_exp;
-    r_in;
-  }
-
-let sync_normalization (res: resource_set): resource_set =
+(* [sync_simplification res]: eagerly simplify any Sync(fM, H) permissions in [res],
+  turning DesyncGroups to Groups. Simplification gets stuck if a term of the form
+    p ~~>[M] v is encountered in H and M does not satisfy the memory type predicate fM. *)
+let sync_simplification (res: resource_set): resource_set =
   let find_mem_fn_proof (mem_fn: trm) (mem: trm) =
     let proof_type = (trm_apps mem_fn [mem]) in
     List.find_opt (fun (_,r) -> Trm_unify.are_same_trm proof_type r) res.pure in
-  (* TODO: Could use a trm_map below, but will it always commute with permissions that wrap others? *)
-  (* TODO: I have opted to allow incremental sync normalization. If it encounters a p ~~>[M] v, and doesn't find fM M in context,
-    it will simply wrap it back in Sync(fM, p ~~>[M] v).
-    The implications of this decision for the correctness proof are documented in Appendix A of spec doc.*)
-   let rec normalize_sync (mem_fn: trm) (t: trm) = Pattern.pattern_match t [
+  let rec simplify (mem_fn: trm) (t: trm) = Pattern.pattern_match t [
     Pattern.(formula_group !__ !__ !__) (fun idx range sub () ->
-      formula_group idx range (normalize_sync mem_fn sub));
+      formula_group idx range (simplify mem_fn sub));
     Pattern.(formula_desyncgroup !__ __ !__ !__) (fun idx bound sub () ->
-      formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (normalize_sync mem_fn sub));
+      formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (simplify mem_fn sub));
     Pattern.(formula_points_to !__ !__ !__) (fun var model mem_typ () ->
       match (find_mem_fn_proof mem_fn mem_typ) with
       | Some _ -> t
@@ -1293,10 +1226,10 @@ let sync_normalization (res: resource_set): resource_set =
       );
     Pattern.__ (fun () -> t)
   ] in
-  let normalize_sync_or_id (t: trm) = match (formula_sync_inv t) with
-  | Some (mem_fn, t) -> normalize_sync mem_fn t
+  let simplify_if_sync (t: trm) = match (formula_sync_inv t) with
+  | Some (mem_fn, t) -> simplify mem_fn t
   | _ -> t in
-  { res with linear = List.map (fun (v,t) -> (v,normalize_sync_or_id t)) res.linear}
+  { res with linear = List.map (fun (v,t) -> (v, simplify_if_sync t)) res.linear}
 
 let check_loop_contract_types ~(pure_ctx: pure_env) (contract: loop_contract): unit =
   let pure_ctx = check_pure_resource_types ~pure_ctx contract.loop_ghosts in
@@ -1789,8 +1722,8 @@ let rec compute_resources
           usage_map, { res with pure = List.rev rev_pure_res; aliases; fun_specs }
         in
         let usage_map, res_after = elim_pure_vars arg_ensured_vars usage_map res_after in
-        (* TODO document that this only works if sync is a postcondition*)
-        let res_after = sync_normalization res_after in
+        (* TODO: a solution for Sync(...) as a precondition; this only works when it is a postcondition *)
+        let res_after = sync_simplification res_after in
         Some usage_map, Some res_after
 
       with
@@ -1945,21 +1878,16 @@ let rec compute_resources
 
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
     | Trm_for (range, mode, body, contract) ->
-      let threadfor_info = match mode with
-      | GpuThread -> Some (compute_thread_for_info range res)
-      | _ -> None in
       let contract_ctx = pure_env res in
       let contract_ctx = { contract_ctx with res = (range.index, typ_int) :: contract_ctx.res } in
-      (* TODO: Since this is just checking the pure types of the contract, I don't think thread for adds anything?
-      And even if there is a mistake and it needs something else, I think it would only result in more programs being rejected, not a soundness bug? *)
       check_loop_contract_types ~pure_ctx:contract_ctx contract;
 
-      if (not (Resource_set.is_empty contract.invariant)) && mode <> Sequential then failwith "non-sequential for loop cannot have sequential invariant";
+      let contract_inside_loop, contract_outside_loop = get_loop_contract_generators res mode range contract in
 
-      let outer_contract = contract_outside_loop threadfor_info range contract in
+      let outer_contract = contract_outside_loop () in
       let usage_map, res_after = compute_contract_invoc outer_contract res t in
 
-      let inner_contract = contract_inside_loop threadfor_info range contract in
+      let inner_contract = contract_inside_loop () in
       (* If the contract is not strict put all the framed resources inside the invariant *)
       let inner_contract, included_frame_hyps = if contract.strict then inner_contract, Var_set.empty else
         let frame = (Option.get t.ctx.ctx_resources_contract_invoc).contract_frame in
@@ -2184,7 +2112,7 @@ let init_ctx = Resource_set.make ~pure:[
   typ_const_var, typ_pure_simple_fun [typ_type] typ_type;
   typ_range_var, typ_type;
   Resource_formula.var_range, typ_pure_simple_fun [typ_int; typ_int; typ_int] typ_range;
-  Resource_formula.var_range_plus, typ_pure_simple_fun [typ_int; typ_int] typ_range;
+  Resource_formula.var_counted_range, typ_pure_simple_fun [typ_int; typ_int] typ_range;
   Resource_formula.var_group, typ_pure_simple_fun [typ_range; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_desyncgroup, typ_pure_simple_fun [typ_range; typ_int; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_threadsctx, typ_pure_simple_fun [typ_range] typ_hprop;
@@ -2209,7 +2137,6 @@ let init_ctx = Resource_set.make ~pure:[
   var_ignore, typ_auto;
   mem_typ_any_var, typ_mem_type;
 ] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_msize_specs) ()
-(* TODO: MSIZE HERE HAS TO BE A PURE FUNCTION  AS WELL !*)
 
 (** Compute resources inside [t] in place.
   Type errors are saved in a global list, and errors

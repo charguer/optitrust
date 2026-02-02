@@ -22,7 +22,7 @@ __DECL(HostCtx, "HProp");
 
 void kernel_start(int tpb, int bpg, int smem_sz) {
   __requires("r: Range");
-  __requires("by: range_eq(range_plus(MINDEX1(bpg * tpb, 0), bpg * tpb), r)");
+  __requires("by: range_eq(counted_range(MINDEX1(bpg * tpb, 0), bpg * tpb), r)");
   __consumes("HostCtx");
   __produces("ThreadsCtx(r)");
   __produces("KernelParams(tpb, bpg, smem_sz)");
@@ -41,7 +41,7 @@ __GHOST(kill_threads) {
   __requires("r: Range");
   __requires("tpb: int, bpg: int, smem_sz: int");
   __preserves("KernelParams(tpb, bpg, smem_sz)");
-  __requires("by: range_eq(range_plus(MINDEX1(bpg * tpb, 0), bpg * tpb), r)");
+  __requires("by: range_eq(counted_range(MINDEX1(bpg * tpb, 0), bpg * tpb), r)");
   __consumes("ThreadsCtx(r)");
   __produces("DeadKernelCtx");
   __admitted();
@@ -57,7 +57,7 @@ __AXIOM(smem_block_sync_mem, "block_sync_mem(SMem)");
 void blocksync() {
   __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int");
   __reads("KernelParams(tpb, bpg, smem_sz)");
-  __preserves("ThreadsCtx(range_plus(t, tpb))");
+  __preserves("ThreadsCtx(counted_range(t, tpb))");
   __consumes("H");
   __produces("Sync(block_sync_mem, H)");
   __admitted();
@@ -80,7 +80,7 @@ template <typename T> T* __alloc_sig_generic();
 
 template <typename T> T __gmem_get(T* p) {
   __requires("v: T, t: int");
-  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
+  __preserves("ThreadsCtx(counted_range(t, MSIZE0()))");
   __reads("p ~~>[GMem] v");
   __ensures("__spec_override_ret(T, v)");
   __admitted();
@@ -89,7 +89,7 @@ template <typename T> T __gmem_get(T* p) {
 
 template <typename T> void __gmem_set(T* p, T v) {
   __requires("t: int");
-  __preserves("ThreadsCtx(range_plus(t, MSIZE0()))");
+  __preserves("ThreadsCtx(counted_range(t, MSIZE0()))");
   __writes("p ~~>[GMem] v");
   __ensures("__spec_override_noret()");
   __admitted();
@@ -98,6 +98,8 @@ template <typename T> void __gmem_set(T* p, T v) {
 template <typename T> void gmem_free(T* p) {
   __requires("H: HProp");
   __preserves("HostCtx");
+  // TODO: Free(p,H) needs to store a memory type as well.
+  // Don't know that `p` is a pointer to GMem, or that H is a permission on GMem cells.
   __consumes("Free(p, H)");
   __consumes("H");
   __ensures("__spec_override_noret()");
@@ -106,8 +108,8 @@ template <typename T> void gmem_free(T* p) {
 
 template <typename T> T* __gmem_malloc1(int N1) {
   __preserves("HostCtx");
-  __produces("_Res ~> UninitMatrixOf1(N1, GMem)");
-  __produces("Free(_Res, _Res ~> UninitMatrixOf1(N1, GMem))");
+  __produces("_Res ~> UninitMatrix1Of(N1, GMem)");
+  __produces("Free(_Res, _Res ~> UninitMatrix1Of(N1, GMem))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
   return __alloc_sig_generic<T>();
@@ -116,8 +118,8 @@ template <typename T> T* __gmem_malloc1(int N1) {
 
 template <typename T> T* __gmem_malloc2(int N1, int N2) {
   __preserves("HostCtx");
-  __produces("_Res ~> UninitMatrixOf2(N1, N2, GMem)");
-  __produces("Free(_Res, _Res ~> UninitMatrixOf2(N1, N2, GMem))");
+  __produces("_Res ~> UninitMatrix2Of(N1, N2, GMem)");
+  __produces("Free(_Res, _Res ~> UninitMatrix2Of(N1, N2, GMem))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
   return __alloc_sig_generic<T>();
@@ -128,7 +130,7 @@ template <typename T> void memcpy_host_to_device1(T* dest, T* src, int N1) {
   __requires("A: int -> T");
   __preserves("HostCtx");
   __reads("src ~> Matrix1(N1, A)");
-  __writes("dest ~> MatrixOf1(N1, GMem, A)");
+  __writes("dest ~> Matrix1Of(N1, GMem, A)");
   __ensures("__spec_override_noret()");
   __admitted();
 }
@@ -136,7 +138,7 @@ template <typename T> void memcpy_host_to_device2(T* dest, T* src, int N1, int N
   __requires("A: int * int -> T");
   __preserves("HostCtx");
   __reads("src ~> Matrix2(N1,N2, A)");
-  __writes("dest ~> MatrixOf2(N1,N2, GMem, A)");
+  __writes("dest ~> Matrix2Of(N1,N2, GMem, A)");
   __ensures("__spec_override_noret()");
   __admitted();
 }
@@ -144,7 +146,7 @@ template <typename T> void memcpy_host_to_device2(T* dest, T* src, int N1, int N
 template <typename T> void memcpy_device_to_host1(T* dest, T* src, int N1) {
   __requires("A: int -> T");
   __preserves("HostCtx");
-  __reads("src ~> MatrixOf1(N1, GMem, A)");
+  __reads("src ~> Matrix1Of(N1, GMem, A)");
   __writes("dest ~> Matrix1(N1, A)");
   __ensures("__spec_override_noret()");
   __admitted();
@@ -152,7 +154,7 @@ template <typename T> void memcpy_device_to_host1(T* dest, T* src, int N1) {
 template <typename T> void memcpy_device_to_host2(T* dest, T* src, int N1, int N2) {
   __requires("A: int * int -> T");
   __preserves("HostCtx");
-  __reads("src ~> MatrixOf2(N1,N2, GMem, A)");
+  __reads("src ~> Matrix2Of(N1,N2, GMem, A)");
   __writes("dest ~> Matrix2(N1,N2, A)");
   __ensures("__spec_override_noret()");
   __admitted();
@@ -178,14 +180,14 @@ __GHOST(rewrite_linear_range) {
 }
 
 // TODO: Add more of these? Or change the thread for typechecker rule to produce the chunk_range equality automatically?
-__GHOST(chunk_range_plus2) {
+__GHOST(chunk_counted_range2) {
   __requires("D1: int, D2: int");
-  __ensures("P: forall (i: int) -> range_eq( chunk_range(range_plus(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)), D2, i), range_plus(MINDEX2(D2,MSIZE1(D1),i,0), MSIZE1(D1)) )");
+  __ensures("P: forall (i: int) -> range_eq( chunk_range(counted_range(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)), D2, i), counted_range(MINDEX2(D2,MSIZE1(D1),i,0), MSIZE1(D1)) )");
   __admitted();
 }
-__GHOST(chunk_range_plus4) {
+__GHOST(chunk_counted_range4) {
   __requires("D1: int, D2: int, D3: int, D4: int");
-  __ensures("P: forall (i: int) -> range_eq( chunk_range(range_plus(MINDEX1(MSIZE4(D4,D3,D2,D1),0), MSIZE4(D4,D3,D2,D1)), D4, i), range_plus(MINDEX2(D4,MSIZE3(D3,D2,D1),i,0), MSIZE3(D3,D2,D1)) )");
+  __ensures("P: forall (i: int) -> range_eq( chunk_range(counted_range(MINDEX1(MSIZE4(D4,D3,D2,D1),0), MSIZE4(D4,D3,D2,D1)), D4, i), counted_range(MINDEX2(D4,MSIZE3(D3,D2,D1),i,0), MSIZE3(D3,D2,D1)) )");
   __admitted();
 }
 
@@ -201,9 +203,9 @@ __GHOST(group_to_desyncgroup) {
 // have just one standard way of doing the conversion to avoid confusion (group_to_desyncgroup alone is equally expressive)
 __GHOST(group_to_desyncgroup2) {
   __requires("D1: int, D2: int, items: int*int -> HProp");
-  __preserves("ThreadsCtx(range_plus(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)))");
+  __preserves("ThreadsCtx(counted_range(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)))");
   __consumes("for i in 0..D2 -> for j in 0..D1 -> items(i,j)");
-  __produces("DesyncGroup(range_plus(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)), D2, fun i -> DesyncGroup(range_plus(MINDEX2(D2,MSIZE1(D1),i,0), MSIZE1(D1)), D1, fun j -> items(i,j) ) )");
+  __produces("DesyncGroup(counted_range(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)), D2, fun i -> DesyncGroup(counted_range(MINDEX2(D2,MSIZE1(D1),i,0), MSIZE1(D1)), D1, fun j -> items(i,j) ) )");
   __admitted();
 }
 
