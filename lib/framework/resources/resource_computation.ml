@@ -1217,7 +1217,7 @@ let sync_simplification (res: resource_set): resource_set =
   let rec simplify (mem_fn: trm) (t: trm) = Pattern.pattern_match t [
     Pattern.(formula_group !__ !__ !__) (fun idx range sub () ->
       formula_group idx range (simplify mem_fn sub));
-    Pattern.(formula_desyncgroup !__ __ !__ !__) (fun idx bound sub () ->
+    Pattern.(formula_desyncgroup !__ !__ !__) (fun idx bound sub () ->
       formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (simplify mem_fn sub));
     Pattern.(formula_points_to !__ !__ !__) (fun var model mem_typ () ->
       match (find_mem_fn_proof mem_fn mem_typ) with
@@ -2114,7 +2114,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_formula.var_range, typ_pure_simple_fun [typ_int; typ_int; typ_int] typ_range;
   Resource_formula.var_counted_range, typ_pure_simple_fun [typ_int; typ_int] typ_range;
   Resource_formula.var_group, typ_pure_simple_fun [typ_range; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
-  Resource_formula.var_desyncgroup, typ_pure_simple_fun [typ_range; typ_int; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
+  Resource_formula.var_desyncgroup, typ_pure_simple_fun [typ_int; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_threadsctx, typ_pure_simple_fun [typ_range] typ_hprop;
   Resource_formula.var_sync, typ_pure_simple_fun [typ_pure_simple_fun [typ_mem_type] typ_prop; typ_hprop] typ_hprop;
   Resource_formula.var_frac, typ_type;

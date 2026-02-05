@@ -2,7 +2,7 @@
 #include <optitrust_gpu.h>
 
 __DEF(arr_add, "fun (A: int -> float) (B: int -> float) -> fun (i : int) -> A(i) +. B(i)");
-__DEF(rr1, "fun (sz: int) -> MINDEX1(sz,0) ..+ sz");
+__DEF(rr1, "fun (sz: int) -> MINDEX1(0,0) ..+ sz");
 
 // requires typechecker to have a definition for body of MSIZE (for unification)
 // __DEF(divisible, "fun (base: int) (n:int) -> base/n * n = base");
@@ -40,7 +40,7 @@ void vector_add(float *a, float *b, float *c, int N) {
     }
 
     __ghost(kill_threads);
-    __ghost(kernel_end_sync, "H := desync_for(rr1(MSIZE1(N))) i in ..N -> &d_c[MINDEX1(N,i)] ~~>[GMem] (arr_add(A,B))(i)");
+    __ghost(kernel_end_sync, "H := desync_for i in ..N -> &d_c[MINDEX1(N,i)] ~~>[GMem] (arr_add(A,B))(i)");
 
     kernel_end();
   }

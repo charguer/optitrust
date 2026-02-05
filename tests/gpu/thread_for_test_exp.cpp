@@ -18,8 +18,8 @@ __device__ void basic(int* a, int N, int M) {
           "r2 <- x");
   thread for (int i = 0; i < N; i++) {
     __strict();
-    __xconsumes("desync_for(r2(i)) j in ..M -> &a[i][j] ~~>[GMem] 0");
-    __xproduces("desync_for(r2(i)) j in ..M -> &a[i][j] ~~>[GMem] 1");
+    __xconsumes("desync_for j in ..M -> &a[i][j] ~~>[GMem] 0");
+    __xproduces("desync_for j in ..M -> &a[i][j] ~~>[GMem] 1");
     thread for (int j = 0; j < M; j++) {
       __strict();
       __xconsumes("&a[i][j] ~~>[GMem] 0");
@@ -29,7 +29,7 @@ __device__ void basic(int* a, int N, int M) {
   }
   blocksync();
   __with(
-      "H := desync_for(r1) i in ..N -> desync_for(r2(i)) j in ..M -> &a[i][j] "
+      "H := desync_for i in ..N -> desync_for j in ..M -> &a[i][j] "
       "~~>[GMem] 1");
 }
 
@@ -55,8 +55,8 @@ __device__ void retile_desyncgroups(int* a, int N, int M) {
       "r3 <- x");
   thread for (int i = 0; i < N; i++) {
     __strict();
-    __xconsumes("desync_for(r2(i)) j in ..M -> &a[i][j] ~~>[GMem] 0");
-    __xproduces("desync_for(r2(i)) j in ..M -> &a[i][j] ~~>[GMem] 1");
+    __xconsumes("desync_for j in ..M -> &a[i][j] ~~>[GMem] 0");
+    __xproduces("desync_for j in ..M -> &a[i][j] ~~>[GMem] 1");
     thread for (int j = 0; j < M; j++) {
       __strict();
       __xconsumes("&a[i][j] ~~>[GMem] 0");
@@ -77,8 +77,8 @@ __device__ void retile_desyncgroups(int* a, int N, int M) {
           ":= fun (r: Range) -> ThreadsCtx(r)");
   thread for (int i = 0; i < N * M / 32; i++) {
     __strict();
-    __xconsumes("desync_for(r3(i)) j in ..32 -> &a[i][j] ~~>[GMem] 1");
-    __xproduces("desync_for(r3(i)) j in ..32 -> &a[i][j] ~~>[GMem] 1 + 1");
+    __xconsumes("desync_for j in ..32 -> &a[i][j] ~~>[GMem] 1");
+    __xproduces("desync_for j in ..32 -> &a[i][j] ~~>[GMem] 1 + 1");
     thread for (int j = 0; j < 32; j++) {
       __strict();
       __xconsumes("&a[i][j] ~~>[GMem] 1");
@@ -105,7 +105,7 @@ __device__ void retile_desyncgroups(int* a, int N, int M) {
           ":= fun (r: Range) -> ThreadsCtx(r)");
   blocksync();
   __with(
-      "H := desync_for(r1(MSIZE2(N, M))) i in ..N -> desync_for(r2(i)) j in "
+      "H := desync_for(r1(MSIZE2(N, M))) i in ..N -> desync_for j in "
       "..M -> &a[i][j] ~~>[GMem] 1 + 1");
 }
 
@@ -128,8 +128,8 @@ __device__ void sync_required(int* a, int N, int M) {
           "r3 <- x");
   thread for (int i = 0; i < N; i++) {
     __strict();
-    __xconsumes("desync_for(r2(i)) j in ..M -> &a[i][j] ~~>[GMem] 0");
-    __xproduces("desync_for(r2(i)) j in ..M -> &a[i][j] ~~>[GMem] 1");
+    __xconsumes("desync_for j in ..M -> &a[i][j] ~~>[GMem] 0");
+    __xproduces("desync_for j in ..M -> &a[i][j] ~~>[GMem] 1");
     thread for (int j = 0; j < M; j++) {
       __strict();
       __xconsumes("&a[i][j] ~~>[GMem] 0");
@@ -139,7 +139,7 @@ __device__ void sync_required(int* a, int N, int M) {
   }
   blocksync();
   __with(
-      "H := desync_for(r1(MSIZE2(N, M))) i in ..N -> desync_for(r2(i)) j in "
+      "H := desync_for(r1(MSIZE2(N, M))) i in ..N -> desync_for j in "
       "..M -> &a[i][j] ~~>[GMem] 1");
   __ghost(swap_groups, "items := fun i j -> &a[i][j] ~~>[GMem] 1");
   __ghost(rewrite_linear,
@@ -148,8 +148,8 @@ __device__ void sync_required(int* a, int N, int M) {
           "D1 := N, D2 := M, items := fun i j -> &a[j][i] ~~>[GMem] 1");
   thread for (int i = 0; i < M; i++) {
     __strict();
-    __xconsumes("desync_for(r3(i)) j in ..N -> &a[j][i] ~~>[GMem] 1");
-    __xproduces("desync_for(r3(i)) j in ..N -> &a[j][i] ~~>[GMem] 1 + 1");
+    __xconsumes("desync_for j in ..N -> &a[j][i] ~~>[GMem] 1");
+    __xproduces("desync_for j in ..N -> &a[j][i] ~~>[GMem] 1 + 1");
     thread for (int j = 0; j < N; j++) {
       __strict();
       __xconsumes("&a[j][i] ~~>[GMem] 1");
@@ -163,7 +163,7 @@ __device__ void sync_required(int* a, int N, int M) {
           "MSIZE2(M, N), msize_commute)");
   blocksync();
   __with(
-      "H := desync_for(r1(MSIZE2(M, N))) i in ..M -> desync_for(r3(i)) j in "
+      "H := desync_for(r1(MSIZE2(M, N))) i in ..M -> desync_for j in "
       "..N -> &a[j][i] ~~>[GMem] 1 + 1");
   __ghost(swap_groups, "items := fun i j -> &a[j][i] ~~>[GMem] 1 + 1");
 }
@@ -173,7 +173,7 @@ __ghost(define, "x := fun (sz: int) -> MINDEX1(MSIZE1(sz), 0)..+MSIZE1(sz)",
 
 __device__ void write_test1(int* a, int N) {
   __preserves("ThreadsCtx(rr1(N))");
-  __writes("desync_for(rr1(N)) i in ..N -> &a[i] ~~>[GMem] 1");
+  __writes("desync_for i in ..N -> &a[i] ~~>[GMem] 1");
   thread for (int i = 0; i < N; i++) {
     __strict();
     __xwrites("&a[i] ~~>[GMem] 1");
@@ -191,7 +191,7 @@ __device__ void write_test2(int* a, int N) {
   __ghost(group_to_desyncgroup, "items := fun i -> &a[i] ~~>[GMem] 0");
   write_test1(a, N);
   blocksync();
-  __with("H := desync_for(rr1(N)) i in ..N -> &a[i] ~~>[GMem] 1");
+  __with("H := desync_for i in ..N -> &a[i] ~~>[GMem] 1");
 }
 
 __ghost(assert_inhabited, "x := arbitrary(int * (int -> int) -> int)",
@@ -210,7 +210,7 @@ __ghost(assert_prop,
 __device__ void read_thread_outer(int* a, int* b, int N) {
   __requires("B: int -> int");
   __preserves("ThreadsCtx(rr1(N))");
-  __writes("desync_for(rr1(N)) i in ..N -> &a[i] ~~>[GMem] reduce_sum(N, B)");
+  __writes("desync_for i in ..N -> &a[i] ~~>[GMem] reduce_sum(N, B)");
   __reads("b ~> Matrix1Of(N, GMem, B)");
   thread for (int t = 0; t < N; t++) {
     __strict();
@@ -243,7 +243,7 @@ __device__ void read_thread_inner(int* a, int* b, int N) {
   __requires("bpg: int");
   __requires("smem_sz: int");
   __preserves("ThreadsCtx(rr1(N))");
-  __writes("desync_for(rr1(N)) i in ..N -> &a[i] ~~>[GMem] reduce_sum(N, B)");
+  __writes("desync_for i in ..N -> &a[i] ~~>[GMem] reduce_sum(N, B)");
   __reads("KernelParams(MSIZE1(N), bpg, smem_sz)");
   __reads("b ~> Matrix1Of(N, GMem, B)");
   thread for (int t = 0; t < N; t++) {
@@ -257,7 +257,7 @@ __device__ void read_thread_inner(int* a, int* b, int N) {
     __strict();
     __spreserves("ThreadsCtx(MINDEX1(MSIZE1(N), 0)..+MSIZE1(N))");
     __spreserves(
-        "desync_for(rr1(N)) t in ..N -> &a[t] ~~>[GMem] reduce_sum(i, B)");
+        "desync_for t in ..N -> &a[t] ~~>[GMem] reduce_sum(i, B)");
     __sreads("b ~> Matrix1Of(N, GMem, B)");
     thread for (int t = 0; t < N; t++) {
       __strict();

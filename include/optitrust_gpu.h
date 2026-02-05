@@ -13,8 +13,15 @@ __DECL(KernelParams, "int * int * int -> HProp");
 __DECL(SMemAlloc, "int -> HProp");
 __DECL(DeadKernelCtx, "HProp");
 
-__DECL(chunk_range, "Range * int * int -> Range");
-__DECL(range_eq, "Range * Range -> Prop");
+__DECL(range_eq, "Range * Range -> Prop"); // TODO move this outside this file
+
+__GHOST(rewrite_threadsctx_sz) {
+  __requires("from: int, to: int, start: int");
+  __requires("by: from = to");
+  __consumes("ThreadsCtx(start ..+ from)");
+  __produces("ThreadsCtx(start ..+ to)");
+  __ghost(rewrite_linear, "inside := fun i -> ThreadsCtx(start ..+ i), by := by");
+}
 
 /* --- Kernel launches ---- */
 
@@ -22,7 +29,7 @@ __DECL(HostCtx, "HProp");
 
 void kernel_start(int tpb, int bpg, int smem_sz) {
   __requires("r: Range");
-  __requires("by: range_eq(counted_range(MINDEX1(bpg * tpb, 0), bpg * tpb), r)");
+  __requires("by: range_eq(counted_range(MINDEX1(0, 0), bpg * tpb), r)");
   __consumes("HostCtx");
   __produces("ThreadsCtx(r)");
   __produces("KernelParams(tpb, bpg, smem_sz)");
@@ -41,7 +48,7 @@ __GHOST(kill_threads) {
   __requires("r: Range");
   __requires("tpb: int, bpg: int, smem_sz: int");
   __preserves("KernelParams(tpb, bpg, smem_sz)");
-  __requires("by: range_eq(counted_range(MINDEX1(bpg * tpb, 0), bpg * tpb), r)");
+  __requires("by: range_eq(counted_range(MINDEX1(0, 0), bpg * tpb), r)");
   __consumes("ThreadsCtx(r)");
   __produces("DeadKernelCtx");
   __admitted();
@@ -162,6 +169,35 @@ template <typename T> void memcpy_device_to_host2(T* dest, T* src, int N1, int N
 
 /* ---- DesyncGroup ghosts ---- */
 
+__GHOST(group_to_desyncgroup) {
+  __requires("N: int, items: int -> HProp, r: Range");
+  __preserves("ThreadsCtx(r)");
+  __consumes("for i in 0..N -> items(i)");
+  __produces("desync_for i in ..N -> items(i)");
+  __admitted();
+}
+
+__GHOST(desync_tile_divides) {
+  __requires(
+    "tile_count: int, tile_size: int,"
+    "size: int, items: int -> HProp,"
+    "div_check: size = tile_count * tile_size,"
+    "positive_tile_size: tile_size >= 0"
+  );
+  __consumes("DesyncGroup(size, items)");
+  __produces("desync_for bi in ..tile_count ->"
+               "desync_for i in ..tile_size -> items(bi * tile_size + i)");
+  __admitted();
+}
+
+__GHOST(desync_untile_divides) {
+  __reverts(desync_tile_divides);
+  __admitted();
+}
+
+
+// TODO move these range ghosts
+
 __GHOST(rewrite_range) {
   __requires("rf: int -> Range");
   __requires("from: int, to: int");
@@ -176,65 +212,6 @@ __GHOST(rewrite_linear_range) {
   __requires("by: range_eq(from, to)");
   __consumes("inside(from)");
   __produces("inside(to)");
-  __admitted();
-}
-
-// TODO: Add more of these? Or change the thread for typechecker rule to produce the chunk_range equality automatically?
-__GHOST(chunk_counted_range2) {
-  __requires("D1: int, D2: int");
-  __ensures("P: forall (i: int) -> range_eq( chunk_range(counted_range(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)), D2, i), counted_range(MINDEX2(D2,MSIZE1(D1),i,0), MSIZE1(D1)) )");
-  __admitted();
-}
-__GHOST(chunk_counted_range4) {
-  __requires("D1: int, D2: int, D3: int, D4: int");
-  __ensures("P: forall (i: int) -> range_eq( chunk_range(counted_range(MINDEX1(MSIZE4(D4,D3,D2,D1),0), MSIZE4(D4,D3,D2,D1)), D4, i), counted_range(MINDEX2(D4,MSIZE3(D3,D2,D1),i,0), MSIZE3(D3,D2,D1)) )");
-  __admitted();
-}
-
-__GHOST(group_to_desyncgroup) {
-  __requires("N: int, items: int -> HProp, r: Range");
-  __preserves("ThreadsCtx(r)");
-  __consumes("for i in 0..N -> items(i)");
-  __produces("desync_for(r) i in ..N -> items(i)");
-  __admitted();
-}
-
-// TODO: Consider removing?
-// have just one standard way of doing the conversion to avoid confusion (group_to_desyncgroup alone is equally expressive)
-__GHOST(group_to_desyncgroup2) {
-  __requires("D1: int, D2: int, items: int*int -> HProp");
-  __preserves("ThreadsCtx(counted_range(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)))");
-  __consumes("for i in 0..D2 -> for j in 0..D1 -> items(i,j)");
-  __produces("DesyncGroup(counted_range(MINDEX1(MSIZE2(D2,D1),0), MSIZE2(D2,D1)), D2, fun i -> DesyncGroup(counted_range(MINDEX2(D2,MSIZE1(D1),i,0), MSIZE1(D1)), D1, fun j -> items(i,j) ) )");
-  __admitted();
-}
-
-__GHOST(desyncgroup_tile_divides) {
-  __requires(
-    "tile_count: int, tile_size: int,"
-    "items: int -> HProp,"
-    "br: Range, r: int -> Range,"
-    "inner_range_check: forall (i: int) -> range_eq(chunk_range(br, tile_count, i), r(i)),"
-    "positive_tile_size: tile_size >= 0"
-  );
-  __consumes("DesyncGroup(br, MSIZE2(tile_count,tile_size), items)");
-  __produces("DesyncGroup(br, tile_count, fun bi -> "
-               "DesyncGroup(r(bi), tile_size, fun i -> items(MINDEX2(tile_count, tile_size, bi, i) ) ) )");
-  __admitted();
-}
-
-__GHOST(desyncgroup_untile_divides) {
-  __requires(
-    "tile_count: int, tile_size: int,"
-    "size: int, items: int -> HProp,"
-    "rf: Range, br: Range, r: int -> Range,"
-    "div_check: MSIZE2(tile_count,tile_size) = size,"
-    "outer_range_check: range_eq(br, rf),"
-    "positive_tile_size: tile_size >= 0"
-  );
-  __consumes("DesyncGroup(br, tile_count, fun bi -> "
-    "DesyncGroup(r(bi), tile_size, fun i -> items(MINDEX2(tile_count, tile_size, bi, i)) ))");
-  __produces("DesyncGroup(rf, size, items)");
   __admitted();
 }
 

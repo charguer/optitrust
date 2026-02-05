@@ -15,7 +15,7 @@ void kernel_start_shm(int tpb, int bpg, int smem_sz) {
   __consumes("HostCtx");
   __produces("ThreadsCtx(r)");
   __produces("KernelParams(tpb, bpg, smem_sz)");
-  __produces("desync_for(r) b in ..bpg -> SMemAlloc(smem_sz)");
+  __produces("desync_for b in ..bpg -> SMemAlloc(smem_sz)");
   __admitted();
 }
 
@@ -24,7 +24,7 @@ void kernel_end_shm() {
   __requires("by: range_eq((MINDEX1(bpg * tpb, 0) ..+ bpg * tpb), r)");
   __consumes("ThreadsCtx(r)");
   __consumes("KernelParams(tpb, bpg, smem_sz)");
-  __consumes("desync_for(r) b in ..bpg -> SMemAlloc(smem_sz)");
+  __consumes("desync_for b in ..bpg -> SMemAlloc(smem_sz)");
   __produces("HostCtx");
   __admitted();
 }
@@ -103,10 +103,6 @@ void transpose(float *a, float *b, int W, int H) {
   const int tpb = MSIZE2(16, 32);
   const int grid = MSIZE4(H/32, W/32, 16, 32);
 
-  __DEF(r2, "fun (by: int) -> MINDEX2(H/32, MSIZE3(W/32, 16, 32), by, 0) ..+ MSIZE3(W/32, 16, 32)");
-  __DEF(r3, "fun (by bx: int) -> MINDEX3(H/32, W/32, MSIZE2(16, 32), by, bx, 0) ..+ MSIZE2(16, 32)");
-  __DEF(r4, "fun (by bx ty: int) -> MINDEX4(H/32, W/32, 16, MSIZE1(32), by, bx, ty, 0) ..+ MSIZE1(32)");
-
   __DEF(b0_inside0, "fun (x y: int) -> &d_b[MINDEX2(W, H, x, y)] ~> UninitCellOf(GMem)");
   __DEF(b0_inside1, "fun (by: int) -> fun (ty x: int) -> &d_b[MINDEX2(W, H, x, by * 32 + ty)] ~> UninitCellOf(GMem)");
   __DEF(b0_inside2, "fun (by bx: int) -> fun (tx ty: int) -> &d_b[MINDEX2(W, H, bx * 32 + tx, by * 32 + ty)] ~> UninitCellOf(GMem)");
@@ -150,8 +146,8 @@ void transpose(float *a, float *b, int W, int H) {
 
   __threadfor; for (int by = 0; by < H/32; by++) {
     __xconsumes("for ty in 0..32 -> for x in 0..W -> (b0_inside1(by))(ty, x)");
-    __xproduces("desync_for(r2(by)) bx in ..W/32 -> desync_for(r3(by,bx)) ty in ..16 -> desync_for(r4(by,bx,ty)) tx in ..32 -> for j in 0..2 -> (bf_inside3(by,bx,ty))(j,tx)");
-    __xpreserves("desync_for(r2(by)) bx in ..W/32 -> SMemAlloc(MSIZE2(32,32))");
+    __xproduces("desync_for bx in ..W/32 -> desync_for ty in ..16 -> desync_for tx in ..32 -> for j in 0..2 -> (bf_inside3(by,bx,ty))(j,tx)");
+    __xpreserves("desync_for bx in ..W/32 -> SMemAlloc(MSIZE2(32,32))");
 
     __ghost(swap_groups, "items := b0_inside1(by)");
     __ghost(tile_divides, "items := fun x -> for ty in 0..32 -> (b0_inside1(by))(ty, x), div_check := W_tile");
@@ -159,7 +155,7 @@ void transpose(float *a, float *b, int W, int H) {
 
     __threadfor; for (int bx = 0; bx < W/32; bx++) {
       __xconsumes("for tx in 0..32 -> for ty in 0..32 -> (b0_inside2(by,bx))(tx,ty)");
-      __xproduces("desync_for(r3(by,bx)) ty in ..16 -> desync_for(r4(by,bx,ty)) tx in ..32 -> for j in 0..2 -> (bf_inside3(by,bx,ty))(j,tx)");
+      __xproduces("desync_for ty in ..16 -> desync_for tx in ..32 -> for j in 0..2 -> (bf_inside3(by,bx,ty))(j,tx)");
       __xpreserves("SMemAlloc(MSIZE2(32,32))");
 
       // Note: tx ty swap takes place here
@@ -179,7 +175,7 @@ void transpose(float *a, float *b, int W, int H) {
 
       __threadfor; for (int ty = 0; ty < 16; ty++) {
         __xconsumes("for yi in 0..2 -> for x in 0..32 -> tile_inside1(ty, yi, x)");
-        __xproduces("desync_for(r4(by,bx,ty)) x in ..32 -> for yi in 0..2 -> tile_inside2(ty, yi, x)");
+        __xproduces("desync_for x in ..32 -> for yi in 0..2 -> tile_inside2(ty, yi, x)");
 
         __ghost(swap_groups, "items := fun (yi x: int) -> tile_inside1(ty, yi, x)");
         __ghost(group_to_desyncgroup, "items := fun x -> for j in 0..2 -> (tile_inside1(ty,j,x))");
@@ -207,7 +203,7 @@ void transpose(float *a, float *b, int W, int H) {
         }
       }
 
-      blocksync(); __with("H := desync_for(r3(by,bx)) ty in ..16 -> desync_for(r4(by,bx,ty)) tx in ..32 -> for j in 0..2 -> tile_inside2(ty,j,tx)");
+      blocksync(); __with("H := desync_for ty in ..16 -> desync_for tx in ..32 -> for j in 0..2 -> tile_inside2(ty,j,tx)");
 
       for (int ty = 0; ty < 16; ty++) {
         __xconsumes("for tx in 0..32 -> for j in 0..2 -> tile_inside2(ty,j,tx)");
@@ -228,8 +224,8 @@ void transpose(float *a, float *b, int W, int H) {
       __threadfor; for (int ty = 0; ty < 16; ty++) {
           __xconsumes("for tx in 0..32 -> for j in 0..2 -> tile_inside4(tx,ty,j)");
           __xconsumes("for j in 0..2 -> for tx in 0..32 -> (b0_inside3(by,bx,ty))(j,tx)");
-          __xproduces("desync_for(r4(by,bx,ty)) tx in ..32 -> for j in 0..2 -> tile_inside4(tx,ty,j)");
-          __xproduces("desync_for(r4(by,bx,ty)) tx in ..32 -> for j in 0..2 -> (bf_inside3(by,bx,ty))(j,tx)");
+          __xproduces("desync_for tx in ..32 -> for j in 0..2 -> tile_inside4(tx,ty,j)");
+          __xproduces("desync_for tx in ..32 -> for j in 0..2 -> (bf_inside3(by,bx,ty))(j,tx)");
 
           __ghost(swap_groups, "items := b0_inside3(by,bx,ty)");
           __ghost(group_to_desyncgroup, "items := fun tx -> for j in 0..2 -> (b0_inside3(by,bx,ty))(j,tx)");
@@ -269,7 +265,7 @@ void transpose(float *a, float *b, int W, int H) {
       // TODO: should not be necessary to sync again just to free,
       // but since we produce the Free(p,...) resource with the Group at the beginning,
       // we have to do some kind of synchronization. Maybe there is a way to give a sync token that only works for freeing
-      blocksync(); __with("H := desync_for(r3(by,bx)) ty in ..16 -> desync_for(r4(by,bx,ty)) tx in ..32 -> for j in 0..2 -> tile_inside4(tx,ty,j)");
+      blocksync(); __with("H := desync_for ty in ..16 -> desync_for tx in ..32 -> for j in 0..2 -> tile_inside4(tx,ty,j)");
       __ghost(swap_groups, "items := fun (ty tx: int) -> for j in 0..2 -> tile_inside4(tx,ty,j)");
 
       for (int x = 0; x < 32; x++) {
@@ -285,7 +281,7 @@ void transpose(float *a, float *b, int W, int H) {
   __ghost(rewrite_range, "rf := rr1, by := eq_refl(MSIZE4(H/32,W/32,16,32))");
   __ghost(desyncgroup_untile_divides, "items := fun b -> SMemAlloc(MSIZE2(32,32)), div_check := eq_refl(MSIZE2(H/32,W/32))");
 
-  __ghost(kernel_end_sync_shm, "by := thread_tile, H := desync_for(rr1(grid)) by in ..H/32 -> desync_for(r2(by)) bx in ..W/32 -> desync_for(r3(by,bx)) ty in ..16 -> desync_for(r4(by,bx,ty)) tx in ..32 -> for j in 0..2 -> (bf_inside3(by,bx,ty))(j,tx)");
+  __ghost(kernel_end_sync_shm, "by := thread_tile, H := desync_for by in ..H/32 -> desync_for bx in ..W/32 -> desync_for ty in ..16 -> desync_for tx in ..32 -> for j in 0..2 -> (bf_inside3(by,bx,ty))(j,tx)");
 
   /*
   for by in 0..(H / 32) -> for bx in 0..(W / 32) -> for ty in "

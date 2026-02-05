@@ -186,8 +186,8 @@ formula:
     { formula_forall_in index range body }
   | FOR; index=binder; IN; range=formula_cmp; ARROW; body=formula;
     { formula_group index range body }
-  | DESYNC_FOR; LPAR; range=formula_cmp; RPAR; index=binder; IN; DOTDOT; bound=arith_term; ARROW; body=formula;
-    { formula_desyncgroup index range bound body }
+  | DESYNC_FOR; index=binder; IN; DOTDOT; bound=arith_term; ARROW; body=formula;
+    { formula_desyncgroup index bound body }
 
 resource:
   | f=formula

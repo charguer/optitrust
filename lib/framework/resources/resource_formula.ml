@@ -303,14 +303,14 @@ let formula_group_inv (t: trm): (var * trm * formula) option =
 
 let var_desyncgroup = toplevel_var "DesyncGroup"
 let trm_desyncgroup = trm_var var_desyncgroup
-let formula_desyncgroup (index: var) (range: trm) (bound: trm) (fi: formula) =
-  trm_apps ~annot:formula_annot trm_desyncgroup [range; bound; formula_fun [index, typ_int] fi]
+let formula_desyncgroup (index: var) (bound: trm) (fi: formula) =
+  trm_apps ~annot:formula_annot trm_desyncgroup [bound; formula_fun [index, typ_int] fi]
 
-let formula_desyncgroup_inv (t: trm): (var * trm * trm * formula) option =
+let formula_desyncgroup_inv (t: trm): (var * trm * formula) option =
   match trm_apps_inv t with
-  | Some ({ desc = Trm_var v }, [range; bound; items]) when var_eq v var_desyncgroup ->
+  | Some ({ desc = Trm_var v }, [bound; items]) when var_eq v var_desyncgroup ->
     begin match trm_fun_inv items with
-    | Some ([index, _], _, body, _) -> Some (index, range, bound, body)
+    | Some ([index, _], _, body, _) -> Some (index, bound, body)
     | _ -> None
     end
   | _ -> None
@@ -462,11 +462,10 @@ module Pattern = struct
       k
     | None -> raise Next
 
-  let formula_desyncgroup f_index f_range f_bound f_group_body k t =
+  let formula_desyncgroup f_index f_bound f_group_body k t =
     match formula_desyncgroup_inv t with
-    | Some (index, range, bound, body) ->
+    | Some (index, bound, body) ->
       let k = f_index k index in
-      let k = f_range k range in
       let k = f_bound k bound in
       let k = f_group_body k body in
       k
@@ -518,7 +517,7 @@ let () = Printexc.register_printer (function
 let rec formula_uninit (formula: formula): formula =
   Pattern.pattern_match formula [
     Pattern.(formula_either_cell !__ !__) (fun addr mem_typ () -> formula_uninit_cell ~mem_typ addr);
-    Pattern.(formula_desyncgroup !__ !__ !__ !__) (fun idx range bound sub () -> formula_desyncgroup idx range bound (formula_uninit sub));
+    Pattern.(formula_desyncgroup !__ !__ !__) (fun idx bound sub () -> formula_desyncgroup idx bound (formula_uninit sub));
     Pattern.(formula_group !__ !__ !__) (fun idx range sub () -> formula_group idx range (formula_uninit sub));
     Pattern.__ (fun () -> raise (CannotTransformIntoUninit formula))
   ]
@@ -526,7 +525,7 @@ let rec formula_uninit (formula: formula): formula =
 let rec is_formula_uninit (formula: formula): bool =
   Pattern.pattern_match formula [
     Pattern.(formula_uninit_cell __ __) (fun () -> true);
-    Pattern.(formula_desyncgroup __ __ __ !__) (fun sub () -> is_formula_uninit sub);
+    Pattern.(formula_desyncgroup __ __ !__) (fun sub () -> is_formula_uninit sub);
     Pattern.(formula_group __ __ !__) (fun sub () -> is_formula_uninit sub);
     Pattern.__ (fun () -> false)
   ]
@@ -538,7 +537,7 @@ let rec raw_formula_uninit (formula: formula): formula =
       formula_uninit_cell ~mem_typ addr
     );
     Pattern.(trm_apps2 (trm_var_with_name var_group.name) !__ (trm_fun (pair !__ __ ^:: nil) __ !__ __)) (fun range idx sub () -> formula_group idx range (raw_formula_uninit sub));
-    Pattern.(trm_apps3 (trm_var_with_name var_desyncgroup.name) !__ !__ (trm_fun (pair !__ __ ^:: nil) __ !__ __)) (fun range bound idx sub () -> formula_desyncgroup idx range bound (raw_formula_uninit sub));
+    Pattern.(trm_apps2 (trm_var_with_name var_desyncgroup.name) !__ (trm_fun (pair !__ __ ^:: nil) __ !__ __)) (fun bound idx sub () -> formula_desyncgroup idx bound (raw_formula_uninit sub));
     Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_apps (trm_var !(check (fun v -> String.starts_with ~prefix:"Matrix" v.name))) !__ __ __)) (fun addr matrix_repr matrix_args () ->
       let size_and_mem =
         if !Flags.use_resources_with_models then
@@ -570,7 +569,7 @@ let formula_group_range (range: loop_range) : formula -> formula =
     formula_group range_var (formula_loop_range range) fi
   )
 
-let formula_desyncgroup_range (range: loop_range) (r_t: trm) : formula -> formula =
+let formula_desyncgroup_range (range: loop_range) : formula -> formula =
   (* FIXME: Need to generalize models ! *)
   (* TODO: under read only, should convert to group or desyncgroup?
     In theory group seems correct because if each thread exclusively owns a non-full fraction,
@@ -580,7 +579,7 @@ let formula_desyncgroup_range (range: loop_range) (r_t: trm) : formula -> formul
   formula_map_under_read_only (fun fi ->
     let range_var = new_var ~namespaces:range.index.namespaces range.index.name in
     let fi = trm_subst_var range.index (trm_var range_var) fi in
-    formula_desyncgroup range_var r_t range.stop fi
+    formula_desyncgroup range_var range.stop fi
   )
 
 let formula_matrix_inv (f: formula): (trm * trm list * (trm option) * mem_typ) option =

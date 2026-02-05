@@ -247,14 +247,15 @@ let extract_threadsctx_range_components (r_t: trm): threadsctx_range_components 
 let gen_outside_loop_threadsctx_range (cs: threadsctx_range_components) (loop_end: trm): trm =
   let dims_high,dims_low,inds_high = cs in
   let sz = Matrix_trm.msize (loop_end::dims_low) in
-  let dims = dims_high @ [sz] in
+  (* TODO: an actual placeholder size instead of 0. Doing this because we would like to rewrite the size of the range without also having to mess with it in the MINDEX. *)
+  let dims = dims_high @ [trm_int 0] in
   let inds = inds_high @ [trm_int 0] in
   formula_counted_range (Matrix_trm.mindex dims inds) sz
 
 let gen_inside_loop_threadsctx_range (cs: threadsctx_range_components) (loop_ind: var) (loop_end: trm): trm =
   let dims_high,dims_low,inds_high = cs in
   let sz = Matrix_trm.msize dims_low in
-  let dims = dims_high @ [loop_end; sz] in
+  let dims = dims_high @ [loop_end; trm_int 0] in
   let inds = inds_high @ [trm_var loop_ind; trm_int 0] in
   formula_counted_range (Matrix_trm.mindex dims inds) sz
 
@@ -295,7 +296,7 @@ let [@warning "-11"] get_loop_contract_generators res loop_mode range contract: 
       (* TODO: should the pre & post share the threadsctx variable or no? *)
       let tctx = (new_anon_hyp (),formula_threadsctx info.r_out) in
       fun range res -> (
-        let res = Resource_set.desyncgroup_range info.r_out range res in
+        let res = Resource_set.desyncgroup_range range res in
         { res with linear = tctx :: res.linear }
       )
     | _ ->  Resource_set.group_range in
