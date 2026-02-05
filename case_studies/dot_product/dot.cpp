@@ -8,7 +8,7 @@ __DEF(matmul, "fun (A B: int * int -> float) (p: int) -> fun (i j: int) -> reduc
 /* Multiplies the vect A (dim n) by the vector B (dim n),
  * and returns the result of the scalar product.
 */
-float vect_vect_mul(float* a, float* b, int n) { // todo: requires divides
+float dot(float* a, float* b, int n) { // todo: requires divides
   __requires("A: int -> float, B: int -> float");
   __reads("a ~> Matrix1(n, A), b ~> Matrix1(n, B)");
   __ensures("_Res =. reduce_sum(n, fun j -> A(j) *. B(j))");
@@ -21,8 +21,8 @@ float vect_vect_mul(float* a, float* b, int n) { // todo: requires divides
     s += a[MINDEX1(n,i)] * b[MINDEX1(n,i)];
     __GHOST_END(focusA);
     __GHOST_END(focusB);
-    __ghost(in_range_bounds, "i", "i_gt_0 <- lower_bound");
-    __ghost(rewrite_float_linear, "inside := fun v -> &s ~~> v, by := reduce_sum_add_right(i, fun j -> A(j) *. B(j), i_gt_0)");
+    __ghost(in_range_bounds, "i", "i_ge_0 <- lower_bound");
+    __ghost(rewrite_float_linear, "inside := fun v -> &s ~~> v, by := reduce_sum_add_right(i, fun j -> A(j) *. B(j), i_ge_0)");
   }
   __ghost(eq_refl_float, "reduce_sum(n, fun j -> A(j) *. B(j))");
   return s;

@@ -307,7 +307,7 @@ __GHOST(in_range_shift_extend) {
 __GHOST(in_range_bounds) {
   __requires("x: int, a: int, b: int, s: int");
   __requires("in_range(x, range(a, b, s)), s >= 0");
-  __ensures("lower_bound: x >= a, upper_bound: x <= b");
+  __ensures("lower_bound: x >= a, upper_bound: x < b");
   __admitted();
 }
 
