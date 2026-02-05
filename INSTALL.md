@@ -33,11 +33,14 @@ tar -xf clang+llvm-15.0.0-x86_64-linux-gnu-rhel-8.4.tar.xz
 sudo mv clang+llvm-15.0.0-x86_64-linux-gnu-rhel-8.4 /opt/clang-15.0.0
 ```
 
-Because LLVM does not ship C++ headers, you need to install them separately:
+Because the archive above does not ship C++ headers, you need to install them separately:
 ```sh
 # Install for C++ headers support:
 sudo apt-get install libc++-15-dev libc++abi-15-dev
 ```
+
+> [!NOTE]
+> These steps install libc++, the LLVM implementation of the C++ standard library, which we have found to work more reliably with OptiTrust. If these packages are not available on your system, you may instead try to use libstdc++, the GCC implementation which is usually already installed, by creating the file `optitrust_flags.sh` in the root of the repo and writing `USE_LIBSTDCXX=1`. (If it already exists, add the flag on a new line.)
 
 Depending on your prior installation, you might need to add the newly installed version of clang/llvm-config to the path, then select it among all of your versions :
 
@@ -535,6 +538,7 @@ in the included folders listed by `clang -v -E -stdlib=libc++ - < /dev/null`.
 In particular: `ls /usr/include/c++/v1/iostream; ls /usr/lib/llvm-15/lib/libc++.so`
 should work. These files are provided by `sudo apt-get install libc++-dev libc++abi-15-dev`.
 
+If the libc++ libraries are not working, you may also try to use libstdc++, the GCC implementation of the C++ standard library which is usually already installed, by writing `USE_LIBSTDCXX=1` on a new line in `optitrust_flags.sh` at the root of the repo (create the file if it does not exist).
 
 --------------------------------------------------------------------------------
 ## Documentation

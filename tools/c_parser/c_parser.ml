@@ -71,7 +71,8 @@ let raw_parser (filename: string): trm =
       Tools.warn "Could not find the precompiled stdlib: parsing may be very slow; did you do 'make precompile' (%s)" precompiled_stdlib_filename;
       []
     end in
-  let command_line_stdlib = ["-stdlib=libc++"] in (* force use of Clang's stdlib, not GCC's *)
+  (* Select between libstdc++ and libc++ for C++ standard library implementation, based on command line flag. Default value of flag is for libc++.  *)
+  let command_line_stdlib = if !Flags.clang_use_libstdcxx then ["-stdlib=libstdc++"] else ["-stdlib=libc++"] in
   let command_line_args = command_line_warnings @ command_line_include @ command_line_pch @ command_line_stdlib in
   Clang_to_ast.tr_ast (Clang.Ast.parse_file ~command_line_args ~options:clangml_options filename)
 
