@@ -25,8 +25,9 @@ void vector_add(float *a, float *b, float *c, int N) {
   {
     kernel_launch(256, N/256, 0);
     kernel_setup_end();__with("by := n_factor");
+    __ghost(group_to_desyncgroup, "N := N, items := fun i -> &d_c[MINDEX1(N,i)] ~> UninitCellOf(GMem)");
 
-    for (int i = 0; i < N; i++) {
+    __threadfor; for (int i = 0; i < N; i++) {
       __xwrites("&d_c[MINDEX1(N,i)] ~~>[GMem] (arr_add(A,B))(i)");
 
       __GHOST_BEGIN(focusA, ro_matrix1_focus, "d_a, i");

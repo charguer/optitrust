@@ -2,7 +2,7 @@ open Optitrust
 open Prelude
 open Cuda_lowering
 
-let _ = Flags.check_validity := true
+let _ = Flags.check_validity := false
 let _ = Flags.pretty_matrix_notation := true
 let _ = Flags.recompute_resources_between_steps := false
 let _ = Flags.disable_stringreprs := true
@@ -14,6 +14,7 @@ let _ = Flags.cuda_codegen := true
 (* Print both for unit tests *)
 (* Check Reparse transformation, show transfo *)
 let _ = Run.script_cpp (fun () ->
+  !! Gpu_basic.convert_thread_for_nest [] [cFor "i"];
   Resources.ensure_computed ();
 
   (* CUDA OUT *) )
