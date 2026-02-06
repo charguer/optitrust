@@ -854,6 +854,49 @@ let%transfo memset ?(depth :int option) ?(typ:typ option) (tg:target) : unit =
       | _ -> trm_fors_depth t
       in
     memset_apply_on ~depth ?typ t) tg
+
+let memcpy_apply_on ~(depth: int) ?(typ:typ option) (t : trm) :trm =
+  let for_error = "Matrix_basic.memcpy_apply: expected for loop"  in
+  let (ranges_and_contracts, body) = trm_inv ~error:for_error (trm_fors_inv depth) t in
+  let ranges = List.map fst ranges_and_contracts in
+  let error = "Matrix_basic.memcpy_apply: expected exactly one instr in loop body" in
+  let instr  = trm_inv ~error trm_seq_single_inv body in
+  let error = "Matrix_basic.memcpy_apply: expected a set operation" in
+  let (lhs,rhs) = trm_inv ~error trm_set_inv instr in
+  let error = "Matrix_basic.memcpy_apply: expected an array read on RHS" in
+  let rhs = trm_inv ~error trm_get_inv rhs in
+  let error = "Matrix_basic.memcpy_apply: expected an array affectation" in
+  let (array_l,dims_l,indices_l) = trm_inv ~error Matrix_trm.access_inv lhs in
+  let (array_r,dims_r,indices_r) = trm_inv ~error Matrix_trm.access_inv rhs in
+  let elem_typ =
+    match typ with
+    | Some ty -> ty
+    | None ->
+      match Option.bind array_l.typ typ_ptr_inv with
+      | Some ty -> ty
+      | None -> (trm_fail t "Cannot find pointer type for memcpy") (* TODO support array type as well *)
+    in
+  if not (List.length dims_l = List.length dims_r || List.length indices_l = List.length indices_r ) then trm_fail t "Matrix_basic.memcpy_apply: expect source and dest arrays to match dimensions";
+  if not (List.length ranges = List.length dims_l) then trm_fail t "Matrix_basic.memcpy_apply: expect nestedness to match array dimensions";
+  let check (range,(dim,indice)) : unit =
+    let { index; start; direction; stop; step } = range in
+    if not (direction = DirUp) then  trm_fail t  "Matrix_basic.memset_apply: expect up direction";
+    if not (trm_is_zero start && trm_is_one step) then trm_fail t "Matrix_basic.memset_apply: expect start =0 and step = 1";
+    if not (Trm_unify.are_same_trm stop dim) then  trm_fail t "Matrix_basic.memset_apply: expect stop to match matrix dimension";
+    in
+  List.iter check (List.combine ranges (List.combine dims_l indices_l)); (* TODO only checks the left, only OK in models mode? *)
+  Matrix_core.matrix_copy ~typ:elem_typ array_l array_r dims_l
+
+  (** [memcpy] : Uses memcpy instead of copy loops.  *)
+let%transfo memcpy ?(depth :int option) ?(typ:typ option) (tg:target) : unit =
+  apply_at_target_paths (fun t ->
+    let depth =
+      match depth with
+      | Some nest -> nest
+      | _ -> trm_fors_depth t
+      in
+    memcpy_apply_on ~depth ?typ t) tg
+
 let elim_mindex_on_opt (simpl : trm -> trm) (t : trm) : trm option =
   let rec generate_index (acc : trm) (dims : trms) (idxs : trms) : trm =
     match (dims, idxs) with

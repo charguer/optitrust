@@ -28,10 +28,10 @@ __GHOST(rewrite_threadsctx_sz) {
 
 __DECL(HostCtx, "HProp");
 
-void kernel_launch(int tpb, int bpg, int smem_sz) {
+void kernel_launch(int bpg, int tpb, int smem_sz) {
   __consumes("HostCtx");
   __produces("KernelSetupCtx");
-  __produces("KernelParams(tpb, bpg, smem_sz)");
+  __produces("KernelParams(bpg, tpb, smem_sz)");
   __admitted();
 }
 
@@ -40,7 +40,7 @@ void kernel_setup_end() {
   __requires("by: bpg * tpb = tctx_sz");
   __consumes("KernelSetupCtx");
   __produces("ThreadsCtx(MINDEX1(0, 0) ..+ tctx_sz)");
-  __preserves("KernelParams(tpb, bpg, smem_sz)");
+  __preserves("KernelParams(bpg, tpb, smem_sz)");
   __admitted();
 }
 
@@ -49,13 +49,13 @@ void kernel_teardown_begin() {
   __requires("by: bpg * tpb = tctx_sz");
   __consumes("ThreadsCtx(MINDEX1(0, 0) ..+ tctx_sz)");
   __produces("KernelTeardownCtx");
-  __preserves("KernelParams(tpb, bpg, smem_sz)");
+  __preserves("KernelParams(bpg, tpb, smem_sz)");
   __admitted();
 }
 
 void kernel_kill() {
   __requires("tpb: int, bpg: int, smem_sz: int");
-  __consumes("KernelParams(tpb, bpg, smem_sz)");
+  __consumes("KernelParams(bpg, tpb, smem_sz)");
   __consumes("KernelTeardownCtx");
   __produces("HostCtx");
   __admitted();
@@ -70,7 +70,7 @@ __AXIOM(smem_block_sync_mem, "block_sync_mem(SMem)");
 // TODO should take a list of HPROP
 void blocksync() {
   __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int");
-  __reads("KernelParams(tpb, bpg, smem_sz)");
+  __reads("KernelParams(bpg, tpb, smem_sz)");
   __preserves("ThreadsCtx(counted_range(t, tpb))");
   __consumes("H");
   __produces("Sync(block_sync_mem, H)");
@@ -83,6 +83,16 @@ __GHOST(kernel_teardown_sync) {
   __reads("KernelTeardownCtx");
   __consumes("H");
   __produces("Sync(block_sync_mem, H)");
+  __admitted();
+}
+
+__DECL(is_mem_any, "MemType -> Prop");
+__AXIOM(any_is_mem_any, "is_mem_any(Any)");
+
+void magicsync() {
+  __requires("H: HProp");
+  __consumes("H");
+  __produces("Sync(is_mem_any, H)");
   __admitted();
 }
 

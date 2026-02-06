@@ -5,7 +5,7 @@ __device;
 void basic(int *a, int N, int M) {
   __requires("A: int * int -> int");
   __requires("bpg: int, smem_sz: int");
-  __reads("KernelParams(MSIZE2(N,M), bpg, smem_sz)");
+  __reads("KernelParams(bpg, MSIZE2(N,M), smem_sz)");
   __preserves("ThreadsCtx( MINDEX1(0,0) ..+ MSIZE2(N,M) )");
   __consumes("for i in 0..N -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
   __produces("for i in 0..N -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
@@ -33,7 +33,7 @@ __device;
 void retile_desyncgroups(int *a, int N, int M) {
   __requires("A: int * int -> int");
   __requires("bpg: int, smem_sz: int");
-  __reads("KernelParams(MSIZE2(N,M), bpg, smem_sz)");
+  __reads("KernelParams(bpg, MSIZE2(N,M), smem_sz)");
   __preserves("ThreadsCtx(MINDEX1(0,0) ..+ MSIZE2(N,M))");
   __consumes("for i in 0..N -> for j in 0..M -> &a[i * M + j] ~~>[GMem] 0");
   __produces("for i in 0..N -> for j in 0..M -> &a[i * M + j] ~~>[GMem] 1 + 1");
@@ -83,7 +83,7 @@ __device;
 void sync_required(int *a, int N, int M) {
   __requires("A: int * int -> int");
   __requires("bpg: int, smem_sz: int");
-  __reads("KernelParams(MSIZE2(N,M), bpg, smem_sz)");
+  __reads("KernelParams(bpg, MSIZE2(N,M), smem_sz)");
   __preserves("ThreadsCtx(MINDEX1(0,0) ..+ MSIZE2(N,M))");
   __consumes("for i in 0..N -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
   __produces("for i in 0..N -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1 + 1");
@@ -140,7 +140,7 @@ void write_test1(int *a, int N) {
 __device;
 void write_test2(int *a, int N) {
   __requires("bpg: int, smem_sz: int");
-  __reads("KernelParams(MSIZE1(N), bpg, smem_sz)");
+  __reads("KernelParams(bpg, MSIZE1(N), smem_sz)");
   __preserves("ThreadsCtx(MINDEX1(0,0) ..+ MSIZE1(N))");
   __consumes("for i in 0..N -> &a[i] ~~>[GMem] 0");
   __produces("for i in 0..N -> &a[i] ~~>[GMem] 1");
@@ -183,7 +183,7 @@ __device;
 void read_thread_inner(int *a, int *b, int N) {
   __requires("B: int -> int");
   __requires("bpg: int, smem_sz: int");
-  __reads("KernelParams(MSIZE1(N), bpg, smem_sz)");
+  __reads("KernelParams(bpg, MSIZE1(N), smem_sz)");
   __preserves("ThreadsCtx(MINDEX1(0,0) ..+ MSIZE1(N))");
   __writes("desync_for i in ..N -> &a[MINDEX1(N,i)] ~~>[GMem] reduce_sum(N,B)");
   __reads("for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i)");

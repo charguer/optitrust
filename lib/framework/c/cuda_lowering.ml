@@ -72,6 +72,7 @@ let rec generalize_mem_ops (t: trm): trm = Pattern.pattern_match t [
 
 let rec lower_syncs (t: trm): trm = Pattern.pattern_match t [
     Pattern.(trm_apps0 (trm_var_with_name "blocksync")) (fun () -> trm_apps (trm__syncthreads ()) []);
+    Pattern.(trm_apps0 (trm_var_with_name "magicsync")) (fun () -> failwith "Magic barriers not allowd in GPU code!");
     Pattern.__ (fun () -> trm_map lower_syncs t)
   ]
 

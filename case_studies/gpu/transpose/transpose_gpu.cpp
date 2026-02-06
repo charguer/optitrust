@@ -1,6 +1,8 @@
 #include <optitrust_models.h>
 #include <optitrust_gpu.h>
 
+// TODO needs to be fixed with new KernelParams definitions
+
 __DEF(rr1, "fun (sz: int) -> MINDEX1(sz,0) ..+ sz");
 
 /* Inlining shared memory definitions here.
