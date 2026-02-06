@@ -99,16 +99,33 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
   let kernels = ref [] in
   let rec lower_kernel_call t = Pattern.pattern_match t [
     Pattern.(trm_seq !__ __) (fun instrs () ->
-      (* TODO messy way to extract instructions *)
-      let last_instr = Option.unsome_or_else (Mlist.nth_opt instrs (Mlist.length instrs - 1)) (fun () -> raise Pattern.Next) in
-      Option.unsome_or_else (Pattern.pattern_match_opt last_instr [
-        Pattern.(trm_apps (trm_var_with_name "kernel_end") __ __ __) (fun () -> ());
-      ]) (fun () -> raise Pattern.Next);
+      (* first check to see if the sequence is likely to be kernel-related at all *)
       let first_instr = Option.unsome_or_else (Mlist.nth_opt instrs 0) (fun () -> raise Pattern.Next) in
-      let start_args = Option.unsome_or_else (Pattern.pattern_match_opt first_instr [
-        Pattern.(trm_apps (trm_var_with_name "kernel_start") !__ __ __) (fun args () -> args);
+      let launch_args = Option.unsome_or_else (Pattern.pattern_match_opt first_instr [
+        Pattern.(trm_apps (trm_var_with_name "kernel_launch") !__ __ __) (fun args () -> args);
       ]) (fun () -> raise Pattern.Next) in
-      let _, body = Mlist.extract 1 (Mlist.length instrs - 2) instrs in
+      let kernel_transition_inds = (Array.make 3 0) in
+      Mlist.iteri (fun i instr ->
+        Pattern.pattern_match instr [
+          Pattern.(trm_apps (trm_var_with_name "kernel_setup_end") __ __ __) (fun () -> kernel_transition_inds.(0) <- i);
+          Pattern.(trm_apps (trm_var_with_name "kernel_teardown_begin") __ __ __) (fun () -> kernel_transition_inds.(1) <- i);
+          Pattern.(trm_apps (trm_var_with_name "kernel_kill") __ __ __) (fun () -> kernel_transition_inds.(2) <- i);
+          Pattern.__ (fun () -> ())
+        ]
+      ) instrs;
+      if (Array.exists (fun ind -> ind == 0) kernel_transition_inds) then
+        failwith "Missing kernel_setup_end, kernel_teardown_begin, or kernel_kill in sequence starting with kernel_launch (setup: %d, teardown: %d, kill: %d)" kernel_transition_inds.(0) kernel_transition_inds.(1) kernel_transition_inds.(2);
+      if (kernel_transition_inds.(0) >= kernel_transition_inds.(1)) then
+        failwith "kernel_setup_end must come before kernel_teardown_begin";
+      if (kernel_transition_inds.(1) >= kernel_transition_inds.(2)) then
+        failwith "kernel_teardown_begin must come before kernel_kill";
+      if (kernel_transition_inds.(2) != (Mlist.length instrs - 1)) then
+        failwith "kernel_kill must be at end of kernel sequence";
+
+      let kernel_body_start = (kernel_transition_inds.(0) + 1) in
+      let kernel_body_len = kernel_transition_inds.(1) - kernel_body_start in
+      (* TODO: lower the code inside setup and teardown*)
+      let _, body = Mlist.extract kernel_body_start kernel_body_len instrs in
 
       let ctx_size,tid = var__ctx_size (), var__tid () in
       let body = trm_seq ~typ:(typ_unit) body in
@@ -120,7 +137,7 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
           trm_alter ~desc:(Trm_seq (tl, result)) t
         | _ -> failwith "expected seq" in
 
-      let start_args = List.map (fun arg -> trm_add_cstyle CudaKernelBracketArg arg) start_args in
+      let launch_args = List.map (fun arg -> trm_add_cstyle CudaKernelBracketArg arg) launch_args in
       let kernel_args = Var_set.inter (trm_free_vars body) bound_vars in
       let kernel_args = Var_set.fold (fun var acc -> (var,Var_map.find var !bound_vars_typs) :: acc) kernel_args [] in
 
@@ -128,7 +145,7 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
       let kernel_var = new_var ("__kernel" ^ (string_of_int (!k_id))) in
       incr k_id;
       kernels := (kernel_var, kernel_fn) :: !kernels;
-      trm_apps (trm_var kernel_var) (start_args @ (List.map (fun (var,_) -> trm_var var) kernel_args))
+      trm_apps (trm_var kernel_var) (launch_args @ (List.map (fun (var,_) -> trm_var var) kernel_args))
     );
     Pattern.__ (fun () -> trm_map lower_kernel_call t)
   ] in

@@ -22,9 +22,9 @@ void vector_add(float *a, float *b, float *c, int N) {
   memcpy_host_to_device1(d_a, a, N);
   memcpy_host_to_device1(d_b, b, N);
 
-  __ghost(rewrite_range, "rf := rr1, by := n_factor");
   {
-    kernel_start(256, N/256, 0);__with("r := rr1(MSIZE1(N))");
+    kernel_launch(256, N/256, 0);
+    kernel_setup_end();__with("by := n_factor");
     __ghost(group_to_desyncgroup, "N := N, items := fun i -> &d_c[MINDEX1(N,i)] ~> UninitCellOf(GMem)");
 
     __threadfor; for (int i = 0; i < N; i++) {
@@ -39,10 +39,9 @@ void vector_add(float *a, float *b, float *c, int N) {
       __GHOST_END(focusB);
     }
 
-    __ghost(kill_threads);
-    __ghost(kernel_end_sync, "H := desync_for i in ..N -> &d_c[MINDEX1(N,i)] ~~>[GMem] (arr_add(A,B))(i)");
-
-    kernel_end();
+    kernel_teardown_begin();
+    __ghost(kernel_teardown_sync, "H := desync_for i in ..N -> &d_c[MINDEX1(N,i)] ~~>[GMem] (arr_add(A,B))(i)");
+    kernel_kill();
   }
   memcpy_device_to_host1(c, d_c, N);
 

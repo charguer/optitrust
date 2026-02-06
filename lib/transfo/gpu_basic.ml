@@ -11,3 +11,10 @@ let change_to_thread_for_mode (t: trm): trm =
 
 let%transfo thread_for (tg : target) : unit =
   apply_at_target_paths (change_to_thread_for_mode) tg
+
+(* Function 1: Convert a loop at the path p to thread for. Don't change the contracts in that loop, but if
+  it is specified to be in a loop, then modify its contract to contain DesyncGroups. (using the procedure described in my notes).
+  *)
+
+
+(* let%transfo *)

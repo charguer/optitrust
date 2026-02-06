@@ -11,7 +11,8 @@ __DECL(GMem, "MemType");
 __DECL(SMem, "MemType");
 __DECL(KernelParams, "int * int * int -> HProp");
 __DECL(SMemAlloc, "int -> HProp");
-__DECL(DeadKernelCtx, "HProp");
+__DECL(KernelSetupCtx, "HProp");
+__DECL(KernelTeardownCtx, "HProp");
 
 __DECL(range_eq, "Range * Range -> Prop"); // TODO move this outside this file
 
@@ -27,30 +28,36 @@ __GHOST(rewrite_threadsctx_sz) {
 
 __DECL(HostCtx, "HProp");
 
-void kernel_start(int tpb, int bpg, int smem_sz) {
-  __requires("r: Range");
-  __requires("by: range_eq(counted_range(MINDEX1(0, 0), bpg * tpb), r)");
+void kernel_launch(int tpb, int bpg, int smem_sz) {
   __consumes("HostCtx");
-  __produces("ThreadsCtx(r)");
+  __produces("KernelSetupCtx");
   __produces("KernelParams(tpb, bpg, smem_sz)");
   __admitted();
 }
 
-void kernel_end() {
-  __requires("tpb: int, bpg: int, smem_sz: int");
-  __consumes("DeadKernelCtx");
-  __consumes("KernelParams(tpb, bpg, smem_sz)");
-  __produces("HostCtx");
+void kernel_setup_end() {
+  __requires("bpg: int, tpb: int, smem_sz: int, tctx_sz: int");
+  __requires("by: bpg * tpb = tctx_sz");
+  __consumes("KernelSetupCtx");
+  __produces("ThreadsCtx(MINDEX1(0, 0) ..+ tctx_sz)");
+  __preserves("KernelParams(tpb, bpg, smem_sz)");
   __admitted();
 }
 
-__GHOST(kill_threads) {
-  __requires("r: Range");
-  __requires("tpb: int, bpg: int, smem_sz: int");
+void kernel_teardown_begin() {
+  __requires("bpg: int, tpb: int, smem_sz: int, tctx_sz: int");
+  __requires("by: bpg * tpb = tctx_sz");
+  __consumes("ThreadsCtx(MINDEX1(0, 0) ..+ tctx_sz)");
+  __produces("KernelTeardownCtx");
   __preserves("KernelParams(tpb, bpg, smem_sz)");
-  __requires("by: range_eq(counted_range(MINDEX1(0, 0), bpg * tpb), r)");
-  __consumes("ThreadsCtx(r)");
-  __produces("DeadKernelCtx");
+  __admitted();
+}
+
+void kernel_kill() {
+  __requires("tpb: int, bpg: int, smem_sz: int");
+  __consumes("KernelParams(tpb, bpg, smem_sz)");
+  __consumes("KernelTeardownCtx");
+  __produces("HostCtx");
   __admitted();
 }
 
@@ -70,10 +77,10 @@ void blocksync() {
   __admitted();
 }
 
-// TODO could be merged with kill_threads when a list of HProps is supportedw
-__GHOST(kernel_end_sync) {
+// TODO could be merged with kernel_device_end when a list of HProps is supported
+__GHOST(kernel_teardown_sync) {
   __requires("H: HProp");
-  __reads("DeadKernelCtx");
+  __reads("KernelTeardownCtx");
   __consumes("H");
   __produces("Sync(block_sync_mem, H)");
   __admitted();
