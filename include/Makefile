@@ -6,7 +6,7 @@ precompiled_stdlib.pch: precompiled_stdlib.h
 		. ../optitrust_flags.sh; \
 	fi; \
 	if [ "$$USE_LIBSTDCXX" = "1" ]; then \
-		clang -x c++-header $^ -o $@; \
+		clang -x c++-header $^ -o $@ -stdlib=libstdc++; \
 	else \
 		clang -x c++-header $^ -o $@ -stdlib=libc++; \
 	fi
