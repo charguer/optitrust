@@ -157,10 +157,11 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
   let ser_filename = filename ^ ".ser" in
 
   let exitcode =
-    Sys.command (Printf.sprintf "cd \"%s\" && dune exec --no-build tools/c_parser/c_parser.exe -- %s %s %s"
+    Sys.command (Printf.sprintf "cd \"%s\" && dune exec --no-build tools/c_parser/c_parser.exe -- %s %s %s %s"
       !Flags.optitrust_root
       (if !Flags.ignore_serialized || persistant then "" else "-f")
       (if !Flags.debug_parsing_serialization then "-v" else "")
+      (if !Flags.clang_use_libstdcxx then "--clang-use-libstdcxx" else "")
       (Unix.realpath filename))
   in
   if exitcode <> 0 then failwith "C parser returned with error code %d" exitcode;
