@@ -139,6 +139,7 @@ __AXIOM(r_cancel_plus_minus, "forall (n: float) (d: float) -> n +. d -. d =. n")
 
 /* ---- Pure matrix functions ---- */
 
+#ifndef OPTITRUST_CUDA_RUNTIME
 inline int MINDEX0() {
   return 0;
 }
@@ -210,7 +211,7 @@ inline size_t MSIZE5(int N1, int N2, int N3, int N4, int N5) {
 #define CALLOC3(T, N1, N2, N3) (T*) calloc(MSIZE3(N1, N2, N3), sizeof(T))
 #define CALLOC4(T, N1, N2, N3, N4) (T*) calloc(MSIZE4(N1, N2, N3, N4), sizeof(T))
 #define CALLOC5(T, N1, N2, N3, N4, N5) (T*) calloc(MSIZE5(N1, N2, N3, N4, N5), sizeof(T))
-
+#endif
 
 /* ---- Arithmetic Functions ---- */
 

@@ -65,6 +65,13 @@ let rec generalize_mem_ops (t: trm): trm = Pattern.pattern_match t [
   Pattern.(trm_apps1 (trm_var_with_name "__gmem_get") !__) (fun p () ->
     let p = generalize_mem_ops p in
     trm_get p);
+  Pattern.(trm_apps2 (trm_var_with_name "__smem_set") !__ !__) (fun p v () ->
+    let p = generalize_mem_ops p in
+    let v = generalize_mem_ops v in
+    trm_set p v);
+  Pattern.(trm_apps1 (trm_var_with_name "__smem_get") !__) (fun p () ->
+    let p = generalize_mem_ops p in
+    trm_get p);
   (* TODO: check also the variety of other operations that exist on Any cells, like increment, struct access, etc.*)
   Pattern.(trm_get __ ^| trm_set __ __) (fun () -> failwith "Host-side memory operations not allowed in device code");
   Pattern.__ (fun () -> trm_map generalize_mem_ops t)
@@ -83,6 +90,19 @@ let lower_device_code (grid_size: var) (tid: var) (t: trm): trm =
     |> generalize_mem_ops
     |> lower_syncs
 
+
+let lower_smem_alloc (t: trm): trm option =
+  Pattern.pattern_match_opt t [
+    Pattern.(trm_let !__ (typ_ptr !__) (trm_apps (trm_var !__) !__ __ __)) (fun v typ vf args () ->
+      Pattern.when_ (vf.name = sprintf "__smem_malloc%d" (List.length args));
+      (* TODO: will not compile correctly by nvcc when it is a dynamic allocation*)
+      (* TODO: also WRONG: it is asking for more memory than we asked for in the kernel launch, iirc*)
+      (trm_add_cstyle CudaShared (trm_let (v, typ_ptr typ) (trm_ref_uninit (Matrix_trm.typ_matrix typ args))))
+    )
+  ]
+
+(* TODO because I don't have a better place for it: currently DMINDEX can be ignored in this printer because it's defined as
+return 0 and inlined in the optitrust_common. But we should actually erase it instead of relying on nvcc. *)
 let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): trm =
   (* trm_find_var could be useful to get the type *)
   let rec scan_bound_vars t = (
@@ -125,7 +145,12 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
 
       let kernel_body_start = (kernel_transition_inds.(0) + 1) in
       let kernel_body_len = kernel_transition_inds.(1) - kernel_body_start in
-      (* TODO: lower the code inside setup and teardown*)
+      (* TODO: can we completely ignore setup and teardown code? Or do we have to do some syntax check there too? *)
+      (* maybe *Any operations are banned inside the entire kernel sequence? *)
+      let smem_allocs = Mlist.fold_left (fun instrs instr ->
+        match (lower_smem_alloc instr) with
+        | Some instr -> instr :: instrs
+        | _ -> instrs) [] (snd (Mlist.extract 0 kernel_transition_inds.(0) instrs))in (* TODO cleanup so it's nicer if there's something in teardown too *)
       let _, body = Mlist.extract kernel_body_start kernel_body_len instrs in
 
       let ctx_size,tid = var__ctx_size (), var__tid () in
@@ -134,6 +159,7 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
       let body =
         match (trm_seq_inv body) with
         | Some (tl, result) ->
+          let tl = (Mlist.insert_sublist_at 0 smem_allocs tl) in
           let tl = (Mlist.push_front (make_kernel_header ctx_size tid) tl) in
           trm_alter ~desc:(Trm_seq (tl, result)) t
         | _ -> failwith "expected seq" in

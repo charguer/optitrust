@@ -37,6 +37,7 @@ void transpose(float *a, float *b, int W, int H) {
   // TODO does not need to be an assumption
   __ghost(assume, "P := bpg * tpb = grid_sz", "thread_tile <- H");
   const int smem_sz = __smem_compute_size(32*32);
+  {
   kernel_launch(bpg, tpb, smem_sz + 0);
 
   float* const tile_grid = SMEM_MALLOC2(float, 32, 32);
@@ -111,6 +112,9 @@ void transpose(float *a, float *b, int W, int H) {
           __xconsumes("for yi in 0..2 -> tile_inside1(ty, yi, tx)");
           __xproduces("for yi in 0..2 -> tile_inside2(ty, yi, tx)");
 
+          // TODO: this j loop pattern is not quite the same as what the CUDA samples does?
+          // the two sequential iterations should be on the outside dimension
+          // should be j * 16 + ty
           for (int j = 0; j < 2; j++) {
             __xconsumes("tile_inside1(ty, j, tx)");
             __xproduces("tile_inside2(ty, j, tx)");
@@ -222,6 +226,7 @@ void transpose(float *a, float *b, int W, int H) {
   __smem_free2(tile_grid, 32, 32);
 
   kernel_kill();
+  }
 
   memcpy_device_to_host2(b, d_b, W, H);
 
