@@ -347,6 +347,14 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
         if not (is_typ_integer arg_typ) then failwith "MINDEX should only be applied on integer arguments but here has argument '%s' of type '%s'" (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ)
         ) args;
       typ_int
+    | Trm_var xf, _ when (List.length args / 2) <= (Matrix_trm.max_nb_dims) && var_eq xf (Matrix_trm.dmindex_var (List.length args / 2)) ->
+      (* TODO: This should not be a special case. We should add a way to register pure arithmetic functions that can be used both in code and in specs *)
+      assert ((List.length args) mod 2 = 0);
+      List.iter (fun arg ->
+        let arg_typ = compute_pure_typ env arg in
+        if not (is_typ_integer arg_typ) then failwith "DMINDEX should only be applied on integer arguments but here has argument '%s' of type '%s'" (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ)
+        ) args;
+      typ_int
     | Trm_var xf, _ when (List.length args) <= (Matrix_trm.max_nb_dims) && var_eq xf (Matrix_trm.msize_var (List.length args)) ->
       (* TODO: This should not be a special case. We should add a way to register pure arithmetic functions that can be used both in code and in specs *)
       List.iter (fun arg ->
@@ -2058,6 +2066,7 @@ let rec trm_deep_copy (t: trm) : trm =
 let mindex_msize_specs =
   List.fold_left (fun specs n ->
     let mindex_name = Matrix_trm.mindex_var n in
+    let dmindex_name = Matrix_trm.dmindex_var n in
     let msize_name = Matrix_trm.msize_var n in
     let dims = List.map (fun i -> new_var (sprintf "N%s" (string_of_int i))) (List.range 1 n) in
     let indices = List.map (fun i -> new_var (sprintf "i%s" (string_of_int i))) (List.range 1 n) in
@@ -2072,7 +2081,13 @@ let mindex_msize_specs =
       pre = Resource_set.make ~pure:typed_dims ();
       post = Resource_set.make ~pure:[var_result, typ_int] ~aliases:(Var_map.singleton var_result (trm_apps (trm_var msize_name) (List.map trm_var dims))) ()
     }; inverse = None } in
-    Var_map.add mindex_name mindex_spec (Var_map.add msize_name msize_spec specs)
+    let dmindex_spec = { args; contract = {
+      pre = Resource_set.make ~pure:typed_args ();
+      post = Resource_set.make ~pure:[var_result, typ_int] ~aliases:(Var_map.singleton var_result (trm_apps (trm_var dmindex_name) (List.map trm_var args))) ()
+    }; inverse = None } in
+    let specs = Var_map.add msize_name msize_spec specs in
+    let specs = Var_map.add mindex_name mindex_spec specs in
+    Var_map.add dmindex_name dmindex_spec specs
   ) Var_map.empty (List.range 0 Matrix_trm.max_nb_dims)
 
 let ignore_spec =
@@ -2126,6 +2141,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_formula.var_or, typ_pure_simple_fun [typ_prop; typ_prop] typ_prop;
   Resource_formula.var_frac_div, typ_pure_simple_fun [typ_frac; typ_int] typ_frac;
   Resource_formula.var_frac_sub, typ_pure_simple_fun [typ_frac; typ_frac] typ_frac;
+  var_sizeof, typ_pure_simple_fun [typ_type] typ_int; (* TODO ?? *)
   Resource_formula.var_spec_override_ret, (let typ = new_var "T" in let res = new_var "v" in typ_pure_fun [typ, typ_type; res, (typ_var typ)] (typ_prop));
   Resource_formula.var_spec_override_noret, (typ_pure_fun [] (typ_prop));
   Resource_formula.var_spec_override_ret_implicit, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_prop));

@@ -163,6 +163,15 @@ inline int MINDEX5(int N1, int N2, int N3, int N4, int N5, int i1, int i2, int i
   return i1 * N2 * N3 * N4 * N5 + i2 * N3 * N4 * N5 + i3 * N4 * N5 + i4 * N5 + i5;
 }
 
+// TODO: is defining them like this in the header correct?
+// Leaving as forward declarations does not work (says the variable is not defined)
+inline int DMINDEX0() { return 0; }
+inline int DMINDEX1(int N1, int i1) { return 0; }
+inline int DMINDEX2(int N1, int N2, int i1, int i2) { return 0; }
+inline int DMINDEX3(int N1, int N2, int N3, int i1, int i2, int i3) { return 0; }
+inline int DMINDEX4(int N1, int N2, int N3, int N4, int i1, int i2, int i3, int i4) { return 0; }
+inline int DMINDEX5(int N1, int N2, int N3, int N4, int N5, int i1, int i2, int i3, int i4, int i5) { return 0; }
+
 inline size_t MSIZE0() {
   return 1;
 }
@@ -747,6 +756,30 @@ __GHOST(group_one) {
 }
 
 /* MINDEX (un)folding */
+
+__GHOST(dmindex2_untile) {
+  __requires("H: (int * int -> int) -> HProp, n1: int, n2: int");
+  __consumes("H(fun i1 i2 -> DMINDEX1(n1 * n2, i1 * n2 + i2))");
+  __produces("H(fun i1 i2 -> DMINDEX2(n1, n2, i1, i2))");
+  __admitted();
+}
+
+__GHOST(dmindex2_tile) {
+  __reverts(dmindex2_untile);
+  __admitted();
+}
+
+__GHOST(dmindex3_untile) {
+  __requires("H: (int * int * int -> int) -> HProp, n1: int, n2: int, n3: int");
+  __consumes("H(fun i1 i2 i3 -> DMINDEX2(n1 * n2, n3, i1 * n2 + i2, i3))");
+  __produces("H(fun i1 i2 i3 -> DMINDEX3(n1, n2, n3, i1, i2, i3))");
+  __admitted();
+}
+
+__GHOST(dmindex3_tile) {
+  __reverts(dmindex3_untile);
+  __admitted();
+}
 
 __GHOST(mindex2_unfold) {
   __requires("T: Type, H: (int * int -> ptr(T)) -> HProp, matrix: ptr(T), n1: int, n2: int");

@@ -167,20 +167,23 @@ let%transfo convert_thread_for_tail_nest ?(stop_tg: target option) ?(insert_barr
   let enclosing_loops = List.rev enclosing_loops in
   Target.iter (fun p -> to_thread_fors stop_tg insert_barrier enclosing_loops p) tg
 
+  (* take 4 targets, one for each transition point. If they don't all belong to the same sequence,
+  the transfo will complain. Since they belong to the same sequence, we know we can lift those instrs out into their own
+  sequence, to make the printers job easier. Or we could just make the printer's job easier by detecting the start within sequences.*)
 (* tg is the body of the kernel; TODO should targets that are sequences of instructions *)
 (* TODO: take another target, which is the launching function, for modifying the contract to include hostctx and __requires for the kernel retiling. *)
-let%transfo create_kernel_launch ?(tctx_override: trm list option) (tpbs: trm list) (bpgs: trm list) (smem_szs: trm list) (tg: target): unit =
+let%transfo create_kernel_launch ?(grid_override: trm list option) (tpbs: trm list) (bpgs: trm list) (smem_szs: trm list) (tg: target): unit =
   let aux (t: trm): trm =
     let tpb = Matrix_trm.msize tpbs in
     let bpg = Matrix_trm.msize bpgs in
     let smem_sz = trm_int 0 in (* TODO *)
-    let grid = match tctx_override with
-    | Some tctx_override -> Matrix_trm.msize tctx_override
+    let grid = match grid_override with
+    | Some grid_override -> Matrix_trm.msize grid_override
     | _ -> Matrix_trm.msize (bpgs @ tpbs) in
 
     let launch = trm_apps (trm_var var_kernel_launch) [tpb;bpg;smem_sz] in
-    let setup = trm_apps (trm_var var_kernel_setup_end) [] ~ghost_args:[(new_var "tctx_sz", grid)] in
-    let setup = match tctx_override with
+    let setup = trm_apps (trm_var var_kernel_setup_end) [] ~ghost_args:[(new_var "grid_sz", grid)] in
+    let setup = match grid_override with
       | Some _ -> setup
       | _ ->
         let assume_retile = Resource_trm.assume (trm_eq ~typ:typ_int (trm_mul_int bpg tpb) grid) in
@@ -189,7 +192,7 @@ let%transfo create_kernel_launch ?(tctx_override: trm list option) (tpbs: trm li
           setup
         ]) in
 
-    let teardown = trm_apps (trm_var var_kernel_teardown_begin) [] ~ghost_args:[(new_var "tctx_sz", grid)] in
+    let teardown = trm_apps (trm_var var_kernel_teardown_begin) [] ~ghost_args:[(new_var "grid_sz", grid)] in
     let kill = trm_apps (trm_var var_kernel_kill) [] in
 
     trm_seq (Mlist.of_list [

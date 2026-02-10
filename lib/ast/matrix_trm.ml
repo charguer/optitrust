@@ -36,6 +36,20 @@ let mindex (dims : trms) (indices : trms) : trm =
   let n = List.length dims in
   trm_apps (trm_var (mindex_var n)) (dims @ indices)
 
+(* Distributed or Desync MINDEX *)
+let dmindex_var = toplevel_var_with_dim "DMINDEX%d"
+let dmindex_var_inv = toplevel_var_with_dim_inv dmindex_var
+
+(** [dmindex dims indices]: builds a call to the macro DMINDEX(dims, indices)
+    [dims] - dimensions of the distributed matrix access,
+    [indices] - indices of the distributed matrix access.
+    [dims] and [indices] must have same length *)
+let dmindex (dims : trms) (indices : trms) : trm =
+  if List.length dims <> List.length indices then
+    failwith "Matrix_core.dmindex: the number of dimensions (%d) should correspond to the number of indices (%d)" (List.length dims) (List.length indices);
+  let n = List.length dims in
+  trm_apps (trm_var (dmindex_var n)) (dims @ indices)
+
 (** [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t]
 Guarranted that [dims] and [indices] have the same length*)
 
