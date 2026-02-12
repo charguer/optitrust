@@ -10,17 +10,14 @@ void basic(int *a, int N, int M) {
   __consumes("for i in 0..N -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
   __produces("for i in 0..N -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
 
-  //__ghost(group_to_desyncgroup, "items := fun i -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
+  __ghost(group_to_desyncgroup, "items := fun i -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
 
-  //__threadfor; for (int i = 0; i < N; i++) {
-  for (int i = 0; i < N; i++) {
+  __threadfor; for (int i = 0; i < N; i++) {
     __xconsumes("for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
-    //__xproduces("desync_for j in ..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
-    __xproduces("for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
+    __xproduces("desync_for j in ..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
 
-    //__ghost(group_to_desyncgroup, "items := fun j -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
-    //__threadfor; for (int j = 0; j < M; j++) {
-    for (int j = 0; j < M; j++) {
+    __ghost(group_to_desyncgroup, "items := fun j -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
+    __threadfor; for (int j = 0; j < M; j++) {
       __xconsumes("&a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
       __xproduces("&a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
       __gmem_set(&a[MINDEX2(N,M,i,j)],1);

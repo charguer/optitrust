@@ -36,9 +36,8 @@ void transpose(float *a, float *b, int W, int H) {
 
   // TODO does not need to be an assumption
   __ghost(assume, "P := bpg * tpb = grid_sz", "thread_tile <- H");
-  const int smem_sz = __smem_compute_size(32*32);
   {
-  kernel_launch(bpg, tpb, smem_sz + 0);
+  kernel_launch(bpg, tpb, sizeof(float) * (32 * 32) + 0);
 
   float* const tile_grid = SMEM_MALLOC2(float, 32, 32);
 
@@ -185,11 +184,6 @@ void transpose(float *a, float *b, int W, int H) {
   __ghost(kernel_teardown_sync, "H := desync_for by in ..H/32 -> desync_for bx in ..W/32 -> desync_for ty in ..16 -> desync_for tx in ..32 -> for j in 0..2 -> (bf_inside3(by,bx,ty))(j,tx)");
   __ghost(kernel_teardown_sync, "H := desync_for by in ..H/32 -> desync_for bx in ..W/32 -> desync_for xo in ..16 -> desync_for ty in ..32 -> for xi in 0..2 -> tile_grid_inside2(by, bx, ty, xo, xi)");
 
-  /*
-  for by in 0..(H / 32) -> for bx in 0..(W / 32) -> for ty in "
-       "0..16 -> for tx in 0..32 -> for j in 0..2 -> d_b[MINDEX2(W, H, "
-       "bx * 32 + tx, by * 32 + (ty * 2 + j))] ~~>[GMem] 0.f
-  */
   for (int by = 0; by < H / 32; by++) {
     __xconsumes("for bx in 0..(W / 32) -> for ty in 0..16 -> for tx in 0..32 -> for j in 0..2 -> (bf_inside3(by,bx,ty))(j,tx)");
     __xproduces("for ty in 0..32 -> for x in 0..W -> (bf_inside1(by))(ty,x)");

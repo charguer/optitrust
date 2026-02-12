@@ -1739,7 +1739,9 @@ let rec compute_resources
         begin match effective_args with
         | [ty_arg] ->
           (* LATER: Count the type as a required resource *)
-          Some empty_usage_map, Some res
+          (* TODO: using int as return for sizeof *)
+          let res = Resource_set.add_alias var_result (trm_sizeof ty_arg) res in
+          with_result typ_int (Some (Var_map.singleton var_sizeof Required)) res
         | _ -> failwith "expected 1 argument for sizeof"
         end
 

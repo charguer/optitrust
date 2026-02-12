@@ -6,19 +6,19 @@ Description/status of each:
 * [`vector_add`](https://github.com/NVIDIA/cuda-samples/blob/c94ff366aed18c797b8a85dfaac7817b0228b420/Samples/0_Introduction/vectorAdd/vectorAdd.cu): add a constant to a vector
   - [x] Full functional correctness
   - [x] Optimized GPU version
-  - [ ] CPU->GPU Transformation script
+  - [X] CPU->GPU Transformation script
 * [`reduce`](https://github.com/NVIDIA/cuda-samples/blob/c94ff366aed18c797b8a85dfaac7817b0228b420/Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu): reduce/sum a vector
   - [x] Full functional correctness
   - [ ] Unoptimized GPU version
   - [ ] Optimized GPU version
   - [ ] CPU->GPU Transformation script
 * [`transpose`](https://github.com/NVIDIA/cuda-samples/blob/c94ff366aed18c797b8a85dfaac7817b0228b420/Samples/6_Performance/transpose/transpose.cu): transposition of a matrix
-  - [ ] Full functional correctness
-  - [ ] Unoptimized GPU version
-  - [ ] Optimized GPU version
+  - [X] Full functional correctness
+  - [X] Unoptimized GPU version
+  - [X] Optimized GPU version
   - [ ] CPU->GPU Transformation script
 * [`histogram`](https://github.com/NVIDIA/cuda-samples/blob/c94ff366aed18c797b8a85dfaac7817b0228b420/Samples/2_Concepts_and_Techniques/histogram/histogram256.cu): simple histogram computation
-  - [ ] Full functional correctness
+  - [X] Full functional correctness
   - [ ] Unoptimized GPU version
   - [ ] Optimized GPU version
   - [ ] CPU->GPU Transformation script

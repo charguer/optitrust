@@ -38,11 +38,6 @@ template <typename T> void memcpy_device_to_host2(T* dest, T* src, int N1, int N
   cudaMemcpy((void*)dest, (const void*)src, N1 * N2 * sizeof(T), cudaMemcpyDeviceToHost); // TODO handle error
 }
 
-int __smem_compute_size(int N) {
-  return sizeof(float) * N; // TODO: convert to a template as well when it is fixed in optitrust_gpu.h
-}
-
-
 // TODO: stupid hack for now so that nvcc doesnt complain about these being actual functions
 #define MINDEX0() (0)
 #define MINDEX1(N1, i1) ((i1))

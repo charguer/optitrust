@@ -19,7 +19,7 @@ let _ = Run.script_cpp (fun () ->
   !! Matrix.local_name_tile ~uninit_post:true ~var:"a" ~local_var:"d_a" [cFor "i"];
   !! Matrix.local_name_tile ~uninit_post:true ~var:"b" ~local_var:"d_b" [cFor "i"];
   !! Matrix.memcpy [nbMulti; cFor "i1"];
-  Resources.ensure_computed ();
+  !! Resources.ensure_computed ();
 
   (* Stage 1: make kernel launch *)
   let n = trm_find_var "N" [] in

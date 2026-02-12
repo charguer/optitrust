@@ -196,17 +196,6 @@ template <typename T> void memcpy_device_to_host2(T* dest, T* src, int N1, int N
 
 // Shared memory
 
-// TODO: have to use this because calling the real sizeof function in C
-// gives weird errors about "Variable #... could not be found in environment"
-// TODO: doesn't seem to work with a template either??
-int __smem_compute_size(int N) {
-  __pure();
-  __ensures("_Res = sizeof(float) * N");
-  __admitted();
-  return 1; // fake return value
-}
-//#define SMEM_COMPUTE_SIZE(T, N) __call_with(__smem_compute_size<T>(N), "T := "#T)
-
 template <typename T> T __smem_get(T* p) {
   __requires("v: T, t: int");
   __preserves("ThreadsCtx(t ..+ MSIZE0())");
@@ -225,8 +214,7 @@ template <typename T> void __smem_set(T* p, T v) {
 }
 
 template <typename T> T* __smem_malloc1(int N1) {
-  __requires("tpb: int, bpg: int, smem_sz: int, smem_sz_base: int, smem_sz_rem: int");
-  __requires("smem_sz_base = sizeof(T)*(N1)");
+  __requires("tpb: int, bpg: int, smem_sz: int, smem_sz_rem: int");
   __preserves("KernelSetupCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
   // TODO: matrix sugar for this?
@@ -236,7 +224,7 @@ template <typename T> T* __smem_malloc1(int N1) {
   // makes it easiest because the sync() at the kernel teardown is going to
   // synchronize the whole thing, meaning everything is Groups.. but is it correct?
   __produces("Free(_Res, for i in 0..bpg -> for j1 in 0..N1 -> &_Res[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem))");
-  __consumes("SMemAllowance(smem_sz_base + smem_sz_rem)");
+  __consumes("SMemAllowance(sizeof(T)*N1 + smem_sz_rem)");
   __produces("SMemAllowance(smem_sz_rem)");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
@@ -245,15 +233,15 @@ template <typename T> T* __smem_malloc1(int N1) {
 #define SMEM_MALLOC1(T, N1) __call_with(__smem_malloc1<T>(N1), "T := "#T)
 
 template <typename T> T* __smem_malloc2(int N1, int N2) {
-  __requires("tpb: int, bpg: int, smem_sz: int, smem_sz_base: int, smem_sz_rem: int");
-  __requires("smem_sz_base = sizeof(T)*(N1*N2)");
+  __requires("tpb: int, bpg: int, smem_sz: int, smem_sz_rem: int");
+  //__requires("smem_sz_base = sizeof(T)*(N1*N2)");
   __preserves("KernelSetupCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
   __produces("desync_for i in ..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &_Res[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem)");
 
   // TODO: same issue as above
   __produces("Free(_Res, for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &_Res[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem))");
-  __consumes("SMemAllowance(smem_sz_base + smem_sz_rem)");
+  __consumes("SMemAllowance(sizeof(T)*(N1*N2) + smem_sz_rem)");
   __produces("SMemAllowance(smem_sz_rem)");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
@@ -264,27 +252,25 @@ template <typename T> T* __smem_malloc2(int N1, int N2) {
 // TODO: should be able to get away with just one smem_free, but since the Free token
 // doesn't store size, we can't.
 template <typename T> void __smem_free1(T* p, int N1) {
-  __requires("tpb: int, bpg: int, smem_sz: int, smem_sz_base: int, smem_sz_rem: int");
-  __requires("smem_sz_base = sizeof(T)*(N1)");
+  __requires("tpb: int, bpg: int, smem_sz: int, smem_sz_rem: int");
   __preserves("KernelTeardownCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
   __consumes("for i in 0..bpg -> for j1 in 0..N1 -> &p[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem)");
   __consumes("Free(p, for i in 0..bpg -> for j1 in 0..N1 -> &p[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem))");
   __consumes("SMemAllowance(smem_sz_rem)");
-  __produces("SMemAllowance(smem_sz_base + smem_sz_rem)");
+  __produces("SMemAllowance(sizeof(T)*(N1) + smem_sz_rem)");
   __ensures("__spec_override_noret()");
   __admitted();
 }
 
 template <typename T> void __smem_free2(T* p, int N1, int N2) {
-  __requires("tpb: int, bpg: int, smem_sz: int, smem_sz_base: int, smem_sz_rem: int");
-  __requires("smem_sz_base = sizeof(T)*(N1*N2)");
+  __requires("tpb: int, bpg: int, smem_sz: int, smem_sz_rem: int");
   __preserves("KernelTeardownCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
   __consumes("for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &p[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem)");
   __consumes("Free(p, for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &p[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem))");
   __consumes("SMemAllowance(smem_sz_rem)");
-  __produces("SMemAllowance(smem_sz_base + smem_sz_rem)");
+  __produces("SMemAllowance(sizeof(T)*(N1*N2) + smem_sz_rem)");
   __ensures("__spec_override_noret()");
   __admitted();
 }
