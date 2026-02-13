@@ -141,6 +141,9 @@ let ignore_serialized = ref false
 (* TODO: Remove and use style in ast_to_c instead of global flag *)
 let cuda_codegen = ref false
 
+(** [clang_use_libstdcxx]: Use libstdc++ as the C++ standard library for compilation with clangml, instead of the libc++ provided by LLVM. Default to libc++. *)
+let clang_use_libstdcxx = ref false
+
 (** Possible [execution_mode] of the script *)
 
 type execution_mode =
@@ -305,6 +308,7 @@ let spec : cmdline_args =
      ("-use-clang-format", Arg.Set use_clang_format, " enable beautification using clang-format (currently ignored by ./tester)");
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
      ("-clang-format-nb-columns", Arg.Set_int clang_format_nb_columns, " specify the number of columns for clang-format");
+     ("-clang-use-libstdcxx", Arg.Set clang_use_libstdcxx, " use libstdc++ instead of libc++ when compiling with clangml");
      ("-cparser", Arg.Set_string c_parser_name, "specify a C parser among 'default', 'clang', 'menhir', and 'all' ");
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
@@ -357,6 +361,7 @@ let reset_flags_to_default () : unit =
   recompute_resources_between_steps := false;
   save_steps := None;
   save_ast_for_steps := None;
+  clang_use_libstdcxx := false;
   execution_mode := Execution_mode_exec
 
 let with_flag (flag: 'a ref) (value: 'a) (func: unit -> 'b): 'b =

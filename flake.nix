@@ -57,7 +57,7 @@
 
         shellHook = ''
           export PATH="$LLVM_HOME/bin:$PATH"
-          export LD_LIBRARY_PATH="$LLVM_HOME/lib:${pkgs.gcc.cc.lib}/lib:$LD_LIBRARY_PATH"
+          export LD_LIBRARY_PATH="$LLVM_HOME/lib:$LD_LIBRARY_PATH"
           export CPATH="$LLVM_HOME/include:$CPATH"
 
           # Initialize isolated opam root (project local)

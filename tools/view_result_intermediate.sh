@@ -32,6 +32,10 @@ if [ "${VIEW}" = "view_diff" ]; then
     source optitrust_flags.sh
   fi
 
+  if [ "$USE_LIBSTDCXX" = "1" ]; then
+    OPTIONS="${OPTIONS} -clang-use-libstdcxx"
+  fi
+
   # Generate "${FILEBASE}_fast.ml" as a version of the script with lines
   # that were saved in "${FILEBASE}_inter.ml" replaced with blank lines.
 
