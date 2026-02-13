@@ -114,7 +114,7 @@ template <typename T> T* __alloc_sig_generic();
 
 template <typename T> T __gmem_get(T* p) {
   __requires("v: T, t: int");
-  __preserves("ThreadsCtx(t ..+ MSIZE0())");
+  __reads("ThreadsCtx(t ..+ MSIZE0())");
   __reads("p ~~>[GMem] v");
   __ensures("__spec_override_ret(T, v)");
   __admitted();
@@ -198,7 +198,7 @@ template <typename T> void memcpy_device_to_host2(T* dest, T* src, int N1, int N
 
 template <typename T> T __smem_get(T* p) {
   __requires("v: T, t: int");
-  __preserves("ThreadsCtx(t ..+ MSIZE0())");
+  __reads("ThreadsCtx(t ..+ MSIZE0())");
   __reads("p ~~>[SMem] v");
   __ensures("__spec_override_ret(T, v)");
   __admitted();

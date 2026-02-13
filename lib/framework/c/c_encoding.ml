@@ -812,10 +812,16 @@ let encode_ghost_annot (style: style) (t: trm) : trm =
     in
     let ghost_bind_to_trm_string ghost_bind =
       let bound_var_name var = match var with
-        | Some var -> var_name var
-        | None -> "_"
+        | Some var when not (is_anon_var var) -> Some (var_name var)
+        | None -> Some "_"
+        | _ -> None
       in
-      trm_string (String.concat ", " (List.map (fun (bound_var, contract_var) -> sprintf "%s <- %s" (bound_var_name bound_var) (var_name contract_var)) ghost_bind))
+      (* TODO: ugly hack to prevent the printer from printing ghost bind expressions for variables without identifiers
+        because it breaks re-parsing *)
+      trm_string (String.concat ", " (List.filter_map (fun (bound_var, contract_var) ->
+        match (bound_var_name bound_var, is_anon_var contract_var) with
+        | Some bound_var, false -> Some (sprintf "%s <- %s" bound_var (var_name contract_var))
+        | _ -> None) ghost_bind))
     in
     let ghost_args_and_bind_to_opt_args ghost_args ghost_bind =
       if ghost_bind = [] then

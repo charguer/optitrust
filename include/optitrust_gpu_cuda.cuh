@@ -6,6 +6,8 @@
 #include "optitrust_common.h"
 #include <cuda_runtime.h>
 
+#define exact_div(n,b) ((n)/(b))
+
 template <typename T> T* __gmem_malloc1(int N1) {
   T* p;
   cudaMalloc((void**)&p, N1 * sizeof(T)); // TODO handle error

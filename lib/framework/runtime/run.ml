@@ -263,3 +263,21 @@ let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline
     in
 
     script ?filename ~capture_show_in_batch ~extension:".cpp" ~check_exit_at_end ?prefix f)
+
+
+let stg_name (stg: int): string =
+  let program_basename = get_program_basename () in
+  Filename.basename program_basename ^ "_stg" ^ (string_of_int stg) ^ ".cpp"
+
+let num_stage = ref 0
+let script_cpp_stage (stage_ok: int -> bool) (f: unit -> unit): unit =
+  incr num_stage;
+  if (stage_ok !num_stage) then begin
+    let in_filename = if (!num_stage = 1) then None else Some (stg_name (!num_stage - 1)) in
+    let program_basename = get_program_basename () in
+    let basepath = Filename.dirname program_basename in
+    let src_filename = Filename.basename program_basename ^ "_out.cpp" in
+    let dest_filename = stg_name !num_stage in
+    script_cpp ?filename:in_filename f;
+    ignore (Sys.command (Printf.sprintf "cp %s %s" (basepath ^ "/" ^ src_filename) (basepath ^ "/" ^ dest_filename)))
+  end else ()

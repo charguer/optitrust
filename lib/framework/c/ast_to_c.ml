@@ -1421,6 +1421,13 @@ and formula_to_doc style (f: formula): document =
     Pattern.(trm_lit (eq (Lit_int (typ_frac, 1)))) (fun () ->
       Pattern.when_ (not style.pretty_fraction_notation);
       string "__full");
+    (* TODO: handle printing with "." for floats *)
+    Pattern.(formula_is_true (trm_binop Binop_eq !__ !__)) (fun t1 t2 () ->
+      lparen ^^ lparen ^^ (trm_to_doc style t1) ^^ rparen ^^ string "=" ^^ lparen ^^ (trm_to_doc style t2) ^^ rparen ^^ rparen
+    );
+    Pattern.(formula_is_true !__) (fun t () ->
+      lparen ^^ (trm_to_doc style t) ^^ rparen
+    );
     Pattern.__ (fun () -> trm_to_doc style {f with annot = {f.annot with trm_annot_cstyle = []}})
   ]
 

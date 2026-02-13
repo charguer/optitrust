@@ -215,13 +215,13 @@ inline size_t MSIZE5(int N1, int N2, int N3, int N4, int N5) {
 
 /* ---- Arithmetic Functions ---- */
 
+#ifndef OPTITRUST_CUDA_RUNTIME
 inline int exact_div(int n, int b) {
   __pure();
   __admitted();
   return n / b;
 }
 
-#ifndef OPTITRUST_CUDA_RUNTIME
 inline int min(int a, int b) {
   __pure();
   __admitted();
