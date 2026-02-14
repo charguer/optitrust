@@ -170,10 +170,11 @@ let%transfo convert_thread_for_tail_nest ?(stop_tg: target option) ?(insert_barr
   (* take 4 targets, one for each transition point. If they don't all belong to the same sequence,
   the transfo will complain. Since they belong to the same sequence, we know we can lift those instrs out into their own
   sequence, to make the printers job easier. Or we could just make the printer's job easier by detecting the start within sequences.*)
-(* tg is the body of the kernel; TODO should targets that are sequences of instructions *)
 (* TODO: take another target, which is the launching function, for modifying the contract to include hostctx and __requires for the kernel retiling. *)
-let%transfo create_kernel_launch ?(grid_override: trm list option) (tpbs: trm list) (bpgs: trm list) (smem_szs: trm list) (tg: target): unit =
-  let aux (t: trm): trm =
+(* TODO: cleaner to take a tuple of tpbs bpgs etc.? or a dedicated kernel launch type? less arguments *)
+let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: target option) ?(teardown_begin: target option) (bpgs: trm list) (tpbs: trm list) (smem_szs: trm list)
+  (start: target) (stop: target): unit =
+  (fun () -> (fun next_m ->
     let tpb = Matrix_trm.msize tpbs in
     let bpg = Matrix_trm.msize bpgs in
     let smem_sz = trm_int 0 in (* TODO *)
@@ -181,30 +182,31 @@ let%transfo create_kernel_launch ?(grid_override: trm list option) (tpbs: trm li
     | Some grid_override -> Matrix_trm.msize grid_override
     | _ -> Matrix_trm.msize (bpgs @ tpbs) in
 
-    let launch = trm_apps (trm_var var_kernel_launch) [tpb;bpg;smem_sz] in
+    let launch_mark = next_m () in
+    let kill_mark = next_m () in
+
+    let launch = trm_add_mark (launch_mark) (trm_apps (trm_var var_kernel_launch) [bpg;tpb;smem_sz]) in
     let setup = trm_apps (trm_var var_kernel_setup_end) [] ~ghost_args:[(new_var "grid_sz", grid)] in
     let setup = match grid_override with
       | Some _ -> setup
       | _ ->
-        let assume_retile = Resource_trm.assume (trm_eq ~typ:typ_int (trm_mul_int bpg tpb) grid) in
+        let assume_retile = Resource_trm.assume (Resource_formula.formula_is_true (trm_eq ~typ:typ_int (trm_mul_int bpg tpb) grid)) in
         Nobrace.trm_seq (Mlist.of_list [
           assume_retile;
           setup
         ]) in
 
     let teardown = trm_apps (trm_var var_kernel_teardown_begin) [] ~ghost_args:[(new_var "grid_sz", grid)] in
-    let kill = trm_apps (trm_var var_kernel_kill) [] in
+    let kill = trm_add_mark kill_mark (trm_apps (trm_var var_kernel_kill) []) in
 
-    trm_seq (Mlist.of_list [
-      launch;
-      setup;
-      t;
-      teardown;
-      kill;
-    ]) in
-  Target.apply_at_target_paths (fun t ->
-    Nobrace.remove_after_trm_op aux t
-  ) tg
+    (* TODO: sanitize and tell the user each target should only have one occurence *)
+    Sequence_basic.insert ~reparse:false launch start;
+    Sequence_basic.insert ~reparse:false setup (Option.unsome_or_else setup_end (fun () -> [tAfter; cMark launch_mark]));
+    Sequence_basic.insert ~reparse:false kill stop;
+    Sequence_basic.insert ~reparse:false teardown (Option.unsome_or_else teardown_begin (fun () -> [tBefore; cMark kill_mark]));
+
+    Sequence.intro_between [tBefore; cMark launch_mark] [tAfter; cMark kill_mark]
+  ) |> Marks.with_marks) |> Nobrace_transfo.remove_after
 
 let var_gmem = toplevel_var "GMem"
 let var__gmem_get = toplevel_var "__gmem_get"
