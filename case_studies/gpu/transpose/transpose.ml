@@ -9,7 +9,7 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
 let _ = Flags.cuda_codegen := false
 let _ = Flags.pretty_matrix_notation := false
 
-let stage_ok = fun i -> true
+let stage_ok = fun i -> i = 3
 
 let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   let tile (loop_id, tile_size) = Loop.tile (trm_int tile_size)
@@ -36,7 +36,7 @@ let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   let tile_size = (trm_int 32) in
   let tpb = [(trm_int 16);tile_size] in
   let bpg = [trm_exact_div_int h tile_size;trm_exact_div_int w tile_size] in
-  !! Gpu_basic.create_kernel_launch bpg tpb []
+  !! Gpu.create_kernel_launch bpg tpb []
     ~setup_end:[tBefore; cFor "by"] ~teardown_begin:[tAfter; cFor "by"]
     [occFirst; tBefore; cFor "bx"] [occLast; tAfter; cFor "bx"];
   !! Resources.ensure_computed ();

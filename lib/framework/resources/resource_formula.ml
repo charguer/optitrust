@@ -339,14 +339,6 @@ let formula_sync_inv (t: trm): (trm * formula) option =
   | Some ({ desc = Trm_var v }, [mem_fn; res]) when var_eq v var_sync -> Some (mem_fn, res)
   | _ -> None
 
-(* TODO: does not belong in Resource_formula *)
-
-let var_magic_barrier = toplevel_var "magic_barrier"
-
-let trm_magic_barrier = trm_var var_magic_barrier
-
-let var_is_mem_any = toplevel_var "is_mem_any"
-
 (*let var_into_uninit = toplevel_var "_Uninit"
 let trm_into_uninit = trm_var var_into_uninit
 let formula_into_uninit (inner_formula: formula): formula =
@@ -589,6 +581,13 @@ let formula_desyncgroup_range (range: loop_range) : formula -> formula =
     let fi = trm_subst_var range.index (trm_var range_var) fi in
     formula_desyncgroup range_var range.stop fi
   )
+
+let rec formula_has_desyncgroups (f: formula): bool =
+  Pattern.pattern_match f [
+    Pattern.(formula_desyncgroup __ __ __) (fun () -> true);
+    Pattern.(formula_group __ __ !__) (fun body () -> formula_has_desyncgroups body);
+    Pattern.(__) (fun () -> false)
+  ]
 
 let formula_matrix_inv (f: formula): (trm * trm list * (trm option) * mem_typ) option =
   let open Option.Monad in

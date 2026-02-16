@@ -7,10 +7,10 @@ void test(int *a, int M, int N) {
 
   for (int i = 0; i < M; i++) {
     __xwrites("for t in 0..N -> &a[MINDEX2(M,N,i,t)] ~~> i + t");
-    __magic_threadfor; for (int t = 0; t < N; t++) {
+    for (int t = 0; t < N; t++) {
       __xwrites("&a[MINDEX2(M,N,i,t)] ~~> i + t");
       a[MINDEX2(M,N,i,t)] = i + t;
     }
-    magic_barrier();
+//    magic_barrier();
   }
 }

@@ -72,6 +72,9 @@ void kernel_kill() {
 
 /* --- Synchronization ---- */
 
+inline void magic_barrier() {}
+__AXIOM(any_is_all_mem_ok, "all_mem_ok(Any)");
+
 __DECL(block_sync_mem, "MemType -> Prop");
 __AXIOM(gmem_block_sync_mem, "block_sync_mem(GMem)");
 __AXIOM(smem_block_sync_mem, "block_sync_mem(SMem)");
@@ -94,18 +97,6 @@ __GHOST(kernel_teardown_sync) {
   __produces("Sync(block_sync_mem, H)");
   __admitted();
 }
-
-/*__DECL(is_mem_any, "MemType -> Prop");*/
-__AXIOM(any_is_mem_any, "is_mem_any(Any)");
-
-void magicsync() {
-  __requires("H: HProp");
-  __consumes("H");
-  __produces("Sync(is_mem_any, H)");
-  __admitted();
-}
-
-inline void magic_barrier() {}
 
 /* --- Memory management ---- */
 

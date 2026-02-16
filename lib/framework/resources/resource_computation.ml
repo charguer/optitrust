@@ -1229,8 +1229,9 @@ let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): uni
 
 (* [sync_simplification res]: eagerly simplify any Sync(fM, H) permissions in [res],
   turning DesyncGroups to Groups. Simplification gets stuck if a term of the form
-    p ~~>[M] v is encountered in H and M does not satisfy the memory type predicate fM. *)
-let sync_simplification (res: resource_set): resource_set =
+    p ~~>[M] v is encountered in H and M does not satisfy the memory type predicate fM.
+  If [magic] is true, fM is not checked (works on any kind of Cell). *)
+let sync_simplification ?(magic = false) (res: resource_set): resource_set =
   let find_mem_fn_proof (mem_fn: trm) (mem: trm) =
     let proof_type = (trm_apps mem_fn [mem]) in
     List.find_opt (fun (_,r) -> Trm_unify.are_same_trm proof_type r) res.pure in
@@ -1240,6 +1241,7 @@ let sync_simplification (res: resource_set): resource_set =
     Pattern.(formula_desyncgroup !__ !__ !__) (fun idx bound sub () ->
       formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (simplify mem_fn sub));
     Pattern.(formula_points_to !__ !__ !__) (fun var model mem_typ () ->
+      if magic then t else
       match (find_mem_fn_proof mem_fn mem_typ) with
       | Some _ -> t
       | None -> formula_sync mem_fn t
@@ -1664,7 +1666,7 @@ let rec compute_resources
 
     | Trm_apps (fn, effective_args, ghost_args, ghost_bind) ->
       (* Retrieve a function specification in a given context *)
-      let usage_map, res_after = (begin try
+      begin try
         let** fn_var, res_after_fn, fn_post, fn_usage_map = compute_subexpr_resources res fn in
         let fn_ctx = Option.unsome fn.ctx.ctx_resources_after in
         let spec = Resource_set.find_result_fun_spec fn_ctx in
@@ -1742,8 +1744,9 @@ let rec compute_resources
           usage_map, { res with pure = List.rev rev_pure_res; aliases; fun_specs }
         in
         let usage_map, res_after = elim_pure_vars arg_ensured_vars usage_map res_after in
+        (* TODO: a solution for Sync(...) as a precondition; this only works when it is a postcondition *)
+        let res_after = sync_simplification res_after in
         Some usage_map, Some res_after
-
       with
       | Spec_not_found fn when var_eq fn Trm.var_sizeof ->
         begin match effective_args with
@@ -1894,25 +1897,22 @@ let rec compute_resources
         (* FIXME: Admitted should only be allowed as a flag on contracts.
           This is dangerous for transformations that can take admitted as a normal instruction in a sequence *)
         None, None
-      | Spec_not_found fn when var_eq fn var_magic_barrier ->
+      | Spec_not_found fn when var_eq fn Barrier_trm.magic_barrier_var ->
         (* TODO: does this need to add the pure facts to usage map? *)
         let usage_map = ref Var_map.empty in
-        let res = { res with linear = List.map (fun (v,h) -> match (formula_desyncgroup_inv h) with
-        | Some _ ->
-            let v' = new_anon_hyp () in
-            let usage = if is_formula_uninit h then ConsumedUninit else ConsumedFull in
-            usage_map := add_usage v usage !usage_map;
-            usage_map := add_usage v' Produced !usage_map;
-            v', formula_sync (trm_var var_is_mem_any) h   (* should this even use formula_sync or just call sync_simplification directly? *)
-        | _ -> v,h) res.linear} in
+        let res = { res with linear = List.map (fun (v,h) -> if (formula_has_desyncgroups h) then (
+          let v' = new_anon_hyp () in
+          let usage = if is_formula_uninit h then ConsumedUninit else ConsumedFull in
+          usage_map := add_usage v usage !usage_map;
+          usage_map := add_usage v' Produced !usage_map;
+          (* TODO: should not need this or the magic option;
+          should just be able to pass a trivial Prop that the
+          typechecker can prove. But I can't find such a thing.. *)
+          v', formula_sync (trm_var Barrier_trm.all_mem_ok_var) h)
+        else (v,h)) res.linear} in
+        let res = sync_simplification ~magic:true res in
         Some !usage_map, Some res
-      end) in
-      (match (usage_map, res_after) with
-      | usage_map, Some res_after ->
-        (* TODO: a solution for Sync(...) as a precondition; this only works when it is a postcondition *)
-        let res_after = sync_simplification res_after in
-        usage_map, Some res_after
-      | _ -> usage_map, res_after)
+      end
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
     | Trm_for (range, mode, body, contract) ->
       let contract_ctx = pure_env res in
@@ -2179,9 +2179,9 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_trm.var_arbitrary, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_var typ));
   Resource_trm.var_admit, (let prop = new_var "P" in typ_pure_fun [prop, typ_prop] (typ_var prop));
   Resource_trm.var_admitted, typ_auto;
-  Resource_formula.var_is_mem_any, typ_pure_simple_fun [typ_mem_type] typ_prop;
   var_ignore, typ_auto;
   mem_typ_any_var, typ_mem_type;
+  Barrier_trm.all_mem_ok_var, typ_pure_simple_fun [typ_mem_type] typ_prop;
 ] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_msize_specs) ()
 
 (** Compute resources inside [t] in place.

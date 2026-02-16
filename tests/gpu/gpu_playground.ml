@@ -11,10 +11,13 @@ let _ = Run.script_cpp (fun _ ->
   (* !! Gpu_basic.convert_thread_for_tail_nest ["i"] [cTopFunDef "basic"; cFor "j"];*)
   !! Resources.make_strict_loop_contracts [];
   !! Resources.ensure_computed ();
+  (*!! Gpu.seq_for_to_magicthread_for [cFor "t"];
   !! (
     Flags.check_validity := true;
     Loop.fission [tBefore; cCall "magic_barrier"];
     Flags.check_validity := false;
   );
+  !! Barriers.remove_loop_around_barrier [cCall "magic_barrier"];*)
+  !! Gpu.convert_tail_thread_for [] [cFor "t"];
   !! Resources.ensure_computed ();
 )
