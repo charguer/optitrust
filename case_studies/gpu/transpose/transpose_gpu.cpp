@@ -53,7 +53,7 @@ void transpose(float *a, float *b, int W, int H) {
 
   __ghost(swap_groups, "items := b0_inside0");
   __ghost(tile_divides, "items := fun y -> for x in 0..W -> b0_inside0(x, y), div_check := H_tile");
-  __ghost(group_to_desyncgroup, "items := fun by -> for ty in 0..32 -> for x in 0..W -> (b0_inside1(by))(ty, x)");
+  //__ghost(group_to_desyncgroup, "items := fun by -> for ty in 0..32 -> for x in 0..W -> (b0_inside1(by))(ty, x)");
 
 /*          reorder        tile                    dg outside
   | t=MX1(0,sz) sz=MSZ4(w/32, h/32, 16, 32)
@@ -75,7 +75,7 @@ void transpose(float *a, float *b, int W, int H) {
 
     __ghost(swap_groups, "items := b0_inside1(by)");
     __ghost(tile_divides, "items := fun x -> for ty in 0..32 -> (b0_inside1(by))(ty, x), div_check := W_tile");
-    __ghost(group_to_desyncgroup, "items := fun bx -> for tx in 0..32 -> for ty in 0..32 -> (b0_inside2(by,bx))(tx,ty)");
+    //__ghost(group_to_desyncgroup, "items := fun bx -> for tx in 0..32 -> for ty in 0..32 -> (b0_inside2(by,bx))(tx,ty)");
 
     __threadfor; for (int bx = 0; bx < W/32; bx++) {
       __xconsumes("for tx in 0..32 -> for ty in 0..32 -> (b0_inside2(by,bx))(tx,ty)");
@@ -88,7 +88,7 @@ void transpose(float *a, float *b, int W, int H) {
 
       // Note: tx ty swap takes place here
       __ghost(tile_divides, "items := fun ty -> for tx in 0..32 -> (b0_inside2(by,bx))(ty, tx), div_check := tile32");
-      __ghost(group_to_desyncgroup, "items := fun ty -> for j in 0..2 -> for tx in 0..32 -> (b0_inside3(by,bx,ty))(j,tx)");
+      //__ghost(group_to_desyncgroup, "items := fun ty -> for j in 0..2 -> for tx in 0..32 -> (b0_inside3(by,bx,ty))(j,tx)");
 
 
       __DEF(tile_inside0, "fun (y x: int) -> &tile[MINDEX2(32, 32, y, x)] ~> UninitCellOf(SMem)");
@@ -98,14 +98,14 @@ void transpose(float *a, float *b, int W, int H) {
       __DEF(tile_inside4, "fun (y xo xi: int) -> &tile[MINDEX2(32, 32, y, xo*2+xi)] ~~>[SMem] A(by * 32 + y, bx * 32 + (xo*2+xi))");
 
       __ghost(tile_divides, "items := fun y -> for x in 0..32 -> tile_inside0(y, x), div_check := tile32");
-      __ghost(group_to_desyncgroup, "items := fun yo -> for yi in 0..2 -> for x in 0..32 -> tile_inside1(yo, yi, x)");
+      //__ghost(group_to_desyncgroup, "items := fun yo -> for yi in 0..2 -> for x in 0..32 -> tile_inside1(yo, yi, x)");
 
       __threadfor; for (int ty = 0; ty < 16; ty++) {
         __xconsumes("for yi in 0..2 -> for x in 0..32 -> tile_inside1(ty, yi, x)");
         __xproduces("desync_for x in ..32 -> for yi in 0..2 -> tile_inside2(ty, yi, x)");
 
         __ghost(swap_groups, "items := fun (yi x: int) -> tile_inside1(ty, yi, x)");
-        __ghost(group_to_desyncgroup, "items := fun x -> for j in 0..2 -> (tile_inside1(ty,j,x))");
+        //__ghost(group_to_desyncgroup, "items := fun x -> for j in 0..2 -> (tile_inside1(ty,j,x))");
 
         __threadfor; for (int tx = 0; tx < 32; tx++) {
           __xconsumes("for yi in 0..2 -> tile_inside1(ty, yi, tx)");
@@ -149,7 +149,7 @@ void transpose(float *a, float *b, int W, int H) {
       }
 
       __ghost(swap_groups, "items := fun (y xo: int) -> for xi in 0..2 -> tile_inside4(y,xo,xi)");
-      __ghost(group_to_desyncgroup, "items := fun ty -> for tx in 0..32 -> for j in 0..2 -> tile_inside4(tx,ty,j)");
+      //__ghost(group_to_desyncgroup, "items := fun ty -> for tx in 0..32 -> for j in 0..2 -> tile_inside4(tx,ty,j)");
 
       __threadfor; for (int ty = 0; ty < 16; ty++) {
           __xconsumes("for tx in 0..32 -> for j in 0..2 -> tile_inside4(tx,ty,j)");
@@ -158,8 +158,8 @@ void transpose(float *a, float *b, int W, int H) {
           __xproduces("desync_for tx in ..32 -> for j in 0..2 -> (bf_inside3(by,bx,ty))(j,tx)");
 
           __ghost(swap_groups, "items := b0_inside3(by,bx,ty)");
-          __ghost(group_to_desyncgroup, "items := fun tx -> for j in 0..2 -> (b0_inside3(by,bx,ty))(j,tx)");
-          __ghost(group_to_desyncgroup, "items := fun tx -> for j in 0..2 -> (tile_inside4(tx,ty,j))");
+          //__ghost(group_to_desyncgroup, "items := fun tx -> for j in 0..2 -> (b0_inside3(by,bx,ty))(j,tx)");
+          //__ghost(group_to_desyncgroup, "items := fun tx -> for j in 0..2 -> (tile_inside4(tx,ty,j))");
 
           __threadfor; for (int tx = 0; tx < 32; tx++) {
             __xpreserves("for j in 0..2 -> tile_inside4(tx,ty,j)");

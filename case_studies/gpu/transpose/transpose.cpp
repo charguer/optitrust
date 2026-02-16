@@ -1,3 +1,4 @@
+#include "optitrust_models.h"
 #include "optitrust_gpu.h"
 
 void transpose(float *a, float *b, int W, int H) {

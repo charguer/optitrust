@@ -270,14 +270,16 @@ let stg_name (stg: int): string =
   Filename.basename program_basename ^ "_stg" ^ (string_of_int stg) ^ ".cpp"
 
 let num_stage = ref 0
-let script_cpp_stage (stage_ok: int -> bool) (f: unit -> unit): unit =
-  incr num_stage;
-  if (stage_ok !num_stage) then begin
-    let in_filename = if (!num_stage = 1) then None else Some (stg_name (!num_stage - 1)) in
+let script_cpp_stage ?(override_stage) (stage_ok: int -> bool) (f: unit -> unit): unit =
+  let stage = match override_stage with
+  | Some override_stage -> override_stage
+  | _ -> incr num_stage; !num_stage in
+  if (stage_ok stage) then begin
+    let in_filename = if (stage <= 1) then None else Some (stg_name (stage - 1)) in
     let program_basename = get_program_basename () in
     let basepath = Filename.dirname program_basename in
     let src_filename = Filename.basename program_basename ^ "_out.cpp" in
-    let dest_filename = stg_name !num_stage in
+    let dest_filename = stg_name stage in
     script_cpp ?filename:in_filename f;
     ignore (Sys.command (Printf.sprintf "cp %s %s" (basepath ^ "/" ^ src_filename) (basepath ^ "/" ^ dest_filename)))
   end else ()

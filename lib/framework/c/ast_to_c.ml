@@ -651,6 +651,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       let dt = decorate_trm style full_loop in
       let dmode = match mode with
       | GpuThread -> string "thread"
+      | MagicThread -> string "magic thread"
       | _ -> empty in
       (* prepend mode to loop; prints correct because annotations are cleared in full_loop *)
       (* TODO : Prepending the mode like this, e.g. `thread for` would not parse in C++.

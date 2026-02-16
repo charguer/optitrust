@@ -217,6 +217,7 @@ and print_trm_desc style (t : trm_desc) : document =
     | Sequential -> string "seq"
     | Parallel -> string "par"
     | GpuThread -> string "thread"
+    | MagicThread -> string "magic_thread"
     in
     let dstart = print_trm style range.start in
     let dstop = print_trm style range.stop in

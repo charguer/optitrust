@@ -282,7 +282,7 @@ let compute_thread_for_ctx_ranges (range: loop_range) (res: resource_set): threa
 let [@warning "-11"] get_loop_contract_generators res loop_mode range contract: (unit -> fun_contract) * (unit -> fun_contract) =
   (match loop_mode with
   | Sequential -> ()
-  | Parallel | GpuThread ->
+  | Parallel | GpuThread | MagicThread ->
     if (not (Resource_set.is_empty contract.invariant)) then
       failwith "Loop with mode %s cannot have sequential invariant (non parallelizable contract)" (show_loop_mode loop_mode)
     else ()
@@ -299,7 +299,10 @@ let [@warning "-11"] get_loop_contract_generators res loop_mode range contract: 
         let res = Resource_set.desyncgroup_range range res in
         { res with linear = tctx :: res.linear }
       )
-    | _ ->  Resource_set.group_range in
+    | _ ->
+      (match loop_mode with
+      | MagicThread -> Resource_set.desyncgroup_range
+      | _ -> Resource_set.group_range) in
 
   let contract_outside_loop () =
     let invariant_before = Resource_set.subst_loop_range_start range contract.invariant in

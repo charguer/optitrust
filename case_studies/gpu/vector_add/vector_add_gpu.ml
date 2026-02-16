@@ -23,8 +23,8 @@ let _ = Run.script_cpp (fun () ->
 
   (* Stage 1: make kernel launch *)
   let n = trm_find_var "N" [] in
-  let tpb = trm_trunc_div_int n (trm_int 256) in
-  let bpg = trm_int 256 in
+  let tpb = trm_int 256 in
+  let bpg = trm_trunc_div_int n (trm_int 256) in
   !! Gpu_basic.create_kernel_launch ~grid_override:[n] [bpg] [tpb] [] [tBefore; cFor "i"] [tAfter; cFor "i"];
   !! Resources.ensure_computed ();
 

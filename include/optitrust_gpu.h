@@ -4,6 +4,7 @@
 #include <optitrust_models.h>
 
 extern const int __threadfor;
+extern const int __magic_threadfor;
 #define __device extern void __device__()
 extern const int __device_call;
 
@@ -94,7 +95,7 @@ __GHOST(kernel_teardown_sync) {
   __admitted();
 }
 
-__DECL(is_mem_any, "MemType -> Prop");
+/*__DECL(is_mem_any, "MemType -> Prop");*/
 __AXIOM(any_is_mem_any, "is_mem_any(Any)");
 
 void magicsync() {
@@ -103,6 +104,8 @@ void magicsync() {
   __produces("Sync(is_mem_any, H)");
   __admitted();
 }
+
+inline void magic_barrier() {}
 
 /* --- Memory management ---- */
 

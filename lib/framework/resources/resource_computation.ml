@@ -489,14 +489,26 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
     (* Used by {!subtract_linear_resource_item} in the case where [formula] is not a read-only resource. *)
     (* LATER: Improve the structure of the linear_resource_set to make this
       function faster on most frequent cases *)
+    let is_desyncgroup = Option.is_some (formula_desyncgroup_inv formula) in
     extract (fun (candidate_name, formula_candidate) ->
       try
+        (* DesyncGroup coercion *)
+        (* TODO: does this need to change the formula instantiation? "Formula_inst.inst_forget_group?"
+          how would it combine with Uninit? *)
+        let formula_candidate = if is_desyncgroup then Pattern.pattern_match formula_candidate [
+          Pattern.(formula_group !__ (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) !__)
+          (fun idx dim inner_formula () ->
+            formula_desyncgroup idx dim inner_formula
+          );
+          Pattern.__ (fun () -> formula_candidate)
+        ]
+        else formula_candidate in
         let inst_by, formula_to_unify =
           (* Check for possible Uninit coercion if formula_candidate is not already uninit *)
           if uninit && not (is_formula_uninit formula_candidate) then
             Formula_inst.inst_forget_init candidate_name, formula_uninit formula_candidate
-          else Formula_inst.inst_hyp candidate_name, formula_candidate
-        in
+          else
+            Formula_inst.inst_hyp candidate_name, formula_candidate in
         let* evar_ctx = trm_unify formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
         Some (
           { hyp = x; inst_by; used_formula = formula_to_unify },
@@ -1652,7 +1664,7 @@ let rec compute_resources
 
     | Trm_apps (fn, effective_args, ghost_args, ghost_bind) ->
       (* Retrieve a function specification in a given context *)
-      begin try
+      let usage_map, res_after = (begin try
         let** fn_var, res_after_fn, fn_post, fn_usage_map = compute_subexpr_resources res fn in
         let fn_ctx = Option.unsome fn.ctx.ctx_resources_after in
         let spec = Resource_set.find_result_fun_spec fn_ctx in
@@ -1730,8 +1742,6 @@ let rec compute_resources
           usage_map, { res with pure = List.rev rev_pure_res; aliases; fun_specs }
         in
         let usage_map, res_after = elim_pure_vars arg_ensured_vars usage_map res_after in
-        (* TODO: a solution for Sync(...) as a precondition; this only works when it is a postcondition *)
-        let res_after = sync_simplification res_after in
         Some usage_map, Some res_after
 
       with
@@ -1884,8 +1894,25 @@ let rec compute_resources
         (* FIXME: Admitted should only be allowed as a flag on contracts.
           This is dangerous for transformations that can take admitted as a normal instruction in a sequence *)
         None, None
-      end
-
+      | Spec_not_found fn when var_eq fn var_magic_barrier ->
+        (* TODO: does this need to add the pure facts to usage map? *)
+        let usage_map = ref Var_map.empty in
+        let res = { res with linear = List.map (fun (v,h) -> match (formula_desyncgroup_inv h) with
+        | Some _ ->
+            let v' = new_anon_hyp () in
+            let usage = if is_formula_uninit h then ConsumedUninit else ConsumedFull in
+            usage_map := add_usage v usage !usage_map;
+            usage_map := add_usage v' Produced !usage_map;
+            v', formula_sync (trm_var var_is_mem_any) h   (* should this even use formula_sync or just call sync_simplification directly? *)
+        | _ -> v,h) res.linear} in
+        Some !usage_map, Some res
+      end) in
+      (match (usage_map, res_after) with
+      | usage_map, Some res_after ->
+        (* TODO: a solution for Sync(...) as a precondition; this only works when it is a postcondition *)
+        let res_after = sync_simplification res_after in
+        usage_map, Some res_after
+      | _ -> usage_map, res_after)
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
     | Trm_for (range, mode, body, contract) ->
       let contract_ctx = pure_env res in
@@ -2152,6 +2179,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_trm.var_arbitrary, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_var typ));
   Resource_trm.var_admit, (let prop = new_var "P" in typ_pure_fun [prop, typ_prop] (typ_var prop));
   Resource_trm.var_admitted, typ_auto;
+  Resource_formula.var_is_mem_any, typ_pure_simple_fun [typ_mem_type] typ_prop;
   var_ignore, typ_auto;
   mem_typ_any_var, typ_mem_type;
 ] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_msize_specs) ()
