@@ -650,8 +650,9 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       let full_loop = (unpack_trm_for : ?loc:trm_loc -> loop_range -> trm -> trm) ?loc:t.loc l_range body in
       let dt = decorate_trm style full_loop in
       let dmode = match mode with
-      | GpuThread -> string "thread"
-      | MagicThread -> string "magic thread"
+      (* TODO: put these back to the more readable variant ("thread for") depending on a flag *)
+      | GpuThread -> string "__threadfor; "
+      | MagicThread -> string "__magic_threadfor;"
       | _ -> empty in
       (* prepend mode to loop; prints correct because annotations are cleared in full_loop *)
       (* TODO : Prepending the mode like this, e.g. `thread for` would not parse in C++.

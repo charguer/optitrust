@@ -864,7 +864,7 @@ let encode_ghost_annot (style: style) (t: trm) : trm =
         Pattern.(trm_apps1 !(trm_specific_var Resource_trm.var_clear) (trm_var !__)) (fun f v () ->
           trm_like ~old:t (trm_apps f [trm_string (var_name v)])
         );
-        Pattern.__ (fun () -> trm_map aux t)
+        Pattern.__ (fun () -> aux t)
       ]) seq in
       let nobrace_id = Nobrace.exit () in
       let seq = Nobrace.flatten_seq nobrace_id seq in

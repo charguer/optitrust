@@ -572,16 +572,14 @@ let formula_group_range (range: loop_range) : formula -> formula =
 let formula_desyncgroup_range (range: loop_range) : formula -> formula =
   (* FIXME: Need to generalize models ! *)
   (* TODO: under read only, should convert to group or desyncgroup?
-    Added for now because some transfos put xreads to avoid having to focus in-depth.
     In theory group seems correct because if each thread exclusively owns a non-full fraction,
-    they cannot make changes that the other threads wouldn't be able to see. *)
-  fun fi -> (
+    they cannot make changes that the other threads wouldn't be able to see.
+    However, it is easier to say any thread-exclusive permission may be modified -> desyncgroup is required.
+    In any case you can just use __sreads instead. *)
+  formula_map_under_read_only (fun fi ->
     let range_var = new_var ~namespaces:range.index.namespaces range.index.name in
     let fi = trm_subst_var range.index (trm_var range_var) fi in
-    match formula_read_only_inv fi with
-    | Some { frac; formula } ->
-      formula_read_only ~frac (formula_group range_var (formula_loop_range range) formula)
-    | None -> formula_desyncgroup range_var range.stop fi
+    formula_desyncgroup range_var range.stop fi
   )
 
 let rec formula_has_desyncgroups (f: formula): bool =

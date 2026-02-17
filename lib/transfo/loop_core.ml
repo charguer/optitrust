@@ -525,6 +525,6 @@ let rename_index_on (new_index : string) (t: trm) : trm =
   trm_for ~mode ~annot:t.annot ~contract:new_contract { range with index = new_index } new_body
 
 let change_loop_mode_on (mode: loop_mode) (t: trm) : trm =
-  let error = "Loop_core.change_loop_mode_on: expected a targetto a simple for loop" in
+  let error = "Loop_core.change_loop_mode_on: expected a target to a simple for loop" in
   let range, _, body, contract = trm_inv ~error trm_for_inv t in
   (trm_like ~old:t (trm_for ~contract ~mode:mode range body))

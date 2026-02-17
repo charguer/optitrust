@@ -1,15 +1,14 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true
-let _ = Flags.pretty_matrix_notation := true
+let _ = Flags.check_validity := false
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
 let _ = Flags.cuda_codegen := false
 let _ = Flags.pretty_matrix_notation := false
 
-let stage_ok = fun i -> i = 3
+let stage_ok = fun i -> i = 4
 
 let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   let tile (loop_id, tile_size) = Loop.tile (trm_int tile_size)
@@ -40,12 +39,14 @@ let _ = Run.script_cpp_stage (stage_ok) (fun () ->
     ~setup_end:[tBefore; cFor "by"] ~teardown_begin:[tAfter; cFor "by"]
     [occFirst; tBefore; cFor "bx"] [occLast; tAfter; cFor "bx"];
   !! Resources.ensure_computed ();
-
   (* Phase 2 *)
   !! Gpu.convert_tail_thread_for [1;0;1;1] [occLast; cFor "x"; cFor "y"];
   !! Gpu.convert_tail_thread_for [1;0] [occFirst; cFor "y"; cFor "x"];
 )
 
+let _ = Run.script_cpp_stage (stage_ok) (fun () ->
+  !! Gpu.convert_magic_thread_fors [nbAny; cFor "by"; cFor "" ];
+)
 (*let _ = Run.script_cpp_stage ~override_stage:100 (stage_ok) (fun () ->
   !! Resources.ensure_computed();
 )*)
