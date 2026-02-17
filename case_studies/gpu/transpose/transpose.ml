@@ -40,6 +40,10 @@ let _ = Run.script_cpp_stage (stage_ok) (fun () ->
     ~setup_end:[tBefore; cFor "by"] ~teardown_begin:[tAfter; cFor "by"]
     [occFirst; tBefore; cFor "bx"] [occLast; tAfter; cFor "bx"];
   !! Resources.ensure_computed ();
+
+  (* Phase 2 *)
+  !! Gpu.convert_tail_thread_for [1;0;1;1] [occLast; cFor "x"; cFor "y"];
+  !! Gpu.convert_tail_thread_for [1;0] [occFirst; cFor "y"; cFor "x"];
 )
 
 (*let _ = Run.script_cpp_stage ~override_stage:100 (stage_ok) (fun () ->

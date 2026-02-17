@@ -464,6 +464,18 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   : used_resource_item * linear_resource_set * unification_ctx =
   let open Option.Monad in
 
+  (* DesyncGroup coercion *)
+  (* TODO: does this need to change the formula instantiation? "Formula_inst.inst_forget_group?"
+    how would it combine with Uninit? *)
+  let desyncgroup_coerce formula_candidate =
+    Pattern.pattern_match formula_candidate [
+      Pattern.(formula_group !__ (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) !__)
+      (fun idx dim inner_formula () ->
+        formula_desyncgroup idx dim inner_formula
+      );
+      Pattern.__ (fun () -> formula_candidate)
+    ] in
+
   let rec extract
     (f : resource_item -> (used_resource_item * resource_item option * unification_ctx) option)
     (res: linear_resource_set)
@@ -492,17 +504,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
     let is_desyncgroup = Option.is_some (formula_desyncgroup_inv formula) in
     extract (fun (candidate_name, formula_candidate) ->
       try
-        (* DesyncGroup coercion *)
-        (* TODO: does this need to change the formula instantiation? "Formula_inst.inst_forget_group?"
-          how would it combine with Uninit? *)
-        let formula_candidate = if is_desyncgroup then Pattern.pattern_match formula_candidate [
-          Pattern.(formula_group !__ (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) !__)
-          (fun idx dim inner_formula () ->
-            formula_desyncgroup idx dim inner_formula
-          );
-          Pattern.__ (fun () -> formula_candidate)
-        ]
-        else formula_candidate in
+        let formula_candidate = if is_desyncgroup then (desyncgroup_coerce formula_candidate) else formula_candidate in
         let inst_by, formula_to_unify =
           (* Check for possible Uninit coercion if formula_candidate is not already uninit *)
           if uninit && not (is_formula_uninit formula_candidate) then

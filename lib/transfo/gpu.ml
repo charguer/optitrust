@@ -159,31 +159,35 @@ let%transfo convert_thread_for_tail_nest ?(stop_tg: target option) ?(insert_barr
 *)
 
 let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
-  let rec aux loops_incl_leaf leaf_p: unit =
+  let check_validity = !Flags.check_validity in
+  let fission_helper tg =
+    Flags.check_validity := true;
+    Loop.fission tg;
+    Flags.check_validity := check_validity; in
+  let rec aux barrier_mark loops_incl_leaf leaf_p: unit =
     let convert,loops = match loops_incl_leaf with
     | 0 :: tl -> false, tl
     | 1 :: tl -> true, tl
     | _ -> failwith "Gpu.convert_tail_thread_for: loops should contain only 0 or 1" in
-    Marks.with_marks (fun next_m ->
-      let barrier_mark = next_m () in
-      let leaf_t = (target_of_path leaf_p) in
-      if convert then
-        seq_for_to_magicthread_for ~barrier_mark leaf_t
-      else
-        (* TODO: should probably not assume seq for already has a barrier afterwards
-        but we would always push it out, in theory *)
-        Marks.add barrier_mark (tAfter :: leaf_t);
-      (* push_work_before [cMark barrier_mark] ... *)
-      Flags.check_validity := true;
-      Loop.fission [tBefore; cMark barrier_mark];
-      Flags.check_validity := false;
-      (* TODO: fission the other side *)
-      Barriers.remove_loop_around_barrier [cMark barrier_mark];
-    );
+    let leaf_t = (target_of_path leaf_p) in
+    if convert then
+      seq_for_to_magicthread_for ~barrier_mark leaf_t;
+    (* assume the barrier mark is already there.. *)
+    (* push_work_before [cMark barrier_mark] ... *)
     match loops with
     | [] -> ()
     | _ ->
+      fission_helper [tBefore; cMark barrier_mark];
+      (try
+        Barriers.remove_loop_around_barrier [cMark barrier_mark];
+      with
+      | e ->
+        fission_helper [tAfter; cMark barrier_mark];
+        Barriers.remove_loop_around_barrier [cMark barrier_mark];
+      );
       let _, next_leaf_p = Path.index_in_surrounding_loop leaf_p in
-      aux loops next_leaf_p
+      aux barrier_mark loops next_leaf_p
     in
-  Target.iter (aux (1 :: loops)) leaf
+  Marks.with_marks (fun next_m ->
+    Target.iter (aux (next_m ()) (1 :: loops)) leaf;
+  )
