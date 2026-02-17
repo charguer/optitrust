@@ -46,6 +46,7 @@ let _ = Run.script_cpp_stage (stage_ok) (fun () ->
 
 let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   !! Gpu.convert_magic_thread_fors [nbAny; cFor "by"; cFor "" ];
+  !! Gpu.convert_to_shared_mem 2 [cVarDef "tile"];
 )
 (*let _ = Run.script_cpp_stage ~override_stage:100 (stage_ok) (fun () ->
   !! Resources.ensure_computed();

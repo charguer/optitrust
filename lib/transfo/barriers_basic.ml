@@ -15,3 +15,13 @@ let remove_loop_around_barrier (tg: target): unit =
       failwith "Barriers_basic.remove_loop_around_barrier: expected single instruction inside loop";
     Target.apply_at_path (fun loop -> barrier) loop_p;
     ()) tg
+
+
+(* TODO: support more than kernel teardown sync *)
+
+(* let%transfo convert_magic_sync (tg: target): unit =
+  Target.apply_at_target_paths (fun t ->
+    match t.desc with
+    | Trm_apps ({desc = Trm_var var_magic_sync}, tl, ga, gb) ->
+      trm_add_attribute GhostInstr (trm_alter ~desc:(Trm_apps (trm_var ghost_var_kernel_teardown_sync, tl, ga, gb)) t)
+    | _ -> failwith "Gpu_basic.convert_magic_sync: expected target to point to a magic sync instruction.") tg *)

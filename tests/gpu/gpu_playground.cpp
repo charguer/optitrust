@@ -5,6 +5,7 @@ void test(int *a, int M, int N) {
   //__preserves("ThreadsCtx( MINDEX1(0,0) ..+ MSIZE1(N) )");
   __writes("a ~> Matrix2(M, N, fun (i j: int) -> i + j)");
 
+
   for (int i = 0; i < M; i++) {
     __xwrites("for t in 0..N -> &a[MINDEX2(M,N,i,t)] ~~> i + t");
     for (int t = 0; t < N; t++) {
@@ -13,4 +14,7 @@ void test(int *a, int M, int N) {
     }
 //    magic_barrier();
   }
+
+  int * const b = MALLOC4(int, 3,4,5,6);
+  free(b);
 }

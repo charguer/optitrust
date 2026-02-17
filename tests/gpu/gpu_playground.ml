@@ -20,5 +20,6 @@ let _ = Run.script_cpp (fun _ ->
   !! Barriers.remove_loop_around_barrier [cCall "magic_barrier"];*)
   !! Gpu.convert_tail_thread_for [] [cFor "t"];
   !! Resources.ensure_computed ();
+  !! Gpu.convert_to_shared_mem 3 [cVarDef "b"];
   (*!! Sequence_basic.intro_on_instr [cCall "assume"];*)
 )
