@@ -102,7 +102,8 @@ let lower_smem_alloc (t: trm): trm option =
   ]
 
 (* TODO because I don't have a better place for it: currently DMINDEX can be ignored in this printer because it's defined as
-return 0 and inlined in the optitrust_common. But we should actually erase it instead of relying on nvcc. *)
+return 0 and inlined in the optitrust_common. But we should actually erase it instead of relying on nvcc.
+If we replace all DMINDEXes with 0 here also, the arith simplifier can reduce the MINDEXes further. *)
 let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): trm =
   (* trm_find_var could be useful to get the type *)
   let rec scan_bound_vars t = (
@@ -163,6 +164,7 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
           let tl = (Mlist.push_front (make_kernel_header ctx_size tid) tl) in
           trm_alter ~desc:(Trm_seq (tl, result)) t
         | _ -> failwith "expected seq" in
+      (* TODO: run arith_simplify on body here ? *)
 
       let launch_args = List.map (fun arg -> trm_add_cstyle CudaKernelBracketArg arg) launch_args in
       let kernel_args = Var_set.inter (trm_free_vars body) bound_vars in

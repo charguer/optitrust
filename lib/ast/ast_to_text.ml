@@ -476,6 +476,7 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Type -> string "Type"
  | InjectedClassName -> string "InjectedClassName"
  | BodyHiddenForLightDiff -> string "BodyHiddenForLightDiff"
+ | BarrierSequence -> string "BarrierSequence"
  | CudaKernelBracketArg -> string "CudaKernelBracketArg"
  | CudaShared -> string "CudaShared"
  | CudaGlobal -> string "CudaGlobal"

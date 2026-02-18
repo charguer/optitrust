@@ -12,6 +12,7 @@ __DECL(GMem, "MemType");
 __DECL(SMem, "MemType");
 __DECL(KernelParams, "int * int * int -> HProp");
 __DECL(SMemAllowance, "int -> HProp");
+__DECL(SMemToken, "int -> HProp");
 __DECL(KernelSetupCtx, "HProp");
 __DECL(KernelTeardownCtx, "HProp");
 
@@ -70,10 +71,22 @@ void kernel_kill() {
   __admitted();
 }
 
+__GHOST(take_smem_token) {
+  __requires("tok_sz: int, smem_sz_rem: int");
+  __consumes("SMemAllowance(tok_sz + smem_sz_rem)");
+  __produces("SMemAllowance(smem_sz_rem)");
+  __produces("SMemToken(tok_sz)");
+  __admitted();
+}
+
+__GHOST(give_smem_token) {
+  __reverts(take_smem_token);
+  __admitted();
+}
+
 /* --- Synchronization ---- */
 
 inline void magic_barrier() {}
-__AXIOM(any_is_all_mem_ok, "all_mem_ok(Any)");
 
 __DECL(block_sync_mem, "MemType -> Prop");
 __AXIOM(gmem_block_sync_mem, "block_sync_mem(GMem)");
@@ -208,7 +221,7 @@ template <typename T> void __smem_set(T* p, T v) {
 }
 
 template <typename T> T* __smem_malloc1(int N1) {
-  __requires("tpb: int, bpg: int, smem_sz: int, smem_sz_rem: int");
+  __requires("tpb: int, bpg: int, smem_sz: int");
   __preserves("KernelSetupCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
   // TODO: matrix sugar for this?
@@ -218,8 +231,7 @@ template <typename T> T* __smem_malloc1(int N1) {
   // makes it easiest because the sync() at the kernel teardown is going to
   // synchronize the whole thing, meaning everything is Groups.. but is it correct?
   __produces("Free(_Res, for i in 0..bpg -> for j1 in 0..N1 -> &_Res[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem))");
-  __consumes("SMemAllowance(sizeof(T)*N1 + smem_sz_rem)");
-  __produces("SMemAllowance(smem_sz_rem)");
+  __consumes("SMemToken(sizeof(T)*N1)");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
   return __alloc_sig_generic<T>();
@@ -235,8 +247,7 @@ template <typename T> T* __smem_malloc2(int N1, int N2) {
 
   // TODO: same issue as above
   __produces("Free(_Res, for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &_Res[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem))");
-  __consumes("SMemAllowance(sizeof(T)*(N1*N2) + smem_sz_rem)");
-  __produces("SMemAllowance(smem_sz_rem)");
+  __consumes("SMemToken(sizeof(T)*(N1*N2))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
   return __alloc_sig_generic<T>();
@@ -246,25 +257,23 @@ template <typename T> T* __smem_malloc2(int N1, int N2) {
 // TODO: should be able to get away with just one smem_free, but since the Free token
 // doesn't store size, we can't.
 template <typename T> void __smem_free1(T* p, int N1) {
-  __requires("tpb: int, bpg: int, smem_sz: int, smem_sz_rem: int");
+  __requires("tpb: int, bpg: int, smem_sz: int");
   __preserves("KernelTeardownCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
   __consumes("for i in 0..bpg -> for j1 in 0..N1 -> &p[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem)");
   __consumes("Free(p, for i in 0..bpg -> for j1 in 0..N1 -> &p[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem))");
-  __consumes("SMemAllowance(smem_sz_rem)");
-  __produces("SMemAllowance(sizeof(T)*(N1) + smem_sz_rem)");
+  __produces("SMemToken(sizeof(T)*N1)");
   __ensures("__spec_override_noret()");
   __admitted();
 }
 
 template <typename T> void __smem_free2(T* p, int N1, int N2) {
-  __requires("tpb: int, bpg: int, smem_sz: int, smem_sz_rem: int");
+  __requires("tpb: int, bpg: int, smem_sz: int");
   __preserves("KernelTeardownCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
   __consumes("for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &p[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem)");
   __consumes("Free(p, for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &p[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem))");
-  __consumes("SMemAllowance(smem_sz_rem)");
-  __produces("SMemAllowance(sizeof(T)*(N1*N2) + smem_sz_rem)");
+  __produces("SMemToken(sizeof(T)*(N1*N2))");
   __ensures("__spec_override_noret()");
   __admitted();
 }
