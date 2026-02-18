@@ -15,6 +15,21 @@ let all_mem_ok_var = toplevel_var "all_mem_ok"
 let barrier_seq (barrier_fn: trm -> trm) (hs: trms): trm =
   trm_add_cstyle BarrierSequence (trm_seq (Mlist.of_list (List.map barrier_fn hs)))
 
+let barrier_seq_inv (t: trm): trm option =
+  if (not (trm_has_cstyle BarrierSequence t)) then None
+  else match (trm_seq_inv t) with
+  | Some (instrs, _) ->
+    let instrs = Mlist.to_list instrs in
+    let open Option.Monad in
+    let* hd = List.nth_opt instrs 0 in
+    let* (barrier_fn, _) = trm_apps_inv hd in
+    let* barrier_fn_v = trm_var_inv barrier_fn in
+    if (List.for_all (fun instr -> match (trm_apps_inv instr) with
+      | Some ({desc = Trm_var v}, []) when (var_eq v barrier_fn_v) ->
+        true
+      | _ -> false) instrs) then Some barrier_fn else None
+  | _ -> None
+
 let magic_barrier_to_seq (barrier_fn: trm -> trm) (resource_filter: trm -> bool) (t: trm): trm =
   let before = Option.unsome t.ctx.ctx_resources_before in
   let usage = Option.unsome t.ctx.ctx_resources_usage in

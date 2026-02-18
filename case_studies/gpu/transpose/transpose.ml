@@ -5,10 +5,9 @@ let _ = Flags.check_validity := true
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
-let _ = Flags.cuda_codegen := false
 let _ = Flags.pretty_matrix_notation := false
 
-let stage_ok = fun i -> i = 4
+let stage_ok = fun i -> i >= 4
 
 let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   !! Matrix.local_name_tile ~uninit_post:true ~var:"a" ~local_var:"d_a" [cFor "x"];
@@ -59,4 +58,22 @@ let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   !! Instr.move ~dest:[tAfter; cMark kernel_mark] [cCall "kernel_teardown_begin"];
   !! Gpu.magic_barrier_to_blocksync [cMark kernel_mark] [cFor "bx"; cCall "magic_barrier"];
   !! Gpu.magic_barrier_to_teardown_sync [cCall "magic_barrier"];
+)
+
+let _ = Run.script_cpp_stage (stage_ok) (fun () ->
+  (* TODO: preserve marks between stages *)
+  !! Marks.add "kernel_sequence" [cSeq ~instrs_pred:(Target.target_list_one_st [cCall "kernel_launch"]) ()];
+  (* TODO: not sure why this is necessary, some transfo appears to be adding things to the
+    top of the sequence *)
+  Flags.recompute_resources_between_steps := false;
+  !! (
+    Flags.check_validity := false;
+    Instr.move ~dest:[tFirst; cMark "kernel_sequence"] [cCall "kernel_launch"];
+    Flags.check_validity := true;
+  );
+  !! (
+    Flags.check_validity := false;
+    Target.apply_at_target_paths (Cuda_lowering.lower_to_cuda) [];
+    Flags.check_validity := true;
+  ) (* Trace.generate_cuda ();*)
 )

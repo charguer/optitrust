@@ -1910,6 +1910,7 @@ let rec compute_resources
           (* TODO: should not need this or the magic option;
           should just be able to pass a trivial Prop that the
           typechecker can prove. But I can't find such a thing.. *)
+          (* trm_dummy ?? *)
           v', formula_sync (trm_var Barrier_trm.all_mem_ok_var) h)
         else (v,h)) res.linear} in
         let res = sync_simplification ~magic:true res in

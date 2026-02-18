@@ -877,7 +877,7 @@ let remove_ghost_annot (t : trm) : trm =
   Nobrace.remove_after_trm_op (Resource_trm.delete_annots_on ~delete_contracts:false ~delete_ghost:true) t
 
 let encode_or_remove_ghost_annot (style: style) (t: trm) : trm =
-  if (style.typing.typing_ghost && not !Flags.cuda_codegen)
+  if (style.typing.typing_ghost)
     then encode_ghost_annot style t
     else remove_ghost_annot t
 
@@ -1197,7 +1197,7 @@ let computed_resources_intro (style: style) (t: trm): trm =
   aux t
 
 let rec encode_contract (style: style) (t: trm): trm =
-  if !Flags.cuda_codegen || not style.typing.typing_contracts || trm_has_cstyle BodyHiddenForLightDiff t then t else
+  if not style.typing.typing_contracts || trm_has_cstyle BodyHiddenForLightDiff t then t else
 
   (* debug_current_stage "encode_contract"; *)
   let push_named_formulas (contract_prim: var) ?(used_vars: Var_set.t option) (named_formulas: resource_item list) (t: trm): trm =
@@ -1465,6 +1465,8 @@ let rec decode_gpu_sugar (t: trm) : trm =
           (trm_like ~old:instr (trm_for ~contract ~mode:MagicThread range body)) :: tl
         | (Trm_var v,Trm_apps _) when (var_has_name "__device_call" v) ->
           (trm_add_cstyle CudaDevice instr) :: tl
+        | (Trm_var v,Trm_seq _) when (var_has_name "__barrier_sequence" v) ->
+          (trm_add_cstyle BarrierSequence instr) :: tl
         | (Trm_predecl (v,_),Trm_let (tv,t)) when (var_has_name "__device__" v) ->
           let t = match (trm_fun_inv t) with
           | Some _ -> (trm_add_cstyle CudaDevice t)
@@ -1504,7 +1506,7 @@ let encode_to_c (style : style) : trm -> trm =
   t |>
   Scope_computation.infer_var_ids |>
   (* TODO: add a "encode_gpu" thing here in the else case, where we want to do some simple sugaring of constructs like __GMEM_GET so the user doesn't have as much noise in the trace.*)
-  (if !Flags.cuda_codegen then (Cuda_lowering.lower_to_cuda) else (fun x -> x)) |>
+  (*(if style.cstyle.lower_to_cuda then (Cuda_lowering.lower_to_cuda) else (fun x -> x)) |>*)
   encode_alloc style |>
   encode_formula_sugar |>
   encode_expr_in_seq |>

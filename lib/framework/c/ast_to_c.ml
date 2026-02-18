@@ -46,6 +46,7 @@ type style = {
   pretty_fraction_notation: bool; (* print 1-1/2 instead of __frac_sub(__full,__frac_div(__full, 2)) *)
   commented_pragma: bool; (* comment out pragram lines, for better tabulation by clang-format *)
   hide_seq: bool; (* hide the content of sequences with {...},  used to avoid weird matches with stringrepr *)
+  lower_to_cuda: bool;
   (* TODO : c_dialect: dialect; *)
 }
 
@@ -64,6 +65,7 @@ let default_style () : style = {
   pretty_fraction_notation = true;
   commented_pragma = !Flags.use_clang_format;
   hide_seq = false;
+  lower_to_cuda = false;
 }
 
 (** Style for target stringrepr (sExpr or sInstr) *)
@@ -81,6 +83,7 @@ let style_for_stringrepr : style = {
   pretty_fraction_notation = true;
   commented_pragma = false;
   hide_seq = true;
+  lower_to_cuda = false;
 }
 
 (** Style for reparsing *)
@@ -98,6 +101,7 @@ let style_for_reparse : style = {
   pretty_fraction_notation = false;
   commented_pragma = false;
   hide_seq = false;
+  lower_to_cuda = false;
 }
 
 (** Style for debugging var ids *)
@@ -115,6 +119,7 @@ let style_for_varids : style = {
   pretty_fraction_notation = true;
   commented_pragma = false;
   hide_seq = false;
+  lower_to_cuda = false;
 }
 
 (** Style for debugging types *)
@@ -132,6 +137,24 @@ let style_for_types : style = {
   pretty_fraction_notation = true;
   commented_pragma = false;
   hide_seq = false;
+  lower_to_cuda = false;
+}
+
+let style_for_cuda : style = {
+  print_contract_internal_repr = true;
+  print_var_id = false;
+  print_string_repr = false;
+  print_mark = false;
+  print_annot = false;
+  print_errors = false;
+  print_types = false;
+  optitrust_syntax = false;
+  c_alloc = false;
+  pretty_matrix_notation = false;
+  pretty_fraction_notation = false;
+  commented_pragma = false;
+  hide_seq = false;
+  lower_to_cuda = true;
 }
 
 (*----------------------------------------------------------------------------------*)
@@ -592,7 +615,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
         end
       end
     | Trm_seq (tl, result) ->
-      if (!Flags.cuda_codegen || not !Flags.display_includes) && (trm_is_include t) then
+      if (style.lower_to_cuda || not !Flags.display_includes) && (trm_is_include t) then
         empty
       else
         let dl = Mlist.flatten_marks (decorate_trm style ~semicolon:true)
@@ -609,7 +632,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
             if style.hide_seq then
               string "{...}"
             else if trm_is_mainfile t then
-              let header = if !Flags.cuda_codegen then string "\n#include <optitrust_gpu_cuda.cuh>\n" else empty in
+              let header = if style.lower_to_cuda then string "\n#include <optitrust_gpu_cuda.cuh>\n" else empty in
               let header =
                 if style.pretty_matrix_notation
                   then header ^^ (string "// NOTE: using pretty matrix notation") ^^ hardline
@@ -627,6 +650,8 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
               in
               surround 2 1 lsep dinstrs rsep
           in
+          (* TODO: re-encode instead of printing *)
+          let dattr = if (trm_has_cstyle BarrierSequence t) then string "__barrier_sequence; " ^^ dattr else dattr in
           dattr ^^ res
     | Trm_apps (f, tl, _, _) ->
       dattr ^^ apps_to_doc style ~annot:t.annot ~print_struct_init_type ~prec f tl ^^ dsemi
@@ -651,6 +676,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       let dt = decorate_trm style full_loop in
       let dmode = match mode with
       (* TODO: put these back to the more readable variant ("thread for") depending on a flag *)
+      (* TODO 2: when they are not in the readable mode, they should just be re-encoded in c_encoding rather than printed here*)
       | GpuThread -> string "__threadfor; "
       | MagicThread -> string "__magic_threadfor;"
       | _ -> empty in

@@ -7,6 +7,7 @@ extern const int __threadfor;
 extern const int __magic_threadfor;
 #define __device extern void __device__()
 extern const int __device_call;
+extern const int __barrier_sequence;
 
 __DECL(GMem, "MemType");
 __DECL(SMem, "MemType");

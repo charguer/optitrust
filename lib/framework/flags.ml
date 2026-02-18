@@ -138,9 +138,6 @@ let use_resources_with_models = ref false
 (** [ignore_serialized] disables the read of serialized AST saved after parsing *)
 let ignore_serialized = ref false
 
-(* TODO: Remove and use style in ast_to_c instead of global flag *)
-let cuda_codegen = ref false
-
 (** [clang_use_libstdcxx]: Use libstdc++ as the C++ standard library for compilation with clangml, instead of the libc++ provided by LLVM. Default to libc++. *)
 let clang_use_libstdcxx = ref false
 

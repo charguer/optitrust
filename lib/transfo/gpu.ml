@@ -11,6 +11,7 @@ include Gpu_basic
 (* TODO: cleaner to take a tuple of tpbs bpgs etc.? or a dedicated kernel launch type? less arguments *)
 (* TODO: could consider using "hint marks" from the smem lift transfo to place setup and end properly  *)
 (* TODO: belongs in gpu_basic ? *)
+(* TODO: customizable mark for the kernel sequence *)
 let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: target option) ?(teardown_begin: target option) (bpgs: trm list) (tpbs: trm list) (smem_szs: trm list)
   (start: target) (stop: target): unit =
   (fun () -> (fun next_m ->
@@ -50,15 +51,12 @@ let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: 
     Sequence_basic.insert ~reparse:false kill stop;
     Sequence_basic.insert ~reparse:false teardown (Option.unsome_or_else teardown_begin (fun () -> [tBefore; cMark kill_mark]));
 
-    Sequence.intro_between [tBefore; cMark launch_mark] [tAfter; cMark kill_mark]
+    Sequence.intro_between ~mark:"kernel_sequence" [tBefore; cMark launch_mark] [tAfter; cMark kill_mark]
   ) |> Marks.with_marks) |> Nobrace_transfo.remove_after
 
 let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
-  let check_validity = !Flags.check_validity in
   let fission_helper tg =
-    Flags.check_validity := true;
-    Loop.fission tg;
-    Flags.check_validity := check_validity; in
+    Flags.with_flag Flags.check_validity true (fun () -> Loop.fission tg) in
   let rec aux barrier_mark loops_incl_leaf leaf_p: unit =
     let convert,loops = match loops_incl_leaf with
     | 0 :: tl -> false, tl
@@ -90,8 +88,7 @@ let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
   )
 
 let%transfo convert_magic_thread_fors (tg: target) =
-  let f = !Flags.recompute_resources_between_steps in
-  Flags.recompute_resources_between_steps := false;
+  Flags.with_flag Flags.recompute_resources_between_steps false (fun () ->
   Target.apply_at_target_paths (fun t ->
     let error = "Gpu.convert_magic_thread_fors: expected a target to a simple for loop" in
     let range, mode, body, contract = trm_inv ~error trm_for_inv t in
@@ -101,8 +98,7 @@ let%transfo convert_magic_thread_fors (tg: target) =
       trm_alter t ~desc:(Trm_for (range, mode, body, { contract with strict = false}))
   ) tg;
   Resources.ensure_computed ();
-  Resources.make_strict_loop_contracts tg;
-  Flags.recompute_resources_between_steps := f
+  Resources.make_strict_loop_contracts tg)
 
 let%transfo convert_to_global_mem (tg: target): unit =
   Gpu_basic.convert_memory Gpu_basic.gmem_spec tg
@@ -114,15 +110,11 @@ let%transfo convert_to_shared_mem (chop_dims: int) (kernel_body: target) (tg: ta
 let%transfo magic_barrier_to_blocksync (kernel_body: target) (tg: target): unit =
   (* TODO: blocksync breaks the __strict() loop contracts, because it asks
     for a fraction of the kernel_params. Ideally, we would not need to have the target to the kernel_body. *)
-  Target.apply_at_target_paths (fun t ->
-    let range, mode, body, contract = trm_inv trm_for_inv t in
-    trm_alter t ~desc:(Trm_for (range, mode, body, { contract with strict = false}))
-    )
-  ([nbAny] @ kernel_body @ [cFor ""]);
-  Target.iter (fun p ->
-    Resources.ensure_computed_at p;
-    Target.apply_at_path (Barrier_trm.magic_barrier_to_seq block_sync is_smem_or_gmem) p)
-  tg
+  Resources.with_non_strict_loop_contracts ([nbAny] @ kernel_body @ [cFor ""]) (fun () ->
+    Target.iter (fun p ->
+      Resources.ensure_computed_at p;
+      Target.apply_at_path (Barrier_trm.magic_barrier_to_seq block_sync is_smem_or_gmem) p) tg
+  )
 
 let%transfo magic_barrier_to_teardown_sync (tg: target): unit =
   Target.iter (fun p ->

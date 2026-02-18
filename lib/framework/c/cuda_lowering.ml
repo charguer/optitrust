@@ -3,6 +3,8 @@ open Trm
 open Typ
 open Contextualized_error
 
+(* TODO: MOVE TO GPU_BASIC *)
+
 let trm__syncthreads () = trm_var (new_var "__syncthreads")
 let trm__syncwarp () = trm_var (new_var "__syncwarp")
 
@@ -11,14 +13,12 @@ let var__tid () = new_var "__tid"
 
 
 
-let make_kernel_header (ctx_size: var) (tid: var): trm =
+let make_kernel_header (bpg: trm) (tpb: trm) (ctx_size: var) (tid: var): trm =
   let var_threadIdx = trm_var (new_var "threadIdx") in
-  let var_blockDim = trm_var (new_var "blockDim") in
   let var_blockIdx = trm_var (new_var "blockIdx") in
-  let var_gridDim = trm_var (new_var "gridDim") in
   let access_x v = trm_struct_get ~struct_typ:typ_auto v "x" in
-  let ctx_sz_decl = (trm_let (ctx_size,typ_int) (trm_mul_int (access_x var_gridDim) (access_x var_blockDim))) in
-  let tid_decl = (trm_let (tid,typ_int) (trm_add_int (trm_mul_int (access_x var_blockIdx) (access_x var_blockDim)) (access_x var_threadIdx))) in
+  let ctx_sz_decl = (trm_let (ctx_size,typ_int) (trm_mul_int bpg tpb)) in
+  let tid_decl = (trm_let (tid,typ_int) (trm_add_int (trm_mul_int (access_x var_blockIdx) tpb) (access_x var_threadIdx))) in
   (Nobrace.trm_seq (Mlist.of_list [ctx_sz_decl;tid_decl]))
 
 let flatten_thread_loops (ctx_size: var) (tid: var) (t: trm): trm =
@@ -77,19 +77,26 @@ let rec generalize_mem_ops (t: trm): trm = Pattern.pattern_match t [
   Pattern.__ (fun () -> trm_map generalize_mem_ops t)
 ]
 
-let rec lower_syncs (t: trm): trm = Pattern.pattern_match t [
-    Pattern.(trm_apps0 (trm_var_with_name "blocksync")) (fun () -> trm_apps (trm__syncthreads ()) []);
-    Pattern.(trm_apps0 (trm_var_with_name "magicsync")) (fun () -> failwith "Magic barriers not allowd in GPU code!");
+let rec lower_syncs (t: trm): trm = Pattern.pattern_match (Option.value (Barrier_trm.barrier_seq_inv t) ~default:t) [
+  (* this generates invalid code when barrier_seq_inv doesn't match, but it should probably be a better error *)
+    Pattern.(trm_var_with_name "blocksync") (fun () -> trm_apps (trm__syncthreads ()) []);
+    Pattern.(trm_apps0 (trm_var_with_name "magic_barrier")) (fun () -> failwith "Magic barriers not allowed in GPU code!");
     Pattern.__ (fun () -> trm_map lower_syncs t)
   ]
+
+let rec remove_dmindexs (t: trm): trm = match (Matrix_trm.dmindex_inv t) with
+  | Some (_,_) -> trm_int 0
+  | _ -> trm_map remove_dmindexs t
 
 (* TODO: doesn't perform extensive wellformedness checks; only checks that no host-side get, set, etc. are used
 But since the host-side functions are not defined, presumably it would just be garbage on the CUDA side. Should it be more extensive?*)
 let lower_device_code (grid_size: var) (tid: var) (t: trm): trm =
-  t |> (flatten_thread_loops grid_size tid)
+  t (*|> (flatten_thread_loops grid_size tid) *)
     |> generalize_mem_ops
     |> lower_syncs
+    |> remove_dmindexs
 
+(* TODO: one big wellformedness check pass? prints errors properly & what not *)
 
 let lower_smem_alloc (t: trm): trm option =
   Pattern.pattern_match_opt t [
@@ -101,9 +108,15 @@ let lower_smem_alloc (t: trm): trm option =
     )
   ]
 
+(*let arith_simplify_cuda (t: trm) =
+  t
+  |> Arith_core_internal.simplify ~indepth:true (Arith_core_internal.expand_rec)*)
+
 (* TODO because I don't have a better place for it: currently DMINDEX can be ignored in this printer because it's defined as
 return 0 and inlined in the optitrust_common. But we should actually erase it instead of relying on nvcc.
 If we replace all DMINDEXes with 0 here also, the arith simplifier can reduce the MINDEXes further. *)
+(* TODO: could be cleaner if it just searched by target for a Span between a kernel launch and kernel_end ?
+  and then the kernel transfo would also just generate a nobrace *)
 let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): trm =
   (* trm_find_var could be useful to get the type *)
   let rec scan_bound_vars t = (
@@ -161,9 +174,10 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
         match (trm_seq_inv body) with
         | Some (tl, result) ->
           let tl = (Mlist.insert_sublist_at 0 smem_allocs tl) in
-          let tl = (Mlist.push_front (make_kernel_header ctx_size tid) tl) in
+          (*let tl = (Mlist.push_front (make_kernel_header (List.nth launch_args 0) (List.nth launch_args 1) ctx_size tid) tl) in*)
           trm_alter ~desc:(Trm_seq (tl, result)) t
         | _ -> failwith "expected seq" in
+      (* let body = arith_simplify_cuda body in *)
       (* TODO: run arith_simplify on body here ? *)
 
       let launch_args = List.map (fun arg -> trm_add_cstyle CudaKernelBracketArg arg) launch_args in

@@ -50,6 +50,23 @@ let dmindex (dims : trms) (indices : trms) : trm =
   let n = List.length dims in
   trm_apps (trm_var (dmindex_var n)) (dims @ indices)
 
+(** [dmindex_inv t]: returns the list of dimensions and indices from the call to DMINDEX [t]
+Guarranted that [dims] and [indices] have the same length*)
+
+let dmindex_inv (t : trm) : (trms * trms) option =
+  match t.desc with
+  | Trm_apps (f, dims_and_indices, _, _) ->
+    let n = List.length dims_and_indices in
+    if (n mod 2 = 0 && n/2 <= max_nb_dims) then
+      begin match f.desc with
+      | Trm_var fv when var_eq (dmindex_var (n/2)) fv ->
+          Some (List.split_at (n/2) dims_and_indices)
+      | _ -> None
+      end
+    else None
+  | _ -> None
+
+
 (** [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t]
 Guarranted that [dims] and [indices] have the same length*)
 

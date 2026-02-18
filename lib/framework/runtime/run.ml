@@ -270,6 +270,7 @@ let stg_name (stg: int): string =
   Filename.basename program_basename ^ "_stg" ^ (string_of_int stg) ^ ".cpp"
 
 let num_stage = ref 0
+(* TODO: reparsing this way doesn't preserve marks.. *)
 let script_cpp_stage ?(override_stage) (stage_ok: int -> bool) (f: unit -> unit): unit =
   let stage = match override_stage with
   | Some override_stage -> override_stage

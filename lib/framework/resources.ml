@@ -395,6 +395,14 @@ let%transfo make_strict_loop_contracts (tg: target): unit =
   Target.apply_at_target_paths make_strict_loop_contract_rec tg;
   justif_correct "only changed loop contracts"
 
+let%transfo with_non_strict_loop_contracts (tg: target) (f: unit -> unit): unit =
+  Target.apply_at_target_paths (fun t ->
+    let range, mode, body, contract = trm_inv trm_for_inv t in
+    trm_alter t ~desc:(Trm_for (range, mode, body, { contract with strict = false}))
+    ) tg;
+  f ();
+  make_strict_loop_contracts tg
+
 type unparsed_fun_contract = (fun_contract_clause_type * string) list
 type unparsed_loop_contract = (loop_contract_clause_type * string) list
 

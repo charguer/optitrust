@@ -97,6 +97,11 @@ let c_res () : output_style  =
 let c_ctx () : output_style =
   c ~typing_style:typing_ctx ()
 
+let cuda () : output_style =
+  { decode = true;
+    typing = typing_none;
+    print = Lang_C ( Ast_to_c.style_for_cuda ) }
+
 let internal ?(print_types = false) ?(print_var_id = true) () : output_style =
   let s = Ast_to_c.default_style () in
   { decode = false;

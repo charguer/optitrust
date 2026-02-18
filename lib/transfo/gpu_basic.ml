@@ -3,13 +3,6 @@ open Target
 open Flags
 
 (* Launch-related variables *)
-  (*let open Resource_formula in
-  let get_cell_type =
-    let cell_type = ref None in
-    let rec aux t =
-      Pattern.pattern_match t [
-        Pattern.
-      ]*)
 let var_kernel_launch = toplevel_var "kernel_launch"
 let var_kernel_setup_end = toplevel_var "kernel_setup_end"
 let var_kernel_teardown_begin = toplevel_var "kernel_teardown_begin"
@@ -74,8 +67,8 @@ let%transfo seq_for_to_magicthread_for ?(barrier_mark: mark = "") (tg: target) =
       match seq_ind with
       | Some ind ->
         let instrs, ret = trm_inv ~error:"expected seq" trm_seq_inv t in
-        let t = Mlist.nth instrs ind in
-        let instrs = Mlist.replace_at ind (Loop_core.change_loop_mode_on MagicThread t) instrs in
+        let loop = Mlist.nth instrs ind in
+        let instrs = Mlist.replace_at ind (Loop_core.change_loop_mode_on MagicThread loop) instrs in
         let instrs = match (Option.bind (Mlist.nth_opt instrs (ind + 1)) Barrier_trm.magic_barrier_inv) with
         | Some _ -> Mlist.replace_at (ind+1) barrier instrs
         | _ -> Mlist.insert_at (ind+1) barrier instrs in
