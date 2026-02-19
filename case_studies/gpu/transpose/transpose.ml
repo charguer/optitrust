@@ -73,7 +73,7 @@ let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   );
   !! (
     Flags.check_validity := false;
-    Target.apply_at_target_paths (Cuda_lowering.lower_to_cuda) [];
+    Trace.generate_cuda ();
     Flags.check_validity := true;
-  ) (* Trace.generate_cuda ();*)
+  )
 )

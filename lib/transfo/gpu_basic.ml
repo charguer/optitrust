@@ -93,6 +93,7 @@ type 'a memory_spec = {
   extra_patterns: (var * 'a) -> (typ -> typ) -> (typ -> unit -> typ) list
 }
 
+(* TODO: make this a real transfo? *)
 let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
   let open Resource_formula in
   let rec convert_cell_mem_type f =
@@ -140,6 +141,7 @@ let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
      ) seq
   ) alloc_tg
 
+(* TODO: make this a real transfo? *)
 let fix_distrib_accesses (chop_dims: int) (body_tg: target) (alloc_tg: target): unit =
   let body_path = Target.resolve_target_exactly_one body_tg in
   let open Resource_formula in

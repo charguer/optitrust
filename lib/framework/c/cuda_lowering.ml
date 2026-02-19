@@ -91,7 +91,7 @@ let rec remove_dmindexs (t: trm): trm = match (Matrix_trm.dmindex_inv t) with
 (* TODO: doesn't perform extensive wellformedness checks; only checks that no host-side get, set, etc. are used
 But since the host-side functions are not defined, presumably it would just be garbage on the CUDA side. Should it be more extensive?*)
 let lower_device_code (grid_size: var) (tid: var) (t: trm): trm =
-  t (*|> (flatten_thread_loops grid_size tid) *)
+  t |> (flatten_thread_loops grid_size tid)
     |> generalize_mem_ops
     |> lower_syncs
     |> remove_dmindexs
