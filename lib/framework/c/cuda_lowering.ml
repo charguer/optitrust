@@ -174,7 +174,7 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
         match (trm_seq_inv body) with
         | Some (tl, result) ->
           let tl = (Mlist.insert_sublist_at 0 smem_allocs tl) in
-          (*let tl = (Mlist.push_front (make_kernel_header (List.nth launch_args 0) (List.nth launch_args 1) ctx_size tid) tl) in*)
+          let tl = (Mlist.push_front (make_kernel_header (List.nth launch_args 0) (List.nth launch_args 1) ctx_size tid) tl) in
           trm_alter ~desc:(Trm_seq (tl, result)) t
         | _ -> failwith "expected seq" in
       (* let body = arith_simplify_cuda body in *)

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 
+
 void transpose(float* a, float* b, int W, int H);
 
 void computeTransposeGold(float *gold, float *idata, const int size_x, const int size_y)
@@ -16,8 +17,8 @@ void computeTransposeGold(float *gold, float *idata, const int size_x, const int
 
 int main(int argc, char **argv)
 {
-    const int W = 4096;
-    const int H = 2048;
+    const int W = 1024;
+    const int H = 1024;
     const size_t mem_size = W * H * sizeof(float);
 
     float *idata = (float*)malloc(mem_size);
