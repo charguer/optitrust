@@ -6,6 +6,7 @@ void test(int *a, int M, int N) {
   __writes("a ~> Matrix2(M, N, fun (i j: int) -> i + j)");
   __preserves("KernelSetupCtx");
   __preserves("KernelTeardownCtx");
+  __preserves("ThreadsCtx(t ..+ MSIZE0())");
   __reads("KernelParams(MSIZE3(3,4,5), tpb, sizeof(int) * 6 + 0)");
   __preserves("SMemAllowance(sizeof(int) * 6 + 0)");
 
@@ -19,9 +20,15 @@ void test(int *a, int M, int N) {
 //    magic_barrier();
   }
 
-  int * const b = MALLOC4(int, 3,4,5,6);
+  {
+    int* const a = TREG_REF_S(int, 0);
+    int b = __treg_get(a) + 1;
+    __treg_set(a, 1);
+  }
+
+  /*int * const b = MALLOC4(int, 3,4,5,6);
   magic_barrier();
-  free(b);
+  free(b);*/
 }
 
 

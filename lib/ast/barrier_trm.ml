@@ -41,3 +41,14 @@ let magic_barrier_to_seq (barrier_fn: trm -> trm) (resource_filter: trm -> bool)
     else
       None) before.linear in
   barrier_seq barrier_fn hs
+
+
+(* TODO: rename this file Gpu_trm.ml, move other GPU definitions here
+For now this needs to be in the AST module because the typechecker needs to know
+about __treg_alloc.*)
+let var__treg_ref = toplevel_var "__treg_ref"
+let var__treg_ref_s = toplevel_var "__treg_ref_s"
+let var__treg_ref_uninit0_s = toplevel_var "__treg_ref_uninit0_s"
+let var__treg_ref_uninit = Matrix_trm.toplevel_var_with_dim "__treg_ref_uninit%d"
+
+let var__treg_ref_uninit_inv = Matrix_trm.toplevel_var_with_dim_inv var__treg_ref_uninit

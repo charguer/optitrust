@@ -11,6 +11,7 @@ extern const int __barrier_sequence;
 
 __DECL(GMem, "MemType");
 __DECL(SMem, "MemType");
+__DECL(TReg, "MemType");
 __DECL(KernelParams, "int * int * int -> HProp");
 __DECL(SMemAllowance, "int -> HProp");
 __DECL(SMemToken, "int -> HProp");
@@ -29,6 +30,49 @@ __GHOST(rewrite_threadsctx_sz) {
   __consumes("ThreadsCtx(start ..+ from)");
   __produces("ThreadsCtx(start ..+ to)");
   __ghost(rewrite_linear, "inside := fun i -> ThreadsCtx(start ..+ i), by := by");
+}
+
+/* ---- DesyncGroup ghosts ---- */
+
+__GHOST(group_to_desyncgroup) {
+  __requires("N: int, items: int -> HProp, r: Range");
+  __preserves("ThreadsCtx(r)");
+  __consumes("for i in 0..N -> items(i)");
+  __produces("desync_for i in ..N -> items(i)");
+  __admitted();
+}
+
+__GHOST(unwrap_singleton_desyncgroup) {
+  __requires("t: int, H: int -> HProp");
+  __preserves("ThreadsCtx(t..+MSIZE0())");
+  __consumes("DesyncGroup(MSIZE0(), H)");
+  __produces("H(0)");
+  __admitted();
+}
+
+__GHOST(desync_tile_divides) {
+  __requires(
+    "tile_count: int, tile_size: int,"
+    "size: int, items: int -> HProp,"
+    "div_check: size = tile_count * tile_size,"
+    "positive_tile_size: tile_size >= 0"
+  );
+  __consumes("DesyncGroup(size, items)");
+  __produces("desync_for bi in ..tile_count ->"
+               "desync_for i in ..tile_size -> items(bi * tile_size + i)");
+  __admitted();
+}
+
+__GHOST(desync_untile_divides) {
+  __reverts(desync_tile_divides);
+  __admitted();
+}
+
+__GHOST(singleton_mindex_simplify) {
+  __requires("T: Type, H: ptr(T) -> HProp, p: ptr(T)");
+  __consumes("H(&p[MINDEX1(MSIZE0(), DMINDEX1(MSIZE0(), 0))])");
+  __produces("H(p)");
+  __admitted();
 }
 
 /* --- Kernel launches ---- */
@@ -279,53 +323,95 @@ template <typename T> void __smem_free2(T* p, int N1, int N2) {
   __admitted();
 }
 
-/* ---- DesyncGroup ghosts ---- */
+// Thread registers
 
-__GHOST(group_to_desyncgroup) {
-  __requires("N: int, items: int -> HProp, r: Range");
-  __preserves("ThreadsCtx(r)");
-  __consumes("for i in 0..N -> items(i)");
-  __produces("desync_for i in ..N -> items(i)");
+template <typename T> T* __treg_ref(T v) {
+  __requires("t: int, sz: int");
+  __preserves("ThreadsCtx(t..+sz)");
+  __produces("desync_for i in ..sz -> &_Res[MINDEX1(sz, DMINDEX1(sz, i))] ~~>[TReg] v");
+  __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
+  return __alloc_sig_generic<T>();
+}
+#define TREG_REF(T, v) __call_with(__treg_ref<T>(v), "T := "#T)
+
+// specialized version of above with singleton ghost built in
+template <typename T> T* __treg_ref_s(T v) {
+  __requires("t: int");
+  __preserves("ThreadsCtx(t..+MSIZE0())");
+  __produces("_Res ~~>[TReg] v");
+  __ensures("__spec_override_ret_implicit(ptr(T))");
+  // admitted for now because the autofree mechanism will kick in to disallow this
+  __admitted();
+  // but these steps are correct
+  T* const p = TREG_REF(T, v);
+  __ghost(unwrap_singleton_desyncgroup, "H := fun i -> &p[MINDEX1(MSIZE0(), DMINDEX1(MSIZE0(), i))] ~~>[TReg] v");
+  __ghost(singleton_mindex_simplify, "H := fun (g: ptr(T)) -> g ~~>[TReg] v, p := p");
+  return p;
+}
+#define TREG_REF_S(T,v) __call_with(__treg_ref_s<T>(v), "T := "#T)
+
+template <typename T> T* __treg_ref_uninit0() {
+  __requires("t: int, sz: int");
+  __preserves("ThreadsCtx(t..+sz)");
+  __produces("desync_for i in ..sz -> &_Res[MINDEX1(sz, DMINDEX1(sz, i))] ~> UninitCellOf(TReg)");
+  __ensures("__spec_override_ret_implicit(ptr(T))");
+  __admitted();
+  return __alloc_sig_generic<T>();
+}
+#define TREG_REF_UNINIT0(T) __call_with(__treg_ref_uninit0<T>(), "T := "#T)
+
+// specialized version of above with singleton ghost built in
+template <typename T> T* __treg_ref_uninit0_s() {
+  __requires("t: int");
+  __preserves("ThreadsCtx(t..+MSIZE0())");
+  __produces("_Res ~> UninitCellOf(TReg)");
+  __ensures("__spec_override_ret_implicit(ptr(T))");
+  // admitted for now because the autofree mechanism will kick in to disallow this
+  __admitted();
+  T* const p = TREG_REF_UNINIT0(T);
+  // but these steps are correct
+  __ghost(unwrap_singleton_desyncgroup, "H := fun i -> &p[MINDEX1(MSIZE0(), DMINDEX1(MSIZE0(), i))] ~> UninitCellOf(TReg)");
+  __ghost(singleton_mindex_simplify, "H := fun p -> p ~> UninitCellOf(TReg), p := p");
+  return p;
+}
+#define TREG_REF_UNINIT0_S(T) __call_with(__treg_ref_uninit0_s<T>(), "T := "#T)
+
+template <typename T> T* __treg_ref_uninit1(int N1) {
+  __requires("t: int, sz: int");
+  __preserves("ThreadsCtx(t..+sz)");
+  __produces("desync_for i in ..sz -> for j1 in 0..N1 -> &_Res[MINDEX2(sz, N1, DMINDEX1(sz, i), j1)] ~> UninitCellOf(TReg)");
+  __ensures("__spec_override_ret_implicit(ptr(T))");
+  __admitted();
+  return __alloc_sig_generic<T>();
+}
+#define TREG_REF_UNINIT1(T, N1) __call_with(__treg_ref_uninit1<T>(N1), "T := "#T)
+
+template <typename T> T* __treg_ref_uninit2(int N1, int N2) {
+  __requires("t: int, sz: int");
+  __preserves("ThreadsCtx(t..+sz)");
+  __produces("desync_for i in ..sz -> for j1 in 0..N1 -> for j2 in 0..N2 -> &_Res[MINDEX3(sz, N1, N2, DMINDEX1(sz, i), j1, j2)] ~> UninitCellOf(TReg)");
+  __ensures("__spec_override_ret_implicit(ptr(T))");
+  __admitted();
+  return __alloc_sig_generic<T>();
+}
+#define TREG_REF_UNINIT2(T, N1, N2) __call_with(__treg_ref_uninit2<T>(N1, N2), "T := "#T)
+
+template <typename T> T __treg_get(T* p) {
+  __requires("v: T, t: int");
+  __reads("ThreadsCtx(t ..+ MSIZE0())");
+  __reads("p ~~>[TReg] v");
+  __ensures("__spec_override_ret(T, v)");
+  __admitted();
+  return __get_sig_generic<T>(p);
 }
 
-__GHOST(desync_tile_divides) {
-  __requires(
-    "tile_count: int, tile_size: int,"
-    "size: int, items: int -> HProp,"
-    "div_check: size = tile_count * tile_size,"
-    "positive_tile_size: tile_size >= 0"
-  );
-  __consumes("DesyncGroup(size, items)");
-  __produces("desync_for bi in ..tile_count ->"
-               "desync_for i in ..tile_size -> items(bi * tile_size + i)");
+template <typename T> void __treg_set(T* p, T v) {
+  __requires("t: int");
+  __preserves("ThreadsCtx(t ..+ MSIZE0())");
+  __writes("p ~~>[TReg] v");
+  __ensures("__spec_override_noret()");
   __admitted();
 }
-
-__GHOST(desync_untile_divides) {
-  __reverts(desync_tile_divides);
-  __admitted();
-}
-
-
-// TODO: without thread for, do we still need these rewrite ghosts, and range_eq?
-/*
-__GHOST(rewrite_range) {
-  __requires("rf: int -> Range");
-  __requires("from: int, to: int");
-  __requires("by: from = to");
-  __ensures("range_eq(rf(from),rf(to))");
-  __admitted();
-}
-
-__GHOST(rewrite_linear_range) {
-  __requires("inside: Range -> HProp");
-  __requires("from: Range, to: Range");
-  __requires("by: range_eq(from, to)");
-  __consumes("inside(from)");
-  __produces("inside(to)");
-  __admitted();
-}
-*/
 
 #endif // OPTITRUST_GPU_H
