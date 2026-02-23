@@ -40,6 +40,8 @@ rule lex_resources = parse
   | "<=" { LEQ }
   | ">=" { GEQ }
   | "<>" { NEQ }
+  | "<<" { LSHIFT }
+  | ">>" { RSHIFT }
   | "." { DOT }
   | ".." { DOTDOT }
   | "..+" { DOTDOTPLUS }

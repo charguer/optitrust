@@ -831,4 +831,28 @@ __GHOST(ro_mindex3_fold) {
   __admitted();
 }
 
+/* -------- Conditional heap permissions -------- */
+
+__DECL(If, "(Prop * HProp) -> HProp");
+
+__GHOST(if_else_rewrite) {
+  __requires("b: bool, H: HProp, H2: HProp, P: __is_false(b)");
+  __consumes("If(__is_true(b), H)");
+  __produces("If(__is_true(b), H2)");
+  __admitted();
+}
+
+
+__GHOST(if_then_specialize) {
+  __requires("b: bool, H: HProp, P: __is_true(b)");
+  __consumes("If(__is_true(b), H)");
+  __produces("H");
+  __admitted();
+}
+
+__GHOST(if_then_unspecialize) {
+  __reverts(if_then_specialize);
+  __admitted();
+}
+
 #endif
