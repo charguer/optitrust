@@ -417,12 +417,12 @@ and unop_to_doc style (op : unary_op) : document =
      string "static_cast" ^^ langle ^^ dt ^^ rangle
 
 (** [binop_to_doc style op]: converts binary operators to pprint documents. *)
-and binop_to_doc style (op : binary_op) : document =
+and binop_to_doc style ?(formula: bool = false) (op : binary_op) : document =
   match op with
   | Binop_set -> equals
   | Binop_array_access -> lbracket ^^ rbracket
   | Binop_array_get -> lbracket ^^ rbracket
-  | Binop_eq -> twice equals
+  | Binop_eq -> if formula then equals else twice equals
   | Binop_neq -> bang ^^ equals
   | Binop_sub -> minus
   | Binop_add -> plus
@@ -1090,7 +1090,9 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_
             | Some (_dims, indices) -> separate empty (List.map bracketed_trm indices)
             end
           | _ ->
-            let op_d = binop_to_doc style op in
+            let is_formula = (trm_has_cstyle ResourceFormula f) in
+            let op_d = binop_to_doc ~formula:is_formula style op in
+            let op_d = if (is_formula && is_typ_float ty) then op_d ^^ string "." else op_d in
             separate (blank 1) [d1; op_d; d2]
           end
       | _ -> trm_fail f "Ast_to_c.apps_to_doc: binary_operators must have two arguments"
@@ -1413,6 +1415,9 @@ and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
 
 and formula_to_doc style (f: formula): document =
   let open Resource_formula in
+  (* TODO: does the formula style annotation have this property, or should we just fix the instances
+    where this annotation is not added to e.g. arithmetic operations? *)
+  let f = (trm_map (trm_add_cstyle ResourceFormula) f) in
   Pattern.pattern_match f [
     Pattern.(formula_points_to !__ !__ !__) (fun addr formula mem_typ () ->
       Pattern.when_ (!Flags.use_resources_with_models);
@@ -1449,10 +1454,9 @@ and formula_to_doc style (f: formula): document =
     Pattern.(trm_lit (eq (Lit_int (typ_frac, 1)))) (fun () ->
       Pattern.when_ (not style.pretty_fraction_notation);
       string "__full");
-    (* TODO: handle printing with "." for floats *)
-    Pattern.(formula_is_true (trm_binop Binop_eq !__ !__)) (fun t1 t2 () ->
-      lparen ^^ lparen ^^ (trm_to_doc style t1) ^^ rparen ^^ string "=" ^^ lparen ^^ (trm_to_doc style t2) ^^ rparen ^^ rparen
-    );
+    (*Pattern.(trm_apps !(trm_prim __ __) !__ !__ !__) (fun fn args ga gb () ->
+      trm_to_doc style (trm_alter ~annot:({f.annot with trm_annot_cstyle = []}) ~desc:(Trm_apps ((trm_add_cstyle ResourceFormula fn), args,ga,gb)) f)
+    );*)
     Pattern.(formula_is_true !__) (fun t () ->
       lparen ^^ (trm_to_doc style t) ^^ rparen
     );

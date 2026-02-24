@@ -206,6 +206,14 @@ let trm_binop binop ft1 ft2 k t =
     k
   | None -> raise Next
 
+let trm_prim fprim fty k t =
+  match trm_prim_inv t with
+  | Some (ty, prim) ->
+    let k = fprim k prim in
+    let k = fty k ty in
+    k
+  | None -> raise Next
+
 let trm_compound_assign binop ft1 ft2 k t =
   match trm_compound_assign_inv binop t with
   | Some (t1, t2) ->
