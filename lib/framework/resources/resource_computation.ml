@@ -503,13 +503,18 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       function faster on most frequent cases *)
     let is_desyncgroup = Option.is_some (formula_desyncgroup_inv formula) in
     extract (fun (candidate_name, formula_candidate) ->
+(*      (try
+        Printf.printf "ref: (%s) %s\ncandidate: (%s) %s \n\n" (if uninit then "UNINIT" else "INIT") (Ast_to_c.ast_to_string formula) (if (is_formula_uninit formula_candidate) then "UNINIT" else "INIT") (Ast_to_c.ast_to_string formula_candidate)
+      with CannotTransformIntoUninit _ -> ());*)
       try
+
         let formula_candidate = if is_desyncgroup then (desyncgroup_coerce formula_candidate) else formula_candidate in
         let inst_by, formula_to_unify =
           (* Check for possible Uninit coercion if formula_candidate is not already uninit *)
-          if uninit && not (is_formula_uninit formula_candidate) then
+          if uninit && not (is_formula_uninit formula_candidate) then (
+            (*Printf.printf "unify %s with %s \n" (Ast_to_c.ast_to_string formula) (Ast_to_c.ast_to_string (formula_uninit formula_candidate));*)
             Formula_inst.inst_forget_init candidate_name, formula_uninit formula_candidate
-          else
+          ) else
             Formula_inst.inst_hyp candidate_name, formula_candidate in
         let* evar_ctx = trm_unify formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
         Some (

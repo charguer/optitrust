@@ -214,7 +214,10 @@ let find_result_fun_spec (res: resource_set): fun_spec_resource =
 let subst_loop_range_start range = subst_var range.index range.start
 
 (** Substitutes a loop index with its value after one iteration *)
-let subst_loop_range_step range = subst_var range.index (trm_add_int (trm_var range.index) range.step)
+let subst_loop_range_step range =
+  subst_var range.index (if (range.direction = DirDown || range.direction = DirDownEq) then (trm_sub_int (trm_var range.index) range.step)
+   else (trm_add_int (trm_var range.index) range.step))
+
 
 (** Substitutes a loop index with its end value. *)
 let subst_loop_range_end range = subst_var range.index range.stop

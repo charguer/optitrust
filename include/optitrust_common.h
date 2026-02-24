@@ -324,6 +324,27 @@ __GHOST(in_range_bounds) {
   __admitted();
 }
 
+__GHOST(in_range_bounds_rev) {
+  __requires("x: int, a: int, b: int, s: int");
+  __requires("in_range(x, range(a, b, s)), s < 0");
+  __ensures("lower_bound: x > b, upper_bound: x <= a");
+  __admitted();
+}
+
+__GHOST(bounds_to_in_range) {
+  __requires("x: int, a: int, b: int");
+  __requires("lower_bound: x >= a, upper_bound: x < b");
+  __ensures("range_check: in_range(x, range(a, b, 1))");
+  __admitted();
+}
+
+__GHOST(expand_subrange) {
+  __requires("a: int, b: int, c: int, s: int");
+  __requires("s >= 0, up_ineq: b <= c");
+  __ensures("is_subrange(range(a,b,s),range(a,c,s))");
+  __admitted();
+}
+
 /* ---- Manually split RO resources ---- */
 
 __GHOST(ro_split2) {
@@ -744,8 +765,20 @@ __GHOST(group_intro_zero) {
   __admitted();
 }
 
+__GHOST(group_intro_empty) {
+  __requires("N: int, items: int -> HProp");
+  __produces("for i in N..N -> items(i)");
+  // can't prove for now because there is no way to cancel N in items(i + N - N)
+  __admitted();
+}
+
 __GHOST(group_elim_zero) {
   __reverts(group_intro_zero);
+  __admitted();
+}
+
+__GHOST(group_elim_empty) {
+  __reverts(group_intro_empty);
   __admitted();
 }
 
@@ -842,10 +875,12 @@ __GHOST(if_else_rewrite) {
   __admitted();
 }
 
-
+// stupid hack to remember b because i can't pass a bool as a ghost arg
+__DECL(IfSpecialized, "bool -> HProp");
 __GHOST(if_then_specialize) {
   __requires("b: bool, H: HProp, P: __is_true(b)");
   __consumes("If(__is_true(b), H)");
+  __produces("IfSpecialized(b)");
   __produces("H");
   __admitted();
 }
@@ -854,5 +889,22 @@ __GHOST(if_then_unspecialize) {
   __reverts(if_then_specialize);
   __admitted();
 }
+
+__GHOST(group_expand_r_if_intros) {
+  __requires("n1: int, n2: int, items: int -> HProp");
+  __requires("expand_check: n1 <= n2");
+  __consumes("for i in 0..n1 -> items(i)");
+  __produces("for i in 0..n2 -> If(i < n1, items(i))");
+  __admitted();
+}
+
+__GHOST(group_shrink_r_if_elim) {
+  __reverts(group_expand_r_if_intros);
+  __admitted();
+}
+// TODO shiftr_monotonic
+// use for group_shift and for justifying splitting
+
+__AXIOM(shiftr_monotonic, "forall (b: int) (e1: int) (e2: int) (_: e1 <= e2) -> (b << e1) <= (b << e2)");
 
 #endif

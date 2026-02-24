@@ -550,8 +550,8 @@ let rec raw_formula_uninit (formula: formula): formula =
   ]
 
 let formula_loop_range (range: loop_range): formula =
-  if range.direction <> DirUp then failwith "formula_loop_range only supports DirUp";
-  formula_range range.start range.stop range.step
+  if (range.direction <> DirUp && range.direction <> DirDown) then failwith "formula_loop_range only supports DirUp and DirDown";
+  formula_range range.start range.stop (if (range.direction = DirDown) then (trm_minus ~typ:typ_int range.step) else range.step)
 
 let formula_forall_in (index: var) (range: trm) (fi: formula) : formula =
   typ_pure_fun [(index, typ_int); (new_anon_hyp (), formula_in_range (trm_var index) range)] fi
