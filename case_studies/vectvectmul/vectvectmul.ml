@@ -50,7 +50,7 @@ let _ = if part = 3 then Run.script_cpp ~filename:"vv2.cpp" (fun () ->
   !! Loop.hoist [cVarDef "t"];
   !! Loop.fission [tBefore; cFor "bi"; cWriteVar "s"];
   !! Loop.parallel [cFor "bi" ~body:[cFor "i"]];
-  (*!! Cleanup.std();*)
+  !! Cleanup.std();
   (* includes: !! Function.use_infix_ops ~indepth:true []; *)
 )
 
