@@ -112,3 +112,90 @@ let rename_ghost_bind call old_bound_var new_binding =
     );
     Pattern.__ (fun () -> raise NotBound)
   ]
+
+(* TODO: move this elsewhere, or remove *)
+let flatten_expr_rewrites (tg: target) =
+  Nobrace_transfo.remove_after (fun () -> Marks.with_marks (fun next_m -> Target.iter (fun p ->
+    let rec aux p =
+      let instr_p,_ = Path.path_in_instr p (Trace.ast ()) in
+      let instr = Target.resolve_path instr_p in
+      match instr.desc with
+      | Trm_seq _ -> aux (Path.parent instr_p)
+      | _ -> instr_p
+    in
+    let instr_p = aux p in
+    let to_expr_p = List.drop (List.length instr_p) p in
+    let e = Target.resolve_path p in
+    let e' = Resource_trm.trm_seq_rewrite_flatten e in
+    Resources.ensure_computed_at instr_p;
+
+    let get_contract_from_instr_usage instr =
+      let before = Resources.before_trm instr in
+      let after = Resources.after_trm instr in
+      let usage = Resources.usage_of_trm instr in
+
+      let post = ref [] in
+      let pre_pure = ref [] in
+      let pre = List.filter_map (fun (v,h) ->
+        let v_usage = (Var_map.find_opt v usage) in
+        if ((v_usage = Some ConsumedFull || v_usage = Some ConsumedUninit)) then
+          Some (new_anon_hyp (),h)
+        else if ((v_usage = Some SplittedFrac)) then (
+          let h = match formula_read_only_inv h with
+          | Some _ -> h
+          | _ -> (
+            let frac_var = new_anon_hyp () in
+            pre_pure := (frac_var, typ_frac) :: !pre_pure;
+            formula_read_only ~frac:(trm_var frac_var) h
+          ) in
+          post := (new_anon_hyp (), h) :: !post;
+          Some (new_anon_hyp (), h)
+        )
+        else None) before.linear in
+      let post = !post @ List.filter_map (fun (v,h) ->
+        let v_usage = (Var_map.find_opt v usage) in
+        if (v_usage = Some Produced) then
+          Some (new_anon_hyp (),h)
+        else None) after.linear in
+      {
+        pre = Resource_set.make ~pure:!pre_pure ~linear:pre ();
+        post = Resource_set.make ~linear:post ();
+      } in
+
+    let inside_mark = ref "" in
+    let outside_mark = ref "" in
+    let contract = ref None in
+    Target.apply_at_path (fun instr ->
+      inside_mark := next_m ();
+      outside_mark := next_m ();
+      let contract' = (get_contract_from_instr_usage instr) in
+      contract := Some contract';
+      let instr = trm_add_mark (!inside_mark) (Path.apply_on_path (fun _ -> e') instr to_expr_p) in
+      let open Resource_trm in
+      let instr' = trm_add_mark (!outside_mark) (ghost (ghost_closure_call contract' (trm_seq_nomarks [instr; admitted ()]))) in
+      instr'
+    ) instr_p;
+
+    let instr_p = Target.resolve_target_exactly_one [cMark !inside_mark] in
+    Resources.ensure_computed_at instr_p;
+    let instr = Target.resolve_path instr_p in
+    let after = Resources.after_trm instr in
+    let usage = Resources.usage_of_trm instr in
+    let pre = List.filter_map (fun (v,h) ->
+        let v_usage = (Var_map.find_opt v usage) in
+        if (v_usage = Some Produced) then
+          Some (new_anon_hyp (),h)
+        else None) after.linear in
+    let post = List.filter (fun (_,h) ->
+      Option.is_none (formula_read_only_inv h)) (Option.unsome !contract).post.linear in
+    let contract = {
+      pre = Resource_set.make ~linear:pre ();
+      post = Resource_set.make ~linear:post ();
+    } in
+    Target.apply_at_target_paths (fun _ ->
+      trm_seq_nobrace (Mlist.of_list [
+        instr;
+        Resource_trm.ghost_admitted contract
+      ])
+    ) [cMark !outside_mark]
+  ) tg))

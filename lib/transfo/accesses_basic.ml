@@ -77,11 +77,11 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
           let tmp_get_const = new_var "getc" in
           let v = new_var "v" in
           let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~typ ~by:(f_cancel old_value_after) (formula_fun [v, typ] (formula_points_to ~mem_typ (trm_var tmp_get) (trm_var v))))) in
-          trm_seq_helper ~result:tmp_get_const [
+          trm_add_cstyle RewriteSequence (trm_seq_helper ~result:tmp_get_const [
             Trm (trm_let_mut (tmp_get, typ) new_get);
             Trm maintain_res;
             Trm (trm_let (tmp_get_const, typ) (trm_get (trm_var tmp_get)))
-          ]
+          ])
         end else begin
           new_get
         end

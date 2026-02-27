@@ -70,11 +70,11 @@ let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : 
               trm_let (result, typ) simpl_t;
               maintain_res;
             ] *)
-            trm_seq_nomarks ~result [
+            trm_add_cstyle RewriteSequence (trm_seq_nomarks ~result [
               trm_let_mut (result_ptr, typ) simpl_t;
               maintain_res;
               trm_let (result, typ) (trm_get (trm_var result_ptr));
-            ]
+            ])
           | None ->
             simpl_t
           end

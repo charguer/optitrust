@@ -274,7 +274,6 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
       Resources.make_strict_loop_contracts [];
       let path = Target.resolve_target_exactly_one [cMark instr_mark; tBefore] in
       let p_seq, instr_index = Path.extract_last_dir_before path in
-      Show.add_marks_for_target_unit_tests [cPath p_seq];
       for _ = 0 to instr_index - 1 do
         Loop_basic.move_out [cPath p_seq; dSeqNth 0];
       done;

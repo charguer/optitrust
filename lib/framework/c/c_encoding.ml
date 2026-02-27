@@ -1452,29 +1452,34 @@ let rec decode_template_decl (t : trm) : trm =
 
 let rec decode_gpu_sugar (t: trm) : trm =
   match (trm_seq_inv t) with
-  | Some (instrs,res) ->
-    let instrs = (Mlist.fold_left (fun acc instr ->
-      let instr = decode_gpu_sugar instr in
-      match acc with
-      | [] -> instr :: acc
-      | hd::tl ->
-        match (hd.desc,instr.desc) with
-        | (Trm_var v,Trm_for (range,mode,body,contract)) when (var_has_name "__threadfor" v) ->
-          (trm_like ~old:instr (trm_for ~contract ~mode:GpuThread range body)) :: tl
-        | (Trm_var v,Trm_for (range,mode,body,contract)) when (var_has_name "__magic_threadfor" v) ->
-          (trm_like ~old:instr (trm_for ~contract ~mode:MagicThread range body)) :: tl
-        | (Trm_var v,Trm_apps _) when (var_has_name "__device_call" v) ->
-          (trm_add_cstyle CudaDevice instr) :: tl
-        | (Trm_var v,Trm_seq _) when (var_has_name "__barrier_sequence" v) ->
-          (trm_add_cstyle BarrierSequence instr) :: tl
-        | (Trm_predecl (v,_),Trm_let (tv,t)) when (var_has_name "__device__" v) ->
-          let t = match (trm_fun_inv t) with
-          | Some _ -> (trm_add_cstyle CudaDevice t)
-          | _ -> t in
-          (trm_alter ~desc:(Trm_let (tv,t)) instr) :: tl
-        | _ -> instr :: acc
-    ) [] instrs) |> List.rev |> Mlist.of_list in
-    trm_alter ~desc:(Trm_seq (instrs,res)) t
+  | Some (instrs,res) -> (
+    match (Mlist.to_list instrs) with
+    | {desc = Trm_var v} :: {desc = Trm_seq _} :: [] when (var_has_name "__rewrite_sequence" v) ->
+      trm_add_cstyle RewriteSequence (decode_gpu_sugar (Mlist.nth instrs 1))
+    | _ ->
+      let instrs = (Mlist.fold_left (fun acc instr ->
+        let instr = decode_gpu_sugar instr in
+        match acc with
+        | [] -> instr :: acc
+        | hd::tl ->
+          match (hd.desc,instr.desc) with
+          | (Trm_var v,Trm_for (range,mode,body,contract)) when (var_has_name "__threadfor" v) ->
+            (trm_like ~old:instr (trm_for ~contract ~mode:GpuThread range body)) :: tl
+          | (Trm_var v,Trm_for (range,mode,body,contract)) when (var_has_name "__magic_threadfor" v) ->
+            (trm_like ~old:instr (trm_for ~contract ~mode:MagicThread range body)) :: tl
+          | (Trm_var v,Trm_apps _) when (var_has_name "__device_call" v) ->
+            (trm_add_cstyle CudaDevice instr) :: tl
+          | (Trm_var v,Trm_seq _) when (var_has_name "__barrier_sequence" v) ->
+            (trm_add_cstyle BarrierSequence instr) :: tl
+          | (Trm_predecl (v,_),Trm_let (tv,t)) when (var_has_name "__device__" v) ->
+            let t = match (trm_fun_inv t) with
+            | Some _ -> (trm_add_cstyle CudaDevice t)
+            | _ -> t in
+            (trm_alter ~desc:(Trm_let (tv,t)) instr) :: tl
+          | _ -> instr :: acc
+      ) [] instrs) |> List.rev |> Mlist.of_list in
+      trm_alter ~desc:(Trm_seq (instrs,res)) t
+    )
   | _ -> trm_map decode_gpu_sugar t
 
 (*************************************** Main entry points *********************************************)

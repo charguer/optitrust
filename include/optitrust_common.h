@@ -902,9 +902,11 @@ __GHOST(group_shrink_r_if_elim) {
   __reverts(group_expand_r_if_intros);
   __admitted();
 }
-// TODO shiftr_monotonic
-// use for group_shift and for justifying splitting
 
 __AXIOM(shiftr_monotonic, "forall (b: int) (e1: int) (e2: int) (_: e1 <= e2) -> (b << e1) <= (b << e2)");
 
+// TODO
+extern const int __rewrite_sequence;
+
 #endif
+

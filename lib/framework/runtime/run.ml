@@ -284,3 +284,5 @@ let script_cpp_stage ?(override_stage) (stage_ok: int -> bool) (f: unit -> unit)
     script_cpp ?filename:in_filename f;
     ignore (Sys.command (Printf.sprintf "cp %s %s" (basepath ^ "/" ^ src_filename) (basepath ^ "/" ^ dest_filename)))
   end else ()
+
+let get_stage (): int = !num_stage

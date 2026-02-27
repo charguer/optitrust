@@ -652,7 +652,9 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
           in
           (* TODO: re-encode instead of printing *)
           let dattr = if (trm_has_cstyle BarrierSequence t) then string "__barrier_sequence; " ^^ dattr else dattr in
-          dattr ^^ res
+          let dattr = if (trm_has_cstyle RewriteSequence t) then string "({__rewrite_sequence; " ^^ dattr else dattr in
+          let post = if (trm_has_cstyle RewriteSequence t) then string ";})" else empty in
+          dattr ^^ res ^^ post
     | Trm_apps (f, tl, _, _) ->
       dattr ^^ apps_to_doc style ~annot:t.annot ~print_struct_init_type ~prec f tl ^^ dsemi
     | Trm_while (b, t) ->

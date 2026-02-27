@@ -463,6 +463,8 @@ and cstyle_annot =
   (* tag used by light diff *)
   | BodyHiddenForLightDiff
 
+  | RewriteSequence
+
   | BarrierSequence
 
   | CudaKernelBracketArg

@@ -1,6 +1,6 @@
 #include <optitrust_gpu.h>
 
-void test(int *a, int M, int N) {
+void test(int *a, int *c, int M, int N) {
   __requires("t: int, tpb: int");
   //__preserves("ThreadsCtx( MINDEX1(0,0) ..+ MSIZE1(N) )");
   __writes("a ~> Matrix2(M, N, fun (i j: int) -> i + j)");
@@ -9,6 +9,7 @@ void test(int *a, int M, int N) {
   __preserves("ThreadsCtx(t ..+ MSIZE0())");
   __reads("KernelParams(MSIZE3(3,4,5), tpb, sizeof(int) * 6 + 0)");
   __preserves("SMemAllowance(sizeof(int) * 6 + 0)");
+  __writes("c ~~> 1");
 
 
   for (int i = 0; i < M; i++) {
@@ -22,9 +23,19 @@ void test(int *a, int M, int N) {
 
   {
     int* const a = TREG_REF_S(int, 0);
-    int b = __treg_get(a) + 1;
+    int bb = __treg_get(a) + 1;
     __treg_set(a, 1);
   }
+
+  int* const b = MALLOC(int);
+  __ghost([&]() {
+    __consumes("b ~> UninitCell");
+    __produces("b ~~> 1");
+    *b = 0 + 0;
+    __admitted();
+  });
+  *c = *b;
+  free(b);
 
   /*int * const b = MALLOC4(int, 3,4,5,6);
   magic_barrier();

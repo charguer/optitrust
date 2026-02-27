@@ -143,6 +143,26 @@ let ghost_admitted_rewrite (before: formula) (after: formula) (justif: formula):
   } in
   ghost_admitted contract ~justif
 
+(* TODO: definitely the wrong place for this *)
+(* also does not check that it is actually well formed *)
+let trm_seq_rewrite_inv (t: trm): trm option =
+  if (not (trm_has_cstyle RewriteSequence t)) then None else (
+  match (trm_seq_nth_inv 0 t) with
+  | Some t -> begin match (trm_let_inv t) with
+    | Some (_,_,t) -> begin match (trm_ref_inv t) with
+      | Some (_,t) -> Some t
+      | _ -> None
+      end
+    | _ -> None
+    end
+  | _ -> None)
+
+let rec trm_seq_rewrite_flatten (t: trm): trm =
+  match (trm_seq_rewrite_inv t) with
+  | Some t -> trm_seq_rewrite_flatten t
+  | _ -> trm_map trm_seq_rewrite_flatten t
+
+
 let var_ghost_assert_hprop = toplevel_var "assert_hprop"
 
 let ghost_assert_hprop (f: formula): trm =

@@ -28,6 +28,9 @@ let parallelize_reduction ?(temp_sums: string option) (inner_loop: string) (oute
   !! Variable.insert ~name:d ~typ:typ_f32 ~value:(trm_get (trm_find_var sum_var [])) [cForBody outer_loop; tFirst];
   !! Accesses.shift_var ~inv:true ~factor:(trm_find_var d []) [cFor outer_loop; cVarDef t];
   !! Variable.inline [cVarDef d];
+  if ((Run.get_stage ()) = 3) then begin
+    !! Ghost.flatten_expr_rewrites [nbMulti; cWriteVar t; dRHS];
+  end;
   !! Arith.simpl_surrounding_expr Arith.gather_rec [nbMulti; cVar sum_var];
   !! Resources.loop_minimize [occLast; cFor inner_loop];
   !! Loop.hoist [cVarDef t];
@@ -46,5 +49,6 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
 )
 
 let _ = Run.script_cpp_stage stage_ok (fun () ->
+  Show.add_marks_for_target_unit_tests [cPred (trm_has_cstyle RewriteSequence)];
   parallelize_reduction "ti" "bi" "sum";
 )
