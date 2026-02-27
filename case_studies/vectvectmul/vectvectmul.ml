@@ -11,7 +11,7 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_all (*Steps_important*)
 (* let _ = Flags.save_ast_for_steps := Some Steps_all *)
 
 let int = trm_int
-let step_ok = fun _ -> true
+let step_ok = fun i -> i = 1
 
 (* Part 1: *)
 let _ = Run.script_cpp_stage step_ok (fun () ->

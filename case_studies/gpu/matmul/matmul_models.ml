@@ -2,12 +2,13 @@ open Optitrust
 open Prelude
 
 let _ = Flags.check_validity := true
-let _ = Flags.pretty_matrix_notation := true
+let _ = Flags.pretty_matrix_notation := false
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_script
 
 (* let _ = Flags.report_exectime := true *)
+let stage_ok = fun i -> i = 2
 
 let bm = 32
 let bn  = 32
@@ -15,10 +16,7 @@ let bk = 4
 let tm = 8
 let tn = 4
 
-let current_stage = 1
-
-let _ = if current_stage = 1 then begin
-Run.script_cpp (fun () ->
+let _ = Run.script_cpp_stage stage_ok (fun () ->
   let def_tile_sizes (tile_dim_name, tile_dim_size) =
     Variable.insert ~name:tile_dim_name ~typ:typ_int ~value:(trm_int tile_dim_size) [tFirst]
   in
@@ -33,6 +31,7 @@ Run.script_cpp (fun () ->
   !! Matrix.local_name_tile ~uninit_pre:true ~var:"c" ~local_var:"c_gmem" [cFor "i"];
   !! Matrix.local_name_tile ~uninit_post:true ~var:"a" ~local_var:"a_gmem" [cFor "i"];
   !! Matrix.local_name_tile ~uninit_post:true ~var:"b" ~local_var:"b_gmem" [cFor "i"];
+  (* TODO: memcpy here *)
 
   let rec tiles (loop_id, tile_name_sizes) =
     match tile_name_sizes with
@@ -48,16 +47,12 @@ Run.script_cpp (fun () ->
   ];
   (* FIXME using vars for tm and tn breaks reordering. *)
   !! Loop.reorder_at ~order:["bi"; "bj"; "bkIdx"; "ti"; "tj"; "k"; "i"; "j"] [cPlusEq ~lhs:[cVar "sum"] ()];
-
-  !! Cleanup.std ()
   (* !! Matrix.local_name_tile ~uninit_post:true ~var:"a_gmem" ~local_var:"a_smem" [cFor "bkIdx"; cFor "ti"]; *)
   (* !! Matrix.local_name_tile ~uninit_post:true ~var:"b_gmem" ~local_var:"b_smem" [cFor "bkIdx"; cFor "ti"]; *)
 )
-end
 
-let _ =  if current_stage = 2 then begin
-Run.script_cpp ~filename:"matmul_models_out.cpp" (fun () ->
-  !! Loop.hoist_expr ~dest:[tBefore; cFor "bkIdx"; cFor "ti"] "a_smem" ~indep:["j"; "tj"] [cArrayRead "a_gmem"];
+let _ =  Run.script_cpp_stage stage_ok (fun () ->
+  !! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "a_smem" ~indep:["j"; "tj";"bkIdx"] [cArrayRead "a_gmem"];
   !! Loop.hoist_expr ~dest:[tBefore; cFor "bkIdx"; cFor "ti"] "b_smem" ~indep:["i"; "ti"] [cArrayRead "b_gmem"];
 
   !! Loop.hoist_expr ~dest:[tBefore; cFor "bkIdx"; cFor "i" ~body:[cPlusEq ~lhs:[cVar "sum"] ()]]
@@ -75,4 +70,3 @@ Run.script_cpp ~filename:"matmul_models_out.cpp" (fun () ->
   !! Loop.unroll ~simpl:Arith.do_nothing [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
   *)
 )
-end

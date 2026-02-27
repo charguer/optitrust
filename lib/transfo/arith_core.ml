@@ -317,8 +317,16 @@ let normalize_one (e : expr) : expr =
     | _ -> e
     in
   match e.expr_desc with
-  | Expr_sum [] -> expr_int ~typ:(expr_typ e) 0
-  | Expr_prod [] -> expr_int ~typ:(expr_typ e) 1
+  | Expr_sum [] ->
+    let et = expr_typ e in
+    (match et with
+    | Typ_float _ -> expr_float ~typ:et 0.
+    | _ -> expr_int ~typ:et 0)
+  | Expr_prod [] ->
+    let et = expr_typ e in
+    (match et with
+    | Typ_float _ -> expr_float ~typ:et 1.
+    | _ -> expr_int ~typ:et 1)
   | Expr_sum [(1,e1)] -> e1
   | Expr_prod [(1,e1)] -> e1
   | _ -> e

@@ -1035,14 +1035,15 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_
         begin match tl with
         | [t] ->
           let d = decorate_trm style ~prec t in
+          let float_mod = if (trm_has_cstyle ResourceFormula f && (is_typ_float ty)) then string "." else empty in
           begin match op with
           (* | Unop_get when style.optitrust_syntax -> star ^^ d *)
           | Unop_get -> star ^^ d
           | Unop_address ->ampersand ^^ d
           | Unop_neg -> bang ^^ d
           | Unop_bitwise_neg -> tilde ^^ d
-          | Unop_minus -> minus ^^ blank 1 ^^ d
-          | Unop_plus -> plus ^^ blank 1 ^^ d
+          | Unop_minus -> minus ^^ float_mod ^^ blank 1 ^^ d
+          | Unop_plus -> plus ^^ float_mod ^^ blank 1 ^^ d
           | Unop_post_incr -> d ^^ twice plus
           | Unop_post_decr -> d ^^ twice minus
           | Unop_pre_incr -> twice plus ^^ d
@@ -1418,8 +1419,13 @@ and formula_to_doc style (f: formula): document =
   (* TODO: does the formula style annotation have this property, or should we just fix the instances
     where this annotation is not added to e.g. arithmetic operations? *)
   let f = (trm_map (trm_add_cstyle ResourceFormula) f) in
+  let trm_to_doc' = trm_to_doc in
+  let trm_to_doc style t = trm_to_doc style (trm_add_cstyle ResourceFormula t) in
   Pattern.pattern_match f [
     Pattern.(formula_points_to !__ !__ !__) (fun addr formula mem_typ () ->
+      let addr = trm_add_cstyle ResourceFormula addr in
+      let formula = trm_add_cstyle ResourceFormula formula in
+      let mem_typ = trm_add_cstyle ResourceFormula mem_typ in
       Pattern.when_ (!Flags.use_resources_with_models);
       Pattern.pattern_match mem_typ [
         Pattern.(trm_specific_var ~ignore_unset_id:true mem_typ_any_var) (fun () -> decorate_trm style addr ^^ blank 1 ^^ string "~~>" ^^ blank 1 ^^ trm_to_doc style formula);
@@ -1460,7 +1466,7 @@ and formula_to_doc style (f: formula): document =
     Pattern.(formula_is_true !__) (fun t () ->
       lparen ^^ (trm_to_doc style t) ^^ rparen
     );
-    Pattern.__ (fun () -> trm_to_doc style {f with annot = {f.annot with trm_annot_cstyle = []}})
+    Pattern.__ (fun () -> trm_to_doc' style {f with annot = {f.annot with trm_annot_cstyle = []}})
   ]
 
 (** [ast_to_doc t]: converts a full OptiTrust ast to a pprint document. *)

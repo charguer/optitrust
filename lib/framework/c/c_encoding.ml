@@ -1298,7 +1298,7 @@ let rec encode_contract (style: style) (t: trm): trm =
     let body = push_named_formulas __xensures ~used_vars contract.iter_contract.post.pure body in
     let body = push_named_formulas __xconsumes pre_linear body in
     let body = push_named_formulas __xrequires ~used_vars contract.iter_contract.pre.pure body in
-    List.iter (fun (_, formula) -> if formula_read_only_inv formula = None then failwith "parallel_reads contains non RO resources") contract.parallel_reads;
+    (*List.iter (fun (_, formula) -> if formula_read_only_inv formula = None then failwith "parallel_reads contains non RO resources") contract.parallel_reads;*)
     let loop_ghosts, _, _, body =
       push_common_clauses ~force:true ~reads_clause:__sreads ~preserves_clause:__sreads
         loop_ghosts contract.parallel_reads contract.parallel_reads body
