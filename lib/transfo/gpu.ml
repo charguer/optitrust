@@ -105,7 +105,10 @@ let%transfo convert_to_global_mem (tg: target): unit =
 
 let%transfo convert_to_shared_mem (chop_dims: int) (kernel_body: target) (tg: target): unit =
   Gpu_basic.convert_memory (Gpu_basic.smem_spec chop_dims) tg;
+  (* collect aliases here in varmap *)
   Gpu_basic.fix_distrib_accesses chop_dims kernel_body tg
+  (* for each alias in varmap,
+  Gpu_basic.convert_memory (Gpu_basic.smem_alias_spec alias) tg*)
 
 let%transfo magic_barrier_to_blocksync (kernel_body: target) (tg: target): unit =
   (* TODO: blocksync breaks the __strict() loop contracts, because it asks

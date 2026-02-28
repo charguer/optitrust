@@ -1,5 +1,4 @@
-#include "optitrust_common.h"
-#include "optitrust_models.h"
+#include "optitrust_gpu.h"
 
 /*
 void ff (int y, int *a) {
@@ -15,10 +14,45 @@ void ff (int y, int *a) {
 }
  */
 
-
 __DECL(reduce_sum, "int * (int -> float) -> float");
 __AXIOM(reduce_sum_empty, "forall (f: int -> float) -> 0.f =. reduce_sum(0, f)");
 __AXIOM(reduce_sum_add_right, "forall (n: int) (f: int -> float) (_: n >= 0) -> reduce_sum(n, f) +. f(n) =. reduce_sum(n + 1, f)");
+
+__GHOST(rs_index_rewrite) { // A and B instead of A(f) and A(g) ??
+  __requires("f: int -> int, g: int -> int, A: int -> float");
+  __requires("f_g_eq: forall (i: int) -> f(i) = g(i)");
+  __requires("n_in: int");
+  __ensures("reduce_sum(n_in,fun i -> A(f(i))) =. reduce_sum(n_in,fun i -> A(g(i)))");
+
+  int n_inpure;
+  __ghost([&]() {
+    __consumes("&n_inpure ~> UninitCell");
+    __produces("&n_inpure ~~> n_in");
+    __admitted();
+  });
+  const int n = n_inpure;
+
+  __DEF(Af, "fun (i: int) -> A(f(i))");
+  __DEF(Ag, "fun (i: int) -> A(g(i))");
+
+  __PROOF(H1, "reduce_sum_empty(Af)");
+  __ghost(rewrite_float_prop, "inside := fun v -> v =. reduce_sum(0,Af), by := reduce_sum_empty(Ag)", "Hbase <- out");
+  __ghost(eq_sym_float, "H := Hbase");
+
+  for (int j = 0; j < n; j++) {
+    __srequires("Hind: reduce_sum(j,Af) =. reduce_sum(j,Ag)");
+    __ghost(in_range_bounds, "j", "j_geq_0 <- lower_bound");
+
+    __ghost(eq_refl_float, "x := Af(j)");
+    __ghost(rewrite_prop, "inside := fun i -> A(f(j)) =. A(i), by := f_g_eq(j)", "Hfg <- out");
+
+    __PROOF(H2, "reduce_sum_add_right(j,Af,j_geq_0)");
+    __ghost(rewrite_float_prop, "inside := fun v -> reduce_sum(j,Af) +. v =. reduce_sum(j+1,Af), by := Hfg");
+    __ghost(rewrite_float_prop, "inside := fun v -> (v +. Ag(j) =. reduce_sum(j+1,Af)), by := Hind");
+    __ghost(rewrite_float_prop, "inside := fun v -> (v =. reduce_sum(j+1,Af)), by := reduce_sum_add_right(j,Ag,j_geq_0)", "Hind1 <- out");
+    __ghost(eq_sym_float, "H := Hind1");
+  }
+}
 
 // TODO: side conditions for positive check
 __DECL(tree_sum, "(int -> float) * int * int -> int -> float");
@@ -48,6 +82,8 @@ float reduce(float *arr, int logN) {
   __consumes("arr ~> Matrix1((1 << logN), A)");
   __produces("arr ~> UninitMatrix1((1 << logN))");
   __ensures("_Res =. reduce_sum((1 << logN), A)");
+
+  __ASSERT(logN_geq_0_2, "0 <= logN");
 
   const int N = 1 << logN;
 
@@ -85,7 +121,7 @@ float reduce(float *arr, int logN) {
     __ghost(assert_prop, "i-1 <= logN", "i1_leq_logN <- proof");
     __ghost(group_expand_r_if_intros, "n1 := ei, n2 := N, expand_check := shiftr_monotonic(1,i-1,logN,i1_leq_logN), items := fun t -> &arr[MINDEX1(N,t)] ~~> tree_sum(A,logN,i)(t)");
 
-    __GHOST_BEGIN(shift, matrix1_span_shift, "a := ei, b := eii, matrix := arr, M := fun t -> tree_sum(A,logN,i)(t)");
+    __GHOST_BEGIN(shift, matrix1_span_shift, "a := ei, b := eii, matrix := arr, n1 := N, M := fun t -> tree_sum(A,logN,i)(t)");
     __ghost(rewrite_linear, "inside := fun v -> for t in 0..v -> &(&arr[ei])[MINDEX1(v, t)] ~~> tree_sum(A,logN,i)(t + ei), by := shift_distrib(1,i, i_gt_0)");
 
     for (int t = 0; t < N; t++) {
@@ -124,7 +160,7 @@ float reduce(float *arr, int logN) {
   float sum = arr[MINDEX1(N,0)];
   __GHOST_END(focus2);
 
-  __ghost(expand_subrange, "a := 0, b := 1 << 0, s := 1, c := 1 << logN, up_ineq := shiftr_monotonic(1,0,logN,logN_geq_0)");
+  __ghost(expand_subrange, "a := 0, b := 1 << 0, s := 1, c := 1 << logN, up_ineq := shiftr_monotonic(1,0,logN,logN_geq_0_2)");
   __ghost([&] ()   {
     __consumes("for t in 0..(1<<0) -> &arr[MINDEX1(N, t)] ~~> tree_sum(A, logN, 0)(t)");
     __produces("for t in 0..(1<<0) -> &arr[MINDEX1(N, t)] ~> UninitCell");
@@ -133,4 +169,37 @@ float reduce(float *arr, int logN) {
 
   __ghost(assert_prop, "proof := tree_sum_complete(A, logN)");
   return sum;
+}
+
+
+float reduce2(int N) {
+  __ensures("_Res =. reduce_sum(N, fun (j: int) -> reduce_sum((1 << 8), fun i -> 1.0f))");
+
+  __DEF_TYPED(thing, "int -> float", "fun (j: int) -> reduce_sum((1 << 8), fun (i: int) -> 1.0f)");
+
+  float out = 0.f;
+  __ghost(rewrite_float_linear, "inside := (fun v -> &out ~~> v), by := reduce_sum_empty(thing)");
+  for (int b = 0; b < N; b++) {
+    __spreserves("&out ~~> reduce_sum(b, thing)");
+
+    float * const arr = MALLOC1(float, 1<<8);
+
+    for (int i = 0; i < (1<<8); i++) {
+      __xwrites("&arr[MINDEX1(1<<8,i)] ~~> 1.0f");
+      arr[MINDEX1(1<<8,i)] = 1.0f;
+    }
+
+    const float v = reduce(arr, 8);
+
+    out += v;
+    __ghost(rewrite_float_linear, "inside := fun v -> &out ~~> reduce_sum(b, thing) +. v");
+
+    free(arr);
+
+    __ghost(in_range_bounds, "b", "b_geq_0 <- lower_bound");
+    __ghost(rewrite_float_linear, "inside := (fun v -> &out ~~> v), by := reduce_sum_add_right(b, thing, b_geq_0)");
+  }
+
+  __ghost(eq_refl_float, "reduce_sum(N, thing)");
+  return out;
 }

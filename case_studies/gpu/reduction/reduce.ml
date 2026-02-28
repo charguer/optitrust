@@ -15,7 +15,7 @@ let int = trm_int
 let tpb = 128
 let stride = 2
 
-let stage_ok = fun i -> true
+let stage_ok = fun i -> i = 4
 
 let parallelize_reduction ?(temp_sums: string option) (inner_loop: string) (outer_loop: string) (sum_var: string): unit = begin
   bigstep (Printf.sprintf "parallelize reduction for %s,%s,%s" inner_loop outer_loop sum_var);
@@ -49,4 +49,9 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
 let _ = Run.script_cpp_stage stage_ok (fun () ->
   Show.add_marks_for_target_unit_tests [cPred (trm_has_cstyle RewriteSequence)];
   parallelize_reduction "ti" "bi" "sum";
+  Marks.rem_all_marks_rec [];
+)
+
+let _ = Run.script_cpp_stage stage_ok (fun () ->
+  !! Loop.hoist_alloc ~dest:[tBefore; occFirst; cFor "bi"] [cVarDef "t2"];
 )

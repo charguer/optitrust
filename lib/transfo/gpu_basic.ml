@@ -334,6 +334,10 @@ let smem_spec : int -> (trm list * trm list) memory_spec = fun chop_dims -> {
   extra_patterns = (fun (var,_) aux -> []);
 }
 
+(*let smem_alias_spec (alias_var: var) =
+  alloc_handler = (t, alias_var)
+  get_handler = same as above, set_handler is same, cell_var is same.
+*)
 (* Sync specifications *)
 
 let block_sync (t: trm): trm =

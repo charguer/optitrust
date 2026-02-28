@@ -56,7 +56,7 @@ __GHOST(rewrite_prop) {
   __requires("inside: int -> Prop");
   __requires("by: from = to");
   __requires("inside(from)");
-  __ensures("inside(to)");
+  __ensures("out: inside(to)");
   __admitted();
 }
 
@@ -66,6 +66,15 @@ __GHOST(rewrite_linear) {
   __requires("by: from = to");
   __consumes("inside(from)");
   __produces("inside(to)");
+  __admitted();
+}
+
+__GHOST(rewrite_float_prop) {
+  __requires("from: float, to: float");
+  __requires("inside: float -> Prop");
+  __requires("by: from =. to");
+  __requires("inside(from)");
+  __ensures("out: inside(to)");
   __admitted();
 }
 
@@ -88,7 +97,14 @@ __GHOST(rewrite_float_linear_admitted) {
 
 __GHOST(eq_refl_float) {
   __requires("x:float");
-  __ensures("x =. x");
+  __ensures("out: x =. x");
+  __admitted();
+}
+
+__GHOST(eq_sym_float) {
+  __requires("x:float, y:float");
+  __requires("H: x =. y");
+  __ensures("out: y =. x");
   __admitted();
 }
 
@@ -340,7 +356,7 @@ __GHOST(bounds_to_in_range) {
 
 __GHOST(expand_subrange) {
   __requires("a: int, b: int, c: int, s: int");
-  __requires("s >= 0, up_ineq: b <= c");
+  __requires("lower: s >= 0, up_ineq: b <= c");
   __ensures("is_subrange(range(a,b,s),range(a,c,s))");
   __admitted();
 }
