@@ -142,12 +142,11 @@ let flatten_expr_rewrites (tg: target) =
           Some (new_anon_hyp (),h)
         else if ((v_usage = Some SplittedFrac)) then (
           let h = match formula_read_only_inv h with
-          | Some _ -> h
-          | _ -> (
-            let frac_var = new_anon_hyp () in
-            pre_pure := (frac_var, typ_frac) :: !pre_pure;
-            formula_read_only ~frac:(trm_var frac_var) h
-          ) in
+          | Some rf -> rf.formula
+          | _ -> h in
+          let frac_var = new_anon_hyp () in
+          pre_pure := (frac_var, typ_frac) :: !pre_pure;
+          let h = formula_read_only ~frac:(trm_var frac_var) h in
           post := (new_anon_hyp (), h) :: !post;
           Some (new_anon_hyp (), h)
         )

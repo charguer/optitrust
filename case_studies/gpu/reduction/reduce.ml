@@ -15,7 +15,7 @@ let int = trm_int
 let tpb = 128
 let stride = 2
 
-let stage_ok = fun i -> i = 3
+let stage_ok = fun i -> true
 
 let parallelize_reduction ?(temp_sums: string option) (inner_loop: string) (outer_loop: string) (sum_var: string): unit = begin
   bigstep (Printf.sprintf "parallelize reduction for %s,%s,%s" inner_loop outer_loop sum_var);
@@ -28,9 +28,7 @@ let parallelize_reduction ?(temp_sums: string option) (inner_loop: string) (oute
   !! Variable.insert ~name:d ~typ:typ_f32 ~value:(trm_get (trm_find_var sum_var [])) [cForBody outer_loop; tFirst];
   !! Accesses.shift_var ~inv:true ~factor:(trm_find_var d []) [cFor outer_loop; cVarDef t];
   !! Variable.inline [cVarDef d];
-  if ((Run.get_stage ()) = 3) then begin
-    !! Ghost.flatten_expr_rewrites [nbMulti; cWriteVar t; dRHS];
-  end;
+  !! Ghost.flatten_expr_rewrites [nbMulti; cWriteVar t; dRHS];
   !! Arith.simpl_surrounding_expr Arith.gather_rec [nbMulti; cVar sum_var];
   !! Resources.loop_minimize [occLast; cFor inner_loop];
   !! Loop.hoist [cVarDef t];
