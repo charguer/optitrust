@@ -298,11 +298,13 @@ let ghost_rewrite_prop ?from ?into ?by inside =
 
 let var_ghost_rewrite_linear_int = toplevel_var "rewrite_linear"
 let var_ghost_rewrite_linear_float = toplevel_var "rewrite_float_linear"
+let var_ghost_rewrite_linear_float_admitted = toplevel_var "rewrite_float_linear_admitted"
 
-let ghost_rewrite_linear ~(typ : typ) ?from ?into ?by inside =
+let ghost_rewrite_linear ?(admitted = false) ~(typ : typ) ?from ?into ?by inside =
   match typ with
-  | _ when is_typ_integer typ -> ghost_call_opt_args var_ghost_rewrite_linear_int ["from", from; "to", into; "inside", Some inside; "by", by]
-  | _ when is_typ_float typ -> ghost_call_opt_args var_ghost_rewrite_linear_float ["from", from; "to", into; "inside", Some inside; "by", by]
+  | _ when is_typ_integer typ && not admitted -> ghost_call_opt_args var_ghost_rewrite_linear_int ["from", from; "to", into; "inside", Some inside; "by", by]
+  | _ when is_typ_float typ && not admitted -> ghost_call_opt_args var_ghost_rewrite_linear_float ["from", from; "to", into; "inside", Some inside; "by", by]
+  | _ when is_typ_float typ && admitted -> ghost_call_opt_args var_ghost_rewrite_linear_float_admitted ["from", from; "to", into; "inside", Some inside]
   | _ -> failwith "unsupported ghost_rewrite_linear type"
 
 let logic_eq_sym = trm_toplevel_var "eq_sym"
@@ -322,7 +324,7 @@ let rewrite_var_in_res_ghosts ?(filter_changed = true) var ?from ?into ?by res =
   in
   (* LATER: Check that what we try to rewrite is indeed a Prop and not a Type... *)
   let res = if filter_changed then Resource_set.filter_with_var var res else res in
-  into_rewrite_ghost ghost_rewrite_prop res.pure @ into_rewrite_ghost (ghost_rewrite_linear ~typ:typ_int) res.linear
+  into_rewrite_ghost ghost_rewrite_prop res.pure @ into_rewrite_ghost (ghost_rewrite_linear ~admitted:false ~typ:typ_int) res.linear
 
 (*****************************************************************************)
 (* Contracts and annotations *)
