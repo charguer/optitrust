@@ -93,24 +93,28 @@ arith_factor:
   | a=ampersand_formula;
     { a }
 
-arith_term:
-  | a=arith_term; PLUS; b=arith_factor;
+arith_sum:
+  | a=arith_sum; PLUS; b=arith_factor;
     { trm_add ~typ:typ_int a b }
-  | a=arith_term; MINUS; b=arith_factor;
+  | a=arith_sum; MINUS; b=arith_factor;
     { trm_sub ~typ:typ_int a b }
   | MINUS; b=arith_factor;
     { trm_minus ~typ:typ_int b }
-  | a=arith_term; LSHIFT; b=arith_factor;
-    { trm_shiftl ~typ:typ_int a b }
-  | a=arith_term; RSHIFT; b=arith_factor;
-    { trm_shiftr ~typ:typ_int a b }
-  | a=arith_term; PLUS; DOT; b=arith_factor;
+  | a=arith_sum; PLUS; DOT; b=arith_factor;
     { trm_add ~typ:typ_f32 a b }
-  | a=arith_term; MINUS; DOT; b=arith_factor;
+  | a=arith_sum; MINUS; DOT; b=arith_factor;
     { trm_sub ~typ:typ_f32 a b }
   | MINUS; DOT; b=arith_factor;
     { trm_minus ~typ:typ_f32 b }
   | a=arith_factor;
+    { a }
+
+arith_term:
+  | a=arith_term; LSHIFT; b=arith_sum;
+    { trm_shiftl ~typ:typ_int a b }
+  | a=arith_term; RSHIFT; b=arith_sum;
+    { trm_shiftr ~typ:typ_int a b }
+  | a=arith_sum;
     { a }
 
 formula_cmp:

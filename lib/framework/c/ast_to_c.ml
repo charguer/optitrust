@@ -559,7 +559,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
     begin match t.desc with
     | _ when trm_has_cstyle Type t -> typ_to_doc style t
     | _ when trm_has_cstyle ResourceFormula t ->
-      dattr ^^ formula_to_doc style t ^^ dsemi
+      dattr ^^ formula_to_doc ~prec style t ^^ dsemi
     | Trm_var x ->
       (* if x.qvar_var = "this"
         then
@@ -1416,13 +1416,13 @@ and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
     end in
     trm_for_c ?loc init cond step body
 
-and formula_to_doc style (f: formula): document =
+and formula_to_doc ?(prec : int = 0) style (f: formula): document =
   let open Resource_formula in
   (* TODO: does the formula style annotation have this property, or should we just fix the instances
     where this annotation is not added to e.g. arithmetic operations? *)
   let f = (trm_map (trm_add_cstyle ResourceFormula) f) in
-  let trm_to_doc' = trm_to_doc in
-  let trm_to_doc style t = trm_to_doc style (trm_add_cstyle ResourceFormula t) in
+  let trm_to_doc' = trm_to_doc ~prec in
+  let trm_to_doc style t = trm_to_doc ~prec style (trm_add_cstyle ResourceFormula t) in
   Pattern.pattern_match f [
     Pattern.(formula_points_to !__ !__ !__) (fun addr formula mem_typ () ->
       let addr = trm_add_cstyle ResourceFormula addr in

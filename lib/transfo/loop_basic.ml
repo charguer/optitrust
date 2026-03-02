@@ -1439,3 +1439,163 @@ let refactor_if_in_loop_on (t : trm) : trm =
 
 let%transfo refactor_if_in_loop (tg : target) =
   apply_at_target_paths refactor_if_in_loop_on tg
+
+let ghost_var_group_singleton_if_intros = toplevel_var "group_singleton_if_intros"
+
+let ghost_var_group_singleton_if_elim = toplevel_var "group_singleton_if_elim"
+
+let ghost_var_group_intro_one = toplevel_var "group_intro_one"
+
+let ghost_var_group_elim_one = toplevel_var "group_elim_one"
+
+let ghost_group_singleton_if_intros n h =
+  Resource_trm.ghost (ghost_call (ghost_var_group_singleton_if_intros) (["n", n; "H", h]))
+
+let ghost_group_singleton_if_elim n h =
+  Resource_trm.ghost (ghost_call (ghost_var_group_singleton_if_elim) (["n", n; "H", h]))
+
+let ghost_group_intro_one item =
+  Resource_trm.ghost (ghost_call (ghost_var_group_intro_one) (["item", item]))
+
+let ghost_group_elim_one item =
+  Resource_trm.ghost (ghost_call (ghost_var_group_elim_one) (["item", item]))
+
+(* TODO: move elsewhere *)
+let var_formula_If = toplevel_var "If"
+let formula_If (cond: formula) (h: formula) = (trm_apps ~annot:Resource_formula.formula_annot ~typ:typ_hprop (trm_var var_formula_If) [cond; h])
+
+let ghost_var_if_else_rewrite = toplevel_var "if_else_rewrite"
+let ghost_var_if_then_specialize = toplevel_var "if_then_specialize"
+let ghost_var_if_then_unspecialize = toplevel_var "if_then_unspecialize"
+let ghost_var_if_else_drop = toplevel_var "if_else_drop"
+
+let ghost_if_else_rewrite ?b from into =
+  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_else_rewrite) (["b",b; "H",Some from; "H2",Some into]))
+
+let ghost_if_else_drop ?b h =
+  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_else_drop) (["b",b; "H",Some h]))
+
+let ghost_if_then_specialize ?b h =
+  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_then_specialize) (["b",b; "H",Some h]))
+
+let ghost_if_then_unspecialize ?b h =
+  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_then_unspecialize) (["b",b; "H",Some h]))
+
+(* TODO: refactor with other loop/if transfos such as expand_range, fold, etc.
+  modify those to support contracts/models like this one. *)
+(* TODO: use spans instead *)
+let%transfo intro_loop_single_on (bound: trm) (start_tg: target) (stop_tg: target) =
+  Nobrace_transfo.remove_after (fun () -> Marks.with_marks (fun next_m ->
+    let seq_mark = next_m () in
+    Sequence.intro_between ~mark:seq_mark start_tg stop_tg;
+    let seq_p = Target.resolve_mark_exactly_one seq_mark in
+    Resources.ensure_computed_at seq_p;
+
+    let generate_item_wrap_ghosts ~(use_if: bool) ~(intros: bool) (linear: resource_item list) =
+      List.fold_left (fun ghosts (_,f) ->
+        let ghost = if (use_if) then
+          if (intros) then ghost_group_singleton_if_intros bound else ghost_group_singleton_if_elim bound
+        else
+          if (intros) then ghost_group_intro_one else ghost_group_elim_one in
+        (ghost f) :: ghosts
+      ) [] linear in
+
+    (* Create un-minimized loop *)
+    let loop_mark = next_m () in
+    let ghosts_pre_mark = next_m () in
+    let ghosts_post_mark = next_m () in
+
+    Target.apply_at_path (fun seq ->
+      let before = Resources.before_trm seq in
+      let before = List.filter (fun (_,f) -> Option.is_none (Resource_formula.formula_read_only_inv f)) before.linear in
+      let after = Resources.after_trm seq in
+      let after = List.filter (fun (_,f) -> Option.is_none (Resource_formula.formula_read_only_inv f)) after.linear in
+
+      let ghosts_pre = trm_add_mark ghosts_pre_mark (trm_seq (Mlist.of_list (
+        generate_item_wrap_ghosts ~use_if:false ~intros:true before
+      ))) in
+
+      let ghosts_post = trm_add_mark ghosts_post_mark (trm_seq (Mlist.of_list (
+        generate_item_wrap_ghosts ~use_if:false ~intros:false after
+      ))) in
+
+      let contract = { empty_loop_contract with iter_contract = {
+        pre = Resource_set.copy (Resource_set.make ~linear:before ());
+        post = Resource_set.copy (Resource_set.make ~linear:after ());
+      }} in
+
+      let ind = new_var "t" in (* t for thread *)
+      let range = { index = ind; start = (trm_int 0); stop = (trm_int 1); step = (trm_int 1); direction = DirUp } in
+      let loop = trm_add_mark loop_mark (trm_for ~contract range seq) in
+      trm_seq_nobrace (Mlist.of_list [
+        ghosts_pre;
+        loop;
+        ghosts_post;
+      ])
+    ) seq_p;
+
+    Resources.loop_minimize [cMark loop_mark];
+    Resources.make_strict_loop_contracts [cMark loop_mark];
+
+    (* cut here if you want the "If" stuff to be handled by the loop_extend_range_on instead*)
+
+    let before,after = ref [], ref [] in
+    Target.apply_at_target_paths (fun loop ->
+      let (range, mode, instrs, contract) = trm_inv trm_for_inv_instrs loop in
+
+      before := contract.iter_contract.pre.linear;
+      after := contract.iter_contract.post.linear;
+
+      let open Resource_formula in
+      let check_formula = (formula_eq ~typ:typ_int (trm_var range.index) (trm_int 0)) in
+      let before_masked = List.map (fun (v,f) ->
+        (v,formula_If check_formula f)
+      ) !before in
+      let after_masked = List.map (fun (v,f) ->
+        (v,formula_If check_formula f)
+      ) !after in
+
+      let specialize_ghosts = List.map (fun (_,f) ->
+        ghost_if_then_specialize f
+      ) !before in
+      let unspecialize_ghosts = List.map (fun (_,f) ->
+        ghost_if_then_unspecialize f
+      ) !after in
+      assert (List.length !before >= List.length !after); (* only one case handled for now *)
+      let before_rewrite,before_drop = List.split_at (List.length !after) !before in
+      let else_ghosts = List.map2 (fun (_,f1) (_,f2) ->
+        ghost_if_else_rewrite f1 f2
+      ) before_rewrite !after in
+      let else_ghosts = else_ghosts @ (List.map (fun (_,f) ->
+        ghost_if_else_drop f) before_drop) in
+
+      let body = trm_if (trm_eq ~typ:typ_int (trm_var range.index) (trm_int 0))
+        (trm_seq_helper [
+          TrmList specialize_ghosts;
+          TrmMlist instrs;
+          TrmList unspecialize_ghosts;
+        ])
+        (trm_seq_helper [
+          TrmList else_ghosts;
+        ]) in
+
+      let range = { range with stop = bound } in
+      let contract = { contract with
+        iter_contract = {
+          pre = Resource_set.copy (Resource_set.make ~linear:before_masked ());
+          post = Resource_set.copy (Resource_set.make ~linear:after_masked ());
+        }
+      } in
+      trm_for_instrs ~contract range (Mlist.of_list [
+        body
+      ])
+    ) [cMark loop_mark];
+
+    Target.apply_at_target_paths (fun _ ->
+      trm_seq_nobrace (Mlist.of_list (generate_item_wrap_ghosts ~use_if:true ~intros:true !before))
+    ) [cMark ghosts_pre_mark];
+
+    Target.apply_at_target_paths (fun _ ->
+      trm_seq_nobrace (Mlist.of_list (generate_item_wrap_ghosts ~use_if:true ~intros:false !after))
+    ) [cMark ghosts_post_mark];
+  ))

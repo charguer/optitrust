@@ -140,7 +140,7 @@ float tree_reduce(float *arr, int logN) {
   }
 
   __GHOST_BEGIN(focus2, group_focus, "i := 0, items := fun t -> &arr[MINDEX1(N, t)] ~~> tree_sum(A, logN, 0)(t)");
-  float sum = arr[MINDEX1(N,0)];
+  float out_sum = arr[MINDEX1(N,0)];
   __GHOST_END(focus2);
 
   __ghost(expand_subrange, "a := 0, b := 1 << 0, s := 1, c := 1 << logN, up_ineq := shiftr_monotonic(1,0,logN,logN_geq_0_1)");
@@ -159,5 +159,5 @@ float tree_reduce(float *arr, int logN) {
   __ghost(assert_prop, "proof := tree_sum_complete(A, logN)");
   __ghost(rewrite_prop, "inside := fun v -> tree_sum(A, logN, 0)(0) =. reduce_sum(v, A), by := eq_sym(N_in,N,logN_check_1)");
 
-  return sum;
+  return out_sum;
 }

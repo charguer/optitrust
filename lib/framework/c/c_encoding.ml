@@ -798,7 +798,7 @@ and decode_ghost_annot_in_seq (ts: trm list): trm list =
     t :: decode_ghost_annot_in_seq ts
 
 let formula_to_string (style : style) (f: formula) : string =
-  Ast_to_c.ast_to_string ~width:PPrint.infinity ~style:style.cstyle f
+  Ast_to_c.ast_to_string ~width:PPrint.infinity ~style:style.cstyle (trm_add_cstyle ResourceFormula f)
 
 let var__with = trm_var (name_to_var "__with")
 let var__bind = trm_var (name_to_var "__bind")

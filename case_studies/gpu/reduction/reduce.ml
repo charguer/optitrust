@@ -15,7 +15,7 @@ let int = trm_int
 let tpb = 128
 let stride = 2
 
-let stage_ok = fun i -> i = 4
+let stage_ok = fun i -> i = 5
 
 let parallelize_reduction ?(temp_sums: string option) (inner_loop: string) (outer_loop: string) (sum_var: string): unit = begin
   bigstep (Printf.sprintf "parallelize reduction for %s,%s,%s" inner_loop outer_loop sum_var);
@@ -32,7 +32,6 @@ let parallelize_reduction ?(temp_sums: string option) (inner_loop: string) (oute
   !! Arith.simpl_surrounding_expr Arith.gather_rec [nbMulti; cVar sum_var];
   !! Resources.loop_minimize [occLast; cFor inner_loop];
   !! Loop.hoist [cVarDef t];
-  !! Show.add_marks_for_target_unit_tests [tBefore; cFor outer_loop; cWriteVar sum_var];
   !! Loop.fission [tBefore; cFor outer_loop; cWriteVar sum_var];
 end
 
@@ -110,7 +109,7 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Ghost.flatten_expr_rewrites (sum_tg @ [dRHS]);
   !! replace_with_tree_reduce (trm_int 7) sum_tg;
   !! Flags.with_flag Flags.check_validity false (fun () -> Function.inline_def [cFunDef "tree_reduce"]);
-
-  (* random TODO: according to clang-format we are printing << as if it had a lower precedence than -, so there might be issues on reparse *)
+  !! Loop_basic.intro_loop_single_on (trm_int tpb) [tAfter; cFor "i" ~body:[cFor "t"]] [tAfter; occLast; cArrayWrite "partial_sums"];
 )
 
+let _ = Run.script_cpp_stage stage_ok (fun () -> ())

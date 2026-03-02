@@ -798,10 +798,15 @@ __GHOST(group_elim_empty) {
   __admitted();
 }
 
-__GHOST(group_one) {
+__GHOST(group_intro_one) {
   __requires("item: HProp");
   __consumes("item");
   __produces("for i in 0..1 -> item");
+  __admitted();
+}
+
+__GHOST(group_elim_one) {
+  __reverts(group_intro_one);
   __admitted();
 }
 
@@ -891,18 +896,27 @@ __GHOST(if_else_rewrite) {
   __admitted();
 }
 
+// TODO: is this right?
+__GHOST(if_else_drop) {
+  __requires("b: bool, H: HProp, P: __is_false(b)");
+  __consumes("If(__is_true(b), H)");
+  __admitted();
+}
+
 // stupid hack to remember b because i can't pass a bool as a ghost arg
-__DECL(IfSpecialized, "bool -> HProp");
+__DECL(DidSpecialize, "bool -> Prop");
 __GHOST(if_then_specialize) {
   __requires("b: bool, H: HProp, P: __is_true(b)");
   __consumes("If(__is_true(b), H)");
-  __produces("IfSpecialized(b)");
+  __ensures("DidSpecialize(b)");
   __produces("H");
   __admitted();
 }
 
 __GHOST(if_then_unspecialize) {
-  __reverts(if_then_specialize);
+  __requires("b: bool, H: HProp, DidSpecialize(b), P: __is_true(b)");
+  __consumes("H");
+  __produces("If(__is_true(b), H)");
   __admitted();
 }
 
@@ -916,6 +930,22 @@ __GHOST(group_expand_r_if_intros) {
 
 __GHOST(group_shrink_r_if_elim) {
   __reverts(group_expand_r_if_intros);
+  __admitted();
+}
+
+__GHOST(group_singleton_if_intros) {
+  __requires("n: int, H: HProp");
+  // __requires("n > 0");
+  __consumes("H");
+  __produces("for i in 0..n -> If(i = 0, H)");
+  __admitted();
+}
+
+__GHOST(group_singleton_if_elim) {
+  __requires("n: int, H: HProp");
+  // __requires("n > 0");
+  __consumes("for i in 0..n -> If(i = 0, H)");
+  __produces("H");
   __admitted();
 }
 
