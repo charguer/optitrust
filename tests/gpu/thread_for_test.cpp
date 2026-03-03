@@ -113,8 +113,7 @@ void sync_required(int *a, int N, int M) {
     __threadfor; for (int j = 0; j < N; j++) {
       __xconsumes("&a[MINDEX2(N,M,j,i)] ~~>[GMem] 1");
       __xproduces("&a[MINDEX2(N,M,j,i)] ~~>[GMem] 1+1");
-      const int va = __gmem_get(&a[MINDEX2(N,M,j,i)]);
-      __gmem_set(&a[MINDEX2(N,M,j,i)], va + 1);
+      __gmem_set(&a[MINDEX2(N,M,j,i)], __gmem_get(&a[MINDEX2(N,M,j,i)]) + 1);
     }
   }
 

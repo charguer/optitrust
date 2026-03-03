@@ -110,7 +110,7 @@ let%transfo convert_to_global_mem (tg: target): unit =
   ) tg
 
 
-let%transfo convert_to_shared_mem (chop_dims: int) (tg: target): unit =
+let%transfo convert_to_shared_mem ~(chop_dims: int) (tg: target): unit =
   Target.iter (fun p ->
     let _,tg_seq_p = Path.index_in_seq p in
     let tg = [cPath p] in

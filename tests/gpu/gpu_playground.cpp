@@ -1,6 +1,6 @@
 #include <optitrust_gpu.h>
 
-void test(int *a, int *c, int M, int N) {
+void test(int *a, int *c, float *d, int M, int N) {
   __requires("t: int, tpb: int");
   //__preserves("ThreadsCtx( MINDEX1(0,0) ..+ MSIZE1(N) )");
   __writes("a ~> Matrix2(M, N, fun (i j: int) -> i + j)");
@@ -10,6 +10,7 @@ void test(int *a, int *c, int M, int N) {
   __reads("KernelParams(MSIZE3(3,4,5), tpb, sizeof(int) * 6 + 0)");
   __preserves("SMemAllowance(sizeof(int) * 6 + 0)");
   __writes("c ~~> 1");
+  __writes("d ~~>[GMem] 1.0f +. 1.0f");
 
 
   for (int i = 0; i < M; i++) {
@@ -20,6 +21,13 @@ void test(int *a, int *c, int M, int N) {
     }
 //    magic_barrier();
   }
+
+  /*
+  doesn't work in clang_to_ast?
+  __gmem_set(d, 1.0f);
+  const float v = __gmem_get(d);
+  __gmem_set(d, v + __gmem_get(d));
+  */
 
   {
     int* const a = TREG_REF_S(int, 0);

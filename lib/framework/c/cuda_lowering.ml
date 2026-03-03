@@ -196,9 +196,30 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
   let kernel_decls = List.fold_left (fun defns kernel -> Mlist.push_front (trm_let kernel (snd kernel)) defns) (Mlist.of_list [t]) !kernels in
   Nobrace.trm_seq kernel_decls
 
+(* TODO: duplicate of resource_trm, remove when this is
+  refactored into a transfo*)
+let trm_seq_rewrite_inv (t: trm): trm option =
+  if (not (trm_has_cstyle RewriteSequence t)) then None else (
+  match (trm_seq_nth_inv 0 t) with
+  | Some t -> begin match (trm_let_inv t) with
+    | Some (_,_,t) -> begin match (trm_ref_inv t) with
+      | Some (_,t) -> Some t
+      | _ -> None
+      end
+    | _ -> None
+    end
+  | _ -> None)
+
+let rec trm_seq_rewrite_flatten (t: trm): trm =
+  match (trm_seq_rewrite_inv t) with
+  | Some t -> trm_seq_rewrite_flatten t
+  | _ -> trm_map trm_seq_rewrite_flatten t
+
+
 let lower_to_cuda (t: trm): trm =
   let k_id = ref 0 in
   let device_fns: Var_set.t ref = ref Var_set.empty in
+  let t = trm_seq_rewrite_flatten t in
   let rec lower_fns t =
     let ot () =
       let open Option.Monad in
