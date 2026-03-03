@@ -1484,7 +1484,7 @@ let ghost_if_then_unspecialize ?b h =
 (* TODO: refactor with other loop/if transfos such as expand_range, fold, etc.
   modify those to support contracts/models like this one. *)
 (* TODO: use spans instead *)
-let%transfo intro_loop_single_on (bound: trm) (start_tg: target) (stop_tg: target) =
+let%transfo intro_loop_single_on ?(index: string = "t") (bound: trm) (start_tg: target) (stop_tg: target) =
   Nobrace_transfo.remove_after (fun () -> Marks.with_marks (fun next_m ->
     let seq_mark = next_m () in
     Sequence.intro_between ~mark:seq_mark start_tg stop_tg;
@@ -1524,8 +1524,8 @@ let%transfo intro_loop_single_on (bound: trm) (start_tg: target) (stop_tg: targe
         post = Resource_set.copy (Resource_set.make ~linear:after ());
       }} in
 
-      let ind = new_var "t" in (* t for thread *)
-      let range = { index = ind; start = (trm_int 0); stop = (trm_int 1); step = (trm_int 1); direction = DirUp } in
+      let index_var = new_var index in (* t for thread *)
+      let range = { index = index_var; start = (trm_int 0); stop = (trm_int 1); step = (trm_int 1); direction = DirUp } in
       let loop = trm_add_mark loop_mark (trm_for ~contract range seq) in
       trm_seq_nobrace (Mlist.of_list [
         ghosts_pre;

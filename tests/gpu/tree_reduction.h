@@ -118,7 +118,7 @@ float tree_reduce(float *arr, int logN) {
         __ghost(bounds_to_in_range, "x := t, a := 0, b := ei");
         __GHOST_BEGIN(focus, ro_matrix1_focus, "&arr[ei], t");
         __ghost(if_then_specialize, "H := &arr[MINDEX1(N,t)] ~~> tree_sum(A,logN,i)(t)");
-        arr[MINDEX1(N,t)] += (&arr[ei])[MINDEX1(ei,t)];
+        arr[MINDEX1(N,t)] = arr[MINDEX1(N,t)] + (&arr[ei])[MINDEX1(ei,t)];
         __GHOST_END(focus);
         __ghost(assert_prop, "t < (1 << (i - 1))", "H3 <- proof");
         __ghost(rewrite_float_linear, "inside := fun v -> &arr[MINDEX1(N,t)] ~~> v, by := tree_sum_ind(A, logN, i, t, H3)");

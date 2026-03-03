@@ -85,10 +85,10 @@ let%transfo seq_for_to_magicthread_for ?(barrier_mark: mark = "") (tg: target) =
 
 type 'a op_handler = (var * 'a) -> (trm list) -> trm
 type 'a memory_spec = {
-  alloc_handler: (var * trm * trm * trms * bool) -> (trm * 'a * var);
+  alloc_handler: trm -> (trm * 'a * var);
   get_handler: 'a op_handler;
   set_handler: 'a op_handler;
-  free_handler: 'a op_handler;
+  free_handler: trm -> 'a op_handler;
   cell_var: var;
   extra_patterns: (var * 'a) -> (typ -> typ) -> (typ -> unit -> typ) list
 }
@@ -109,6 +109,10 @@ let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
     Pattern.pattern_match t
     ((spec.extra_patterns alloc_data aux) @
     [
+      Pattern.(trm_compound_assign_any !__ !__ !__ !__) (fun typ op t1 t2 () ->
+        Pattern.when_ ((is_free_var_in_trm var t1) || (is_free_var_in_trm var t2));
+        convert_ops_mem_type alloc_data (trm_set t1 (trm_apps ~typ (trm_binop typ op) [(trm_get t1); t2]))
+      );
       Pattern.(trm_get !__) (fun addr () ->
         Pattern.when_ (is_free_var_in_trm var addr);
         spec.get_handler alloc_data [addr]
@@ -123,7 +127,7 @@ let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
       );
       Pattern.(trm_delete !__) (fun addr () ->
         Pattern.when_ (is_free_var_in_trm var addr);
-        spec.free_handler alloc_data [addr]
+        spec.free_handler t alloc_data [addr]
       );
       Pattern.__ (fun () -> t)
     ]) in
@@ -131,9 +135,7 @@ let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
      Nobrace.remove_after_trm_op (fun seq ->
       let instrs, ret = trm_inv ~error:"expected seq" trm_seq_inv seq in
       let alloc_trm = Mlist.nth instrs ind in
-      let alloc_trm, aux_alloc_data, var = match (Matrix_trm.let_alloc_inv alloc_trm) with
-      | Some alloc_specs -> spec.alloc_handler alloc_specs
-      | _ -> failwith "Gpu_basic.ml: expected target to point to a matrix allocation" in
+      let alloc_trm, aux_alloc_data, var = spec.alloc_handler alloc_trm in
       let instrs = Mlist.replace_at ind alloc_trm instrs in
       seq
       |> (trm_alter ~desc:(Trm_seq (instrs, ret)))
@@ -142,21 +144,26 @@ let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
   ) alloc_tg
 
 (* TODO: make this a real transfo? *)
-let fix_distrib_accesses (chop_dims: int) (body_tg: target) (alloc_tg: target): unit =
-  let body_path = Target.resolve_target_exactly_one body_tg in
+let fix_distrib_accesses ~(aliases: Var_set.t ref) (chop_dims: int) (body_span_tg: target) (alloc_tg: target): unit =
+  let body_seq_path,body_seq_span = Target.resolve_target_span_exactly_one body_span_tg in
   let open Resource_formula in
+  (* TODO wont work if alloc_tg points to more than one *)
   Target.iter_at_target_paths (fun alloc_trm ->
     let error = "Gpu_basic.ml: expected target to point to a matrix allocation" in
     let var, _, _ = trm_inv ~error trm_let_inv alloc_trm in
 
-    let rec aux loop_depth t = match (Matrix_trm.access_inv t) with
-    | Some (base, dims, inds) when (is_free_var_in_trm var base) ->
+    let rec aux ?(alias_binder:var option) loop_depth t = match (Matrix_trm.access_inv t) with
+    | Some ({desc = Trm_var base}, dims, inds) when (var_eq var base) ->
+      (match alias_binder with
+      | Some v -> aliases := Var_set.add v !aliases;
+      | _ -> ());
       let distrib_dims, real_dims = List.split_at chop_dims dims in
       let distrib_inds, real_inds = List.split_at chop_dims inds in
-      trm_array_access base (Matrix_trm.mindex ((mul_nest distrib_dims) :: real_dims)
+      trm_array_access (trm_var base) (Matrix_trm.mindex ((mul_nest distrib_dims) :: real_dims)
         ((Matrix_trm.dmindex distrib_dims distrib_inds) :: real_inds))
     | _ ->
       Pattern.pattern_match t [
+        Pattern.(trm_let !__ __ __ ) (fun v () -> trm_map (aux ~alias_binder:v loop_depth) t);
         Pattern.(trm_for __ __ __ __) (fun () -> trm_map (aux (loop_depth + 1)) t);
         (* LATER: better heuristics to convert the desyncgroups if ghosts are being used on these dimensions *)
         Pattern.(formula_group !__ !(formula_range __ !__ __) !__) (fun ind range stop body () ->
@@ -172,7 +179,10 @@ let fix_distrib_accesses (chop_dims: int) (body_tg: target) (alloc_tg: target): 
         );
         Pattern.__ (fun () -> trm_map (aux loop_depth) t)
       ] in
-    Target.apply_at_path (aux 0) body_path) alloc_tg
+    Target.apply_at_path (fun body_seq ->
+      update_span_helper body_seq_span body_seq (fun instrs ->
+      Mlist.to_list (Mlist.map (fun instr -> Trm (aux 0 instr)) instrs))
+    ) body_seq_path) alloc_tg
 
 let desync_alloc_ghosts (inverse: bool) (distrib_dims: trm list) (real_dims: trm list) (matrix: var) (mem_typ: trm): trms =
   let open Resource_formula in
@@ -268,7 +278,9 @@ let var_memcpy_device_to_host nb_dims =
   toplevel_var (sprintf "memcpy_device_to_host%d" nb_dims)
 
 let gmem_spec : unit memory_spec = {
-  alloc_handler = (fun (array_var, typ_array, typ_alloc, trms, init) -> (
+  alloc_handler = (fun alloc_trm -> (
+    let error = "Gpu.convert_to_global_mem: expected target to point to a matrix allocation" in
+    let (array_var, typ_array, typ_alloc, trms, init) = trm_inv ~error (Matrix_trm.let_alloc_inv) alloc_trm in
     assert (not init); (* TODO implement CALLOC *)
     let f = trm_add_cstyle (Typ_arguments [typ_alloc]) (trm_var (var__gmem_malloc (List.length trms))) in
     let alloc_instr = trm_apps f trms ~ghost_args:[(new_var "T", typ_alloc)] in
@@ -276,7 +288,7 @@ let gmem_spec : unit memory_spec = {
   ));
   get_handler = (fun _ args -> trm_apps (trm_var var__gmem_get) args);
   set_handler = (fun _ args -> trm_apps (trm_var var__gmem_set) args);
-  free_handler = (fun _ args -> trm_apps (trm_var var_gmem_free) args);
+  free_handler = (fun _ _ args -> trm_apps (trm_var var_gmem_free) args);
   cell_var = var_gmem;
   extra_patterns = (fun (var,_) aux -> [
     Pattern.(trm_apps (trm_var !__) !__ __ __) (fun v args () ->
@@ -311,33 +323,42 @@ let var__smem_free nb_dims =
 let var__smem_malloc nb_dims =
   toplevel_var (sprintf "__smem_malloc%d" nb_dims)
 
-let smem_spec : int -> (trm list * trm list) memory_spec = fun chop_dims -> {
-  alloc_handler = (fun (array_var, typ_array, typ_alloc, trms, init) -> (
+let smem_spec ?(alloc_mark="") ?(free_mark="") (chop_dims: int): (trm list * trm list) memory_spec = {
+  alloc_handler = (fun alloc_trm -> (
+    let error = "Gpu.convert_to_global_mem: expected target to point to a matrix allocation" in
+    let (array_var, typ_array, typ_alloc, trms, init) = trm_inv ~error (Matrix_trm.let_alloc_inv) alloc_trm in
     assert (not init); (* TODO implement CALLOC *)
     let distrib_dims, real_dims = List.split_at chop_dims trms in
     let f = trm_add_cstyle (Typ_arguments [typ_alloc]) (trm_var (var__smem_malloc (List.length real_dims))) in
     let alloc_instr = trm_apps f real_dims ~ghost_args:[(new_var "T", typ_alloc)] in
-    let t = trm_seq_nobrace (Mlist.of_list (
+    let instrs = Mlist.of_list (
       (trm_let (array_var,typ_array) alloc_instr) ::
       (desync_alloc_ghosts false distrib_dims real_dims array_var (trm_var var_smem))
-    )) in
+    ) in
+    let t = trm_seq_nobrace (Mlist.insert_mark_at (Mlist.length instrs) alloc_mark instrs) in
     t, (distrib_dims,real_dims), array_var
   ));
   get_handler = (fun _ args -> trm_apps (trm_var var__smem_get) args);
   set_handler = (fun _ args -> trm_apps (trm_var var__smem_set) args);
-  free_handler = (fun (var, (distrib_dims, real_dims)) args ->
+  free_handler = (fun _ (var, (distrib_dims, real_dims)) args ->
     let free_instr = trm_apps (trm_var (var__smem_free (List.length real_dims))) (args @ real_dims) in
-    trm_seq_nobrace (Mlist.of_list
-      ((desync_alloc_ghosts true distrib_dims real_dims var (trm_var var_smem)) @ [free_instr]))
+    let instrs = (Mlist.of_list
+      ((desync_alloc_ghosts true distrib_dims real_dims var (trm_var var_smem)) @ [free_instr])) in
+    trm_seq_nobrace (Mlist.insert_mark_at 0 free_mark instrs)
   );
   cell_var = var_smem;
   extra_patterns = (fun (var,_) aux -> []);
 }
 
-(*let smem_alias_spec (alias_var: var) =
-  alloc_handler = (t, alias_var)
-  get_handler = same as above, set_handler is same, cell_var is same.
-*)
+let smem_alias_spec (alias_var: var): unit memory_spec = {
+  alloc_handler = (fun t -> (t,(),alias_var));
+  get_handler = (fun _ args -> trm_apps (trm_var var__smem_get) args);
+  set_handler = (fun _ args -> trm_apps (trm_var var__smem_set) args);
+  free_handler = (fun t _ _ -> t);
+  cell_var = var_smem;
+  extra_patterns = (fun (var,_) aux -> []);
+}
+
 (* Sync specifications *)
 
 let block_sync (t: trm): trm =
@@ -351,3 +372,13 @@ let is_smem_or_gmem (f: formula): bool =
   | Some v when (var_eq v var_smem) -> true
   | Some v when (var_eq v var_gmem) -> true
   | _ -> false
+
+(* Patching thread for conversion *)
+
+let ghost_var_rewrite_threadsctx_sz = toplevel_var "rewrite_threadsctx_sz"
+let ghost_var_rewrite_threadsctx_sz1 = toplevel_var "rewrite_threadsctx_sz1"
+
+let%transfo insert_threadsctx_rewrite ?(msize: bool = false) (from: trm) (into: trm) (tg: target) =
+  let v = if (msize) then ghost_var_rewrite_threadsctx_sz1 else ghost_var_rewrite_threadsctx_sz in
+  let ghost = Resource_trm.ghost (ghost_call v ["from",from;"to",into]) in
+  Sequence_basic.insert ~reparse:false ghost tg

@@ -32,6 +32,15 @@ __GHOST(rewrite_threadsctx_sz) {
   __ghost(rewrite_linear, "inside := fun i -> ThreadsCtx(start ..+ i), by := by");
 }
 
+// TODO
+__GHOST(rewrite_threadsctx_sz1) {
+  __requires("from: int, to: int, start: int");
+  __requires("by: from = to");
+  __consumes("ThreadsCtx(start ..+ MSIZE1(from))");
+  __produces("ThreadsCtx(start ..+ MSIZE1(to))");
+  __ghost(rewrite_linear, "inside := fun i -> ThreadsCtx(start ..+ MSIZE1(i)), by := by");
+}
+
 /* ---- DesyncGroup ghosts ---- */
 
 __GHOST(group_to_desyncgroup) {

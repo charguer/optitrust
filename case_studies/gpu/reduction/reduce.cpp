@@ -1,4 +1,4 @@
-#include <optitrust_models.h>
+#include <optitrust_gpu.h>
 
 __DECL(reduce_sum, "int * (int -> float) -> float");
 __AXIOM(reduce_sum_empty, "forall (f: int -> float) -> 0.f =. reduce_sum(0, f)");
@@ -8,6 +8,7 @@ float reduce(float *arr, int N) {
   __requires("A: int -> float");
   __reads("arr ~> Matrix1(N, A)");
   __ensures("_Res =. reduce_sum(N, A)");
+  __preserves("HostCtx");
 
   float sum = 0.f;
   __ghost(rewrite_float_linear, "inside := (fun v -> &sum ~~> v), by := reduce_sum_empty(A)");

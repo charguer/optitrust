@@ -52,8 +52,8 @@ let _ = Run.script_cpp_stage (stage_ok) (fun () ->
 let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   let kernel_mark = "kernel_body" in
   !! Marks.add kernel_mark [occFirst; cFor "by"];
-  !! Gpu.convert_to_global_mem [nbAny; cOr [[cVarDef "d_a"];[cVarDef "d_b"]]];
-  !! Gpu.convert_to_shared_mem 2 [cMark kernel_mark] [cVarDef "tile"];
+  !! Gpu.convert_to_global_mem [nbAny; cVarDefs ["d_a";"d_b"]];
+  !! Gpu.convert_to_shared_mem 2 [cVarDef "tile"];
   (* move up teardown, TODO thread for conversion should move this above barriers automatically *)
   !! Instr.move ~dest:[tAfter; cMark kernel_mark] [cCall "kernel_teardown_begin"];
   !! Gpu.magic_barrier_to_blocksync [cMark kernel_mark] [cFor "bx"; cCall "magic_barrier"];

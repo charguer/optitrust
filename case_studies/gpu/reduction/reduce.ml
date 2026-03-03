@@ -12,10 +12,11 @@ let _ = Flags.only_big_steps := true
 
 let _ = Run.script_cpp (fun () -> ())
 let int = trm_int
-let tpb = 128
+let log_tpb = 7
+let tpb = 1 lsl log_tpb
 let stride = 2
 
-let stage_ok = fun i -> i = 5
+let stage_ok = fun i -> i >= 5
 
 let parallelize_reduction ?(temp_sums: string option) (inner_loop: string) (outer_loop: string) (sum_var: string): unit = begin
   bigstep (Printf.sprintf "parallelize reduction for %s,%s,%s" inner_loop outer_loop sum_var);
@@ -39,6 +40,8 @@ end
 let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Loop.tile (int (stride*tpb)) ~index:"bi" ~bound:TileDivides [cFor "i"];
   !! Loop.tile (int stride) ~index:"ti" ~bound:TileDivides [cFor "i"];
+  !! Matrix.local_name_tile ~uninit_post:true ~var:"arr" ~local_var:"d_arr" [cFor "bi"];
+  !! Matrix.memcpy [nbMulti; cFor "i1"];
 )
 
 (* Parallelize first-level reduction: threads sum `stride` number of elements in parallel *)
@@ -89,6 +92,8 @@ let replace_with_tree_reduce (logN: trm) (sum_instr: target) : unit =
     (* TODO: reuse the post_ghosts to make this not admitted;
     the problem is that they would rewrite lhs ~~> a(i) + inv(i) -> lhs ~~> inv(i+1), as opposed to directly
     giving the equality a(i) + inv(i) = inv(i+1). This makes it difficult to prove the equality reduce_sum(N,A) = inv(N) by induction.*)
+    (* TODO: this is also kind of broken in the current script, it skips a step in this admit -
+      tree_reduce does not properly produce the reduce_sum equality, and this admit is hiding that *)
     let rewrite = Resource_trm.ghost_rewrite_linear ~admitted:true ~typ:typ_f32 ~into:(invariant_formula range.stop) (formula_fun [v, typ_f32] (formula_points_to ~mem_typ:mem_typ_any lhs (trm_var v))) in
 
     Target.apply_at_path (fun _ ->
@@ -104,12 +109,58 @@ let replace_with_tree_reduce (logN: trm) (sum_instr: target) : unit =
 (* Parallelize block-level reduction using tree reduction: *)
 let _ = Run.script_cpp_stage stage_ok (fun () ->
   (* TODO: maybe this could be using includes instead? Or the user adds the include and then something can inline the include? *)
+  !! Matrix.local_name_tile ~uninit_pre:true ~var:"partial_sums" ~local_var:"d_partial_sums" [occFirst; cFor "bi"];
+  !! Matrix.memcpy [nbMulti; cFor "i1"];
   !! Sequence.insert ~reparse:true (stmt (File.get_contents "/home/julien/work/optitrust/case_studies/gpu/reduction/tree_reduction.h"))[tBefore; cFunDef "reduce"];
-  let sum_tg = [cFunDef "reduce"; cFor "bi"; cFor "ti"; cArrayWrite "partial_sums"] in
+  let sum_tg = [cFunDef "reduce"; cFor "bi"; cFor "ti"; cArrayWrite "d_partial_sums"] in
   !! Ghost.flatten_expr_rewrites (sum_tg @ [dRHS]);
-  !! replace_with_tree_reduce (trm_int 7) sum_tg;
+  !! replace_with_tree_reduce (trm_int log_tpb) sum_tg;
   !! Flags.with_flag Flags.check_validity false (fun () -> Function.inline_def [cFunDef "tree_reduce"]);
-  !! Loop_basic.intro_loop_single_on (trm_int tpb) [tAfter; cFor "i" ~body:[cFor "t"]] [tAfter; occLast; cArrayWrite "partial_sums"];
+  !! Loop_basic.intro_loop_single_on ~index:"ti_f" (trm_int tpb) [tAfter; cFor "i" ~body:[cFor "t"]] [tAfter; occLast; cArrayWrite "d_partial_sums"];
 )
 
-let _ = Run.script_cpp_stage stage_ok (fun () -> ())
+let _ = Run.script_cpp_stage stage_ok (fun () ->
+  !! Instr.delete ~nb_extra:2 [occFirst; tSpanAround [cArrayWrite "d_partial_sums"]];
+  !! Instr.move ~dest:[tBefore; occFirst; cFor "bi"] [cVarDef "tile"];
+  !! Instr.move ~dest:[tAfter; occFirst; cFor "bi"] [cCall ~args_pred:(Target.target_list_one_st [cVar "tile"]) ""];
+
+  let kernel_body_mark = "kernel_body" in
+  !! Marks.add kernel_body_mark [occFirst; cFor "bi"];
+  let setup_mark = "setup" in
+  !! Marks.add setup_mark [tBefore; occFirst; cFor "bi"];
+  let teardown_mark = "teardown" in
+  !! Marks.add teardown_mark [tAfter; occFirst; cFor "bi"];
+  let launch_mark = "launch" in
+  !! Marks.add launch_mark [tBefore; cVarDef "tile"];
+  let kill_mark = "kill" in
+  !! Marks.add kill_mark [tAfter; cCall ~args_pred:(Target.target_list_one_st [cVar "tile"]) ""];
+
+  let bpg_t = (trm_exact_div_int (trm_find_var "N" []) (trm_int (tpb*stride))) in
+  let tpb_t = (trm_int tpb) in
+  let smem_sz_t = trm_mul_int (trm_sizeof typ_f32) tpb_t in
+  !! Gpu.create_kernel_launch [bpg_t] [tpb_t] [smem_sz_t]
+    ~setup_end:[cMark setup_mark] ~teardown_begin:[cMark teardown_mark]
+    [cMark launch_mark] [cMark kill_mark];
+  !! Show.add_marks_for_target_unit_tests [nbAny; cMark "kernel_sequence"; cFor "" ];
+
+  !! Gpu.convert_tail_thread_for [] [cFor "ti"];
+  !! Gpu.convert_tail_thread_for [] [cFor "i"; cFor "t"];
+  !! Gpu.convert_tail_thread_for [1] [cFor "ti_f"];
+
+)
+
+let _ = Run.script_cpp_stage stage_ok (fun () ->
+  !! Marks.add "kernel_sequence" [cSeq ~instrs_pred:(Target.target_list_one_st [cCall "kernel_launch"]) ()];
+  !! Gpu.convert_magic_thread_fors ~patch_steps:(fun () ->
+    Gpu.insert_threadsctx_rewrite ~msize:true
+      (trm_int tpb)
+      (trm_shiftl ~typ:typ_int (trm_int 1) (trm_int log_tpb))
+      [cFor "i"; tBefore; cFor "i" ~body:[cFor "t"]];
+    Gpu.insert_threadsctx_rewrite ~msize:true
+      (trm_shiftl ~typ:typ_int (trm_int 1) (trm_int log_tpb))
+      (trm_int tpb)
+      [cFor "i"; tAfter; cFor "i" ~body:[cFor "t"]]
+  ) [nbAny; cMark "kernel_sequence"; cFor "" ];
+  !! Gpu.convert_to_shared_mem 1 [cVarDef "tile"];
+  !! Gpu.convert_to_global_mem [nbAny; cVarDefs ["d_arr"; "d_partial_sums"]];
+)

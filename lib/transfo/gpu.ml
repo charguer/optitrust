@@ -14,7 +14,7 @@ include Gpu_basic
 (* TODO: customizable mark for the kernel sequence *)
 let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: target option) ?(teardown_begin: target option) (bpgs: trm list) (tpbs: trm list) (smem_szs: trm list)
   (start: target) (stop: target): unit =
-  (fun () -> (fun next_m ->
+  (fun () -> (fun () -> (fun next_m ->
     let tpb = Matrix_trm.msize tpbs in
     let bpg = Matrix_trm.msize bpgs in
     let smem_sz = List.fold_right trm_add_int smem_szs (trm_int 0) in (* TODO *)
@@ -52,7 +52,7 @@ let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: 
     Sequence_basic.insert ~reparse:false teardown (Option.unsome_or_else teardown_begin (fun () -> [tBefore; cMark kill_mark]));
 
     Sequence.intro_between ~mark:"kernel_sequence" [tBefore; cMark launch_mark] [tAfter; cMark kill_mark]
-  ) |> Marks.with_marks) |> Nobrace_transfo.remove_after
+  ) |> Marks.with_marks) |> Nobrace_transfo.remove_after) |> Flags.with_flag Flags.recompute_resources_between_steps false
 
 let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
   let fission_helper tg =
@@ -87,7 +87,7 @@ let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
     Target.iter (aux (next_m ()) (1 :: loops)) leaf;
   )
 
-let%transfo convert_magic_thread_fors (tg: target) =
+let%transfo convert_magic_thread_fors ?(patch_steps: unit -> unit = fun () -> ()) (tg: target) =
   Flags.with_flag Flags.recompute_resources_between_steps false (fun () ->
   Target.apply_at_target_paths (fun t ->
     let error = "Gpu.convert_magic_thread_fors: expected a target to a simple for loop" in
@@ -97,18 +97,36 @@ let%transfo convert_magic_thread_fors (tg: target) =
     | _ ->
       trm_alter t ~desc:(Trm_for (range, mode, body, { contract with strict = false}))
   ) tg;
+  patch_steps ();
   Resources.ensure_computed ();
   Resources.make_strict_loop_contracts tg)
 
 let%transfo convert_to_global_mem (tg: target): unit =
-  Gpu_basic.convert_memory Gpu_basic.gmem_spec tg
+  Target.iter (fun p ->
+    let _,tg_seq_p = Path.index_in_seq p in
+    Resources.with_non_strict_loop_contracts [cPath tg_seq_p] (fun () ->
+      Gpu_basic.convert_memory Gpu_basic.gmem_spec [cPath p]
+    )
+  ) tg
 
-let%transfo convert_to_shared_mem (chop_dims: int) (kernel_body: target) (tg: target): unit =
-  Gpu_basic.convert_memory (Gpu_basic.smem_spec chop_dims) tg;
-  (* collect aliases here in varmap *)
-  Gpu_basic.fix_distrib_accesses chop_dims kernel_body tg
-  (* for each alias in varmap,
-  Gpu_basic.convert_memory (Gpu_basic.smem_alias_spec alias) tg*)
+
+let%transfo convert_to_shared_mem (chop_dims: int) (tg: target): unit =
+  Target.iter (fun p ->
+    let _,tg_seq_p = Path.index_in_seq p in
+    let tg = [cPath p] in
+    Marks.with_marks (fun next_m ->
+      Trace.without_resource_computation_between_steps (fun () ->
+        Resources.with_non_strict_loop_contracts [cPath tg_seq_p] (fun () ->
+          let alloc_mark = next_m () in
+          let free_mark = next_m () in
+          Gpu_basic.convert_memory (Gpu_basic.smem_spec ~alloc_mark ~free_mark chop_dims) tg;
+          let aliases = ref Var_set.empty in
+          let kernel_seq = [tSpan [cMark alloc_mark] [cMark free_mark]] in
+          Gpu_basic.fix_distrib_accesses ~aliases chop_dims kernel_seq tg;
+          Var_set.iter (fun alias ->
+            Gpu_basic.convert_memory (Gpu_basic.smem_alias_spec alias) tg;
+          ) !aliases;
+  )))) tg
 
 let%transfo magic_barrier_to_blocksync (kernel_body: target) (tg: target): unit =
   (* TODO: blocksync breaks the __strict() loop contracts, because it asks
