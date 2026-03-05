@@ -37,7 +37,8 @@ let%transfo copy ?(mark_copy : mark = no_mark) ?(rev : bool = false) ?(dest:targ
 
    This is sufficient but not necessary, a manual commutation proof can be used
    as well. *)
-let%transfo move ?(rev : bool = false) ~(dest : target) (tg : target) : unit =
+let%transfo move ?(mark_moved : mark = no_mark)
+  ?(rev : bool = false) ~(dest : target) (tg : target) : unit =
   Resources.required_for_check ();
   Target.iter ~rev (fun p ->
     let p_seq, span = Path.extract_last_dir_span p in
@@ -61,7 +62,7 @@ let%transfo move ?(rev : bool = false) ~(dest : target) (tg : target) : unit =
       let seq, swapped_after = Mlist.split mid_index seq in
       let untouched_before, swapped_before = Mlist.split ~left_bias:true before_index seq in
 
-      if !Flags.check_validity then begin
+      if !Flags.check_validity && not !Flags.use_resources_with_models then begin
         let usage_before = Resources.compute_usage_of_instrs swapped_before in
         let usage_after = Resources.compute_usage_of_instrs swapped_after in
         let ctx = [
@@ -72,8 +73,21 @@ let%transfo move ?(rev : bool = false) ~(dest : target) (tg : target) : unit =
         Trace.justif "resources commute"
       end;
 
-      let seq = Mlist.merge_list [untouched_before; swapped_after; swapped_before; untouched_after] in
-      trm_alter ~desc:(Trm_seq (seq, result)) t_seq
+      let (moved_beg, moved_end) = span_marks mark_moved in
+      trm_seq_helper ~annot:t_seq.annot ?result (
+        [TrmMlist untouched_before] @
+        (if span.start < dest_index then
+          [TrmMlist swapped_after;
+           Mark moved_beg;
+           TrmMlist swapped_before;
+           Mark moved_end]
+        else
+          [Mark moved_beg;
+           TrmMlist swapped_after;
+           Mark moved_end;
+           TrmMlist swapped_before])
+        @ [TrmMlist untouched_after]
+      )
     ) p_seq
   ) tg;
   Scope.infer_var_ids ()

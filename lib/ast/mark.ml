@@ -15,7 +15,7 @@ let reuse_or_next (next : unit -> mark) (m : mark) : mark =
   if m = "" then next () else m
 
 let span_marks (m: mark) : mark * mark =
-  (m ^ "__begin", m ^ "__end")
+  if m = "" then ("", "") else (m ^ "__begin", m ^ "__end")
 
 (**** Marks  ****)
 
