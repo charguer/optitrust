@@ -16,7 +16,8 @@ let log_tpb = 7
 let tpb = 1 lsl log_tpb
 let stride = 2
 
-let stage_ok = fun i -> i >= 4
+(* TODO, works if you do individual steps but not when you run them together with fun i -> true ? *)
+let stage_ok = fun i -> i = 4
 
 let parallelize_reduction ?(temp_sums: string option) (inner_loop: string) (outer_loop: string) (sum_var: string): unit = begin
   bigstep (Printf.sprintf "parallelize reduction for %s,%s,%s" inner_loop outer_loop sum_var);

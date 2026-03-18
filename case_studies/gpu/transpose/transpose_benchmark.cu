@@ -9,11 +9,11 @@ namespace cg = cooperative_groups;
 #define BLOCK_ROWS 16
 #define TILE_DIM 32
 
-__global__ void transposeCoalesced(float *odata, float *idata, int height, int width)
+__global__ void transposeNoBankConflicts(float *odata, float *idata, int height, int width)
 {
     // Handle to thread block group
     cg::thread_block cta = cg::this_thread_block();
-    __shared__ float tile[TILE_DIM][TILE_DIM];
+    __shared__ float tile[TILE_DIM][TILE_DIM+1];
 
     int xIndex   = blockIdx.x * TILE_DIM + threadIdx.x;
     int yIndex   = blockIdx.y * TILE_DIM + threadIdx.y;
@@ -33,7 +33,6 @@ __global__ void transposeCoalesced(float *odata, float *idata, int height, int w
         odata[index_out + i * height] = tile[threadIdx.x][threadIdx.y + i];
     }
 }
-
 
 
  __global__ void __kernel0 (float* d_b, float* d_a, int H, int W)  /*@*/{
@@ -63,10 +62,10 @@ __global__ void transposeCoalesced(float *odata, float *idata, int height, int w
   }
 }/*@*/
 
-#define NUM_REPS 100
+#define NUM_REPS 1000
 
 #define OPTIGPU_KERNEL __kernel0<<<MSIZE2(exact_div(H, 32), exact_div(W, 32)), MSIZE2(16, 32), sizeof(float) * (32 * 32) + 0>>>
-#define REF_KERNEL transposeCoalesced<<<dim3(exact_div(W,32),exact_div(H,32)),dim3(32,16)>>>
+#define REF_KERNEL transposeNoBankConflicts<<<dim3(exact_div(W,32),exact_div(H,32)),dim3(32,16)>>>
 
 void transpose (float* a, float* b, int W, int H)  {
   float* const d_a = __gmem_malloc2<float>(H, W);

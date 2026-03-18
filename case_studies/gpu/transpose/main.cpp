@@ -17,8 +17,8 @@ void computeTransposeGold(float *gold, float *idata, const int size_x, const int
 
 int main(int argc, char **argv)
 {
-    const int W = 1024;
-    const int H = 1024;
+    const int W = 4096;
+    const int H = 4096;
     const size_t mem_size = W * H * sizeof(float);
 
     float *idata = (float*)malloc(mem_size);
@@ -33,7 +33,7 @@ int main(int argc, char **argv)
     transpose(idata, odata, W, H);
 
     for (int i = 0; i < (W*H); ++i) {
-      if (fabs(odata[i] - gold[i]) > 1e-5) {
+      if (odata[i] != gold[i]) {
           fprintf(stderr, "Result verification failed at element %d (%f gold vs %f)!\n", i, gold[i], odata[i]);
           exit(EXIT_FAILURE);
       }
