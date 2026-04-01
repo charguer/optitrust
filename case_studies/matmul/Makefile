@@ -22,14 +22,15 @@ MATMUL_BENCHS := $(filter-out bench_matmul_before,$(MATMUL_BENCHS))
 
 bench_all: bench_ref $(MATMUL_BENCHS)
 
-bench_subset: bench_ref bench_matmul bench_matmul_out bench_matmul_out_goal bench_matmul_opt_spec_cse_autosimd_ssum_tmp bench_matmul_opt_spec_cse_bits_ssum_tmp
+# FIXME: bench_matmul header
+bench_subset: bench_ref bench_matmul_exp bench_matmul_out_goal
 
-bench: bench_ref bench_matmul_check_exp
+bench: bench_ref bench_matmul_exp
 
 bench_ref:
-	$(V)python3 bench.py
+	$(V)uv run bench.py
 
 bench_%: _build/%.so
-	$(V)python3 bench.py $<
+	$(V)uv run bench.py $<
 
 # Halide target: x86-64-linux-avx-avx2-fma-sse41
