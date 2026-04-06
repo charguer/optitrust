@@ -654,28 +654,30 @@ type empty_range_mode =
     [trm_index] - index of that instruction on its surrouding sequence (just checks that it is 0),
     [t] - ast of the for loop.
   *)
-let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range_mode) (trm_index : int) (t : trm) : trm =
-  if (trm_index <> 0) then failwith "Loop_basic.move_out: not targeting the first instruction in a loop (got %d instead)" trm_index;
+let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range_mode) (span : Dir.span) (t : trm) : trm =
+  if (span.start <> 0) then failwith "Loop_basic.move_out: not targeting the first instructions in a loop (got %d instead)" span.start;
   let error = "Loop_basic.move_out: expected for loop" in
   let (range, mode, body, contract) = trm_inv ~error trm_for_inv t in
   let instrs, _ = trm_inv ~error trm_seq_inv body in
-  let instr = Mlist.nth instrs 0 in
-  let rest = Mlist.pop_front instrs in
+  let (rest, moved_instrs) = Mlist.extract span.start span.stop instrs in
 
-  if !Flags.check_validity then begin
-    if is_free_var_in_trm range.index instr then
-      (* NOTE: would be checked by var ids anyway *)
-      trm_fail instr "Loop_basic.move_out: instruction uses loop index";
-    Resources.assert_dup_instr_redundant 0 (Mlist.length instrs - 1) body;
+  if !Flags.check_validity && not !Flags.use_resources_with_models then begin
+    Mlist.iteri (fun i instr ->
+      if is_free_var_in_trm range.index instr then
+        (* NOTE: would be checked by var ids anyway *)
+        trm_fail instr "Loop_basic.move_out: instruction uses loop index";
+      (* TODO: assert_dup_instr_redundant on group of instrs at once *)
+      Resources.assert_dup_instr_redundant i (Mlist.length instrs - 1) body;
+    ) moved_instrs;
 
     begin match empty_range with
     | Generate_if -> ()
     | Arithmetically_impossible -> failwith "Arithmetically_impossible is not implemented yet"
     | Produced_resources_uninit_after ->
       if not contract.strict then failwith "Need the for loop contract to be strict";
-      let instr_usage = Resources.usage_of_trm instr in
+      let instr_usage = Resources.compute_usage_of_instrs moved_instrs in
       let invariant_written_by_instr = List.filter (Resource_set.(linear_usage_filter instr_usage keep_written)) contract.invariant.linear in
-      List.iter (fun (_, f) -> if not (Resource_formula.is_formula_uninit f) then trm_fail instr "The instruction cannot be moved out because it consumes resources that are not uninitialized after the loop (and the loop range could be empty)"
+      List.iter (fun (_, f) -> if not (Resource_formula.is_formula_uninit f) then trm_fail body "The instruction cannot be moved out because it consumes resources that are not uninitialized after the loop (and the loop range could be empty)"
       ) invariant_written_by_instr
     end;
 
@@ -688,16 +690,17 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
       contract
     else
       (* FIXME: this still requires resources to update contract even when not checking validity! *)
-      let resources_after = Option.unsome ~error:"Loop_basic.move_out: requires computed resources" instr.ctx.ctx_resources_after in
+      let resources_after = Option.unsome ~error:"Loop_basic.move_out: requires computed resources" (Option.unsome (Mlist.last moved_instrs)).ctx.ctx_resources_after in
       let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear (Resource_contract.parallel_reads_inside_loop range contract.parallel_reads @ contract.iter_contract.pre.linear) in
       { contract with invariant = { contract.invariant with linear = new_invariant } }
   in
 
   let loop = trm_for ~mode ~contract range (trm_seq rest) in
   let non_empty_cond = trm_ineq range.direction range.start range.stop in
-  let instr_outside = if generate_if then trm_if non_empty_cond instr (trm_unit ()) else instr in
+  let moved_instrs = Mlist.map (trm_add_mark instr_mark) moved_instrs in
+  let instr_outside = if generate_if then trm_if non_empty_cond (trm_seq moved_instrs) (trm_unit ()) else (trm_seq_nobrace moved_instrs) in
   trm_seq_nobrace_nomarks [
-    trm_add_mark instr_mark instr_outside;
+    (* trm_add_mark instr_mark *) instr_outside;
     trm_add_mark loop_mark loop]
 
 (** [move_out tg]: expects the target [tg] to point at the first instruction inside the loop
@@ -733,8 +736,9 @@ let%transfo move_out ?(instr_mark : mark = no_mark) ?(loop_mark : mark = no_mark
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun p ->
       Resources.required_for_check ();
-      let i, p = Path.index_in_surrounding_loop p in
-      apply_at_path (move_out_on instr_mark loop_mark empty_range i) p
+      let seq_path, span = Path.extract_last_dir_span p in
+      let loop_path = Path.parent seq_path in
+      apply_at_path (move_out_on instr_mark loop_mark empty_range span) loop_path
   ) tg)
 
 let move_out_alloc_on (trm_index : int) (t : trm) : trm =
