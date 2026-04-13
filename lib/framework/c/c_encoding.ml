@@ -1510,7 +1510,8 @@ let encode_to_c (style : style) : trm -> trm =
   debug_before_after_trm "encode_to_c" (fun t ->
   t |>
   Scope_computation.infer_var_ids |>
-  (* TODO: add a "encode_gpu" thing here in the else case, where we want to do some simple sugaring of constructs like __GMEM_GET so the user doesn't have as much noise in the trace.*)
+  (* LATER: add a "encode_gpu" thing here in the else case, where we want to do some simple sugaring of
+    constructs like __GMEM_GET so the user doesn't have as much noise in the trace.*)
   (if style.cstyle.lower_to_cuda then (Cuda_lowering.lower_to_cuda) else (fun x -> x)) |>
   encode_alloc style |>
   encode_formula_sugar |>

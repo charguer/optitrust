@@ -1,6 +1,8 @@
 open Ast
 open Trm
 open Typ
+
+(* ------------------------------ Barriers --------------------------- *)
 let magic_barrier_var = toplevel_var "magic_barrier"
 let magic_barrier (): trm =
   trm_apps (trm_var magic_barrier_var) []
@@ -42,13 +44,35 @@ let magic_barrier_to_seq (barrier_fn: trm -> trm) (resource_filter: trm -> bool)
       None) before.linear in
   barrier_seq barrier_fn hs
 
+(* ------------------------ Kernel launches -------------------------- *)
+let var_kernel_launch = toplevel_var "kernel_launch"
+let var_kernel_setup_end = toplevel_var "kernel_setup_end"
+let var_kernel_teardown_begin = toplevel_var "kernel_teardown_begin"
+let var_kernel_kill = toplevel_var "kernel_kill"
 
-(* TODO: rename this file Gpu_trm.ml, move other GPU definitions here
-For now this needs to be in the AST module because the typechecker needs to know
-about __treg_alloc.*)
+(* --------------------- GPU memory operations ----------------------- *)
+
+let var_gmem = toplevel_var "GMem"
+let var__gmem_get = toplevel_var "__gmem_get"
+let var__gmem_set = toplevel_var "__gmem_set"
+let var_gmem_free = toplevel_var "gmem_free"
+let var__gmem_malloc nb_dims =
+  toplevel_var (sprintf "__gmem_malloc%d" nb_dims)
+let var_memcpy_host_to_device nb_dims =
+  toplevel_var (sprintf "memcpy_host_to_device%d" nb_dims)
+let var_memcpy_device_to_host nb_dims =
+  toplevel_var (sprintf "memcpy_device_to_host%d" nb_dims)
+
+let var_smem = toplevel_var "SMem"
+let var__smem_get = toplevel_var "__smem_get"
+let var__smem_set = toplevel_var "__smem_set"
+let var__smem_free nb_dims =
+  toplevel_var (sprintf "__smem_free%d" nb_dims)
+let var__smem_malloc nb_dims =
+  toplevel_var (sprintf "__smem_malloc%d" nb_dims)
+
 let var__treg_ref = toplevel_var "__treg_ref"
 let var__treg_ref_s = toplevel_var "__treg_ref_s"
 let var__treg_ref_uninit0_s = toplevel_var "__treg_ref_uninit0_s"
 let var__treg_ref_uninit = Matrix_trm.toplevel_var_with_dim "__treg_ref_uninit%d"
-
 let var__treg_ref_uninit_inv = Matrix_trm.toplevel_var_with_dim_inv var__treg_ref_uninit

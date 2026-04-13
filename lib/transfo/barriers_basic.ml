@@ -1,7 +1,7 @@
 open Prelude
 open Target
 open Flags
-open Barrier_trm
+open Gpu_trm
 
 let remove_loop_around_barrier (tg: target): unit =
   Target.iter (fun p ->

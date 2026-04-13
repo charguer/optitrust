@@ -26,7 +26,8 @@ let option_to_doc (string_none : string) (f : 'a -> doc) (opt : 'a option) : doc
 (*----------------------------------------------------------------------------------*)
 (* Options for printing *)
 
-(* TODO:
+(* LATER: support for more dialects to control code generation, e.g.
+
 type dialect =
   | Cpp
   | Cuda *)
@@ -46,8 +47,7 @@ type style = {
   pretty_fraction_notation: bool; (* print 1-1/2 instead of __frac_sub(__full,__frac_div(__full, 2)) *)
   commented_pragma: bool; (* comment out pragram lines, for better tabulation by clang-format *)
   hide_seq: bool; (* hide the content of sequences with {...},  used to avoid weird matches with stringrepr *)
-  lower_to_cuda: bool;
-  (* TODO : c_dialect: dialect; *)
+  lower_to_cuda: bool; (* LATER: replace with dialect *)
 }
 
 (** Default style, depends on the global flags *)

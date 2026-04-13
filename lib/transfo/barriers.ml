@@ -1,7 +1,7 @@
 open Prelude
 open Target
 open Flags
-open Barrier_trm
+open Gpu_trm
 
 include Barriers_basic
 

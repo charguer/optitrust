@@ -3,22 +3,26 @@ open Trm
 open Typ
 open Contextualized_error
 
-(* TODO: MOVE TO GPU_BASIC *)
+open Gpu_trm
 
+(* -------------  CUDA-specific variable definitions ----------------- *)
+
+(* TODO: toplevel_var instead? *)
 let trm__syncthreads () = trm_var (new_var "__syncthreads")
 let trm__syncwarp () = trm_var (new_var "__syncwarp")
+
+let trm__threadIdx () = trm_var (new_var "threadIdx")
+let trm__blockIdx () = trm_var (new_var "blockIdx")
 
 let var__ctx_size () = new_var "__ctx_sz"
 let var__tid () = new_var "__tid"
 
-
+(* ------------------------- Lowering -------------------------------- *)
 
 let make_kernel_header (bpg: trm) (tpb: trm) (ctx_size: var) (tid: var): trm =
-  let var_threadIdx = trm_var (new_var "threadIdx") in
-  let var_blockIdx = trm_var (new_var "blockIdx") in
   let access_x v = trm_struct_get ~struct_typ:typ_auto v "x" in
   let ctx_sz_decl = (trm_let (ctx_size,typ_int) (trm_mul_int bpg tpb)) in
-  let tid_decl = (trm_let (tid,typ_int) (trm_add_int (trm_mul_int (access_x var_blockIdx) tpb) (access_x var_threadIdx))) in
+  let tid_decl = (trm_let (tid,typ_int) (trm_add_int (trm_mul_int (access_x (trm__blockIdx ())) tpb) (access_x (trm__threadIdx ())))) in
   (Nobrace.trm_seq (Mlist.of_list [ctx_sz_decl;tid_decl]))
 
 let flatten_thread_loops (ctx_size: var) (tid: var) (t: trm): trm =
@@ -57,27 +61,39 @@ let flatten_thread_loops (ctx_size: var) (tid: var) (t: trm): trm =
         | _ -> trm_seq (Mlist.push_back t decls))
     |> (trm_vars_subst !ind_vars)) t
 
+let is_gpu_get_operation (v: var): bool =
+  (var_has_name var__gmem_get.name v)
+  || (var_has_name var__smem_get.name v)
+
+let is_gpu_set_operation (v: var): bool =
+  (var_has_name var__gmem_set.name v)
+  || (var_has_name var__smem_set.name v)
+
+let is_any_mem_operation (p: prim): bool =
+  match p with
+    | Prim_unop (Unop_get)
+    | Prim_unop (Unop_post_decr)
+    | Prim_unop (Unop_post_incr)
+    | Prim_unop (Unop_pre_decr)
+    | Prim_unop (Unop_pre_incr)
+    | Prim_unop (Unop_struct_access _)
+    | Prim_unop (Unop_struct_get _)
+    | Prim_binop (Binop_set) -> true
+    | _ -> false
+
 let rec generalize_mem_ops (t: trm): trm = Pattern.pattern_match t [
-  Pattern.(trm_apps2 (trm_var_with_name "__gmem_set") !__ !__) (fun p v () ->
+  Pattern.(trm_apps2 (trm_var (check is_gpu_set_operation)) !__ !__) (fun p v () ->
     let p = generalize_mem_ops p in
     let v = generalize_mem_ops v in
     trm_set p v);
-  Pattern.(trm_apps1 (trm_var_with_name "__gmem_get") !__) (fun p () ->
+  Pattern.(trm_apps1 (trm_var (check is_gpu_get_operation)) !__) (fun p () ->
     let p = generalize_mem_ops p in
     trm_get p);
-  Pattern.(trm_apps2 (trm_var_with_name "__smem_set") !__ !__) (fun p v () ->
-    let p = generalize_mem_ops p in
-    let v = generalize_mem_ops v in
-    trm_set p v);
-  Pattern.(trm_apps1 (trm_var_with_name "__smem_get") !__) (fun p () ->
-    let p = generalize_mem_ops p in
-    trm_get p);
-  (* TODO: check also the variety of other operations that exist on Any cells, like increment, struct access, etc.*)
-  Pattern.(trm_get __ ^| trm_set __ __) (fun () -> failwith "Host-side memory operations not allowed in device code");
+  Pattern.(trm_prim (check is_any_mem_operation) __) (fun () -> failwith "Host-side memory operations not allowed in device code");
   Pattern.__ (fun () -> trm_map generalize_mem_ops t)
 ]
 
-let rec lower_syncs (t: trm): trm = Pattern.pattern_match (Option.value (Barrier_trm.barrier_seq_inv t) ~default:t) [
+let rec lower_syncs (t: trm): trm = Pattern.pattern_match (Option.value (Gpu_trm.barrier_seq_inv t) ~default:t) [
   (* this generates invalid code when barrier_seq_inv doesn't match, but it should probably be a better error *)
     Pattern.(trm_var_with_name "blocksync") (fun () -> trm_apps (trm__syncthreads ()) []);
     Pattern.(trm_apps0 (trm_var_with_name "magic_barrier")) (fun () -> failwith "Magic barriers not allowed in GPU code!");

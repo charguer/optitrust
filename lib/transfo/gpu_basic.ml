@@ -1,15 +1,125 @@
 open Prelude
 open Target
 open Flags
+open Gpu_trm
 
-(* Launch-related variables *)
-let var_kernel_launch = toplevel_var "kernel_launch"
-let var_kernel_setup_end = toplevel_var "kernel_setup_end"
-let var_kernel_teardown_begin = toplevel_var "kernel_teardown_begin"
-let var_kernel_kill = toplevel_var "kernel_kill"
+(* ----------------------------- Helpers ----------------------------- *)
+
+let mul_nest dims =
+    match dims with
+    | h :: tl -> List.fold_left trm_mul_int h tl
+    | _ -> failwith "expected 1 or more dimensions for mul nest"
+
+let memtype_of_formula (f: formula) =
+  let open Resource_formula in
+  let cell = ref None in
+  let rec aux f = Pattern.pattern_match f [
+    Pattern.(formula_cell __ (trm_var !__)) (fun v () -> cell := Some v);
+    Pattern.(formula_uninit_cell __ (trm_var !__)) (fun v () -> cell := Some v);
+    Pattern.__ (fun () -> trm_iter aux f)
+  ] in
+  aux f;
+  !cell
+
+(* -------------------------- Kernel launches ------------------------ *)
+
+let ghost_var_take_smem_token = toplevel_var "take_smem_token"
+let ghost_var_give_smem_token = toplevel_var "give_smem_token"
+
 let ghost_var_kernel_teardown_sync = toplevel_var "kernel_teardown_sync"
 
-(* Common ghosts *)
+(* take 4 targets, one for each transition point. If they don't all belong to the same sequence,
+  the transfo will complain. Since they belong to the same sequence, we know we can lift those instrs out into their own
+  sequence, to make the printers job easier. Or we could just make the printer's job easier by detecting the start within sequences.*)
+(* TODO: take another target, which is the launching function, for modifying the contract to include hostctx and __requires for the kernel retiling. *)
+(* TODO: cleaner to take a tuple of tpbs bpgs etc.? or a dedicated kernel launch type? less arguments *)
+(* TODO: could consider using "hint marks" from the smem lift transfo to place setup and end properly  *)
+(* TODO: belongs in gpu_basic ? *)
+(* TODO: customizable mark for the kernel sequence *)
+let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: target option) ?(teardown_begin: target option) (bpgs: trm list) (tpbs: trm list) (smem_szs: trm list)
+  (start: target) (stop: target): unit =
+  (fun () -> (fun () -> (fun next_m ->
+    let tpb = Matrix_trm.msize tpbs in
+    let bpg = Matrix_trm.msize bpgs in
+    let smem_sz = List.fold_right trm_add_int smem_szs (trm_int 0) in (* TODO *)
+    let grid = match grid_override with
+    | Some grid_override -> Matrix_trm.msize grid_override
+    | _ -> Matrix_trm.msize (bpgs @ tpbs) in
+
+    let launch_mark = next_m () in
+    let kill_mark = next_m () in
+
+    let launch_call = trm_apps (trm_var var_kernel_launch) [bpg;tpb;smem_sz] in
+    let take_token_instrs = List.fold_right (fun tok_sz instrs ->
+      (Resource_trm.ghost (ghost_call ghost_var_take_smem_token ["tok_sz", tok_sz])) :: instrs) smem_szs [] in
+    let launch = trm_add_mark (launch_mark) (trm_seq_nobrace (Mlist.of_list (launch_call :: take_token_instrs))) in
+
+    let setup_call = trm_apps (trm_var var_kernel_setup_end) [] ~ghost_args:[(new_var "grid_sz", grid)] in
+    let setup_instrs = match grid_override with
+      | Some _ -> [setup_call]
+      | _ ->
+        let assume_retile = Resource_trm.assume (Resource_formula.formula_is_true (trm_eq ~typ:typ_int (trm_mul_int bpg tpb) grid)) in
+        [ assume_retile; setup_call ] in
+    let setup = trm_seq_nobrace (Mlist.of_list setup_instrs) in
+
+    let teardown = trm_apps (trm_var var_kernel_teardown_begin) [] ~ghost_args:[(new_var "grid_sz", grid)] in
+
+    let kill_call = trm_apps (trm_var var_kernel_kill) [] in
+    let give_token_instrs = List.fold_left (fun instrs tok_sz ->
+      (Resource_trm.ghost (ghost_call ghost_var_give_smem_token ["tok_sz", tok_sz])) :: instrs) [kill_call] smem_szs in
+    let kill = trm_add_mark kill_mark (trm_seq_nobrace (Mlist.of_list give_token_instrs)) in
+
+    (* TODO: sanitize and tell the user each target should only have one occurence *)
+    Sequence_basic.insert ~reparse:false launch start;
+    Sequence_basic.insert ~reparse:false setup (Option.unsome_or_else setup_end (fun () -> [tAfter; cMark launch_mark]));
+    Sequence_basic.insert ~reparse:false kill stop;
+    Sequence_basic.insert ~reparse:false teardown (Option.unsome_or_else teardown_begin (fun () -> [tBefore; cMark kill_mark]));
+
+    Sequence.intro_between ~mark:"kernel_sequence" [tBefore; cMark launch_mark] [tAfter; cMark kill_mark]
+  ) |> Marks.with_marks) |> Nobrace_transfo.remove_after) |> Flags.with_flag Flags.recompute_resources_between_steps false
+
+
+(* ------------------- Thread for conversion ------------------------- *)
+
+(* TODO: document *)
+let%transfo seq_for_to_magicthread_for ?(barrier_mark: mark = "") (tg: target) =
+  Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
+    let seq_ind, p = try (
+      let ind, seq_p = Path.index_in_seq p in
+      Some ind, seq_p)
+    with
+    | e -> None, p in
+    Target.apply_at_path (fun t ->
+      let barrier = trm_add_mark barrier_mark (Gpu_trm.magic_barrier ()) in
+      match seq_ind with
+      | Some ind ->
+        let instrs, ret = trm_inv ~error:"expected seq" trm_seq_inv t in
+        let loop = Mlist.nth instrs ind in
+        let instrs = Mlist.replace_at ind (Loop_core.change_loop_mode_on MagicThread loop) instrs in
+        let instrs = match (Option.bind (Mlist.nth_opt instrs (ind + 1)) Gpu_trm.magic_barrier_inv) with
+        | Some _ -> Mlist.replace_at (ind+1) barrier instrs
+        | _ -> Mlist.insert_at (ind+1) barrier instrs in
+        trm_alter ~desc:(Trm_seq (instrs,ret)) t
+      | _ ->
+        trm_seq (Mlist.of_list [
+          Loop_core.change_loop_mode_on MagicThread t;
+          barrier
+        ])
+    ) p
+  ) tg)
+
+(* Patching thread for conversion *)
+let ghost_var_rewrite_threadsctx_sz = toplevel_var "rewrite_threadsctx_sz"
+let ghost_var_rewrite_threadsctx_sz1 = toplevel_var "rewrite_threadsctx_sz1"
+
+let%transfo insert_threadsctx_rewrite ?(msize: bool = false) (from: trm) (into: trm) (tg: target) =
+  let v = if (msize) then ghost_var_rewrite_threadsctx_sz1 else ghost_var_rewrite_threadsctx_sz in
+  let ghost = Resource_trm.ghost (ghost_call v ["from",from;"to",into]) in
+  Sequence_basic.insert ~reparse:false ghost tg
+
+(* ----------------------- Memory conversion ------------------------- *)
+
+(* DesyncGroups and DMINDEX ghosts *)
 
 let ghost_desync_tile_divides_trivial items tile_count tile_size =
   Resource_trm.ghost (ghost_call (toplevel_var "desync_tile_divides")
@@ -35,53 +145,7 @@ let ghost_dmindex_tile dims res_pattern =
 let ghost_dmindex_untile dims res_pattern =
   Resource_trm.ghost (ghost_call (toplevel_var (sprintf "dmindex%d_untile" (List.length dims))) (("H", res_pattern) :: List.mapi (fun i dim -> sprintf "n%d" (i+1), dim) dims))
 
-(* Helpers *)
-
-let mul_nest dims =
-    match dims with
-    | h :: tl -> List.fold_left trm_mul_int h tl
-    | _ -> failwith "expected 1 or more dimensions for mul nest"
-
-let memtype_of_formula (f: formula) =
-  let open Resource_formula in
-  let cell = ref None in
-  let rec aux f = Pattern.pattern_match f [
-    Pattern.(formula_cell __ (trm_var !__)) (fun v () -> cell := Some v);
-    Pattern.(formula_uninit_cell __ (trm_var !__)) (fun v () -> cell := Some v);
-    Pattern.__ (fun () -> trm_iter aux f)
-  ] in
-  aux f;
-  !cell
-
-(* Thread for conversion *)
-
-let%transfo seq_for_to_magicthread_for ?(barrier_mark: mark = "") (tg: target) =
-  Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
-    let seq_ind, p = try (
-      let ind, seq_p = Path.index_in_seq p in
-      Some ind, seq_p)
-    with
-    | e -> None, p in
-    Target.apply_at_path (fun t ->
-      let barrier = trm_add_mark barrier_mark (Barrier_trm.magic_barrier ()) in
-      match seq_ind with
-      | Some ind ->
-        let instrs, ret = trm_inv ~error:"expected seq" trm_seq_inv t in
-        let loop = Mlist.nth instrs ind in
-        let instrs = Mlist.replace_at ind (Loop_core.change_loop_mode_on MagicThread loop) instrs in
-        let instrs = match (Option.bind (Mlist.nth_opt instrs (ind + 1)) Barrier_trm.magic_barrier_inv) with
-        | Some _ -> Mlist.replace_at (ind+1) barrier instrs
-        | _ -> Mlist.insert_at (ind+1) barrier instrs in
-        trm_alter ~desc:(Trm_seq (instrs,ret)) t
-      | _ ->
-        trm_seq (Mlist.of_list [
-          Loop_core.change_loop_mode_on MagicThread t;
-          barrier
-        ])
-    ) p
-  ) tg)
-
-(* Memory conversion *)
+(* Memory specifications *)
 
 type 'a op_handler = (var * 'a) -> (trm list) -> trm
 type 'a memory_spec = {
@@ -93,7 +157,7 @@ type 'a memory_spec = {
   extra_patterns: (var * 'a) -> (typ -> typ) -> (typ -> unit -> typ) list
 }
 
-(* TODO: make this a real transfo? *)
+(* TODO: make this a real %transfo? *)
 let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
   let open Resource_formula in
   let rec convert_cell_mem_type f =
@@ -143,7 +207,7 @@ let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
      ) seq
   ) alloc_tg
 
-(* TODO: make this a real transfo? *)
+(* TODO: make this a real %transfo? *)
 let fix_distrib_accesses ~(aliases: Var_set.t ref) (chop_dims: int) (body_span_tg: target) (alloc_tg: target): unit =
   let body_seq_path,body_seq_span = Target.resolve_target_span_exactly_one body_span_tg in
   let open Resource_formula in
@@ -263,19 +327,6 @@ let desync_alloc_ghosts (inverse: bool) (distrib_dims: trm list) (real_dims: trm
   msize_assume :: ghosts
 
 (* Global memory specification *)
-let var_gmem = toplevel_var "GMem"
-let var__gmem_get = toplevel_var "__gmem_get"
-let var__gmem_set = toplevel_var "__gmem_set"
-let var_gmem_free = toplevel_var "gmem_free"
-
-let var__gmem_malloc nb_dims =
-  toplevel_var (sprintf "__gmem_malloc%d" nb_dims)
-
-let var_memcpy_host_to_device nb_dims =
-  toplevel_var (sprintf "memcpy_host_to_device%d" nb_dims)
-
-let var_memcpy_device_to_host nb_dims =
-  toplevel_var (sprintf "memcpy_device_to_host%d" nb_dims)
 
 let gmem_spec : unit memory_spec = {
   alloc_handler = (fun alloc_trm -> (
@@ -310,24 +361,11 @@ let gmem_spec : unit memory_spec = {
 
 (* Shared memory specification *)
 
-let var_smem = toplevel_var "SMem"
-let var__smem_get = toplevel_var "__smem_get"
-let var__smem_set = toplevel_var "__smem_set"
-
-let ghost_var_take_smem_token = toplevel_var "take_smem_token"
-let ghost_var_give_smem_token = toplevel_var "give_smem_token"
-
-let var__smem_free nb_dims =
-  toplevel_var (sprintf "__smem_free%d" nb_dims)
-
-let var__smem_malloc nb_dims =
-  toplevel_var (sprintf "__smem_malloc%d" nb_dims)
-
 let smem_spec ?(alloc_mark="") ?(free_mark="") (chop_dims: int): (trm list * trm list) memory_spec = {
   alloc_handler = (fun alloc_trm -> (
     let error = "Gpu.convert_to_global_mem: expected target to point to a matrix allocation" in
     let (array_var, typ_array, typ_alloc, trms, init) = trm_inv ~error (Matrix_trm.let_alloc_inv) alloc_trm in
-    assert (not init); (* TODO implement CALLOC *)
+    assert (not init); (* LATER: implement CALLOC *)
     let distrib_dims, real_dims = List.split_at chop_dims trms in
     let f = trm_add_cstyle (Typ_arguments [typ_alloc]) (trm_var (var__smem_malloc (List.length real_dims))) in
     let alloc_instr = trm_apps f real_dims ~ghost_args:[(new_var "T", typ_alloc)] in
@@ -359,7 +397,7 @@ let smem_alias_spec (alias_var: var): unit memory_spec = {
   extra_patterns = (fun (var,_) aux -> []);
 }
 
-(* Sync specifications *)
+(* ----------------------- Barrier conversion ------------------------ *)
 
 let block_sync (t: trm): trm =
   trm_apps ~ghost_args:[new_var "H", t] (trm_var (toplevel_var "blocksync")) []
@@ -373,12 +411,19 @@ let is_smem_or_gmem (f: formula): bool =
   | Some v when (var_eq v var_gmem) -> true
   | _ -> false
 
-(* Patching thread for conversion *)
+(* LATER: generic transfos for barrier conversion (take the barrier desired as argument )*)
+let%transfo magic_barrier_to_blocksync (kernel_body: target) (tg: target): unit =
+  (* TODO: blocksync breaks the __strict() loop contracts, because it asks
+    for a fraction of the kernel_params. Ideally, we would not need to have the target to the kernel_body. *)
+  Resources.with_non_strict_loop_contracts ([nbAny] @ kernel_body @ [cFor ""]) (fun () ->
+    Target.iter (fun p ->
+      Resources.ensure_computed_at p;
+      Target.apply_at_path (Gpu_trm.magic_barrier_to_seq block_sync is_smem_or_gmem) p) tg
+  )
 
-let ghost_var_rewrite_threadsctx_sz = toplevel_var "rewrite_threadsctx_sz"
-let ghost_var_rewrite_threadsctx_sz1 = toplevel_var "rewrite_threadsctx_sz1"
+let%transfo magic_barrier_to_teardown_sync (tg: target): unit =
+  Target.iter (fun p ->
+    Resources.ensure_computed_at p;
+    Target.apply_at_path (Gpu_trm.magic_barrier_to_seq kernel_teardown_sync is_smem_or_gmem) p)
+  tg
 
-let%transfo insert_threadsctx_rewrite ?(msize: bool = false) (from: trm) (into: trm) (tg: target) =
-  let v = if (msize) then ghost_var_rewrite_threadsctx_sz1 else ghost_var_rewrite_threadsctx_sz in
-  let ghost = Resource_trm.ghost (ghost_call v ["from",from;"to",into]) in
-  Sequence_basic.insert ~reparse:false ghost tg

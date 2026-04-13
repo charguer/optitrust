@@ -1199,8 +1199,8 @@ let delete_stack_allocs instrs res =
       (* TODO: Stack allocations (i.e. automatic free) for other types of cells (#26) *)
       | Some ty -> [formula_uninit_cells_var ~mem_typ:mem_typ_any ty x]
       | None -> match trm_apps_inv t with
-        | Some ({desc = Trm_var v},_) when ((var_eq Barrier_trm.var__treg_ref v) || (var_eq Barrier_trm.var__treg_ref_uninit0_s v) || (var_eq Barrier_trm.var__treg_ref_s v)) -> tregs := Var_set.add x !tregs; []
-        | Some ({desc = Trm_var v},_) when (Option.is_some (Barrier_trm.var__treg_ref_uninit_inv v)) -> tregs := Var_set.add x !tregs; []
+        | Some ({desc = Trm_var v},_) when ((var_eq Gpu_trm.var__treg_ref v) || (var_eq Gpu_trm.var__treg_ref_uninit0_s v) || (var_eq Gpu_trm.var__treg_ref_s v)) -> tregs := Var_set.add x !tregs; []
+        | Some ({desc = Trm_var v},_) when (Option.is_some (Gpu_trm.var__treg_ref_uninit_inv v)) -> tregs := Var_set.add x !tregs; []
         | _ -> []
       end
     | None -> []
@@ -1928,7 +1928,7 @@ let rec compute_resources
         (* FIXME: Admitted should only be allowed as a flag on contracts.
           This is dangerous for transformations that can take admitted as a normal instruction in a sequence *)
         None, None
-      | Spec_not_found fn when var_eq fn Barrier_trm.magic_barrier_var ->
+      | Spec_not_found fn when var_eq fn Gpu_trm.magic_barrier_var ->
         (* TODO: does this need to add the pure facts to usage map? *)
         let usage_map = ref Var_map.empty in
         let res = { res with linear = List.map (fun (v,h) -> if (formula_has_desyncgroups h) then (
@@ -1940,7 +1940,7 @@ let rec compute_resources
           should just be able to pass a trivial Prop that the
           typechecker can prove. But I can't find such a thing.. *)
           (* trm_dummy ?? *)
-          v', formula_sync (trm_var Barrier_trm.all_mem_ok_var) h)
+          v', formula_sync (trm_var Gpu_trm.all_mem_ok_var) h)
         else (v,h)) res.linear} in
         let res = sync_simplification ~magic:true res in
         Some !usage_map, Some res
@@ -2213,7 +2213,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_trm.var_admitted, typ_auto;
   var_ignore, typ_auto;
   mem_typ_any_var, typ_mem_type;
-  Barrier_trm.all_mem_ok_var, typ_pure_simple_fun [typ_mem_type] typ_prop;
+  Gpu_trm.all_mem_ok_var, typ_pure_simple_fun [typ_mem_type] typ_prop;
 ] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_msize_specs) ()
 
 (** Compute resources inside [t] in place.
