@@ -126,7 +126,7 @@ let flatten_expr_rewrites (tg: target) =
     let instr_p = aux p in
     let to_expr_p = List.drop (List.length instr_p) p in
     let e = Target.resolve_path p in
-    let e' = Resource_trm.trm_seq_rewrite_flatten e in
+    let e' = Gpu_trm.trm_seq_rewrite_flatten e in
     Resources.ensure_computed_at instr_p;
 
     let get_contract_from_instr_usage instr =

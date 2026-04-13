@@ -6,6 +6,22 @@
 #include "optitrust_common.h"
 #include <cuda_runtime.h>
 
+// Utility class used to avoid linker errors with extern
+// unsized shared memory arrays with templated type
+class SharedMemory
+{
+private:
+  size_t ofs;
+public:
+    __device__ inline SharedMemory() { ofs = 0; }
+    __device__ inline void* ptr(size_t i) {
+        extern __shared__ char base[];
+        void* ptr = (void*)(base + ofs);
+        ofs += i;
+        return ptr;
+    }
+};
+
 #define exact_div(n,b) ((n)/(b))
 
 template <typename T> T* __gmem_malloc1(int N1) {

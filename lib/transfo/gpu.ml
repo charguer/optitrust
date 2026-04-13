@@ -24,11 +24,11 @@ let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
     | _ ->
       fission_helper [tBefore; cMark barrier_mark];
       (try
-        Barriers.remove_loop_around_barrier [cMark barrier_mark];
+        remove_loop_around_barrier [cMark barrier_mark];
       with
       | e ->
         fission_helper [tAfter; cMark barrier_mark];
-        Barriers.remove_loop_around_barrier [cMark barrier_mark];
+        remove_loop_around_barrier [cMark barrier_mark];
       );
       let _, next_leaf_p = Path.index_in_surrounding_loop leaf_p in
       aux barrier_mark loops next_leaf_p

@@ -553,8 +553,6 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
     | [] -> empty
     | al -> concat (List.map (attr_to_doc style) al)
     in
-  (* TODO: NOT the right place for this *)
-  let dattr = if (trm_has_cstyle CudaShared t) then (string "__shared__" ^^ blank 1 ^^ dattr) else dattr in
   let d =
     begin match t.desc with
     | _ when trm_has_cstyle Type t -> typ_to_doc style t
@@ -774,8 +772,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
 (** [trm_let_to_doc style ~semicolon tv init]: converts a variable declaration to print document *)
 and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
-  let prefix = (if (trm_has_cstyle CudaShared init) then string "__shared__" else empty) in
-  let dtx = prefix ^^ (typed_var_to_doc style (var_to_doc style) tv) in
+  let dtx = typed_var_to_doc style (var_to_doc style) tv in
   match init.desc with
   | Trm_var v when var_eq ~false_on_unset_id:true v var_uninitialized ->
     dtx ^^ semi

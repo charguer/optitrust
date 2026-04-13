@@ -2,6 +2,36 @@ open Ast
 open Trm
 open Typ
 
+(* When transformations apply rewrites inside expressions, they insert
+sequences ('{' '}') with calls to anonymous ghost functions that perform rewriting steps in the
+function body. Since subexpressions are buried within the body of these sequences, these
+rewrites cannot compose: the whole expression cannot be viewed without inlining the
+sequences and ghost functions, removing the proof steps in the process.
+
+A RewriteSequence annotates instances of this pattern so that we can inline (flatten)
+each sequence and function call, and although we cannot preserve the proof steps, we can admit
+the rewrite on the whole expression.
+
+LATER: provide a better way to compose rewrites in subexpressions *)
+(* TODO: find a better place for this: both Cuda_lowering and the transformations need this,
+meaning it can't go directly with the transformations. It doesn't seem to belong anywhere else. *)
+let trm_seq_rewrite_inv (t: trm): trm option =
+  if (not (trm_has_cstyle RewriteSequence t)) then None else (
+  match (trm_seq_nth_inv 0 t) with
+  | Some t -> begin match (trm_let_inv t) with
+    | Some (_,_,t) -> begin match (trm_ref_inv t) with
+      | Some (_,t) -> Some t
+      | _ -> None
+      end
+    | _ -> None
+    end
+  | _ -> None)
+
+let rec trm_seq_rewrite_flatten (t: trm): trm =
+  match (trm_seq_rewrite_inv t) with
+  | Some t -> trm_seq_rewrite_flatten t
+  | _ -> trm_map trm_seq_rewrite_flatten t
+
 (* ------------------------------ Barriers --------------------------- *)
 let magic_barrier_var = toplevel_var "magic_barrier"
 let magic_barrier (): trm =

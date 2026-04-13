@@ -9,7 +9,8 @@
  __global__ void __kernel0 (float* d_b, float* d_a, int H, int W)  /*@*/{
   const int __ctx_sz = MSIZE2(exact_div(H, 32), exact_div(W, 32)) * MSIZE2(16, 32);
   const int __tid = blockIdx.x * MSIZE2(16, 32) + threadIdx.x;
-  __shared__ float tile[MSIZE2(32, 32)];
+  SharedMemory smem;
+  float* const tile = (float*) smem.ptr(MSIZE2(32, 32));
   const int __ctx_sz_0 = __ctx_sz / (exact_div(H, 32));
   const int __by0 = __tid % __ctx_sz / __ctx_sz_0;
   const int __ctx_sz_1 = __ctx_sz_0 / (exact_div(W, 32));

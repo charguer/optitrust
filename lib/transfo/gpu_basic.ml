@@ -399,6 +399,24 @@ let smem_alias_spec (alias_var: var): unit memory_spec = {
 
 (* ----------------------- Barrier conversion ------------------------ *)
 
+
+let remove_loop_around_barrier (tg: target): unit =
+  Target.iter (fun p ->
+    let barrier_error = "Gpu_basic.remove_loop_around_barrier: expected magic barrier at target"  in
+    let barrier = (Path.resolve_path p (Trace.ast ())) in
+    trm_inv ~error:barrier_error (magic_barrier_inv) barrier;
+    let ind,loop_p = Path.index_in_surrounding_loop p in
+    let for_error = "Gpu_basic.remove_loop_around_barrier: expected for loop surrounding barrier"  in
+    let _,_,instrs,_ = (trm_inv ~error:for_error (trm_for_inv_instrs) (Path.resolve_path loop_p (Trace.ast ()))) in
+    if (ind != 0 || Mlist.length instrs != 1) then
+      failwith "Gpu_basic.remove_loop_around_barrier: expected single instruction inside loop";
+    Target.apply_at_path (fun loop -> barrier) loop_p;
+    ()) tg
+
+
+let%transfo insert_barrier (tg: target) =
+  Sequence_basic.insert ~reparse:false (magic_barrier ()) tg
+
 let block_sync (t: trm): trm =
   trm_apps ~ghost_args:[new_var "H", t] (trm_var (toplevel_var "blocksync")) []
 

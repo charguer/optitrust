@@ -479,7 +479,6 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | RewriteSequence -> string "RewriteSequence"
  | BarrierSequence -> string "BarrierSequence"
  | CudaKernelBracketArg -> string "CudaKernelBracketArg"
- | CudaShared -> string "CudaShared"
  | CudaGlobal -> string "CudaGlobal"
  | CudaDevice -> string "CudaGlobal"
 

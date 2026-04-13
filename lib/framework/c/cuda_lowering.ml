@@ -14,6 +14,10 @@ let trm__syncwarp () = trm_var (new_var "__syncwarp")
 let trm__threadIdx () = trm_var (new_var "threadIdx")
 let trm__blockIdx () = trm_var (new_var "blockIdx")
 
+(* hack for accessing method of helper class in optitrust_gpu_cuda.cuh *)
+let trm__smem_ptr () = trm_var (new_var "smem.ptr")
+let typ__sharedmemory () = trm_var (new_var "SharedMemory")
+
 let var__ctx_size () = new_var "__ctx_sz"
 let var__tid () = new_var "__tid"
 
@@ -93,10 +97,12 @@ let rec generalize_mem_ops (t: trm): trm = Pattern.pattern_match t [
   Pattern.__ (fun () -> trm_map generalize_mem_ops t)
 ]
 
-let rec lower_syncs (t: trm): trm = Pattern.pattern_match (Option.value (Gpu_trm.barrier_seq_inv t) ~default:t) [
-  (* this generates invalid code when barrier_seq_inv doesn't match, but it should probably be a better error *)
+let rec lower_syncs (t: trm): trm =
+  let t = Option.value (Gpu_trm.barrier_seq_inv t) ~default:t in
+  if (trm_has_cstyle BarrierSequence t) then begin failwith "Term was marked as barrier sequence, but did not simplify to a single barrier" end;
+  Pattern.pattern_match t [
     Pattern.(trm_var_with_name "blocksync") (fun () -> trm_apps (trm__syncthreads ()) []);
-    Pattern.(trm_apps0 (trm_var_with_name "magic_barrier")) (fun () -> failwith "Magic barriers not allowed in GPU code!");
+    Pattern.(trm_apps0 (trm_var_with_name "magic_barrier")) (fun () -> failwith "Magic barriers not allowed in CUDA code");
     Pattern.__ (fun () -> trm_map lower_syncs t)
   ]
 
@@ -104,46 +110,34 @@ let rec remove_dmindexs (t: trm): trm = match (Matrix_trm.dmindex_inv t) with
   | Some (_,_) -> trm_int 0
   | _ -> trm_map remove_dmindexs t
 
-(* TODO: doesn't perform extensive wellformedness checks; only checks that no host-side get, set, etc. are used
-But since the host-side functions are not defined, presumably it would just be garbage on the CUDA side. Should it be more extensive?*)
+(* LATER: More extensive wellformedness checks for better errors.
+Currently, this should not generate anything unsound, but a malformed AST may produce
+CUDA code that references undefined OptiGPU constructs that were not lowered in this step. *)
+(* LATER: Better optimization (CSE, constant folding, etc.). See issue #(TODO) *)
 let lower_device_code (grid_size: var) (tid: var) (t: trm): trm =
   t |> (flatten_thread_loops grid_size tid)
     |> generalize_mem_ops
     |> lower_syncs
     |> remove_dmindexs
 
-(* TODO: one big wellformedness check pass? prints errors properly & what not *)
-
 let lower_smem_alloc (t: trm): trm option =
   Pattern.pattern_match_opt t [
     Pattern.(trm_let !__ (typ_ptr !__) (trm_apps (trm_var !__) !__ __ __)) (fun v typ vf args () ->
       Pattern.when_ (vf.name = sprintf "__smem_malloc%d" (List.length args));
-      (* TODO: will not compile correctly by nvcc when it is a dynamic allocation*)
-      (* TODO: also WRONG: it is asking for more memory than we asked for in the kernel launch, iirc*)
-      (trm_add_cstyle CudaShared (trm_let (v, typ_ptr typ) (trm_ref_uninit (Matrix_trm.typ_matrix typ args))))
+      let smem_ptr_call = (trm_apps (trm__smem_ptr ()) [Matrix_trm.msize args]) in
+      (trm_let (v, typ_ptr typ) (trm_cast (typ_ptr typ) smem_ptr_call))
     )
   ]
 
-(*let arith_simplify_cuda (t: trm) =
-  t
-  |> Arith_core_internal.simplify ~indepth:true (Arith_core_internal.expand_rec)*)
-
-(* TODO because I don't have a better place for it: currently DMINDEX can be ignored in this printer because it's defined as
-return 0 and inlined in the optitrust_common. But we should actually erase it instead of relying on nvcc.
-If we replace all DMINDEXes with 0 here also, the arith simplifier can reduce the MINDEXes further. *)
-(* TODO: could be cleaner if it just searched by target for a Span between a kernel launch and kernel_end ?
-  and then the kernel transfo would also just generate a nobrace *)
 let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): trm =
-  (* trm_find_var could be useful to get the type *)
   let rec scan_bound_vars t = (
     trm_iter scan_bound_vars t;
     match t.desc with
+    (* Should handle all cases of binders with typed variables; see `find_var_filter_on` for reference *)
     | Trm_let ((var,typ),body) ->
       bound_vars_typs := Var_map.add var typ !bound_vars_typs;
     | Trm_for ({index = var; _},_,_,_) ->
       bound_vars_typs := Var_map.add var (typ_int) !bound_vars_typs;
-      (* TODO: Handle other cases. I don't think map_binder in trm_map_vars
-      will work because I don't think the ctx can be used to associate vars with types. *)
     | _ -> ()) in
   scan_bound_vars t;
   let bound_vars = Var_set.of_seq (fst (Seq.split (Var_map.to_seq !bound_vars_typs))) in
@@ -180,7 +174,14 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
       let smem_allocs = Mlist.fold_left (fun instrs instr ->
         match (lower_smem_alloc instr) with
         | Some instr -> instr :: instrs
-        | _ -> instrs) [] (snd (Mlist.extract 0 kernel_transition_inds.(0) instrs))in (* TODO cleanup so it's nicer if there's something in teardown too *)
+        | _ -> instrs) [] (snd (Mlist.extract 0 kernel_transition_inds.(0) instrs)) in
+      let smem_allocs = match smem_allocs with
+        | [] -> []
+        | _ -> (
+          let smem_var = new_var "smem" in
+          let smem_defn = trm_let (smem_var, typ__sharedmemory ()) (trm_ref_uninit (typ__sharedmemory ())) in
+          smem_defn :: smem_allocs
+        ) in
       let _, body = Mlist.extract kernel_body_start kernel_body_len instrs in
 
       let ctx_size,tid = var__ctx_size (), var__tid () in
@@ -193,8 +194,7 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
           let tl = (Mlist.push_front (make_kernel_header (List.nth launch_args 0) (List.nth launch_args 1) ctx_size tid) tl) in
           trm_alter ~desc:(Trm_seq (tl, result)) t
         | _ -> failwith "expected seq" in
-      (* let body = arith_simplify_cuda body in *)
-      (* TODO: run arith_simplify on body here ? *)
+      (* LATER: run arith_simplify on body here ? *)
 
       let launch_args = List.map (fun arg -> trm_add_cstyle CudaKernelBracketArg arg) launch_args in
       let kernel_args = Var_set.inter (trm_free_vars body) bound_vars in
@@ -212,29 +212,12 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
   let kernel_decls = List.fold_left (fun defns kernel -> Mlist.push_front (trm_let kernel (snd kernel)) defns) (Mlist.of_list [t]) !kernels in
   Nobrace.trm_seq kernel_decls
 
-(* TODO: duplicate of resource_trm, remove when this is
-  refactored into a transfo*)
-let trm_seq_rewrite_inv (t: trm): trm option =
-  if (not (trm_has_cstyle RewriteSequence t)) then None else (
-  match (trm_seq_nth_inv 0 t) with
-  | Some t -> begin match (trm_let_inv t) with
-    | Some (_,_,t) -> begin match (trm_ref_inv t) with
-      | Some (_,t) -> Some t
-      | _ -> None
-      end
-    | _ -> None
-    end
-  | _ -> None)
-
-let rec trm_seq_rewrite_flatten (t: trm): trm =
-  match (trm_seq_rewrite_inv t) with
-  | Some t -> trm_seq_rewrite_flatten t
-  | _ -> trm_map trm_seq_rewrite_flatten t
-
-
 let lower_to_cuda (t: trm): trm =
   let k_id = ref 0 in
   let device_fns: Var_set.t ref = ref Var_set.empty in
+  (* Remove all rewrite sequences; CUDA doesn't seem to like the expression sequences we generate. *)
+  (* TODO: maybe just force the user to take care of this in the script? that way we
+  can move trm_seq_rewrite_flatten out of Gpu_trm *)
   let t = trm_seq_rewrite_flatten t in
   let rec lower_fns t =
     let ot () =

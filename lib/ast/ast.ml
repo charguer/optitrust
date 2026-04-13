@@ -469,7 +469,6 @@ and cstyle_annot =
 
   | CudaKernelBracketArg
   | CudaGlobal
-  | CudaShared
   | CudaDevice
 
 (** [constructor_kind]: special annotation for constructors *)
