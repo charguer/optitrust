@@ -65,7 +65,6 @@ let%transfo convert_to_shared_mem ~(chop_dims: int) (tg: target): unit =
     let _,tg_seq_p = Path.index_in_seq p in
     let tg = [cPath p] in
     Marks.with_marks (fun next_m ->
-      Trace.without_resource_computation_between_steps (fun () ->
         Resources.with_non_strict_loop_contracts [cPath tg_seq_p] (fun () ->
           let alloc_mark = next_m () in
           let free_mark = next_m () in
@@ -76,4 +75,4 @@ let%transfo convert_to_shared_mem ~(chop_dims: int) (tg: target): unit =
           Var_set.iter (fun alias ->
             Gpu_basic.convert_memory (Gpu_basic.smem_alias_spec alias) tg;
           ) !aliases;
-  )))) tg
+  ))) tg

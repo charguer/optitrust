@@ -17,7 +17,7 @@ let tpb = 1 lsl log_tpb
 let stride = 2
 
 (* TODO, works if you do individual steps but not when you run them together with fun i -> true ? *)
-let stage_ok = fun i -> i >= 4
+let stage_ok = fun i -> true
 
 let parallelize_reduction ?(temp_sums: string option) (inner_loop: string) (outer_loop: string) (sum_var: string): unit = begin
   bigstep (Printf.sprintf "parallelize reduction for %s,%s,%s" inner_loop outer_loop sum_var);
@@ -111,8 +111,8 @@ let replace_with_tree_reduce (logN: trm) (sum_instr: target) : unit =
 
 (* Parallelize block-level reduction using tree reduction: *)
 let _ = Run.script_cpp_stage stage_ok (fun () ->
-  (* TODO: maybe this could be using includes instead? Or the user adds the include and then something can inline the include? *)
-  !! Sequence.insert ~reparse:true (stmt (File.get_contents "/home/julien/work/optitrust/case_studies/gpu/reduction/tree_reduction.h"))[tBefore; cFunDef "reduce"];
+  let tree_reduction_path = (Filename.dirname (Trace.get_context ()).prefix) ^ "/tree_reduction.h" in
+  !! Sequence.insert ~reparse:true (stmt (File.get_contents tree_reduction_path))[tBefore; cFunDef "reduce"];
   let sum_tg = [cFunDef "reduce"; cFor "bi"; cFor "ti"; cArrayWrite "d_partial_sums"] in
   !! Ghost.flatten_expr_rewrites (sum_tg @ [dRHS]);
   !! replace_with_tree_reduce (trm_int log_tpb) sum_tg;
@@ -129,7 +129,7 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
 
 let _ = Run.script_cpp_stage stage_ok (fun () ->
   (* Tile malloc/free needs to be moved closer to kernel than gmem operations *)
-  !! Instr.move ~dest:[tBefore; occFirst; cFor "bi"] [cVarDef "tile"];
+  !! Instr.move ~dest:[tBefore; cVarDef "tile"] [cVarDef "d_partial_sums"];
   !! Instr.move ~dest:[tAfter; occFirst; cFor "bi"] [cDelete ~arg:[cVar "tile"] ()];
 
   let kernel_body_mark = "kernel_body" in
