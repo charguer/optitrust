@@ -59,7 +59,7 @@ let barrier_seq_inv (t: trm): trm option =
     if (List.for_all (fun instr -> match (trm_apps_inv instr) with
       | Some ({desc = Trm_var v}, []) when (var_eq v barrier_fn_v) ->
         true
-      | _ -> false) instrs) then Some barrier_fn else None
+      | _ -> false) instrs) then Some hd else None
   | _ -> None
 
 let magic_barrier_to_seq (barrier_fn: trm -> trm) (resource_filter: trm -> bool) (t: trm): trm =

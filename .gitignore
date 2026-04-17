@@ -18,6 +18,7 @@ _doc
 *_out_enc.cpp
 *_out_enc.c
 *_notfmt.cpp
+*_notfmt.cu
 *_diff.html
 *_with_lines.ml
 *_inlined.cpp

@@ -627,6 +627,7 @@ let action_run ?(exit_on_error = true) (tests : string list) : unit =
   (* Enable backtrace display only when running an individual test *)
   if nb_tests_to_process > 1
     then Flags.print_backtrace_on_error := false;
+  Flags.aux_file_compare := match_expected;
   (* Generate a `batch.ml` program that contains the contatenation of the source
      code of every test considered *)
   (* LATER: could re-implement batch_tests.sh in OCaml *)

@@ -5,12 +5,12 @@ __ghost(define, "x := fun (x: int) -> 3 + x", "three_plus <- x");
 __ghost(define, "T := int -> int, x := fun x -> x + 2", "plus_two <- x");
 
 int five() {
-  __ensures("__is_true(_Res == three_plus(2))");
-  __ensures("__is_true(_Res == plus_two(3))");
+  __ensures("(_Res = three_plus(2))");
+  __ensures("(_Res = plus_two(3))");
   return 3 + 2;
 }
 
-__ghost(assert_prop, "P := __is_true(0 == 0)", "eq_refl_0 <- proof");
+__ghost(assert_prop, "P := (0 = 0)", "eq_refl_0 <- proof");
 
 __ghost(assert_inhabited, "x := arbitrary(int -> Prop)", "P <- x");
 

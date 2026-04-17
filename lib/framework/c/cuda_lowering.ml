@@ -101,7 +101,7 @@ let rec lower_syncs (t: trm): trm =
   let t = Option.value (Gpu_trm.barrier_seq_inv t) ~default:t in
   if (trm_has_cstyle BarrierSequence t) then begin failwith "Term was marked as barrier sequence, but did not simplify to a single barrier" end;
   Pattern.pattern_match t [
-    Pattern.(trm_var_with_name "blocksync") (fun () -> trm_apps (trm__syncthreads ()) []);
+    Pattern.(trm_apps0 (trm_var_with_name "blocksync")) (fun () -> trm_apps (trm__syncthreads ()) []);
     Pattern.(trm_apps0 (trm_var_with_name "magic_barrier")) (fun () -> failwith "Magic barriers not allowed in CUDA code");
     Pattern.__ (fun () -> trm_map lower_syncs t)
   ]

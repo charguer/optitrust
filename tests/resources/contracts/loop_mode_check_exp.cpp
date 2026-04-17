@@ -5,7 +5,7 @@ void f(int* a, int* b, int N) {
   __consumes("for i in 0..N -> &a[MINDEX1(N, i)] ~~> 0");
   __produces("for i in 0..N -> &a[MINDEX1(N, i)] ~~> 2");
   __preserves("b ~~> 0");
-  __ghost(assert_prop, "P := __is_true(N == exact_div(N, 4) * 4)",
+  __ghost(assert_prop, "P := (N = exact_div(N, 4) * 4)",
           "tile_div_check_i <- proof");
   __ghost(tile_divides,
           "div_check := tile_div_check_i, items := fun (i: int) -> "
