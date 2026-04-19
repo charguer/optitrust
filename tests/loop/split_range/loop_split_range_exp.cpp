@@ -61,7 +61,7 @@ void f() {
 }
 
 void array_copy(int* a, int* b, int n) {
-  __requires("__is_true(n >= 0)");
+  __requires("(n >= 0)");
   __writes("a ~> Matrix1(n)");
   __reads("b ~> Matrix1(n)");
   __ghost(to_prove, "P := is_subrange(0..0, 0..n)");
@@ -94,7 +94,7 @@ void array_copy(int* a, int* b, int n) {
 }
 
 void non_transparent_ghosts(int* t, int n) {
-  __requires("__is_true(n >= 0)");
+  __requires("(n >= 0)");
   __writes("t ~> Matrix1(n)");
   const int cut = 0;
   __ghost(group_intro_zero, "items := fun i -> &t[MINDEX1(n, i)] ~> Cell");

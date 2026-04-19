@@ -45,8 +45,7 @@ void f() {
 void matrix_copy(int* D, int* S) {
   __modifies("D ~> Matrix1(1024)");
   __reads("S ~> Matrix1(1024)");
-  __ghost(assert_prop, "P := __is_true(1024 == 256 * 4)",
-          "tile_div_check_i <- proof");
+  __ghost(assert_prop, "P := (1024 = 256 * 4)", "tile_div_check_i <- proof");
   __ghost(tile_divides,
           "div_check := tile_div_check_i, items := fun (i: int) -> "
           "&D[MINDEX1(1024, i)] ~> Cell");

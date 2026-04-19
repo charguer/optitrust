@@ -65,7 +65,9 @@ void var_wrong4(int* t) {
 void var_needs_if(int* t, int n) {
   __modifies("t ~> Matrix1(n)");
   int x = 0;
-  if (0 < n) x = 3;
+  if (0 < n) {
+    x = 3;
+  }
   for (int i = 0; i < n; i++) {
     __strict();
     __smodifies("&x ~> Cell");

@@ -2,19 +2,19 @@
 
 __ghost_ret trivial_init() {
   __requires("k: int");
-  __ensures("__is_true(k == k)");
+  __ensures("(k = k)");
   __admitted();
 }
 
 __ghost_ret trivial_change() {
   __requires("k: int");
   __requires("old_k: int");
-  __requires("__is_true(old_k == old_k)");
-  __ensures("__is_true(k == k)");
+  __requires("(old_k = old_k)");
+  __ensures("(k = k)");
   __admitted();
 }
 
-void req_triv(int k) { __requires("__is_true(k == k)"); }
+void req_triv(int k) { __requires("(k = k)"); }
 
 void f() {
   __pure();
@@ -38,23 +38,23 @@ void g() {
   __pure();
   for (int i = 0; i < 100; ++i) {
     __strict();
-    __xensures("__is_true(i == i)");
+    __xensures("(i = i)");
     __ghost(trivial_init, "k := i + 12");
     req_triv(i + 12);
     __ghost(trivial_init, "k := i");
   }
 }
 
-void must_be_zero(int i) { __requires("__is_true(i == 0)"); }
+void must_be_zero(int i) { __requires("(i = 0)"); }
 
 void must_be_zero_ens(int i) {
-  __requires("__is_true(i == 0)");
-  __ensures("__is_true(i * 1 == 0)");
+  __requires("(i = 0)");
+  __ensures("(i * 1 = 0)");
   __admitted();
 }
 
 void h(int i, int j) {
-  __requires("__is_true(i == j)");
+  __requires("(i = j)");
   if (j == 0) {
     __ghost(assert_alias, "x := j, y := 0");
     __ghost(assert_alias, "x := j, y := 0");
@@ -64,7 +64,7 @@ void h(int i, int j) {
 }
 
 void h2(int i, int j) {
-  __requires("__is_true(i == j)");
+  __requires("(i = j)");
   if (j == 0) {
     __ghost(assert_alias, "x := j, y := 0");
     __ghost(assert_alias, "x := j, y := 0");

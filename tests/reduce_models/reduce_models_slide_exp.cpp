@@ -3,15 +3,15 @@
 __ghost_ret plus1() {
   __requires("n: int");
   __requires("np1: int");
-  __requires("__is_true(np1 == n + 1)");
-  __ensures("eq: __is_true(np1 == n + 1)");
+  __requires("(np1 = n + 1)");
+  __ensures("eq: (np1 = n + 1)");
 }
 
 void rowSum(int w, int* s, int* d, int n, int cn, int c, int* sum) {
   __requires("S: int * int -> int");
-  __requires("__is_true(w >= 0)");
-  __requires("__is_true(n >= 1)");
-  __requires("__is_true(cn >= 0)");
+  __requires("(w >= 0)");
+  __requires("(n >= 1)");
+  __requires("(cn >= 0)");
   __requires("in_range(c, 0..cn)");
   __preserves("sum ~~> reduce_int_sum(0, 0 + w, fun k0 -> S(k0, c))");
   __writes(
@@ -19,14 +19,14 @@ void rowSum(int w, int* s, int* d, int n, int cn, int c, int* sum) {
       "fun k -> S(k, c))");
   __reads("s ~> Matrix2(n + w - 1, cn, S)");
   int sum = *sum;
-  __ghost(to_prove, "P := __is_true(0 == 1 - 1)", "H <- H");
-  __ghost(to_prove, "P := __is_true(0 + w == 1 + w - 1)", "H1 <- H");
+  __ghost(to_prove, "P := (0 = 1 - 1)", "H <- H");
+  __ghost(to_prove, "P := (0 + w = 1 + w - 1)", "H1 <- H");
   __ghost(rewrite_linear,
-          "inside := [&] (int v) -> HProp  &sum ~~> reduce_int_sum(v, 0 + w, "
-          "fun k0 -> S(k0, c)), by := H");
+          "inside := fun (v: int) -> &sum ~~> reduce_int_sum(v, 0 + w, fun k0 "
+          "-> S(k0, c)), by := H");
   __ghost(rewrite_linear,
-          "inside := [&] (int v) -> HProp  &sum ~~> reduce_int_sum(1 - 1, v, "
-          "fun k0 -> S(k0, c)), by := H1");
+          "inside := fun (v: int) -> &sum ~~> reduce_int_sum(1 - 1, v, fun k0 "
+          "-> S(k0, c)), by := H1");
   for (int i = 1; i < n; i += 1) {
     __strict();
     __spreserves(
@@ -47,22 +47,21 @@ void rowSum(int w, int* s, int* d, int n, int cn, int c, int* sum) {
            s[MINDEX2(n + w - 1, cn, i - 1, c)];
     __ghost_end(__ghost_pair_2);
     __ghost_end(__ghost_pair_1);
-    __ghost(to_prove, "P := __is_true(i + w - 1 >= i - 1)", "H <- H");
-    __ghost(to_prove, "P := __is_true(i + 1 - 1 == i - 1 + 1)", "H2 <- H");
-    __ghost(to_prove, "P := __is_true(i + 1 + w - 1 == i + w - 1 + 1)",
-            "H3 <- H");
+    __ghost(to_prove, "P := (i + w - 1 >= i - 1)", "H <- H");
+    __ghost(to_prove, "P := (i + 1 - 1 = i - 1 + 1)", "H2 <- H");
+    __ghost(to_prove, "P := (i + 1 + w - 1 = i + w - 1 + 1)", "H3 <- H");
     __ghost(rewrite_linear,
-            "inside := [&] (int v) -> HProp  &sum ~~> v, by := "
+            "inside := fun (v: int) -> &sum ~~> v, by := "
             "reduce_int_sum_slide(i - 1, i + w - 1, i + 1 - 1, i + 1 + w - 1, "
             "fun k0 -> S(k0, c), H, H2, H3)");
     d[MINDEX2(n, cn, i, c)] = sum;
-    __ghost(to_prove, "P := __is_true(i + 1 - 1 == i)", "H4 <- H");
-    __ghost(to_prove, "P := __is_true(i + 1 + w - 1 == i + w)", "H5 <- H");
+    __ghost(to_prove, "P := (i + 1 - 1 = i)", "H4 <- H");
+    __ghost(to_prove, "P := (i + 1 + w - 1 = i + w)", "H5 <- H");
     __ghost(rewrite_linear,
-            "inside := [&] (int v) -> HProp  &d[MINDEX2(n, cn, i, c)] ~~> "
+            "inside := fun (v: int) -> &d[MINDEX2(n, cn, i, c)] ~~> "
             "reduce_int_sum(v, i + 1 + w - 1, fun k0 -> S(k0, c)), by := H4");
     __ghost(rewrite_linear,
-            "inside := [&] (int v) -> HProp  &d[MINDEX2(n, cn, i, c)] ~~> "
+            "inside := fun (v: int) -> &d[MINDEX2(n, cn, i, c)] ~~> "
             "reduce_int_sum(i, v, fun k0 -> S(k0, c)), by := H5");
   }
 }
