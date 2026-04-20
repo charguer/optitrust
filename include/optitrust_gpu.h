@@ -18,11 +18,10 @@ __DECL(SMemToken, "int -> HProp");
 __DECL(KernelSetupCtx, "HProp");
 __DECL(KernelTeardownCtx, "HProp");
 
-// TODO: make the info about size and memory cell part of the normal "Free" token,
+// LATER: make the info about size and memory cell part of the normal "Free" token,
 // or add support for polymorphic pure functions to make this work
+// for now we add size variants of smem_free
 // __DECL(SMemFree, "T: Type -> ptr(T) -> int -> MemType -> HProp");
-
-__DECL(range_eq, "Range * Range -> Prop"); // TODO move this outside this file
 
 __GHOST(rewrite_threadsctx_sz) {
   __requires("from: int, to: int, start: int");
@@ -32,7 +31,6 @@ __GHOST(rewrite_threadsctx_sz) {
   __ghost(rewrite_linear, "inside := fun i -> ThreadsCtx(start ..+ i), by := by");
 }
 
-// TODO
 __GHOST(rewrite_threadsctx_sz1) {
   __requires("from: int, to: int, start: int");
   __requires("by: from = to");
@@ -146,7 +144,7 @@ __DECL(block_sync_mem, "MemType -> Prop");
 __AXIOM(gmem_block_sync_mem, "block_sync_mem(GMem)");
 __AXIOM(smem_block_sync_mem, "block_sync_mem(SMem)");
 
-// TODO should take a list of HPROP
+// LATER: should take a list of HPROP
 void blocksync() {
   __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int");
   __reads("KernelParams(bpg, tpb, smem_sz)");
@@ -156,7 +154,7 @@ void blocksync() {
   __admitted();
 }
 
-// TODO could be merged with kernel_device_end when a list of HProps is supported
+// LATER: should take a list of HPROP (and could be merged with kernel_device_end at that point)
 __GHOST(kernel_teardown_sync) {
   __requires("H: HProp");
   __reads("KernelTeardownCtx");
@@ -193,7 +191,7 @@ template <typename T> void __gmem_set(T* p, T v) {
 template <typename T> void gmem_free(T* p) {
   __requires("H: HProp");
   __preserves("HostCtx");
-  // TODO: Free(p,H) needs to store a memory type as well.
+  // LATER: Free(p,H) needs to store a memory type as well.
   // Don't know that `p` is a pointer to GMem, or that H is a permission on GMem cells.
   __consumes("Free(p, H)");
   __consumes("H");
@@ -278,12 +276,9 @@ template <typename T> T* __smem_malloc1(int N1) {
   __requires("tpb: int, bpg: int, smem_sz: int");
   __preserves("KernelSetupCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
-  // TODO: matrix sugar for this?
+  // LATER: matrix sugar for this
   __produces("desync_for i in ..bpg -> for j1 in 0..N1 -> &_Res[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem)");
-
-  // TODO: should the Free permission be asymmetric?
-  // makes it easiest because the sync() at the kernel teardown is going to
-  // synchronize the whole thing, meaning everything is Groups.. but is it correct?
+  // expect a permission of groups, not desyncgroups. Should sync (end kernel) first before freeing.
   __produces("Free(_Res, for i in 0..bpg -> for j1 in 0..N1 -> &_Res[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem))");
   __consumes("SMemToken(sizeof(T)*N1)");
   __ensures("__spec_override_ret_implicit(ptr(T))");
@@ -294,12 +289,9 @@ template <typename T> T* __smem_malloc1(int N1) {
 
 template <typename T> T* __smem_malloc2(int N1, int N2) {
   __requires("tpb: int, bpg: int, smem_sz: int, smem_sz_rem: int");
-  //__requires("smem_sz_base = sizeof(T)*(N1*N2)");
   __preserves("KernelSetupCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
   __produces("desync_for i in ..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &_Res[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem)");
-
-  // TODO: same issue as above
   __produces("Free(_Res, for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &_Res[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem))");
   __consumes("SMemToken(sizeof(T)*(N1*N2))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
@@ -308,7 +300,7 @@ template <typename T> T* __smem_malloc2(int N1, int N2) {
 }
 #define SMEM_MALLOC2(T, N1, N2) __call_with(__smem_malloc2<T>(N1, N2), "T := "#T)
 
-// TODO: should be able to get away with just one smem_free, but since the Free token
+// LATER: should be able to get away with just one smem_free, but since the Free token
 // doesn't store size, we can't.
 template <typename T> void __smem_free1(T* p, int N1) {
   __requires("tpb: int, bpg: int, smem_sz: int");

@@ -816,9 +816,9 @@ let encode_ghost_annot (style: style) (t: trm) : trm =
         | None -> Some "_"
         | _ -> None
       in
-      (* TODO: ugly hack to prevent the printer from printing ghost bind expressions for variables without identifiers
-        because it breaks re-parsing *)
       trm_string (String.concat ", " (List.filter_map (fun (bound_var, contract_var) ->
+        (* Do not print ghost bind expressions when they are binding to anonymous variables (cannot reparse) *)
+        (* TODO: right policy? control by a flag maybe? *)
         match (bound_var_name bound_var, is_anon_var contract_var) with
         | Some bound_var, false -> Some (sprintf "%s <- %s" bound_var (var_name contract_var))
         | _ -> None) ghost_bind))
@@ -877,7 +877,7 @@ let remove_ghost_annot (t : trm) : trm =
   Nobrace.remove_after_trm_op (Resource_trm.delete_annots_on ~delete_contracts:false ~delete_ghost:true) t
 
 let encode_or_remove_ghost_annot (style: style) (t: trm) : trm =
-  if (style.typing.typing_ghost)
+  if style.typing.typing_ghost
     then encode_ghost_annot style t
     else remove_ghost_annot t
 

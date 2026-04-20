@@ -1485,9 +1485,8 @@ let ghost_if_then_specialize ?b h =
 let ghost_if_then_unspecialize ?b h =
   Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_then_unspecialize) (["b",b; "H",Some h]))
 
-(* TODO: refactor with other loop/if transfos such as expand_range, fold, etc.
+(* LATER: refactor with other loop/if transfos such as expand_range, fold, etc.
   modify those to support contracts/models like this one. *)
-(* TODO: use spans instead *)
 let%transfo intro_loop_single_on ?(index: string = "t") (bound: trm) (start_tg: target) (stop_tg: target) =
   Nobrace_transfo.remove_after (fun () -> Marks.with_marks (fun next_m ->
     let seq_mark = next_m () in

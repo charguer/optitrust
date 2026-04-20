@@ -404,7 +404,6 @@ let%transfo with_non_strict_loop_contracts (tg: target) (f: unit -> unit): unit 
     | _ -> t in
   Target.apply_at_target_paths aux tg;
   f ()
-  (*make_strict_loop_contracts tg*)
 
 type unparsed_fun_contract = (fun_contract_clause_type * string) list
 type unparsed_loop_contract = (loop_contract_clause_type * string) list

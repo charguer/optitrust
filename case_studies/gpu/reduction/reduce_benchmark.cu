@@ -5,7 +5,7 @@ namespace cg = cooperative_groups;
 
 // Utility class used to avoid linker errors with extern
 // unsized shared memory arrays with templated type
-template <class T> struct SharedMemory
+template <class T> struct SharedMemoryUtil
 {
     __device__ inline operator T *()
     {
@@ -30,7 +30,7 @@ template <class T> __global__ void reduce3(T *g_odata, T *g_idata, unsigned int 
 {
     // Handle to thread block group
     cg::thread_block cta   = cg::this_thread_block();
-    T               *sdata = SharedMemory<T>();
+    T               *sdata = SharedMemoryUtil<T>();
 
     // perform first level of reduction,
     // reading from global memory, writing to shared memory
@@ -63,7 +63,7 @@ template <class T, unsigned int blockSize, bool nIsPow2> __global__ void reduce6
 {
     // Handle to thread block group
     cg::thread_block cta   = cg::this_thread_block();
-    T               *sdata = SharedMemory<T>();
+    T               *sdata = SharedMemoryUtil<T>();
 
     // perform first level of reduction,
     // reading from global memory, writing to shared memory
@@ -137,10 +137,11 @@ template <class T, unsigned int blockSize, bool nIsPow2> __global__ void reduce6
         g_odata[blockIdx.x] = mySum;
 }
 
- __global__ void __kernel0 (float* d_partial_sums, float* d_arr, int N)  /*@*/{
+__global__ void __kernel0 (float* d_partial_sums, float* d_arr, int N)  /*@*/{
   const int __ctx_sz = MSIZE1(exact_div(N, 512)) * MSIZE1(256);
   const int __tid = blockIdx.x * MSIZE1(256) + threadIdx.x;
-  __shared__ float tile[MSIZE1(256)];
+  SharedMemory smem;
+  float* const tile = (float*) smem.ptr(MSIZE1(256));
   const int __ctx_sz_0 = __ctx_sz / (exact_div(N, 512));
   const int __bi0 = __tid % __ctx_sz / __ctx_sz_0;
   const int __ctx_sz_1 = __ctx_sz_0 / 256;
@@ -155,26 +156,25 @@ template <class T, unsigned int blockSize, bool nIsPow2> __global__ void reduce6
       __ti1 * 2 + i))];
   }
   __syncthreads();
-  float* const reduce_arr_1 = &tile[MINDEX2(exact_div(N, 512), 256, 0, 0)];
+  float* const reduce_arr_7 = &tile[MINDEX2(exact_div(N, 512), 256, 0, 0)];
    for (int t = 0; t < 1 << 8; t++) {  }
    for (int i = 8; i > 0; i--) {
     const int ei = 1 << i - 1;
     const int eii = 1 << i;
     if (__t2 < 1 << i - 1) {
-      reduce_arr_1[MINDEX1(1 << 8, __t2)] = reduce_arr_1[MINDEX1(1 << 8, __t2)] + (
-        &reduce_arr_1[ei])[MINDEX1(ei, __t2)];
+      reduce_arr_7[MINDEX1(1 << 8, __t2)] = reduce_arr_7[MINDEX1(1 << 8, __t2)] + (
+        &reduce_arr_7[ei])[MINDEX1(ei, __t2)];
     }
     else {  }
     __syncthreads();
   }
   if (__ti_f3 == 0) {
-    const float sum_temp_2 = reduce_arr_1[MINDEX1(1 << 8, 0)];
+    const float sum_temp_8 = reduce_arr_7[MINDEX1(1 << 8, 0)];
      for (int t = 0; t < 1 << 8; t++) {  }
-    d_partial_sums[MINDEX1(exact_div(N, 512), __bi0)] = sum_temp_2;
+    d_partial_sums[MINDEX1(exact_div(N, 512), __bi0)] = sum_temp_8;
   }
   else {  }
 }/*@*/
-
 
 
  /* __global__ void __kernel0 (float* d_partial_sums, float* d_arr, int N) {

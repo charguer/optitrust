@@ -1,13 +1,13 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true (* FIXME: false *)
+let _ = Flags.check_validity := true
 let _ = Flags.use_resources_with_models := true
 let _ = Flags.preserve_specs_only := true
 let _ = Flags.pretty_matrix_notation := false
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
-let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
+let _ = Flags.save_ast_for_steps := None (* Some Flags.Steps_important *)
 let _ = Flags.only_big_steps := true
 
 let _ = Run.script_cpp (fun () -> ())
@@ -121,7 +121,7 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   (* Mask writing of final result to only 1 thread *)
   !! Loop_basic.intro_loop_single_on ~index:"ti_f" (trm_int tpb) [tAfter; cFor "i" ~body:[cFor "t"]] [tAfter; occLast; cArrayWrite "d_partial_sums"];
   (* Inline tile read result *)
-  !! Trace.without_substep_validity_checks (fun () -> Trace.without_resource_computation_between_steps (fun () -> Instr.move ~dest:[tAfter; cVarDef "out_sum"] [cVarDef "sum_temp_2"]));
+  !! Trace.without_substep_validity_checks (fun () -> Trace.without_resource_computation_between_steps (fun () -> Instr.move ~dest:[tAfter; cVarDef "out_sum"] [cVarDef ~regexp:true "sum_temp_.*"]));
   !! Variable.inline [cVarDef "out_sum"];
   (* Don't need to write 0 at the start anymore *)
   !! Instr.delete ~nb_extra:2 [occFirst; tSpanAround [cArrayWrite "d_partial_sums"]];
@@ -177,7 +177,7 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Gpu.magic_barrier_to_blocksync [cMark "kernel_sequence"] [nbAny; cCall "magic_barrier"];
 
   (* causes problems with the free variable detection *)
-  !! Variable.inline [cVarDef "N3"];
+  !! Variable.inline [cVarDef ~regexp:true "N.+"];
   !! Flags.recompute_resources_between_steps := false;
   !! Trace.without_substep_validity_checks (fun () ->
     Instr.move ~dest:[tFirst; cMark "kernel_sequence"] [cCall "kernel_launch"];

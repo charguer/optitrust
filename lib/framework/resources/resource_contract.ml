@@ -247,7 +247,9 @@ let extract_threadsctx_range_components (r_t: trm): threadsctx_range_components 
 let gen_outside_loop_threadsctx_range (cs: threadsctx_range_components) (loop_end: trm): trm =
   let dims_high,dims_low,inds_high = cs in
   let sz = Matrix_trm.msize (loop_end::dims_low) in
-  (* TODO: an actual placeholder size instead of 0. Doing this because we would like to rewrite the size of the range without also having to mess with it in the MINDEX. *)
+  (* LATER: an actual placeholder size instead of 0.
+   This makes rewriting the size of the range in transfos more convenient, because otherwise we have to mess with the MINDEX.
+   If the outermost dimension is always 0 in the MINDEX, it is technically still correct, does not lose information, and means we only have to worry about MSIZE. *)
   let dims = dims_high @ [trm_int 0] in
   let inds = inds_high @ [trm_int 0] in
   formula_counted_range (Matrix_trm.mindex dims inds) sz

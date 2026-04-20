@@ -648,7 +648,9 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
               in
               surround 2 1 lsep dinstrs rsep
           in
-          (* TODO: re-encode instead of printing *)
+          (* LATER: re-encode instead of printing.
+          Or just remove when we figure out better solutions to replace barrier sequence (list of HPROP as argument)
+           and rewrite sequence (rewriting in subexpressions).*)
           let dattr = if (trm_has_cstyle BarrierSequence t) then string "__barrier_sequence; " ^^ dattr else dattr in
           let dattr = if (trm_has_cstyle RewriteSequence t) then string "({__rewrite_sequence; " ^^ dattr else dattr in
           let post = if (trm_has_cstyle RewriteSequence t) then string ";})" else empty in
@@ -675,14 +677,10 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       let full_loop = (unpack_trm_for : ?loc:trm_loc -> loop_range -> trm -> trm) ?loc:t.loc l_range body in
       let dt = decorate_trm style full_loop in
       let dmode = match mode with
-      (* TODO: put these back to the more readable variant ("thread for") depending on a flag *)
-      (* TODO 2: when they are not in the readable mode, they should just be re-encoded in c_encoding rather than printed here*)
       | GpuThread -> string "__threadfor; "
       | MagicThread -> string "__magic_threadfor;"
       | _ -> empty in
       (* prepend mode to loop; prints correct because annotations are cleared in full_loop *)
-      (* TODO : Prepending the mode like this, e.g. `thread for` would not parse in C++.
-        Is there anywhere in optitrust where we assume the output file can be reparsed, and will printing it like this break things? *)
       dmode ^^ blank 1 ^^ dt
       (* print_contract_internal_repr is handled in C_encoding, printing it here might be useful if encoding is heavily broken
       if style.print_contract_internal_repr
@@ -1415,8 +1413,8 @@ and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
 
 and formula_to_doc ?(prec : int = 0) style (f: formula): document =
   let open Resource_formula in
-  (* TODO: does the formula style annotation have this property, or should we just fix the instances
-    where this annotation is not added to e.g. arithmetic operations? *)
+  (* TODO: to fix printing of e.g. equality formulas, I just made the formula cstyle apply automatically
+  to any child of a node with the style.  Is this a correct assumption? *)
   let f = (trm_map (trm_add_cstyle ResourceFormula) f) in
   let trm_to_doc' = trm_to_doc ~prec in
   let trm_to_doc style t = trm_to_doc ~prec style (trm_add_cstyle ResourceFormula t) in

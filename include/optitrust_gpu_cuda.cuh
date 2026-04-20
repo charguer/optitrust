@@ -56,7 +56,7 @@ template <typename T> void memcpy_device_to_host2(T* dest, T* src, int N1, int N
   cudaMemcpy((void*)dest, (const void*)src, N1 * N2 * sizeof(T), cudaMemcpyDeviceToHost); // TODO handle error
 }
 
-// TODO: stupid hack for now so that nvcc doesnt complain about these being actual functions
+// redefine MINDEX, MSIZE, etc. as macros so that they can be used in static size declarations  (for e.g. shared memory)
 #define MINDEX0() (0)
 #define MINDEX1(N1, i1) ((i1))
 #define MINDEX2(N1, N2, i1, i2) ((i1)*N2 + (i2))

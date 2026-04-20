@@ -45,7 +45,6 @@ __GHOST(rs_index_rewrite) { // A and B instead of A(f) and A(g) ??
 */
 
 // TODO: side conditions for positive check
-// TODO: rename to reduce_sum_tree
 __DECL(tree_sum, "(int -> float) * int * int -> int -> float");
 __AXIOM(tree_sum_ind, "forall (f: int -> float) (n: int) (i: int) (t: int) (_: t < (1 << (i-1))) -> "
   "tree_sum(f,n,i)(t) +. tree_sum(f,n,i)(t + (1 << (i-1))) =. tree_sum(f,n,i-1)(t)");

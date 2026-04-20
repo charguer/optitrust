@@ -1206,17 +1206,16 @@ let delete_stack_allocs instrs res =
     | None -> []
   in
   let to_free = List.concat_map extract_let_mut instrs in
+  (*Tools.debug "Trying to free %s from %s\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
   let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), f)) to_free) () in
   let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
-  (*Tools.debug "Trying to free %s from %s\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
-  (* The following is a hack to allow automatic freeing of TReg cells on GPU, without implementing an extendible mechanism (#26).
+  (* The following is a hack to allow automatic freeing of TReg cells on GPU (LATER: implement an extendible, cell-generic mechanism (#26))
     It works on the same principle of syntactically analyzing the sequence of instrutcions,
     however we do not attempt to extract an uninit version of the permission.
     The reason is because TRegs can have desyncgroups and we do not want the user to have to sync
     to free them. Since they are deallocated at the end of the sequence, fissioning out ghosts does not work.
     Instead we scan the linear context for resources that mention the variable and delete those (taking care not to remove two permissions in case we already removed a stack variable).
-    TODO: it is probably not possible to "desynchronize" thread registers (they are allocated desynchronized and stay that way),
-    and it's not clear if scanning the variables in permissions like this is sound *)
+    TODO: it's not clear if scanning the variables in permissions like this is sound *)
   (* waste no time in common case *)
   if (Var_set.is_empty !tregs) then (removed_res, linear) else (
     let to_free_tregs = List.filter_map (fun (_,h) ->
@@ -1783,7 +1782,7 @@ let rec compute_resources
         begin match effective_args with
         | [ty_arg] ->
           (* LATER: Count the type as a required resource *)
-          (* TODO: using int as return for sizeof *)
+          (* TODO: using int as return for sizeof, since usize is not compatible with loop indices bounds etc. *)
           let res = Resource_set.add_alias var_result (trm_sizeof ty_arg) res in
           with_result typ_int (Some (Var_map.singleton var_sizeof Required)) res
         | _ -> failwith "expected 1 argument for sizeof"
@@ -1936,10 +1935,11 @@ let rec compute_resources
           let usage = if is_formula_uninit h then ConsumedUninit else ConsumedFull in
           usage_map := add_usage v usage !usage_map;
           usage_map := add_usage v' Produced !usage_map;
-          (* TODO: should not need this or the magic option;
+          (* TODO: should not need this or the magic option in sync_simplification;
           should just be able to pass a trivial Prop that the
-          typechecker can prove. But I can't find such a thing.. *)
-          (* trm_dummy ?? *)
+          typechecker can prove. Need to refactor sync_simplification to leverage the full
+          typechecker though because currently it just scans the context for a proof of the
+          equivalent proposition. *)
           v', formula_sync (trm_var Gpu_trm.all_mem_ok_var) h)
         else (v,h)) res.linear} in
         let res = sync_simplification ~magic:true res in
@@ -2202,7 +2202,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_formula.var_or, typ_pure_simple_fun [typ_prop; typ_prop] typ_prop;
   Resource_formula.var_frac_div, typ_pure_simple_fun [typ_frac; typ_int] typ_frac;
   Resource_formula.var_frac_sub, typ_pure_simple_fun [typ_frac; typ_frac] typ_frac;
-  var_sizeof, typ_pure_simple_fun [typ_type] typ_int; (* TODO ?? *)
+  var_sizeof, typ_pure_simple_fun [typ_type] typ_int; (* TODO: having to use int for pure formulas instead of usize *)
   Resource_formula.var_spec_override_ret, (let typ = new_var "T" in let res = new_var "v" in typ_pure_fun [typ, typ_type; res, (typ_var typ)] (typ_prop));
   Resource_formula.var_spec_override_noret, (typ_pure_fun [] (typ_prop));
   Resource_formula.var_spec_override_ret_implicit, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_prop));

@@ -28,20 +28,15 @@ let ghost_var_give_smem_token = toplevel_var "give_smem_token"
 
 let ghost_var_kernel_teardown_sync = toplevel_var "kernel_teardown_sync"
 
-(* take 4 targets, one for each transition point. If they don't all belong to the same sequence,
-  the transfo will complain. Since they belong to the same sequence, we know we can lift those instrs out into their own
-  sequence, to make the printers job easier. Or we could just make the printer's job easier by detecting the start within sequences.*)
-(* TODO: take another target, which is the launching function, for modifying the contract to include hostctx and __requires for the kernel retiling. *)
-(* TODO: cleaner to take a tuple of tpbs bpgs etc.? or a dedicated kernel launch type? less arguments *)
-(* TODO: could consider using "hint marks" from the smem lift transfo to place setup and end properly  *)
-(* TODO: belongs in gpu_basic ? *)
-(* TODO: customizable mark for the kernel sequence *)
+(* LATER: put all the kernel-related targets (setup end, teardown begin, etc.) into one record that is passed around to all the GPU transfos.
+Each transfo takes what they need (for example, shared memory transformation wants to know about setup end position to put malloc), rather than the user having to manage it.
+Get rid of the arguments here and just take a reference to the record of targets. *)
 let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: target option) ?(teardown_begin: target option) (bpgs: trm list) (tpbs: trm list) (smem_szs: trm list)
   (start: target) (stop: target): unit =
   (fun () -> (fun () -> (fun next_m ->
     let tpb = Matrix_trm.msize tpbs in
     let bpg = Matrix_trm.msize bpgs in
-    let smem_sz = List.fold_right trm_add_int smem_szs (trm_int 0) in (* TODO *)
+    let smem_sz = List.fold_right trm_add_int smem_szs (trm_int 0) in
     let grid = match grid_override with
     | Some grid_override -> Matrix_trm.msize grid_override
     | _ -> Matrix_trm.msize (bpgs @ tpbs) in
@@ -69,7 +64,6 @@ let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: 
       (Resource_trm.ghost (ghost_call ghost_var_give_smem_token ["tok_sz", tok_sz])) :: instrs) [kill_call] smem_szs in
     let kill = trm_add_mark kill_mark (trm_seq_nobrace (Mlist.of_list give_token_instrs)) in
 
-    (* TODO: sanitize and tell the user each target should only have one occurence *)
     Sequence_basic.insert ~reparse:false launch start;
     Sequence_basic.insert ~reparse:false setup (Option.unsome_or_else setup_end (fun () -> [tAfter; cMark launch_mark]));
     Sequence_basic.insert ~reparse:false kill stop;
@@ -81,7 +75,6 @@ let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: 
 
 (* ------------------- Thread for conversion ------------------------- *)
 
-(* TODO: document *)
 let%transfo seq_for_to_magicthread_for ?(barrier_mark: mark = "") (tg: target) =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let seq_ind, p = try (
@@ -157,7 +150,6 @@ type 'a memory_spec = {
   extra_patterns: (var * 'a) -> (typ -> typ) -> (typ -> unit -> typ) list
 }
 
-(* TODO: make this a real %transfo? *)
 let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
   let open Resource_formula in
   let rec convert_cell_mem_type f =
@@ -207,11 +199,10 @@ let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
      ) seq
   ) alloc_tg
 
-(* TODO: make this a real %transfo? *)
 let fix_distrib_accesses ~(aliases: Var_set.t ref) (chop_dims: int) (body_span_tg: target) (alloc_tg: target): unit =
   let body_seq_path,body_seq_span = Target.resolve_target_span_exactly_one body_span_tg in
+  let _ = Target.resolve_target_exactly_one alloc_tg in (* expect only one target *)
   let open Resource_formula in
-  (* TODO wont work if alloc_tg points to more than one *)
   Target.iter_at_target_paths (fun alloc_trm ->
     let error = "Gpu_basic.ml: expected target to point to a matrix allocation" in
     let var, _, _ = trm_inv ~error trm_let_inv alloc_trm in
@@ -332,7 +323,7 @@ let gmem_spec : unit memory_spec = {
   alloc_handler = (fun alloc_trm -> (
     let error = "Gpu.convert_to_global_mem: expected target to point to a matrix allocation" in
     let (array_var, typ_array, typ_alloc, trms, init) = trm_inv ~error (Matrix_trm.let_alloc_inv) alloc_trm in
-    assert (not init); (* TODO implement CALLOC *)
+    assert (not init); (* LATER: implement CALLOC *)
     let f = trm_add_cstyle (Typ_arguments [typ_alloc]) (trm_var (var__gmem_malloc (List.length trms))) in
     let alloc_instr = trm_apps f trms ~ghost_args:[(new_var "T", typ_alloc)] in
     (trm_let (array_var,typ_array) alloc_instr), (), array_var
@@ -431,8 +422,8 @@ let is_smem_or_gmem (f: formula): bool =
 
 (* LATER: generic transfos for barrier conversion (take the barrier desired as argument )*)
 let%transfo magic_barrier_to_blocksync (kernel_body: target) (tg: target): unit =
-  (* TODO: blocksync breaks the __strict() loop contracts, because it asks
-    for a fraction of the kernel_params. Ideally, we would not need to have the target to the kernel_body. *)
+  (* note: blocksync() breaks the strict loop contracts, because it wants a fraction of the KernelParams. Thus,
+    we remove the strict annotations in the entire kernel body. *)
   Resources.with_non_strict_loop_contracts ([nbAny] @ kernel_body @ [cFor ""]) (fun () ->
     Target.iter (fun p ->
       Resources.ensure_computed_at p;

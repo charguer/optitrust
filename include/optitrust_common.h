@@ -180,8 +180,6 @@ inline int MINDEX5(int N1, int N2, int N3, int N4, int N5, int i1, int i2, int i
   return i1 * N2 * N3 * N4 * N5 + i2 * N3 * N4 * N5 + i3 * N4 * N5 + i4 * N5 + i5;
 }
 
-// TODO: is defining them like this in the header correct?
-// Leaving as forward declarations does not work (says the variable is not defined)
 inline int DMINDEX0() { return 0; }
 inline int DMINDEX1(int N1, int i1) { return 0; }
 inline int DMINDEX2(int N1, int N2, int i1, int i2) { return 0; }
@@ -903,7 +901,7 @@ __GHOST(if_else_drop) {
   __admitted();
 }
 
-// stupid hack to remember b because i can't pass a bool as a ghost arg
+// TODO: fix this hack to remember b, because I can't pass a bool as a ghost arg (parser doesn't support the boolean "a == b")
 __DECL(DidSpecialize, "bool -> Prop");
 __GHOST(if_then_specialize) {
   __requires("b: bool, H: HProp, P: __is_true(b)");
@@ -951,7 +949,6 @@ __GHOST(group_singleton_if_elim) {
 
 __AXIOM(shiftr_monotonic, "forall (b: int) (e1: int) (e2: int) (_: e1 <= e2) -> (b << e1) <= (b << e2)");
 
-// TODO
 extern const int __rewrite_sequence;
 
 #endif

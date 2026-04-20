@@ -8,16 +8,24 @@ open Gpu_trm
 (* -------------  CUDA-specific variable definitions ----------------- *)
 
 (* TODO: toplevel_var instead? *)
-let trm__syncthreads () = trm_var (new_var "__syncthreads")
-let trm__syncwarp () = trm_var (new_var "__syncwarp")
+let var__syncthreads = toplevel_var "__syncthreads"
+let trm__syncthreads () = trm_var var__syncthreads
+let var__syncwarp = toplevel_var "__syncwarp"
+let trm__syncwarp () = trm_var (var__syncwarp)
 
-let trm__threadIdx () = trm_var (new_var "threadIdx")
-let trm__blockIdx () = trm_var (new_var "blockIdx")
+let var__threadIdx = toplevel_var "threadIdx"
+let trm__threadIdx () = trm_var (var__threadIdx)
+let var__blockIdx = toplevel_var "blockIdx"
+let trm__blockIdx () = trm_var (var__blockIdx)
 
-(* hack for accessing method of helper class in optitrust_gpu_cuda.cuh *)
-let trm__smem_ptr () = trm_var (new_var "smem.ptr")
-let typ__sharedmemory () = trm_var (new_var "SharedMemory")
+(* hack for accessing method of helper SharedMemory class in optitrust_gpu_cuda.cuh *)
+let var__smem_ptr = toplevel_var "smem.ptr"
+let trm__smem_ptr () = trm_var (var__smem_ptr)
+let var__sharedmemory = toplevel_var "SharedMemory"
+let typ__sharedmemory () = trm_var (var__sharedmemory)
 
+(* These are local, not toplevel variables, created for each kernel. *)
+let var__smem_buf () = new_var "smem"
 let var__ctx_size () = new_var "__ctx_sz"
 let var__tid () = new_var "__tid"
 
@@ -113,7 +121,7 @@ let rec remove_dmindexs (t: trm): trm = match (Matrix_trm.dmindex_inv t) with
 (* LATER: More extensive wellformedness checks for better errors.
 Currently, this should not generate anything unsound, but a malformed AST may produce
 CUDA code that references undefined OptiGPU constructs that were not lowered in this step. *)
-(* LATER: Better optimization (CSE, constant folding, etc.). See issue #(TODO) *)
+(* LATER: Better optimization (CSE, constant folding, etc.). See issue #40 *)
 let lower_device_code (grid_size: var) (tid: var) (t: trm): trm =
   t |> (flatten_thread_loops grid_size tid)
     |> generalize_mem_ops
@@ -145,40 +153,40 @@ let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): tr
   let rec lower_kernel_call t = Pattern.pattern_match t [
     Pattern.(trm_seq !__ __) (fun instrs () ->
       (* first check to see if the sequence is likely to be kernel-related at all *)
-      let first_instr = Option.unsome_or_else (Mlist.nth_opt instrs 0) (fun () -> raise Pattern.Next) in
-      let launch_args = Option.unsome_or_else (Pattern.pattern_match_opt first_instr [
-        Pattern.(trm_apps (trm_var_with_name "kernel_launch") !__ __ __) (fun args () -> args);
-      ]) (fun () -> raise Pattern.Next) in
-      let kernel_transition_inds = (Array.make 3 0) in
+      let launch_args = ref [] in
+      let kernel_transition_inds = (Array.make 4 (-1)) in
       Mlist.iteri (fun i instr ->
         Pattern.pattern_match instr [
-          Pattern.(trm_apps (trm_var_with_name "kernel_setup_end") __ __ __) (fun () -> kernel_transition_inds.(0) <- i);
-          Pattern.(trm_apps (trm_var_with_name "kernel_teardown_begin") __ __ __) (fun () -> kernel_transition_inds.(1) <- i);
-          Pattern.(trm_apps (trm_var_with_name "kernel_kill") __ __ __) (fun () -> kernel_transition_inds.(2) <- i);
+          Pattern.(trm_apps (trm_var_with_name "kernel_launch") !__ __ __) (fun args () ->
+            launch_args := args;
+            kernel_transition_inds.(0) <- i);
+          Pattern.(trm_apps (trm_var_with_name "kernel_setup_end") __ __ __) (fun () -> kernel_transition_inds.(1) <- i);
+          Pattern.(trm_apps (trm_var_with_name "kernel_teardown_begin") __ __ __) (fun () -> kernel_transition_inds.(2) <- i);
+          Pattern.(trm_apps (trm_var_with_name "kernel_kill") __ __ __) (fun () -> kernel_transition_inds.(3) <- i);
           Pattern.__ (fun () -> ())
         ]
       ) instrs;
-      if (Array.exists (fun ind -> ind == 0) kernel_transition_inds) then
-        failwith "Missing kernel_setup_end, kernel_teardown_begin, or kernel_kill in sequence starting with kernel_launch (setup: %d, teardown: %d, kill: %d)" kernel_transition_inds.(0) kernel_transition_inds.(1) kernel_transition_inds.(2);
-      if (kernel_transition_inds.(0) >= kernel_transition_inds.(1)) then
-        failwith "kernel_setup_end must come before kernel_teardown_begin";
-      if (kernel_transition_inds.(1) >= kernel_transition_inds.(2)) then
-        failwith "kernel_teardown_begin must come before kernel_kill";
-      if (kernel_transition_inds.(2) != (Mlist.length instrs - 1)) then
-        failwith "kernel_kill must be at end of kernel sequence";
+      if (kernel_transition_inds.(0) == -1 || (List.length !launch_args == 0) ) then
+        raise Pattern.Next;
+      if (Array.exists (fun ind -> ind == -1) kernel_transition_inds) then
+        failwith "Missing kernel_setup_end, kernel_teardown_begin, or kernel_kill in sequence starting with kernel_launch (setup: %d, teardown: %d, kill: %d)" kernel_transition_inds.(1) kernel_transition_inds.(2) kernel_transition_inds.(3);
+      if (not (List.for_all (fun i ->
+        kernel_transition_inds.(i) <= kernel_transition_inds.(i+1)) [0;1;2])) then
+          failwith "Kernel transition functions in wrong order (launch: %d, setup: %d, teardown: %d, kill: %d)" kernel_transition_inds.(0) kernel_transition_inds.(1) kernel_transition_inds.(2) kernel_transition_inds.(3);
+      let launch_args = !launch_args in
 
-      let kernel_body_start = (kernel_transition_inds.(0) + 1) in
-      let kernel_body_len = kernel_transition_inds.(1) - kernel_body_start in
+      let kernel_body_start = (kernel_transition_inds.(1) + 1) in
+      let kernel_body_len = kernel_transition_inds.(2) - kernel_body_start in
       (* TODO: can we completely ignore setup and teardown code? Or do we have to do some syntax check there too? *)
       (* maybe *Any operations are banned inside the entire kernel sequence? *)
       let smem_allocs = Mlist.fold_left (fun instrs instr ->
         match (lower_smem_alloc instr) with
         | Some instr -> instr :: instrs
-        | _ -> instrs) [] (snd (Mlist.extract 0 kernel_transition_inds.(0) instrs)) in
+        | _ -> instrs) [] (snd (Mlist.extract 0 kernel_transition_inds.(1) instrs)) in
       let smem_allocs = match smem_allocs with
         | [] -> []
         | _ -> (
-          let smem_var = new_var "smem" in
+          let smem_var = var__smem_buf () in
           let smem_defn = trm_let (smem_var, typ__sharedmemory ()) (trm_ref_uninit (typ__sharedmemory ())) in
           smem_defn :: smem_allocs
         ) in

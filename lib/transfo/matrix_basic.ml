@@ -884,7 +884,7 @@ let memcpy_apply_on ~(depth: int) ?(typ:typ option) (t : trm) :trm =
     if not (trm_is_zero start && trm_is_one step) then trm_fail t "Matrix_basic.memset_apply: expect start =0 and step = 1";
     if not (Trm_unify.are_same_trm stop dim) then  trm_fail t "Matrix_basic.memset_apply: expect stop to match matrix dimension";
     in
-  List.iter check (List.combine ranges (List.combine dims_l indices_l)); (* TODO only checks the left, only OK in models mode? *)
+  List.iter check (List.combine ranges (List.combine dims_l indices_l));
   Matrix_core.matrix_copy ~typ:elem_typ array_l array_r dims_l
 
   (** [memcpy] : Uses memcpy instead of copy loops.  *)
