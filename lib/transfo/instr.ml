@@ -110,9 +110,17 @@ let%transfo move_in_seq
       let seq_dest_mark = Mark.next () in
       Marks.add_fake_instr seq_dest_mark [cMark dest_mark];
 
-      Ghost_pair.fission ~mark_between:mark_end (target_of_path (seq_path @ [Dir_before (span.stop + 1)]));
-      Ghost_pair.fission ~mark_between:mark_begin (target_of_path (seq_path @ [Dir_before (span.start + 1)]));
-      (* + 1 for fake instr *)
+      let span_offset = if dest_index > span.stop
+        then 0 (* moving down *)
+        else 1 (* moving up, + 1 for fake instr *)
+      in
+      (* TODO: may be possible to fast-track when
+            dest_index >= span.start && dest_index <= span.stop
+         but need to make sure to set ~mark_moved
+         *)
+
+      Ghost_pair.fission ~mark_between:mark_end (target_of_path (seq_path @ [Dir_before (span.stop + span_offset)]));
+      Ghost_pair.fission ~mark_between:mark_begin (target_of_path (seq_path @ [Dir_before (span.start + span_offset)]));
 
       Ghost_pure.move_all_upwards (target_of_path seq_path);
       Ghost_pair.minimize_all_in_seq (target_of_path seq_path);
