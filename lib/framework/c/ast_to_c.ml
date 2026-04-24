@@ -990,6 +990,9 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_
   let (prec, assoc) = precedence_trm f in
   let aux_arguments f_as_doc =
       let cuda_args,args = List.partition (trm_has_cstyle CudaKernelBracketArg) tl in
+      if ((not style.lower_to_cuda) && cuda_args <> []) then begin
+        failwith "Ast_to_c.apps_to_doc: unexpected CUDA kernel launch arguments while printing in non-CUDA style"
+      end;
       let cuda_args_doc = list_to_doc ~sep:comma ~bounds:[string "<<<"; string ">>>"] (List.map (decorate_trm style ~force_expr:true) cuda_args) in
       let args_doc = list_to_doc ~sep:comma ~bounds:[lparen; rparen] (List.map (decorate_trm style ~force_expr:true) args) in
       match cuda_args with

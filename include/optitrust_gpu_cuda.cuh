@@ -3,7 +3,6 @@
 
 #define OPTITRUST_CUDA_RUNTIME
 
-#include "optitrust_common.h"
 #include <cuda_runtime.h>
 
 // Utility class used to avoid linker errors with extern

@@ -841,30 +841,30 @@ let encode_ghost_annot (style: style) (t: trm) : trm =
     | Trm_seq (seq, result) ->
       (* Inside sequence add __with and __bind *)
       Nobrace.enter ();
-      let seq = Mlist.map (fun t -> Pattern.pattern_match t [
+      let seq = Mlist.map (fun instr -> Pattern.pattern_match instr [
         Pattern.(trm_apps !__ nil !__ !__) (fun fn ghost_args ghost_bind () ->
-          if not (trm_has_attribute GhostInstr t) then raise_notrace Pattern.Next;
+          if not (trm_has_attribute GhostInstr instr) then raise_notrace Pattern.Next;
           let fn = aux fn in
-          trm_like ~old:t (trm_apps var__ghost (fn :: ghost_args_and_bind_to_opt_args ghost_args ghost_bind))
+          trm_like ~old:instr (trm_apps var__ghost (fn :: ghost_args_and_bind_to_opt_args ghost_args ghost_bind))
         );
         Pattern.(trm_apps __ __ !__ !__) (fun ghost_args ghost_bind () ->
           Pattern.when_ (ghost_args <> [] || ghost_bind <> []);
-          let t = trm_map aux t in
-          Nobrace.trm_seq_nomarks (t :: (if ghost_args = [] then [] else [trm_apps var__with [ghost_args_to_trm_string ghost_args]]) @ (if ghost_bind = [] then [] else [trm_apps var__bind [ghost_bind_to_trm_string ghost_bind]]))
+          let instr = trm_map aux instr in
+          Nobrace.trm_seq_nomarks (instr :: (if ghost_args = [] then [] else [trm_apps var__with [ghost_args_to_trm_string ghost_args]]) @ (if ghost_bind = [] then [] else [trm_apps var__bind [ghost_bind_to_trm_string ghost_bind]]))
         );
         Pattern.(trm_let !__ !__ !(trm_apps __ __ !__ !__)) (fun var typ call ghost_args ghost_bind () ->
           Pattern.when_ (ghost_args <> [] || ghost_bind <> []);
           let call = trm_map aux call in
-          Nobrace.trm_seq_nomarks ((trm_like ~old:t (trm_let (var, typ) call)) :: (if ghost_args = [] then [] else [trm_apps var__with [ghost_args_to_trm_string ghost_args]]) @ (if ghost_bind = [] then [] else [trm_apps var__bind [ghost_bind_to_trm_string ghost_bind]]))
+          Nobrace.trm_seq_nomarks ((trm_like ~old:instr (trm_let (var, typ) call)) :: (if ghost_args = [] then [] else [trm_apps var__with [ghost_args_to_trm_string ghost_args]]) @ (if ghost_bind = [] then [] else [trm_apps var__bind [ghost_bind_to_trm_string ghost_bind]]))
         );
         Pattern.(trm_let !__ !__ (trm_apps1 (trm_specific_var Resource_trm.var_ghost_begin) !(trm_apps !__ nil !__ !__))) (fun ghost_pair typ ghost_call ghost_fn ghost_args ghost_bind () ->
           let ghost_fn = aux ghost_fn in
-          trm_like ~old:(trm_error_merge ~from:ghost_call t) (trm_let (ghost_pair, typ) (trm_apps (trm_var Resource_trm.var_ghost_begin) (ghost_fn :: ghost_args_and_bind_to_opt_args ghost_args ghost_bind)))
+          trm_like ~old:(trm_error_merge ~from:ghost_call instr) (trm_let (ghost_pair, typ) (trm_apps (trm_var Resource_trm.var_ghost_begin) (ghost_fn :: ghost_args_and_bind_to_opt_args ghost_args ghost_bind)))
         );
         Pattern.(trm_apps1 !(trm_specific_var Resource_trm.var_clear) (trm_var !__)) (fun f v () ->
-          trm_like ~old:t (trm_apps f [trm_string (var_name v)])
+          trm_like ~old:instr (trm_apps f [trm_string (var_name v)])
         );
-        Pattern.__ (fun () -> aux t)
+        Pattern.__ (fun () -> aux instr)
       ]) seq in
       let nobrace_id = Nobrace.exit () in
       let seq = Nobrace.flatten_seq nobrace_id seq in

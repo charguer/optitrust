@@ -543,9 +543,9 @@ let get_tests_and_ignored (action : string) (args : string list) : (string list 
     whenever possible. *)
 let match_expected (filename_out:string) (filename_exp:string) : bool =
   if not (Sys.file_exists filename_out)
-    then fail "match_expected expects filename_out to exit";
+    then fail "match_expected expects filename_out to exist";
   if not (Sys.file_exists filename_exp)
-    then fail "match_expected expects filename_exp to exit";
+    then fail "match_expected expects filename_exp to exist";
   let same_contents (f1 : string) (f2 : string) : bool =
     do_is_ok (sprintf "./tools/diff.sh %s %s > /dev/null" f1 f2) in
   if !Flags.use_clang_format then begin

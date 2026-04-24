@@ -1935,13 +1935,16 @@ let rec compute_resources
           let usage = if is_formula_uninit h then ConsumedUninit else ConsumedFull in
           usage_map := add_usage v usage !usage_map;
           usage_map := add_usage v' Produced !usage_map;
-          (* TODO: should not need this or the magic option in sync_simplification;
+          (* pass a dummy term, proposition is not important since we are passing magic=true
+          this term wouldn't typecheck (trm_lit Lit_unit doesn't have type MemType -> Prop), but
+          it is assumed that the sync would be removed after simplification because magic=true. *)
+          v', formula_sync (trm_lit Lit_unit) h)
+        else (v,h)) res.linear} in
+        (* TODO: should not need this magic option in sync_simplification;
           should just be able to pass a trivial Prop that the
           typechecker can prove. Need to refactor sync_simplification to leverage the full
           typechecker though because currently it just scans the context for a proof of the
-          equivalent proposition. *)
-          v', formula_sync (trm_var Gpu_trm.all_mem_ok_var) h)
-        else (v,h)) res.linear} in
+          requested proposition. *)
         let res = sync_simplification ~magic:true res in
         Some !usage_map, Some res
       end
@@ -2213,7 +2216,6 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_trm.var_admitted, typ_auto;
   var_ignore, typ_auto;
   mem_typ_any_var, typ_mem_type;
-  Gpu_trm.all_mem_ok_var, typ_pure_simple_fun [typ_mem_type] typ_prop;
 ] ~fun_specs:(Var_map.add var_ignore ignore_spec mindex_msize_specs) ()
 
 (** Compute resources inside [t] in place.

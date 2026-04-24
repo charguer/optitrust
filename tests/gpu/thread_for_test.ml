@@ -12,7 +12,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.resource_error_expected (fun _ ->
     Instr.delete [occFirst; cTopFunDef "sync_required"; cCall "blocksync"];
     Resources.ensure_computed ());
-  !! Trace.generate_cuda ();
-  let prefix = (Trace.get_context ()).prefix in
-  if (not ((!Flags.aux_file_compare) (prefix ^ ".cu") (prefix ^ "_exp.cu"))) then begin failwith "Generated CUDA mismatch!" end;
+  !! Trace.generate_cuda ~check_expected:true ();
 )

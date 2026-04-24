@@ -2,6 +2,7 @@
 #include <optitrust_models.h>
 #include <optitrust_gpu.h>
 
+// Handwritten GPU version of transpose
 void transpose(float *a, float *b, int W, int H) {
   __requires("A: int * int -> float");
   __requires("H_tile: H = H/32 * 32");

@@ -7,7 +7,6 @@ open Gpu_trm
 
 (* -------------  CUDA-specific variable definitions ----------------- *)
 
-(* TODO: toplevel_var instead? *)
 let var__syncthreads = toplevel_var "__syncthreads"
 let trm__syncthreads () = trm_var var__syncthreads
 let var__syncwarp = toplevel_var "__syncwarp"
@@ -224,7 +223,7 @@ let lower_to_cuda (t: trm): trm =
   let k_id = ref 0 in
   let device_fns: Var_set.t ref = ref Var_set.empty in
   (* Remove all rewrite sequences; CUDA doesn't seem to like the expression sequences we generate. *)
-  (* TODO: maybe just force the user to take care of this in the script? that way we
+  (* LATER: maybe just force the user to take care of this in the script? that way we
   can move trm_seq_rewrite_flatten out of Gpu_trm *)
   let t = trm_seq_rewrite_flatten t in
   let rec lower_fns t =

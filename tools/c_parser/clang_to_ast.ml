@@ -302,7 +302,13 @@ let rec tr_type_desc ?(loc : location) ?(namespaces = []) (d : type_desc) : typ 
     typ_typeof tr_e
   | SubstTemplateTypeParm tys ->
     redundant_template_definition_type := true;
-    (* TODO temporary fix to get templated function calls working with primitive operators *)
+    (* TODO temporary fix to get templated function calls working with primitive operators
+      Normally, the name of the type in the Clang AST (tys) is just used as the name for a variable
+      corresponding to that type in the OptiTrust AST. The variable's ID is then resolved at a later step.
+      However, this breaks for primitive operators, which store the type in the operator (e.g. float or int addition).
+      To determine this type from the clang AST we look at the builtin type of the arguments. But a variable that is
+      typed with the result of a template substitution will not resolve to a builtin type, even if it should.
+      Thus, we manually look up the name in this table. *)
     let tv = List.find_map (fun (name,bty) -> if name = tys then Some (typ_builtin bty) else None)
     [
       typ_f64_var.name, Typ_float 64;

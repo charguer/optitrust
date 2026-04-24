@@ -633,11 +633,14 @@ let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code duri
 (*                               CUDA codegen                                 *)
 (******************************************************************************)
 
-let generate_cuda () =
+let generate_cuda ?(check_expected:bool=false) () =
   let ctx = the_trace.cur_context in
   let ast = the_trace.cur_ast in
-  output_prog (Style.cuda ()) ~beautify:false { ctx with extension = ".cu"; header = "" } (ctx.prefix ^ "_out") ast
-
+  output_prog (Style.cuda ()) ~beautify:false { ctx with extension = ".cu"; header = "" } (ctx.prefix ^ "_out") ast;
+  if check_expected then begin
+    let prefix = ctx.prefix in
+    if (not ((!Flags.aux_file_compare) (prefix ^ "_out.cu") (prefix ^ "_exp.cu"))) then begin failwith "Generated CUDA mismatch!" end
+  end
 
 (******************************************************************************)
 (*                               Step filtering                               *)

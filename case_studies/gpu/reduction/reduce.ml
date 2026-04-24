@@ -16,7 +16,6 @@ let log_tpb = 8
 let tpb = 1 lsl log_tpb
 let stride = 2
 
-(* TODO, works if you do individual steps but not when you run them together with fun i -> true ? *)
 let stage_ok = fun i -> true
 
 let parallelize_reduction ?(temp_sums: string option) (inner_loop: string) (outer_loop: string) (sum_var: string): unit = begin
@@ -176,11 +175,17 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Gpu.magic_barrier_to_teardown_sync [occLast; cCall "magic_barrier"];
   !! Gpu.magic_barrier_to_blocksync [cMark "kernel_sequence"] [nbAny; cCall "magic_barrier"];
 
-  (* causes problems with the free variable detection *)
+  (* TODO: remove this patch to fix the free variable detection
+  The variable N declared in the body of `tree_reduce` is used as
+  a `thread for` loop bound. The CUDA code generator tries to generate indexing
+  expressions at the top of the kernel with that variable, but since it's at the top of the kernel
+  and references N before it's declared, it's considered a free variable.
+  But it's also not declared on the host level. Normally, having a variable as thread for loop
+  bounds is illegal, but this is just a pure constant, so it can be inlined as a quick fix to the problem. *)
   !! Variable.inline [cVarDef ~regexp:true "N.+"];
   !! Flags.recompute_resources_between_steps := false;
   !! Trace.without_substep_validity_checks (fun () ->
     Instr.move ~dest:[tFirst; cMark "kernel_sequence"] [cCall "kernel_launch"];
-    Trace.generate_cuda ();
+    Trace.generate_cuda ~check_expected:true ();
   )
 )
