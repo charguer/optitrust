@@ -26,6 +26,11 @@ let skip (fs : string list) : unit =
     [!Apac_preprocessing.extract_function_calls]). *)
 let intermediate_variable : string = "__apac_var"
 
+(** [sequential_mark]: string for marking the bodies of sequential function
+    implementations, i.e., functions the name of which matches
+    [!Apac_flags.sequential]. *)
+let sequential_mark : mark = "__apac_sequential"
+
 (** [candidate_mark]: string for marking taskification candidate functions (see
     [!Apac_preprocessing.select_candidates]). *)
 let candidate_mark : mark = "__apac_candidate"

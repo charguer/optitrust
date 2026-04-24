@@ -62,20 +62,24 @@ let explode_let_mult (tg : target) : unit =
     For these passes to work smoothly, we begin by constituting records about
     all the function and global variable definitions in the latter. *)
 
-(** [record_sequentials tg]: expects the target [tg] to point at a definition of
-    a sequential function implementation, i.e. a definition of a function the
-    name of which matches [!Apac_flags.sequential]. The transformation pass then
-    records the corresponding function variable in
-    [!Apac_records.sequentials]. *)
-let record_sequentials (tg : target) : unit =
+(** [record_and_mark_sequentials tg]: expects the target [tg] to point at a
+    definition of a sequential function implementation, i.e., a definition of a
+    function the name of which matches [!Apac_flags.sequential]. The
+    transformation pass then records the corresponding function variable in
+    [!Apac_records.sequentials] and marks the function's body with
+    [!Apac_macros.sequential_mark]. *)
+let record_and_mark_sequentials (tg : target) : unit =
   let open Tools in
-  Target.iter_at_target_paths (fun t ->
+  Target.apply_at_target_paths (fun t ->
       (** Deconstruct the definition term [t] of the target function [f]. *)
-      let error = "Apac_preprocessing.record_sequentials: expected a target to \
-                   a function definition." in
-      let f, _, _, _ = trm_inv ~error trm_let_fun_inv t in
-      (** Let us record [f] in [!Apac_records.sequentials]. *)
-      Apac_records.sequentials := f :: !Apac_records.sequentials
+      let error = "Apac_preprocessing.record_and_mark_sequentials: expected a \
+                   target to a function definition." in
+      let f, ret_ty, args, body = trm_inv ~error trm_let_fun_inv t in
+      (** Let us record [f] in [!Apac_records.sequentials] and *)
+      Apac_records.sequentials := f :: !Apac_records.sequentials;
+      (** mark its body with [!Apac_macros.sequential_mark]. *)
+      let body' = Mark.trm_add_mark Apac_macros.sequential_mark body in
+      trm_let_fun ~annot:t.annot f ret_ty args body'
     ) tg
 
 (** [record_functions tg]: expects the target [tg] to point at a function

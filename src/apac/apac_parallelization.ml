@@ -910,6 +910,10 @@ let place_task_group (tg : target) : unit =
 
 (** [clear_marks ()]: clears all the marks we use during the compilation. *)
 let clear_marks () : unit =
+  Marks.remove Apac_macros.sequential_mark [
+      nbAny;
+      cMark Apac_macros.sequential_mark
+    ];
   Marks.remove Apac_macros.candidate_mark [
       nbAny;
       cMark Apac_macros.candidate_mark

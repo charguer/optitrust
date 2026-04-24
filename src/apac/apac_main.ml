@@ -18,7 +18,7 @@ let compile () : unit =
       cVarDef ""
     ];
   !? "Build sequential function implementation records"
-    Apac_preprocessing.record_sequentials [
+    Apac_preprocessing.record_and_mark_sequentials [
       nbAny;
       cFunDefAndDecl ~regexp:true
         (Str.global_replace
@@ -157,8 +157,7 @@ let compile () : unit =
   !? "Secure accesses to global variables"
     Apac_parallelization.secure_globals [
       nbAny;
-      cFunDefAndDecl "";
-      dBody
+      cDiff [[cFunBody ""]] [[cMark Apac_macros.sequential_mark]]
     ];
   if !Apac_flags.cutoff_count || !Apac_flags.cutoff_depth then
     !? "Cut off according to task count and/or depth"
