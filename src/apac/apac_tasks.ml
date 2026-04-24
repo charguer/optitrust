@@ -17,6 +17,7 @@ module TaskAttr : sig
   type t =
     | ExitPoint
     | IsJump
+    | IsInnermostLoop
     | Singleton
     | Taskifiable
     | WaitForSome
@@ -31,6 +32,8 @@ end = struct
     | ExitPoint
     (** The task candidate involves a jump to the [Apac_macros.goto_label]. *)
     | IsJump
+    (** The task candidate is the innermost or the only loop in a loop nest. *)
+    | IsInnermostLoop
     (** Never merge the task candidate with other task candidates. *)
     | Singleton
     (** Mark the task candidate as eligible to become a parallelizable task. *)
@@ -58,6 +61,7 @@ end = struct
     match ta with
     | ExitPoint -> "ExitPoint"
     | IsJump -> "IsJump"
+    | IsInnermostLoop -> "IsInnermostLoop"
     | Singleton -> "Singleton"
     | Taskifiable -> "Taskifiable"
     | WaitForSome -> "WaitForSome"
