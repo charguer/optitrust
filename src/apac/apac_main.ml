@@ -154,10 +154,16 @@ let compile () : unit =
       cOr [[cMark Apac_macros.heapify_mark];
            [cMark Apac_macros.heapify_breakable_mark]]
     ];
+  let selector : constr =
+    if not !Apac_flags.cutoff_depth then
+      cDiff [[cFunBody ""]] [[cMark Apac_macros.sequential_mark]]
+    else
+      cFunBody ""
+  in
   !? "Secure accesses to global variables"
     Apac_parallelization.secure_globals [
       nbAny;
-      cDiff [[cFunBody ""]] [[cMark Apac_macros.sequential_mark]]
+      selector
     ];
   if !Apac_flags.cutoff_count || !Apac_flags.cutoff_depth then
     !? "Cut off according to task count and/or depth"
