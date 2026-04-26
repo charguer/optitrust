@@ -1479,11 +1479,11 @@ let ghost_if_else_rewrite ?b from into =
 let ghost_if_else_drop ?b h =
   Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_else_drop) (["b",b; "H",Some h]))
 
-let ghost_if_then_specialize ?b h =
-  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_then_specialize) (["b",b; "H",Some h]))
+let ghost_if_then_specialize ?b ?hp h =
+  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_then_specialize) (["b",b; "HP",hp; "H",Some h]))
 
-let ghost_if_then_unspecialize ?b h =
-  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_then_unspecialize) (["b",b; "H",Some h]))
+let ghost_if_then_unspecialize ?b ?hp h =
+  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_then_unspecialize) (["b",b; "HP",hp; "H",Some h]))
 
 (* LATER: refactor with other loop/if transfos such as expand_range, fold, etc.
   modify those to support contracts/models like this one. *)
@@ -1558,11 +1558,13 @@ let%transfo intro_loop_single_on ?(index: string = "t") (bound: trm) (start_tg: 
         (v,formula_If check_formula f)
       ) !after in
 
+      let if_cond_proof_var = new_var (fresh_var_name ~prefix:"Hcond" ()) in
+
       let specialize_ghosts = List.map (fun (_,f) ->
-        ghost_if_then_specialize f
+        ghost_if_then_specialize ~hp:(trm_var if_cond_proof_var) f
       ) !before in
       let unspecialize_ghosts = List.map (fun (_,f) ->
-        ghost_if_then_unspecialize f
+        ghost_if_then_unspecialize ~hp:(trm_var if_cond_proof_var) f
       ) !after in
       assert (List.length !before >= List.length !after); (* only one case handled for now *)
       let before_rewrite,before_drop = List.split_at (List.length !after) !before in
@@ -1572,8 +1574,12 @@ let%transfo intro_loop_single_on ?(index: string = "t") (bound: trm) (start_tg: 
       let else_ghosts = else_ghosts @ (List.map (fun (_,f) ->
         ghost_if_else_drop f) before_drop) in
 
+      let assert_if_cond = Resource_trm.ghost_assert if_cond_proof_var
+        (formula_eq ~typ:typ_int (trm_var range.index) (trm_int 0)) in
+
       let body = trm_if (trm_eq ~typ:typ_int (trm_var range.index) (trm_int 0))
         (trm_seq_helper [
+          Trm assert_if_cond;
           TrmList specialize_ghosts;
           TrmMlist instrs;
           TrmList unspecialize_ghosts;

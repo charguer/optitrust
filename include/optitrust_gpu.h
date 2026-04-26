@@ -39,49 +39,6 @@ __GHOST(rewrite_threadsctx_sz1) {
   __ghost(rewrite_linear, "inside := fun i -> ThreadsCtx(start ..+ MSIZE1(i)), by := by");
 }
 
-/* ---- DesyncGroup ghosts ---- */
-
-__GHOST(group_to_desyncgroup) {
-  __requires("N: int, items: int -> HProp, r: Range");
-  __preserves("ThreadsCtx(r)");
-  __consumes("for i in 0..N -> items(i)");
-  __produces("desync_for i in ..N -> items(i)");
-  __admitted();
-}
-
-__GHOST(unwrap_singleton_desyncgroup) {
-  __requires("t: int, H: int -> HProp");
-  __preserves("ThreadsCtx(t..+MSIZE0())");
-  __consumes("DesyncGroup(MSIZE0(), H)");
-  __produces("H(0)");
-  __admitted();
-}
-
-__GHOST(desync_tile_divides) {
-  __requires(
-    "tile_count: int, tile_size: int,"
-    "size: int, items: int -> HProp,"
-    "div_check: size = tile_count * tile_size,"
-    "positive_tile_size: tile_size >= 0"
-  );
-  __consumes("DesyncGroup(size, items)");
-  __produces("desync_for bi in ..tile_count ->"
-               "desync_for i in ..tile_size -> items(bi * tile_size + i)");
-  __admitted();
-}
-
-__GHOST(desync_untile_divides) {
-  __reverts(desync_tile_divides);
-  __admitted();
-}
-
-__GHOST(singleton_mindex_simplify) {
-  __requires("T: Type, H: ptr(T) -> HProp, p: ptr(T)");
-  __consumes("H(&p[MINDEX1(MSIZE0(), DMINDEX1(MSIZE0(), 0))])");
-  __produces("H(p)");
-  __admitted();
-}
-
 /* --- Kernel launches ---- */
 
 __DECL(HostCtx, "HProp");
@@ -342,9 +299,9 @@ template <typename T> T* __treg_ref_s(T v) {
   __preserves("ThreadsCtx(t..+MSIZE0())");
   __produces("_Res ~~>[TReg] v");
   __ensures("__spec_override_ret_implicit(ptr(T))");
-  // admitted for now because the autofree mechanism will kick in to disallow this
+  // admitted for now because proper autofree/typechecking for TReg is not implemented
   __admitted();
-  // but these steps are correct
+  // but these steps should be correct
   T* const p = TREG_REF(T, v);
   __ghost(unwrap_singleton_desyncgroup, "H := fun i -> &p[MINDEX1(MSIZE0(), DMINDEX1(MSIZE0(), i))] ~~>[TReg] v");
   __ghost(singleton_mindex_simplify, "H := fun (g: ptr(T)) -> g ~~>[TReg] v, p := p");
@@ -368,10 +325,10 @@ template <typename T> T* __treg_ref_uninit0_s() {
   __preserves("ThreadsCtx(t..+MSIZE0())");
   __produces("_Res ~> UninitCellOf(TReg)");
   __ensures("__spec_override_ret_implicit(ptr(T))");
-  // admitted for now because the autofree mechanism will kick in to disallow this
+  // admitted for now because proper autofree/typechecking for TReg is not implemented
   __admitted();
+  // but these steps should be correct
   T* const p = TREG_REF_UNINIT0(T);
-  // but these steps are correct
   __ghost(unwrap_singleton_desyncgroup, "H := fun i -> &p[MINDEX1(MSIZE0(), DMINDEX1(MSIZE0(), i))] ~> UninitCellOf(TReg)");
   __ghost(singleton_mindex_simplify, "H := fun p -> p ~> UninitCellOf(TReg), p := p");
   return p;

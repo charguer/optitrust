@@ -1191,17 +1191,13 @@ let handle_resource_errors (t: trm) (phase:resource_error_phase) (exn: exn) =
 let empty_usage_map = Var_map.empty
 
 let delete_stack_allocs instrs res =
-  let tregs = ref Var_set.empty in
   let extract_let_mut ti =
     match trm_let_inv ti with
     | Some (x, _, t) ->
       begin match trm_ref_any_inv t with
       (* TODO: Stack allocations (i.e. automatic free) for other types of cells (#26) *)
       | Some ty -> [formula_uninit_cells_var ~mem_typ:mem_typ_any ty x]
-      | None -> match trm_apps_inv t with
-        | Some ({desc = Trm_var v},_) when ((var_eq Gpu_trm.var__treg_ref v) || (var_eq Gpu_trm.var__treg_ref_uninit0_s v) || (var_eq Gpu_trm.var__treg_ref_s v)) -> tregs := Var_set.add x !tregs; []
-        | Some ({desc = Trm_var v},_) when (Option.is_some (Gpu_trm.var__treg_ref_uninit_inv v)) -> tregs := Var_set.add x !tregs; []
-        | _ -> []
+      | None -> []
       end
     | None -> []
   in
@@ -1209,25 +1205,7 @@ let delete_stack_allocs instrs res =
   (*Tools.debug "Trying to free %s from %s\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
   let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), f)) to_free) () in
   let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
-  (* The following is a hack to allow automatic freeing of TReg cells on GPU (LATER: implement an extendible, cell-generic mechanism (#26))
-    It works on the same principle of syntactically analyzing the sequence of instrutcions,
-    however we do not attempt to extract an uninit version of the permission.
-    The reason is because TRegs can have desyncgroups and we do not want the user to have to sync
-    to free them. Since they are deallocated at the end of the sequence, fissioning out ghosts does not work.
-    Instead we scan the linear context for resources that mention the variable and delete those (taking care not to remove two permissions in case we already removed a stack variable).
-    TODO: it's not clear if scanning the variables in permissions like this is sound *)
-  (* waste no time in common case *)
-  if (Var_set.is_empty !tregs) then (removed_res, linear) else (
-    let to_free_tregs = List.filter_map (fun (_,h) ->
-      let fv = trm_free_vars h in
-      if (Var_set.is_empty (Var_set.inter fv !tregs)) then None else Some h) res.linear in
-    let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), f)) to_free_tregs) () in
-    let _, removed_res', linear = extract_resources ~split_frac:false { res with linear } res_to_free in
-    ({
-      used_pure = (removed_res.used_pure @ removed_res'.used_pure);
-      used_linear = (removed_res.used_linear @ removed_res'.used_linear);
-    }), linear
-  )
+  (removed_res, linear)
 
 
 let check_pure_resource_types ~(pure_ctx: pure_env) (pure_res: pure_resource_set): pure_env =

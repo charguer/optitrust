@@ -1,8 +1,6 @@
 #ifndef OPTITRUST_GPU_CUDA_CUH
 #define OPTITRUST_GPU_CUDA_CUH
 
-#define OPTITRUST_CUDA_RUNTIME
-
 #include <cuda_runtime.h>
 
 // Utility class used to avoid linker errors with extern

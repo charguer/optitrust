@@ -99,6 +99,9 @@ let var__smem_free nb_dims =
 let var__smem_malloc nb_dims =
   toplevel_var (sprintf "__smem_malloc%d" nb_dims)
 
+(* NOTE: terms for thread registers have been added, as we attempted to add a
+quick hack to the typechecker for automatic freeing of TReg resources (c07b695), but it was
+unsound, so the typechecker support was removed, while the term definitions still remain. *)
 let var__treg_ref = toplevel_var "__treg_ref"
 let var__treg_ref_s = toplevel_var "__treg_ref_s"
 let var__treg_ref_uninit0_s = toplevel_var "__treg_ref_uninit0_s"

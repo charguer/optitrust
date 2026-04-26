@@ -155,7 +155,6 @@ __AXIOM(r_cancel_plus_minus, "forall (n: float) (d: float) -> n +. d -. d =. n")
 
 /* ---- Pure matrix functions ---- */
 
-#ifndef OPTITRUST_CUDA_RUNTIME
 inline int MINDEX0() {
   return 0;
 }
@@ -225,11 +224,9 @@ inline size_t MSIZE5(int N1, int N2, int N3, int N4, int N5) {
 #define CALLOC3(T, N1, N2, N3) (T*) calloc(MSIZE3(N1, N2, N3), sizeof(T))
 #define CALLOC4(T, N1, N2, N3, N4) (T*) calloc(MSIZE4(N1, N2, N3, N4), sizeof(T))
 #define CALLOC5(T, N1, N2, N3, N4, N5) (T*) calloc(MSIZE5(N1, N2, N3, N4, N5), sizeof(T))
-#endif
 
 /* ---- Arithmetic Functions ---- */
 
-#ifndef OPTITRUST_CUDA_RUNTIME
 inline int exact_div(int n, int b) {
   __pure();
   __admitted();
@@ -247,7 +244,6 @@ inline int max(int a, int b) {
   __admitted();
   return a > b ? a : b;
 }
-#endif // OPTITRUST_CUDA_RUNTIME
 
 inline float maxf(float a, float b) {
   __pure();
@@ -885,10 +881,12 @@ __GHOST(ro_mindex3_fold) {
 
 /* -------- Conditional heap permissions -------- */
 
+// If(P,H) means that the heap assertion H holds if the pure proposition P holds.
+// If P holds, then we can get H from If(P,H). If P does not hold, anything can be H.
 __DECL(If, "(Prop * HProp) -> HProp");
 
 __GHOST(if_else_rewrite) {
-  __requires("b: bool, H: HProp, H2: HProp, P: __is_false(b)");
+  __requires("b: bool, H: HProp, H2: HProp, HP: __is_false(b)");
   __consumes("If(__is_true(b), H)");
   __produces("If(__is_true(b), H2)");
   __admitted();
@@ -896,23 +894,20 @@ __GHOST(if_else_rewrite) {
 
 // TODO: is this right?
 __GHOST(if_else_drop) {
-  __requires("b: bool, H: HProp, P: __is_false(b)");
+  __requires("b: bool, H: HProp, HP: __is_false(b)");
   __consumes("If(__is_true(b), H)");
   __admitted();
 }
 
-// TODO: fix this hack to remember b, because I can't pass a bool as a ghost arg (parser doesn't support the boolean "a == b")
-__DECL(DidSpecialize, "bool -> Prop");
 __GHOST(if_then_specialize) {
-  __requires("b: bool, H: HProp, P: __is_true(b)");
+  __requires("b: bool, H: HProp, HP: __is_true(b)");
   __consumes("If(__is_true(b), H)");
-  __ensures("DidSpecialize(b)");
   __produces("H");
   __admitted();
 }
 
 __GHOST(if_then_unspecialize) {
-  __requires("b: bool, H: HProp, DidSpecialize(b), P: __is_true(b)");
+  __requires("b: bool, H: HProp, HP: __is_true(b)");
   __consumes("H");
   __produces("If(__is_true(b), H)");
   __admitted();
@@ -950,6 +945,50 @@ __GHOST(group_singleton_if_elim) {
 __AXIOM(shiftr_monotonic, "forall (b: int) (e1: int) (e2: int) (_: e1 <= e2) -> (b << e1) <= (b << e2)");
 
 extern const int __rewrite_sequence;
+
+
+/* ---- DesyncGroup and DMINDEX ghosts ---- */
+
+__GHOST(group_to_desyncgroup) {
+  __requires("N: int, items: int -> HProp, r: Range");
+  __preserves("ThreadsCtx(r)");
+  __consumes("for i in 0..N -> items(i)");
+  __produces("desync_for i in ..N -> items(i)");
+  __admitted();
+}
+
+__GHOST(unwrap_singleton_desyncgroup) {
+  __requires("t: int, H: int -> HProp");
+  __preserves("ThreadsCtx(t..+MSIZE0())");
+  __consumes("DesyncGroup(MSIZE0(), H)");
+  __produces("H(0)");
+  __admitted();
+}
+
+__GHOST(desync_tile_divides) {
+  __requires(
+    "tile_count: int, tile_size: int,"
+    "size: int, items: int -> HProp,"
+    "div_check: size = tile_count * tile_size,"
+    "positive_tile_size: tile_size >= 0"
+  );
+  __consumes("DesyncGroup(size, items)");
+  __produces("desync_for bi in ..tile_count ->"
+               "desync_for i in ..tile_size -> items(bi * tile_size + i)");
+  __admitted();
+}
+
+__GHOST(desync_untile_divides) {
+  __reverts(desync_tile_divides);
+  __admitted();
+}
+
+__GHOST(singleton_mindex_simplify) {
+  __requires("T: Type, H: ptr(T) -> HProp, p: ptr(T)");
+  __consumes("H(&p[MINDEX1(MSIZE0(), DMINDEX1(MSIZE0(), 0))])");
+  __produces("H(p)");
+  __admitted();
+}
 
 #endif
 

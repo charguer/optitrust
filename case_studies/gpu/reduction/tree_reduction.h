@@ -62,6 +62,9 @@ float tree_reduce(float *arr, int logN, int N_in) {
   __ensures("_Res =. reduce_sum(N_in, A)");
 
   // re-assert due to inlining problems
+  // the proof arguments logN_geq_0 and logN_check are not reproduced when inlined,
+  // and the ghosts that reference them below fail:
+  // "variable __arith_checked could not be found in environment"
   __ASSERT(logN_geq_0_1, "0 <= logN");
   __ASSERT(logN_check_1, "N_in = 1 << logN");
 
@@ -115,13 +118,13 @@ float tree_reduce(float *arr, int logN, int N_in) {
 
       if (t < (1 << (i - 1))) {
         __ghost(bounds_to_in_range, "x := t, a := 0, b := ei");
+        __ghost(assert_prop, "t < (1 << (i - 1))", "H3 <- proof");
         __GHOST_BEGIN(focus, ro_matrix1_focus, "&arr[ei], t");
-        __ghost(if_then_specialize, "H := &arr[MINDEX1(N,t)] ~~> tree_sum(A,logN,i)(t)");
+        __ghost(if_then_specialize, "H := &arr[MINDEX1(N,t)] ~~> tree_sum(A,logN,i)(t), HP := H3");
         arr[MINDEX1(N,t)] += (&arr[ei])[MINDEX1(ei,t)];
         __GHOST_END(focus);
-        __ghost(assert_prop, "t < (1 << (i - 1))", "H3 <- proof");
         __ghost(rewrite_float_linear, "inside := fun v -> &arr[MINDEX1(N,t)] ~~> v, by := tree_sum_ind(A, logN, i, t, H3)");
-        __ghost(if_then_unspecialize, "H := &arr[MINDEX1(N,t)] ~~> tree_sum(A,logN,i-1)(t)");
+        __ghost(if_then_unspecialize, "H := &arr[MINDEX1(N,t)] ~~> tree_sum(A,logN,i-1)(t), HP := H3");
       } else {
         __ghost(if_else_rewrite, "H2 := &arr[MINDEX1(N,t)] ~~> tree_sum(A,logN,i-1)(t)");
       }
