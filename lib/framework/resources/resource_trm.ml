@@ -280,6 +280,7 @@ let var_ghost_rewrite_linear_int = toplevel_var "rewrite_linear"
 let var_ghost_rewrite_linear_float = toplevel_var "rewrite_float_linear"
 let var_ghost_rewrite_linear_float_admitted = toplevel_var "rewrite_float_linear_admitted"
 
+(* TODO: remove admitted argument and specify by=admitted somehow? *)
 let ghost_rewrite_linear ?(admitted = false) ~(typ : typ) ?from ?into ?by inside =
   match typ with
   | _ when is_typ_integer typ && not admitted -> ghost_call_opt_args var_ghost_rewrite_linear_int ["from", from; "to", into; "inside", Some inside; "by", by]

@@ -8,7 +8,7 @@ let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_script
 
 (* let _ = Flags.report_exectime := true *)
-let stage_ok = fun i -> true
+let stage_ok = fun i -> i = 2
 
 let bm = 32
 let bn  = 32
@@ -36,25 +36,26 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   let rec tiles (loop_id, tile_name_sizes) =
     match tile_name_sizes with
     | (tile_name, tile_size) :: rest ->
-      Loop.tile tile_size ~index:tile_name ~bound:TileDivides [cFor loop_id];
+      Loop.tile (trm_int tile_size) ~index:tile_name ~bound:TileDivides [cFor loop_id];
       tiles (loop_id, rest)
     | [] -> ()
     in
   !! List.iter tiles [
-    "i", ["bi", (trm_int bm); "ti", (trm_int tm)]; (*trm_int tm)]; *)
-    "j", ["bj", (trm_int bn); "tj", (trm_int tn)];
-    "k", ["bkIdx", (trm_int bk)]
+    "i", ["bi", bm; "ti", tm];
+    "j", ["bj", bn; "tj", tn];
+    "k", ["bkIdx", bk]
   ];
   (* FIXME using vars for tm and tn breaks reordering. *)
   !! Loop.reorder_at ~order:["bi"; "bj"; "bkIdx"; "ti"; "tj"; "k"; "i"; "j"] [cPlusEq ~lhs:[cVar "sum"] ()];
-  (* !! Matrix.local_name_tile ~uninit_post:true ~var:"a_gmem" ~local_var:"a_smem" [cFor "bkIdx"; cFor "ti"]; *)
-  (* !! Matrix.local_name_tile ~uninit_post:true ~var:"b_gmem" ~local_var:"b_smem" [cFor "bkIdx"; cFor "ti"]; *)
+)
+
+let _ = Run.script_cpp_stage stage_ok (fun () ->
+  (* TODO: fix first step, it fails *)
+  !! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "a_smem" ~indep:["j"; "tj";"bj"] [cArrayRead "a_gmem"];
+  !! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "b_smem" ~indep:["i"; "ti";"bi"] [cArrayRead "b_gmem"];
 )
 
 let _ =  Run.script_cpp_stage stage_ok (fun () ->
-  !! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "a_smem" ~indep:["j"; "tj";"bkIdx"] [cArrayRead "a_gmem"];
-  !! Loop.hoist_expr ~dest:[tBefore; cFor "bkIdx"; cFor "ti"] "b_smem" ~indep:["i"; "ti"] [cArrayRead "b_gmem"];
-
   !! Loop.hoist_expr ~dest:[tBefore; cFor "bkIdx"; cFor "i" ~body:[cPlusEq ~lhs:[cVar "sum"] ()]]
     "a_regs" ~indep:["j"] [cArrayRead "a_smem"];
   !! Loop.hoist_expr ~dest:[tBefore; cFor "bkIdx"; cFor "i" ~body:[cPlusEq ~lhs:[cVar "sum"] ()]]
@@ -62,6 +63,8 @@ let _ =  Run.script_cpp_stage stage_ok (fun () ->
 
   !! Cleanup.std ();
   (*
+  TODO:
+
   !! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "bT" ~indep:["bi"; "i"] [cArrayRead "b"];
   !! Matrix.stack_copy ~var:"sum" ~copy_var:"s" ~copy_dims:1
     [cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "k"];

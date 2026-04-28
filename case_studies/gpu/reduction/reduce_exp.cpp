@@ -323,7 +323,7 @@ float reduce(float* arr, int N) {
             const __ghost_fn focus = __ghost_begin(
                 ro_matrix1_focus, "matrix := &reduce_arr_12[ei], i := t");
             __ghost(
-                if_then_specialize,
+                if_true_elim,
                 "H := &reduce_arr_12[MINDEX1(1 << 8, t)] ~~>[SMem] "
                 "tree_sum(fun (i1: int) -> reduce_sum(bi * 512 + (i1 + 1) * 2, "
                 "A) -. reduce_sum(bi * 512 + i1 * 2, A), 8, i)(t), HP := H3");
@@ -336,14 +336,14 @@ float reduce(float* arr, int N) {
                     "~~>[SMem] v, by := tree_sum_ind(fun (i1: int) -> "
                     "reduce_sum(bi * 512 + (i1 + 1) * 2, A) -. reduce_sum(bi * "
                     "512 + i1 * 2, A), 8, i, t, H3)");
-            __ghost(if_then_unspecialize,
+            __ghost(if_true_intro,
                     "H := &reduce_arr_12[MINDEX1(1 << 8, t)] ~~>[SMem] "
                     "tree_sum(fun (i1: int) -> reduce_sum(bi * 512 + (i1 + 1) "
                     "* 2, A) -. reduce_sum(bi * 512 + i1 * 2, A), 8, i - "
                     "1)(t), HP := H3");
           } else {
             __ghost(
-                if_else_rewrite,
+                if_false_rewrite,
                 "H2 := &reduce_arr_12[MINDEX1(1 << 8, t)] ~~>[SMem] "
                 "tree_sum(fun (i1: int) -> reduce_sum(bi * 512 + (i1 + 1) * 2, "
                 "A) -. reduce_sum(bi * 512 + i1 * 2, A), 8, i - 1)(t)");
@@ -431,18 +431,18 @@ float reduce(float* arr, int N) {
         if (ti_f == 0) {
           __ghost(assert_prop, "P := (ti_f = 0)", "Hcond15 <- proof");
           __ghost(
-              if_then_specialize,
+              if_true_elim,
               "HP := Hcond15, H := for t in 0..(1 << 0) -> "
               "&(&tile[MINDEX2(exact_div(N, 512), 256, DMINDEX1(exact_div(N, "
               "512), bi), 0)])[MINDEX1(1 << 8, t)] ~~>[SMem] tree_sum(fun (i1: "
               "int) -> reduce_sum(bi * 512 + (i1 + 1) * 2, A) -. reduce_sum(bi "
               "* 512 + i1 * 2, A), 8, 0)(t)");
           __ghost(
-              if_then_specialize,
+              if_true_elim,
               "HP := Hcond15, H := for t in (1 << 0)..(1 << 8) -> "
               "&(&tile[MINDEX2(exact_div(N, 512), 256, DMINDEX1(exact_div(N, "
               "512), bi), 0)])[MINDEX1(1 << 8, t)] ~> UninitCellOf(SMem)");
-          __ghost(if_then_specialize,
+          __ghost(if_true_elim,
                   "HP := Hcond15, H := &d_partial_sums[MINDEX1(exact_div(N, "
                   "512), bi)] ~> UninitCellOf(GMem)");
           const __ghost_fn focus2 = __ghost_begin(
@@ -497,17 +497,17 @@ float reduce(float* arr, int N) {
           __gmem_set(&d_partial_sums[MINDEX1(exact_div(N, 512), bi)],
                      sum_temp_13);
           __ghost(
-              if_then_unspecialize,
+              if_true_intro,
               "HP := Hcond15, H := &d_partial_sums[MINDEX1(exact_div(N, 512), "
               "bi)] ~~>[GMem] tree_sum(fun (i1: int) -> reduce_sum(bi * 512 + "
               "(i1 + 1) * 2, A) -. reduce_sum(bi * 512 + i1 * 2, A), 8, 0)(0)");
-          __ghost(if_then_unspecialize,
+          __ghost(if_true_intro,
                   "HP := Hcond15, H := &tile[MINDEX2(exact_div(N, 512), 256, "
                   "DMINDEX1(exact_div(N, 512), bi), 0)] ~> "
                   "UninitMatrix1Of(256, SMem)");
         } else {
           __ghost(
-              if_else_rewrite,
+              if_false_rewrite,
               "H := for t in 0..(1 << 0) -> &(&tile[MINDEX2(exact_div(N, 512), "
               "256, DMINDEX1(exact_div(N, 512), bi), 0)])[MINDEX1(1 << 8, t)] "
               "~~>[SMem] tree_sum(fun (i1: int) -> reduce_sum(bi * 512 + (i1 + "
@@ -516,13 +516,13 @@ float reduce(float* arr, int N) {
               "tree_sum(fun (i1: int) -> reduce_sum(bi * 512 + (i1 + 1) * 2, "
               "A) -. reduce_sum(bi * 512 + i1 * 2, A), 8, 0)(0)");
           __ghost(
-              if_else_rewrite,
+              if_false_rewrite,
               "H := for t in (1 << 0)..(1 << 8) -> "
               "&(&tile[MINDEX2(exact_div(N, 512), 256, DMINDEX1(exact_div(N, "
               "512), bi), 0)])[MINDEX1(1 << 8, t)] ~> UninitCellOf(SMem), H2 "
               ":= &tile[MINDEX2(exact_div(N, 512), 256, DMINDEX1(exact_div(N, "
               "512), bi), 0)] ~> UninitMatrix1Of(256, SMem)");
-          __ghost(if_else_drop,
+          __ghost(if_false_elim,
                   "H := &d_partial_sums[MINDEX1(exact_div(N, 512), bi)] ~> "
                   "UninitCellOf(GMem)");
         }

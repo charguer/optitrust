@@ -31,8 +31,8 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
         __GHOST_END(focusA);
         __GHOST_END(focusB);
 
-        __ghost(in_range_bounds, "k", "k_gt_0 <- lower_bound"); // TODO: proper name k_ge_0
-        __ghost(rewrite_float_linear, "inside := fun v -> &sum ~~> v, by := reduce_sum_add_right(k, fun k -> A(i, k) *. B(k, j), k_gt_0)");
+        __ghost(in_range_bounds, "k", "k_ge_0 <- lower_bound");
+        __ghost(rewrite_float_linear, "inside := fun v -> &sum ~~> v, by := reduce_sum_add_right(k, fun k -> A(i, k) *. B(k, j), k_ge_0)");
       }
 
       c[MINDEX2(m, n, i, j)] = sum;

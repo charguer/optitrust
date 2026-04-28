@@ -1,3 +1,5 @@
+// Sketch of expected OptiGPU code for matmul
+
 #include <optitrust_models.h>
 
 // TODO: GEMM alpha, beta

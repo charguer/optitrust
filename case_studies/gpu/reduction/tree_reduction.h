@@ -1,3 +1,4 @@
+#include "optitrust_common.h"
 #include <optitrust_gpu.h>
 
 /* ---- Tree Reductions ---- */
@@ -120,13 +121,13 @@ float tree_reduce(float *arr, int logN, int N_in) {
         __ghost(bounds_to_in_range, "x := t, a := 0, b := ei");
         __ghost(assert_prop, "t < (1 << (i - 1))", "H3 <- proof");
         __GHOST_BEGIN(focus, ro_matrix1_focus, "&arr[ei], t");
-        __ghost(if_then_specialize, "H := &arr[MINDEX1(N,t)] ~~> tree_sum(A,logN,i)(t), HP := H3");
+        __ghost(if_true_elim, "H := &arr[MINDEX1(N,t)] ~~> tree_sum(A,logN,i)(t), HP := H3");
         arr[MINDEX1(N,t)] += (&arr[ei])[MINDEX1(ei,t)];
         __GHOST_END(focus);
         __ghost(rewrite_float_linear, "inside := fun v -> &arr[MINDEX1(N,t)] ~~> v, by := tree_sum_ind(A, logN, i, t, H3)");
-        __ghost(if_then_unspecialize, "H := &arr[MINDEX1(N,t)] ~~> tree_sum(A,logN,i-1)(t), HP := H3");
+        __ghost(if_true_intro, "H := &arr[MINDEX1(N,t)] ~~> tree_sum(A,logN,i-1)(t), HP := H3");
       } else {
-        __ghost(if_else_rewrite, "H2 := &arr[MINDEX1(N,t)] ~~> tree_sum(A,logN,i-1)(t)");
+        __ghost(if_false_rewrite, "H2 := &arr[MINDEX1(N,t)] ~~> tree_sum(A,logN,i-1)(t)");
       }
     }
 

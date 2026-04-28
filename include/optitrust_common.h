@@ -885,7 +885,7 @@ __GHOST(ro_mindex3_fold) {
 // If P holds, then we can get H from If(P,H). If P does not hold, anything can be H.
 __DECL(If, "(Prop * HProp) -> HProp");
 
-__GHOST(if_else_rewrite) {
+__GHOST(if_false_rewrite) {
   __requires("b: bool, H: HProp, H2: HProp, HP: __is_false(b)");
   __consumes("If(__is_true(b), H)");
   __produces("If(__is_true(b), H2)");
@@ -893,20 +893,20 @@ __GHOST(if_else_rewrite) {
 }
 
 // TODO: is this right?
-__GHOST(if_else_drop) {
+__GHOST(if_false_elim) {
   __requires("b: bool, H: HProp, HP: __is_false(b)");
   __consumes("If(__is_true(b), H)");
   __admitted();
 }
 
-__GHOST(if_then_specialize) {
+__GHOST(if_true_elim) {
   __requires("b: bool, H: HProp, HP: __is_true(b)");
   __consumes("If(__is_true(b), H)");
   __produces("H");
   __admitted();
 }
 
-__GHOST(if_then_unspecialize) {
+__GHOST(if_true_intro) {
   __requires("b: bool, H: HProp, HP: __is_true(b)");
   __consumes("H");
   __produces("If(__is_true(b), H)");

@@ -267,7 +267,7 @@ let var_sizeof = toplevel_var "sizeof"
 
 (** [trm_sizeof]: build a term evaluating to the size of type [ty]. *)
 let trm_sizeof ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (ty: typ) : trm =
-  (* TODO: changed type from typ_usize to typ_int for use in pure formulas
+  (* NOTE: changed type from typ_usize to typ_int for use in pure formulas
     usize is not compatible with loop indices, bounds, etc. *)
   trm_apps ~annot ?loc ?ctx ~typ:typ_int (trm_var var_sizeof) [ty]
 
