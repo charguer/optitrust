@@ -185,7 +185,7 @@ let%transfo hoist_alloc_loop_list
         let next_name = Tools.string_subst "${i}" (string_of_int i) name_template in
         Trace.without_resource_computation_between_steps (fun () ->
           Loop_basic.hoist ~name:next_name ~mark_alloc ~mark_free ~mark_tmp_var [cMark mark_alloc];
-          if inline then Trace.without_substep_validity_checks simpl_hoist_tmp_var;
+          if inline then Trace.without_substep_validity_checks (fun () -> Flags.with_flag Flags.use_resources_with_models false simpl_hoist_tmp_var);
         )
         );
       end

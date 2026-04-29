@@ -1,14 +1,14 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true
+let _ = Flags.check_validity := true (* FIXME: this flag behaviour needs to be cleaned up *)
 let _ = Flags.pretty_matrix_notation := false
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_script
 
 (* let _ = Flags.report_exectime := true *)
-let stage_ok = fun i -> i = 2
+let stage_ok = fun i -> true
 
 let bm = 32
 let bn  = 32
@@ -20,13 +20,13 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   let def_tile_sizes (tile_dim_name, tile_dim_size) =
     Variable.insert ~name:tile_dim_name ~typ:typ_int ~value:(trm_int tile_dim_size) [tFirst]
   in
-    !! List.iter def_tile_sizes [
-      "tm", tm;
-      "tn", tn;
-      "bk", bk;
-      "bn", bn;
-      "bm", bm
-    ];
+  !! List.iter def_tile_sizes [
+    "tm", tm;
+    "tn", tn;
+    "bk", bk;
+    "bn", bn;
+    "bm", bm
+  ];
 
   !! Matrix.local_name_tile ~uninit_pre:true ~var:"c" ~local_var:"c_gmem" [cFor "i"];
   !! Matrix.local_name_tile ~uninit_post:true ~var:"a" ~local_var:"a_gmem" [cFor "i"];
@@ -50,9 +50,11 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
 )
 
 let _ = Run.script_cpp_stage stage_ok (fun () ->
-  (* TODO: fix first step, it fails *)
-  !! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "a_smem" ~indep:["j"; "tj";"bj"] [cArrayRead "a_gmem"];
-  !! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "b_smem" ~indep:["i"; "ti";"bi"] [cArrayRead "b_gmem"];
+  !! Loop.hoist_expr ~dest:[tBefore; cFor "bkIdx"; cFor ~body:[cPlusEq ()] "ti"] "a_smem" ~indep:["j"; "tj"] [cArrayRead "a_gmem"];
+  !! Loop.hoist_expr ~dest:[tBefore; cFor "bkIdx"; cFor ~body:[cPlusEq ()] "ti"] "b_smem" ~indep:["i"; "ti"] [cArrayRead "b_gmem"];
+
+  !! Loop.hoist_alloc ~dest:[tBefore; cFor ~body:[cPlusEq ()] "bi"] ~indep:["bkIdx"] [cVarDef "a_smem"];
+  !! Loop.hoist_alloc ~dest:[tBefore; cFor ~body:[cPlusEq ()] "bi"] ~indep:["bkIdx"] [cVarDef "b_smem"];
 )
 
 let _ =  Run.script_cpp_stage stage_ok (fun () ->
