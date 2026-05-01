@@ -4,11 +4,13 @@ open Target
 
 let _ = Flags.check_validity := false
 let _ = Flags.pretty_matrix_notation := true
-let _ = Flags.recompute_resources_between_steps := true
+let _ = Flags.recompute_resources_between_steps := false
 
 let _ = Run.script_cpp (fun _ ->
   !! Resources.ensure_computed ();
-  !! Trace.resource_error_expected (fun _ -> Instr.delete [occFirst; cTopFunDef "sync_required"; cCall "blocksync"])
-  (* TODO: negative unit tests for removing parts of the contract?
-  E.g. things should break when we get rid of KernelParams, ThreadsCtx, etc. *)
+  (* Verify that removing sync causes typing error *)
+  !! Trace.resource_error_expected (fun _ ->
+    Instr.delete [occFirst; cTopFunDef "sync_required"; cCall "blocksync"];
+    Resources.ensure_computed ());
+  !! Trace.generate_cuda ~check_expected:true ();
 )

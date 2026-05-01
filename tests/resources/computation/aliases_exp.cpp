@@ -64,7 +64,7 @@ void bidirectional_alias() {
 }
 
 void eq_to_alias(float* A, int n) {
-  __requires("__is_true(n == 1024)");
+  __requires("(n = 1024)");
   __modifies("A ~> Matrix1(n)");
   __ghost(assert_alias, "x := n");
   for (int i = 0; i < 1024; ++i) {

@@ -26,6 +26,12 @@ let option_to_doc (string_none : string) (f : 'a -> doc) (opt : 'a option) : doc
 (*----------------------------------------------------------------------------------*)
 (* Options for printing *)
 
+(* LATER: support for more dialects to control code generation, e.g.
+
+type dialect =
+  | Cpp
+  | Cuda *)
+
 (** Style object controlling printing options *)
 type style = {
   print_contract_internal_repr: bool; (* print internal loop contract *)
@@ -41,6 +47,7 @@ type style = {
   pretty_fraction_notation: bool; (* print 1-1/2 instead of __frac_sub(__full,__frac_div(__full, 2)) *)
   commented_pragma: bool; (* comment out pragram lines, for better tabulation by clang-format *)
   hide_seq: bool; (* hide the content of sequences with {...},  used to avoid weird matches with stringrepr *)
+  lower_to_cuda: bool; (* LATER: replace with dialect *)
 }
 
 (** Default style, depends on the global flags *)
@@ -58,6 +65,7 @@ let default_style () : style = {
   pretty_fraction_notation = true;
   commented_pragma = !Flags.use_clang_format;
   hide_seq = false;
+  lower_to_cuda = false;
 }
 
 (** Style for target stringrepr (sExpr or sInstr) *)
@@ -75,6 +83,7 @@ let style_for_stringrepr : style = {
   pretty_fraction_notation = true;
   commented_pragma = false;
   hide_seq = true;
+  lower_to_cuda = false;
 }
 
 (** Style for reparsing *)
@@ -92,6 +101,7 @@ let style_for_reparse : style = {
   pretty_fraction_notation = false;
   commented_pragma = false;
   hide_seq = false;
+  lower_to_cuda = false;
 }
 
 (** Style for debugging var ids *)
@@ -109,6 +119,7 @@ let style_for_varids : style = {
   pretty_fraction_notation = true;
   commented_pragma = false;
   hide_seq = false;
+  lower_to_cuda = false;
 }
 
 (** Style for debugging types *)
@@ -126,6 +137,24 @@ let style_for_types : style = {
   pretty_fraction_notation = true;
   commented_pragma = false;
   hide_seq = false;
+  lower_to_cuda = false;
+}
+
+let style_for_cuda : style = {
+  print_contract_internal_repr = true;
+  print_var_id = false;
+  print_string_repr = false;
+  print_mark = false;
+  print_annot = false;
+  print_errors = false;
+  print_types = false;
+  optitrust_syntax = false;
+  c_alloc = false;
+  pretty_matrix_notation = false;
+  pretty_fraction_notation = false;
+  commented_pragma = false;
+  hide_seq = false;
+  lower_to_cuda = true;
 }
 
 (*----------------------------------------------------------------------------------*)
@@ -388,12 +417,12 @@ and unop_to_doc style (op : unary_op) : document =
      string "static_cast" ^^ langle ^^ dt ^^ rangle
 
 (** [binop_to_doc style op]: converts binary operators to pprint documents. *)
-and binop_to_doc style (op : binary_op) : document =
+and binop_to_doc style ?(formula: bool = false) (op : binary_op) : document =
   match op with
   | Binop_set -> equals
   | Binop_array_access -> lbracket ^^ rbracket
   | Binop_array_get -> lbracket ^^ rbracket
-  | Binop_eq -> twice equals
+  | Binop_eq -> if formula then equals else twice equals
   | Binop_neq -> bang ^^ equals
   | Binop_sub -> minus
   | Binop_add -> plus
@@ -528,7 +557,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
     begin match t.desc with
     | _ when trm_has_cstyle Type t -> typ_to_doc style t
     | _ when trm_has_cstyle ResourceFormula t ->
-      dattr ^^ formula_to_doc style t ^^ dsemi
+      dattr ^^ formula_to_doc ~prec style t ^^ dsemi
     | Trm_var x ->
       (* if x.qvar_var = "this"
         then
@@ -584,7 +613,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
         end
       end
     | Trm_seq (tl, result) ->
-      if (not !Flags.display_includes) && (trm_is_include t) then
+      if (style.lower_to_cuda || not !Flags.display_includes) && (trm_is_include t) then
         empty
       else
         let dl = Mlist.flatten_marks (decorate_trm style ~semicolon:true)
@@ -601,10 +630,11 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
             if style.hide_seq then
               string "{...}"
             else if trm_is_mainfile t then
+              let header = if style.lower_to_cuda then string "\n#include <optitrust_gpu_cuda.cuh>\n" else empty in
               let header =
                 if style.pretty_matrix_notation
-                  then (string "// NOTE: using pretty matrix notation") ^^ hardline
-                  else empty
+                  then header ^^ (string "// NOTE: using pretty matrix notation") ^^ hardline
+                  else header
                 in
                 header ^^ (separate (twice hardline) dl)
             else
@@ -618,7 +648,13 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
               in
               surround 2 1 lsep dinstrs rsep
           in
-          dattr ^^ res
+          (* LATER: re-encode instead of printing.
+          Or just remove when we figure out better solutions to replace barrier sequence (list of HPROP as argument)
+           and rewrite sequence (rewriting in subexpressions).*)
+          let dattr = if (trm_has_cstyle BarrierSequence t) then string "__barrier_sequence; " ^^ dattr else dattr in
+          let dattr = if (trm_has_cstyle RewriteSequence t) then string "({__rewrite_sequence; " ^^ dattr else dattr in
+          let post = if (trm_has_cstyle RewriteSequence t) then string ";})" else empty in
+          dattr ^^ res ^^ post
     | Trm_apps (f, tl, _, _) ->
       dattr ^^ apps_to_doc style ~annot:t.annot ~print_struct_init_type ~prec f tl ^^ dsemi
     | Trm_while (b, t) ->
@@ -641,11 +677,10 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       let full_loop = (unpack_trm_for : ?loc:trm_loc -> loop_range -> trm -> trm) ?loc:t.loc l_range body in
       let dt = decorate_trm style full_loop in
       let dmode = match mode with
-      | GpuThread -> string "thread"
+      | GpuThread -> string "__threadfor; "
+      | MagicThread -> string "__magic_threadfor;"
       | _ -> empty in
       (* prepend mode to loop; prints correct because annotations are cleared in full_loop *)
-      (* TODO : Prepending the mode like this, e.g. `thread for` would not parse in C++.
-        Is there anywhere in optitrust where we assume the output file can be reparsed, and will printing it like this break things? *)
       dmode ^^ blank 1 ^^ dt
       (* print_contract_internal_repr is handled in C_encoding, printing it here might be useful if encoding is heavily broken
       if style.print_contract_internal_repr
@@ -871,14 +906,18 @@ and aux_fun_to_doc style ?(semicolon : bool = false) ?(const : bool = false) ?(i
 
 (** [trm_let_fun_to_doc style]: converts any OptiTrust function declaration(definition) to a pprint document. *)
 and trm_let_fun_to_doc style ?(semicolon : bool = false) (fun_annot : cstyle_annot list) (f : var) (r : typ) (args : typed_vars) (b : trm) : document =
-  if List.exists (function  | Class_constructor _ -> true | _ -> false ) fun_annot
+  let cuda_attributes = List.fold_left (fun doc a -> (match a with
+    | CudaGlobal -> string "__global__"
+    | CudaDevice -> string "__device__"
+    | _ -> empty) ^^ doc) empty fun_annot in
+  cuda_attributes ^^ (if List.exists (function  | Class_constructor _ -> true | _ -> false ) fun_annot
     then aux_class_constructor_to_doc style fun_annot f args [] b
     else if List.exists (function  | Class_destructor _ -> true | _ -> false ) fun_annot
       then aux_class_destructor_to_doc style ~semicolon fun_annot f b
     else
       let inline = List.mem Fun_inline fun_annot in
       let const = List.mem Const_method fun_annot in
-      aux_fun_to_doc style ~semicolon ~const ~inline f r args b
+      aux_fun_to_doc style ~semicolon ~const ~inline f r args b)
 
 (** [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function from a resource formula to a pprint document. *)
 and formula_fun_to_doc style (ty : typ) (tvl : typed_vars) (b : trm) : document =
@@ -950,7 +989,15 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
 and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_type: bool) (f : trm) (tl : trms) : document =
   let (prec, assoc) = precedence_trm f in
   let aux_arguments f_as_doc =
-      f_as_doc ^^ list_to_doc ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm style ~force_expr:true) tl)
+      let cuda_args,args = List.partition (trm_has_cstyle CudaKernelBracketArg) tl in
+      if ((not style.lower_to_cuda) && cuda_args <> []) then begin
+        failwith "Ast_to_c.apps_to_doc: unexpected CUDA kernel launch arguments while printing in non-CUDA style"
+      end;
+      let cuda_args_doc = list_to_doc ~sep:comma ~bounds:[string "<<<"; string ">>>"] (List.map (decorate_trm style ~force_expr:true) cuda_args) in
+      let args_doc = list_to_doc ~sep:comma ~bounds:[lparen; rparen] (List.map (decorate_trm style ~force_expr:true) args) in
+      match cuda_args with
+      | [] -> f_as_doc ^^ args_doc
+      | _ -> f_as_doc ^^ cuda_args_doc ^^ args_doc
       in
   let is_get_implicit_this t =
     match trm_get_inv t with
@@ -988,14 +1035,15 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_
         begin match tl with
         | [t] ->
           let d = decorate_trm style ~prec t in
+          let float_mod = if (trm_has_cstyle ResourceFormula f && (is_typ_float ty)) then string "." else empty in
           begin match op with
           (* | Unop_get when style.optitrust_syntax -> star ^^ d *)
           | Unop_get -> star ^^ d
           | Unop_address ->ampersand ^^ d
           | Unop_neg -> bang ^^ d
           | Unop_bitwise_neg -> tilde ^^ d
-          | Unop_minus -> minus ^^ blank 1 ^^ d
-          | Unop_plus -> plus ^^ blank 1 ^^ d
+          | Unop_minus -> minus ^^ float_mod ^^ blank 1 ^^ d
+          | Unop_plus -> plus ^^ float_mod ^^ blank 1 ^^ d
           | Unop_post_incr -> d ^^ twice plus
           | Unop_post_decr -> d ^^ twice minus
           | Unop_pre_incr -> twice plus ^^ d
@@ -1043,7 +1091,9 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_
             | Some (_dims, indices) -> separate empty (List.map bracketed_trm indices)
             end
           | _ ->
-            let op_d = binop_to_doc style op in
+            let is_formula = (trm_has_cstyle ResourceFormula f) in
+            let op_d = binop_to_doc ~formula:is_formula style op in
+            let op_d = if (is_formula && is_typ_float ty) then op_d ^^ string "." else op_d in
             separate (blank 1) [d1; op_d; d2]
           end
       | _ -> trm_fail f "Ast_to_c.apps_to_doc: binary_operators must have two arguments"
@@ -1364,10 +1414,18 @@ and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
     end in
     trm_for_c ?loc init cond step body
 
-and formula_to_doc style (f: formula): document =
+and formula_to_doc ?(prec : int = 0) style (f: formula): document =
   let open Resource_formula in
+  (* TODO: to fix printing of e.g. equality formulas, I just made the formula cstyle apply automatically
+  to any child of a node with the style.  Is this a correct assumption? *)
+  let f = (trm_map (trm_add_cstyle ResourceFormula) f) in
+  let trm_to_doc' = trm_to_doc ~prec in
+  let trm_to_doc style t = trm_to_doc ~prec style (trm_add_cstyle ResourceFormula t) in
   Pattern.pattern_match f [
     Pattern.(formula_points_to !__ !__ !__) (fun addr formula mem_typ () ->
+      let addr = trm_add_cstyle ResourceFormula addr in
+      let formula = trm_add_cstyle ResourceFormula formula in
+      let mem_typ = trm_add_cstyle ResourceFormula mem_typ in
       Pattern.when_ (!Flags.use_resources_with_models);
       Pattern.pattern_match mem_typ [
         Pattern.(trm_specific_var ~ignore_unset_id:true mem_typ_any_var) (fun () -> decorate_trm style addr ^^ blank 1 ^^ string "~~>" ^^ blank 1 ^^ trm_to_doc style formula);
@@ -1388,8 +1446,8 @@ and formula_to_doc style (f: formula): document =
     Pattern.(trm_apps2 (trm_specific_var ~ignore_unset_id:true var_group) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
       string "for" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc style range ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
     );
-    Pattern.(trm_apps3 (trm_specific_var ~ignore_unset_id:true var_desyncgroup) !__ !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range bound (index, _) body () ->
-      string "desync_for" ^^ string "(" ^^ trm_to_doc style range ^^ string ")" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ string ".." ^^ trm_to_doc style bound ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
+    Pattern.(trm_apps2 (trm_specific_var ~ignore_unset_id:true var_desyncgroup) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun bound (index, _) body () ->
+      string "desync_for" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ string ".." ^^ trm_to_doc style bound ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
     );
     Pattern.(formula_frac_div !__ !__) (fun base divisor () ->
       Pattern.when_ (style.pretty_fraction_notation);
@@ -1402,7 +1460,13 @@ and formula_to_doc style (f: formula): document =
     Pattern.(trm_lit (eq (Lit_int (typ_frac, 1)))) (fun () ->
       Pattern.when_ (not style.pretty_fraction_notation);
       string "__full");
-    Pattern.__ (fun () -> trm_to_doc style {f with annot = {f.annot with trm_annot_cstyle = []}})
+    (*Pattern.(trm_apps !(trm_prim __ __) !__ !__ !__) (fun fn args ga gb () ->
+      trm_to_doc style (trm_alter ~annot:({f.annot with trm_annot_cstyle = []}) ~desc:(Trm_apps ((trm_add_cstyle ResourceFormula fn), args,ga,gb)) f)
+    );*)
+    Pattern.(formula_is_true !__) (fun t () ->
+      lparen ^^ (trm_to_doc style t) ^^ rparen
+    );
+    Pattern.__ (fun () -> trm_to_doc' style {f with annot = {f.annot with trm_annot_cstyle = []}})
   ]
 
 (** [ast_to_doc t]: converts a full OptiTrust ast to a pprint document. *)

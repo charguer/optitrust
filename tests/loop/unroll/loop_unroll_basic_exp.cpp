@@ -86,7 +86,7 @@ void iter_contract(int* M) {
 }
 
 void focus_in_range(int* M, int s) {
-  __requires("__is_true(s >= 0)");
+  __requires("(s >= 0)");
   __reads("M ~> Matrix1(3)");
   int a = 0;
   __ghost(assume, "P := in_range(0, 0..3)");

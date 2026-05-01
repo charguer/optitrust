@@ -247,14 +247,17 @@ let extract_threadsctx_range_components (r_t: trm): threadsctx_range_components 
 let gen_outside_loop_threadsctx_range (cs: threadsctx_range_components) (loop_end: trm): trm =
   let dims_high,dims_low,inds_high = cs in
   let sz = Matrix_trm.msize (loop_end::dims_low) in
-  let dims = dims_high @ [sz] in
+  (* LATER: an actual placeholder size instead of 0.
+   This makes rewriting the size of the range in transfos more convenient, because otherwise we have to mess with the MINDEX.
+   If the outermost dimension is always 0 in the MINDEX, it is technically still correct, does not lose information, and means we only have to worry about MSIZE. *)
+  let dims = dims_high @ [trm_int 0] in
   let inds = inds_high @ [trm_int 0] in
   formula_counted_range (Matrix_trm.mindex dims inds) sz
 
 let gen_inside_loop_threadsctx_range (cs: threadsctx_range_components) (loop_ind: var) (loop_end: trm): trm =
   let dims_high,dims_low,inds_high = cs in
   let sz = Matrix_trm.msize dims_low in
-  let dims = dims_high @ [loop_end; sz] in
+  let dims = dims_high @ [loop_end; trm_int 0] in
   let inds = inds_high @ [trm_var loop_ind; trm_int 0] in
   formula_counted_range (Matrix_trm.mindex dims inds) sz
 
@@ -281,7 +284,7 @@ let compute_thread_for_ctx_ranges (range: loop_range) (res: resource_set): threa
 let [@warning "-11"] get_loop_contract_generators res loop_mode range contract: (unit -> fun_contract) * (unit -> fun_contract) =
   (match loop_mode with
   | Sequential -> ()
-  | Parallel | GpuThread ->
+  | Parallel | GpuThread | MagicThread ->
     if (not (Resource_set.is_empty contract.invariant)) then
       failwith "Loop with mode %s cannot have sequential invariant (non parallelizable contract)" (show_loop_mode loop_mode)
     else ()
@@ -295,10 +298,13 @@ let [@warning "-11"] get_loop_contract_generators res loop_mode range contract: 
       (* TODO: should the pre & post share the threadsctx variable or no? *)
       let tctx = (new_anon_hyp (),formula_threadsctx info.r_out) in
       fun range res -> (
-        let res = Resource_set.desyncgroup_range info.r_out range res in
+        let res = Resource_set.desyncgroup_range range res in
         { res with linear = tctx :: res.linear }
       )
-    | _ ->  Resource_set.group_range in
+    | _ ->
+      (match loop_mode with
+      | MagicThread -> Resource_set.desyncgroup_range
+      | _ -> Resource_set.group_range) in
 
   let contract_outside_loop () =
     let invariant_before = Resource_set.subst_loop_range_start range contract.invariant in

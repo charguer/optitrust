@@ -3,8 +3,8 @@
 void consts() {
   __pure();
   int x = 0;
-  __ghost(assume, "P := __is_true(5 >= 0)");
-  __ghost(assume, "P := __is_true(5 >= 0)");
+  __ghost(assume, "P := (5 >= 0)");
+  __ghost(assume, "P := (5 >= 0)");
   for (int ij = 0; ij < 5 * 5; ij++) {
     __strict();
     __smodifies("&x ~> Cell");
@@ -15,11 +15,11 @@ void consts() {
 }
 
 void from_zero(int n, int m) {
-  __requires("__is_true(n >= 0)");
-  __requires("__is_true(m >= 0)");
+  __requires("(n >= 0)");
+  __requires("(m >= 0)");
   int x = 0;
-  __ghost(assume, "P := __is_true(n >= 0)");
-  __ghost(assume, "P := __is_true(m >= 0)");
+  __ghost(assume, "P := (n >= 0)");
+  __ghost(assume, "P := (m >= 0)");
   for (int ij = 0; ij < n * m; ij++) {
     __strict();
     __smodifies("&x ~> Cell");
@@ -30,12 +30,12 @@ void from_zero(int n, int m) {
 }
 
 void from_zero_contract(int* t, int* u, int n, int m) {
-  __requires("__is_true(n >= 0)");
-  __requires("__is_true(m >= 0)");
+  __requires("(n >= 0)");
+  __requires("(m >= 0)");
   __writes("t ~> Matrix2(n, m)");
   __reads("u ~> Matrix2(n, m)");
-  __ghost(assume, "P := __is_true(n >= 0)");
-  __ghost(assume, "P := __is_true(m >= 0)");
+  __ghost(assume, "P := (n >= 0)");
+  __ghost(assume, "P := (m >= 0)");
   __ghost(group_collapse,
           "n := n, m := m, items := fun (i: int) (j: int) -> &t[MINDEX2(n, m, "
           "i, j)] ~> UninitCell");
@@ -56,8 +56,8 @@ void from_zero_contract(int* t, int* u, int n, int m) {
 }
 
 void from_zero_wrong(int n, int m) {
-  __requires("__is_true(n >= 0)");
-  __requires("__is_true(m >= 0)");
+  __requires("(n >= 0)");
+  __requires("(m >= 0)");
   int x = 0;
   for (int i = 0; i < n; i++) {
     __strict();

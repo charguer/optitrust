@@ -798,7 +798,7 @@ and decode_ghost_annot_in_seq (ts: trm list): trm list =
     t :: decode_ghost_annot_in_seq ts
 
 let formula_to_string (style : style) (f: formula) : string =
-  Ast_to_c.ast_to_string ~width:PPrint.infinity ~style:style.cstyle f
+  Ast_to_c.ast_to_string ~width:PPrint.infinity ~style:style.cstyle (trm_add_cstyle ResourceFormula f)
 
 let var__with = trm_var (name_to_var "__with")
 let var__bind = trm_var (name_to_var "__bind")
@@ -812,10 +812,16 @@ let encode_ghost_annot (style: style) (t: trm) : trm =
     in
     let ghost_bind_to_trm_string ghost_bind =
       let bound_var_name var = match var with
-        | Some var -> var_name var
-        | None -> "_"
+        | Some var when not (is_anon_var var) -> Some (var_name var)
+        | None -> Some "_"
+        | _ -> None
       in
-      trm_string (String.concat ", " (List.map (fun (bound_var, contract_var) -> sprintf "%s <- %s" (bound_var_name bound_var) (var_name contract_var)) ghost_bind))
+      trm_string (String.concat ", " (List.filter_map (fun (bound_var, contract_var) ->
+        (* Do not print ghost bind expressions when they are binding to anonymous variables (cannot reparse) *)
+        (* TODO: right policy? control by a flag maybe? *)
+        match (bound_var_name bound_var, is_anon_var contract_var) with
+        | Some bound_var, false -> Some (sprintf "%s <- %s" bound_var (var_name contract_var))
+        | _ -> None) ghost_bind))
     in
     let ghost_args_and_bind_to_opt_args ghost_args ghost_bind =
       if ghost_bind = [] then
@@ -835,30 +841,30 @@ let encode_ghost_annot (style: style) (t: trm) : trm =
     | Trm_seq (seq, result) ->
       (* Inside sequence add __with and __bind *)
       Nobrace.enter ();
-      let seq = Mlist.map (fun t -> Pattern.pattern_match t [
+      let seq = Mlist.map (fun instr -> Pattern.pattern_match instr [
         Pattern.(trm_apps !__ nil !__ !__) (fun fn ghost_args ghost_bind () ->
-          if not (trm_has_attribute GhostInstr t) then raise_notrace Pattern.Next;
+          if not (trm_has_attribute GhostInstr instr) then raise_notrace Pattern.Next;
           let fn = aux fn in
-          trm_like ~old:t (trm_apps var__ghost (fn :: ghost_args_and_bind_to_opt_args ghost_args ghost_bind))
+          trm_like ~old:instr (trm_apps var__ghost (fn :: ghost_args_and_bind_to_opt_args ghost_args ghost_bind))
         );
         Pattern.(trm_apps __ __ !__ !__) (fun ghost_args ghost_bind () ->
           Pattern.when_ (ghost_args <> [] || ghost_bind <> []);
-          let t = trm_map aux t in
-          Nobrace.trm_seq_nomarks (t :: (if ghost_args = [] then [] else [trm_apps var__with [ghost_args_to_trm_string ghost_args]]) @ (if ghost_bind = [] then [] else [trm_apps var__bind [ghost_bind_to_trm_string ghost_bind]]))
+          let instr = trm_map aux instr in
+          Nobrace.trm_seq_nomarks (instr :: (if ghost_args = [] then [] else [trm_apps var__with [ghost_args_to_trm_string ghost_args]]) @ (if ghost_bind = [] then [] else [trm_apps var__bind [ghost_bind_to_trm_string ghost_bind]]))
         );
         Pattern.(trm_let !__ !__ !(trm_apps __ __ !__ !__)) (fun var typ call ghost_args ghost_bind () ->
           Pattern.when_ (ghost_args <> [] || ghost_bind <> []);
           let call = trm_map aux call in
-          Nobrace.trm_seq_nomarks ((trm_like ~old:t (trm_let (var, typ) call)) :: (if ghost_args = [] then [] else [trm_apps var__with [ghost_args_to_trm_string ghost_args]]) @ (if ghost_bind = [] then [] else [trm_apps var__bind [ghost_bind_to_trm_string ghost_bind]]))
+          Nobrace.trm_seq_nomarks ((trm_like ~old:instr (trm_let (var, typ) call)) :: (if ghost_args = [] then [] else [trm_apps var__with [ghost_args_to_trm_string ghost_args]]) @ (if ghost_bind = [] then [] else [trm_apps var__bind [ghost_bind_to_trm_string ghost_bind]]))
         );
         Pattern.(trm_let !__ !__ (trm_apps1 (trm_specific_var Resource_trm.var_ghost_begin) !(trm_apps !__ nil !__ !__))) (fun ghost_pair typ ghost_call ghost_fn ghost_args ghost_bind () ->
           let ghost_fn = aux ghost_fn in
-          trm_like ~old:(trm_error_merge ~from:ghost_call t) (trm_let (ghost_pair, typ) (trm_apps (trm_var Resource_trm.var_ghost_begin) (ghost_fn :: ghost_args_and_bind_to_opt_args ghost_args ghost_bind)))
+          trm_like ~old:(trm_error_merge ~from:ghost_call instr) (trm_let (ghost_pair, typ) (trm_apps (trm_var Resource_trm.var_ghost_begin) (ghost_fn :: ghost_args_and_bind_to_opt_args ghost_args ghost_bind)))
         );
         Pattern.(trm_apps1 !(trm_specific_var Resource_trm.var_clear) (trm_var !__)) (fun f v () ->
-          trm_like ~old:t (trm_apps f [trm_string (var_name v)])
+          trm_like ~old:instr (trm_apps f [trm_string (var_name v)])
         );
-        Pattern.__ (fun () -> trm_map aux t)
+        Pattern.__ (fun () -> aux instr)
       ]) seq in
       let nobrace_id = Nobrace.exit () in
       let seq = Nobrace.flatten_seq nobrace_id seq in
@@ -1292,7 +1298,7 @@ let rec encode_contract (style: style) (t: trm): trm =
     let body = push_named_formulas __xensures ~used_vars contract.iter_contract.post.pure body in
     let body = push_named_formulas __xconsumes pre_linear body in
     let body = push_named_formulas __xrequires ~used_vars contract.iter_contract.pre.pure body in
-    List.iter (fun (_, formula) -> if formula_read_only_inv formula = None then failwith "parallel_reads contains non RO resources") contract.parallel_reads;
+    (*List.iter (fun (_, formula) -> if formula_read_only_inv formula = None then failwith "parallel_reads contains non RO resources") contract.parallel_reads;*)
     let loop_ghosts, _, _, body =
       push_common_clauses ~force:true ~reads_clause:__sreads ~preserves_clause:__sreads
         loop_ghosts contract.parallel_reads contract.parallel_reads body
@@ -1446,18 +1452,34 @@ let rec decode_template_decl (t : trm) : trm =
 
 let rec decode_gpu_sugar (t: trm) : trm =
   match (trm_seq_inv t) with
-  | Some (instrs,res) ->
-    let instrs = (Mlist.fold_left (fun acc instr ->
-      let instr = decode_gpu_sugar instr in
-      match acc with
-      | [] -> instr :: acc
-      | hd::tl ->
-        match (hd.desc,instr.desc) with
-        | (Trm_var v,Trm_for (range,mode,body,contract)) when (var_has_name "__threadfor" v) ->
-          (trm_like ~old:instr (trm_for ~contract ~mode:GpuThread range body)) :: tl
-        | _ -> instr :: acc
-    ) [] instrs) |> List.rev |> Mlist.of_list in
-    trm_alter ~desc:(Trm_seq (instrs,res)) t
+  | Some (instrs,res) -> (
+    match (Mlist.to_list instrs) with
+    | {desc = Trm_var v} :: {desc = Trm_seq _} :: [] when (var_has_name "__rewrite_sequence" v) ->
+      trm_add_cstyle RewriteSequence (decode_gpu_sugar (Mlist.nth instrs 1))
+    | _ ->
+      let instrs = (Mlist.fold_left (fun acc instr ->
+        let instr = decode_gpu_sugar instr in
+        match acc with
+        | [] -> instr :: acc
+        | hd::tl ->
+          match (hd.desc,instr.desc) with
+          | (Trm_var v,Trm_for (range,mode,body,contract)) when (var_has_name "__threadfor" v) ->
+            (trm_like ~old:instr (trm_for ~contract ~mode:GpuThread range body)) :: tl
+          | (Trm_var v,Trm_for (range,mode,body,contract)) when (var_has_name "__magic_threadfor" v) ->
+            (trm_like ~old:instr (trm_for ~contract ~mode:MagicThread range body)) :: tl
+          | (Trm_var v,Trm_apps _) when (var_has_name "__device_call" v) ->
+            (trm_add_cstyle CudaDevice instr) :: tl
+          | (Trm_var v,Trm_seq _) when (var_has_name "__barrier_sequence" v) ->
+            (trm_add_cstyle BarrierSequence instr) :: tl
+          | (Trm_predecl (v,_),Trm_let (tv,t)) when (var_has_name "__device__" v) ->
+            let t = match (trm_fun_inv t) with
+            | Some _ -> (trm_add_cstyle CudaDevice t)
+            | _ -> t in
+            (trm_alter ~desc:(Trm_let (tv,t)) instr) :: tl
+          | _ -> instr :: acc
+      ) [] instrs) |> List.rev |> Mlist.of_list in
+      trm_alter ~desc:(Trm_seq (instrs,res)) t
+    )
   | _ -> trm_map decode_gpu_sugar t
 
 (*************************************** Main entry points *********************************************)
@@ -1488,6 +1510,9 @@ let encode_to_c (style : style) : trm -> trm =
   debug_before_after_trm "encode_to_c" (fun t ->
   t |>
   Scope_computation.infer_var_ids |>
+  (* LATER: add a "encode_gpu" thing here in the else case, where we want to do some simple sugaring of
+    constructs like __GMEM_GET so the user doesn't have as much noise in the trace.*)
+  (if style.cstyle.lower_to_cuda then (Cuda_lowering.lower_to_cuda) else (fun x -> x)) |>
   encode_alloc style |>
   encode_formula_sugar |>
   encode_expr_in_seq |>

@@ -141,6 +141,8 @@ let ignore_serialized = ref false
 (** [clang_use_libstdcxx]: Use libstdc++ as the C++ standard library for compilation with clangml, instead of the libc++ provided by LLVM. Default to libc++. *)
 let clang_use_libstdcxx = ref false
 
+let aux_file_compare = ref (fun (f1: string) (f2: string) -> true)
+
 (** Possible [execution_mode] of the script *)
 
 type execution_mode =

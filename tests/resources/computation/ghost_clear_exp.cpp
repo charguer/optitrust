@@ -20,10 +20,10 @@ void req_triv(int k) { __requires("Triv(k)"); }
 
 void test_clear(int k) {
   __pure();
-  __ghost(assert_prop, "P := __is_true(k == k)", "refl_k1 <- proof");
+  __ghost(assert_prop, "P := (k = k)", "refl_k1 <- proof");
   __clear("refl_k1");
-  __ghost(assert_prop, "P := __is_true(k == k)", "refl_k2 <- proof");
-  __ghost(assert_prop, "P := __is_true(k == k)", "refl_k3 <- proof");
+  __ghost(assert_prop, "P := (k = k)", "refl_k2 <- proof");
+  __ghost(assert_prop, "P := (k = k)", "refl_k3 <- proof");
 }
 
 void clear_in_for() {
@@ -50,7 +50,7 @@ void clear_in_lambda() {
 
 void bind_clear(int k) {
   __pure();
-  __ghost(assert_prop, "P := __is_true(k == k)", "_ <- proof");
-  __ghost(assert_prop, "P := __is_true(k == k)", "refl_k <- proof");
-  __ghost(assert_prop, "P := __is_true(k == k)", "_ <- proof");
+  __ghost(assert_prop, "P := (k = k)", "_ <- proof");
+  __ghost(assert_prop, "P := (k = k)", "refl_k <- proof");
+  __ghost(assert_prop, "P := (k = k)", "_ <- proof");
 }

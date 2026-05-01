@@ -8,7 +8,7 @@ void into_loop(int* a, int* cst, int n) {
   __reads("cst ~~> C");
   for (int i = 0; i < n; i++) {
     __strict();
-    __requires("xC: __is_true(C == C)");
+    __requires("xC: (C = C)");
     __sreads("cst ~~> C");
     __xconsumes("&a[i] ~~> A(i)");
     __xproduces("&a[i] ~~> A(i) + C");

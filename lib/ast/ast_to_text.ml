@@ -217,6 +217,7 @@ and print_trm_desc style (t : trm_desc) : document =
     | Sequential -> string "seq"
     | Parallel -> string "par"
     | GpuThread -> string "thread"
+    | MagicThread -> string "magic_thread"
     in
     let dstart = print_trm style range.start in
     let dstop = print_trm style range.stop in
@@ -475,6 +476,11 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Type -> string "Type"
  | InjectedClassName -> string "InjectedClassName"
  | BodyHiddenForLightDiff -> string "BodyHiddenForLightDiff"
+ | RewriteSequence -> string "RewriteSequence"
+ | BarrierSequence -> string "BarrierSequence"
+ | CudaKernelBracketArg -> string "CudaKernelBracketArg"
+ | CudaGlobal -> string "CudaGlobal"
+ | CudaDevice -> string "CudaGlobal"
 
 (** [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =

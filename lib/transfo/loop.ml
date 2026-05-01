@@ -88,6 +88,25 @@ let%transfo fission ?(nest_of : int  = 1) (tg : target) : unit =
     fission_rec next_mark nest_of m_interstice
   )) tg
 
+(* TODO: factorize with non-bis
+  this moves the instructions with the ghost pairs they need around them. *)
+let%transfo move_out_bis
+  ?(empty_range: empty_range_mode = Produced_resources_uninit_after)
+  (tg : target) : unit =
+  Marks.with_marks (fun next_mark -> Target.iter (fun p ->
+    let seq_path, span = Path.extract_last_dir_span p in
+
+    let mark_moved = next_mark () in
+    Instr.move_in_seq ~mark_moved ~dest:[tFirst] (target_of_path p);
+
+    Ghost_pure.minimize_all_in_seq (target_of_path seq_path);
+    (* TODO: this is required if other transformations like Variable_basic.inline don't eagerly do it. *)
+    Resources.make_strict_loop_contracts [];
+    let loop_mark = next_mark () in
+    Loop_basic.move_out ~loop_mark [cPath seq_path; Constr_depth (DepthAt 0); tSpan [tFirst] [cMarkSpanStop mark_moved]];
+    if !Flags.check_validity then Resources.loop_minimize [cMark loop_mark];
+  ) tg)
+
 (* TODO: redundant with 'hoist' *)
 (** [hoist_alloc_loop_list]: this transformation is similar to [Loop_basic.hoist], but also supports undetached
    variable declarations, hoisting through multiple loops, and inlining array indexing code.
@@ -166,7 +185,7 @@ let%transfo hoist_alloc_loop_list
         let next_name = Tools.string_subst "${i}" (string_of_int i) name_template in
         Trace.without_resource_computation_between_steps (fun () ->
           Loop_basic.hoist ~name:next_name ~mark_alloc ~mark_free ~mark_tmp_var [cMark mark_alloc];
-          if inline then Trace.without_substep_validity_checks simpl_hoist_tmp_var;
+          if inline then Trace.without_substep_validity_checks (fun () -> Flags.with_flag Flags.use_resources_with_models false simpl_hoist_tmp_var);
         )
         );
       end
@@ -262,23 +281,10 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
     | [] -> ()
     | 0 :: rl ->
       (* do not create dimension. *)
-      let loop_mark = next_m () in
       let instr_mark = next_m () in
       Trace.step ~kind:Step_group ~name:(sprintf "%d. move out" i) (fun () ->
       Marks.add instr_mark (target_of_path p);
-      (* TODO: factorize this in a Loop.move_out combi ? *)
-      Instr.move_in_seq ~dest:[tFirst] (target_of_path p);
-      let seq_p, _ = Path.extract_last_dir p in
-      Ghost_pure.minimize_all_in_seq (target_of_path seq_p);
-      (* TODO: this is required if other transformations like Variable_basic.inline don't eagerly do it. *)
-      Resources.make_strict_loop_contracts [];
-      let path = Target.resolve_target_exactly_one [cMark instr_mark; tBefore] in
-      let p_seq, instr_index = Path.extract_last_dir_before path in
-      for _ = 0 to instr_index - 1 do
-        Loop_basic.move_out [cPath p_seq; dSeqNth 0];
-      done;
-      Loop_basic.move_out ~loop_mark [cMark instr_mark];
-      if !Flags.check_validity then Resources.loop_minimize [cMark loop_mark];
+      move_out_bis (target_of_path p);
       );
       Target.iter (fun p -> aux (i + 1) rl p) [cMark instr_mark];
     | 1 :: rl ->

@@ -39,16 +39,16 @@ void f() {
   /*@ m7 @*/
 }
 
-void req_refl(int k) { __requires("refl: __is_true(k == k)"); }
+void req_refl(int k) { __requires("refl: (k = k)"); }
 
 void let_ghost(int k) {
   __pure();
-  __ghost(assert_prop, "P := __is_true(k == k)", "refl_k <- proof");
+  __ghost(assert_prop, "P := (k = k)", "refl_k <- proof");
   req_refl(k);
   __with("refl := refl_k");
   __clear("refl_k");
   /*@ fission @*/
-  __ghost(assert_prop, "P := __is_true(k == k)", "refl_k1 <- proof");
+  __ghost(assert_prop, "P := (k = k)", "refl_k1 <- proof");
   req_refl(k);
   __with("refl := refl_k1");
   __clear("refl_k1");
@@ -56,8 +56,8 @@ void let_ghost(int k) {
 }
 
 void with_clear(int k) {
-  __ensures("__is_true(k == k)");
+  __ensures("(k = k)");
   /*@ fission @*/
-  __ghost(assert_prop, "P := __is_true(k == k)", "refl_k2 <- proof");
-  __ghost(assert_prop, "P := __is_true(k == k)", "refl_k3 <- proof");
+  __ghost(assert_prop, "P := (k = k)", "refl_k2 <- proof");
+  __ghost(assert_prop, "P := (k = k)", "refl_k3 <- proof");
 }

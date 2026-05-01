@@ -6,7 +6,7 @@ void write0(int* p) {
 }
 
 int ret0() {
-  __ensures("__is_true(_Res == 0)");
+  __ensures("(_Res = 0)");
   return 0;
 }
 

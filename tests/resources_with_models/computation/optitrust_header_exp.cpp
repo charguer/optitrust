@@ -127,6 +127,26 @@ void MATRIX3_COPY_double(double* dest, double* src, int n1, int n2, int n3) {
   memcpy(dest, src, n1 * n2 * n3 * sizeof(double));
 }
 
+__ghost_ret matrix1_span_shift() {
+  __requires("T: Type");
+  __requires("matrix: ptr(T)");
+  __requires("n1: int");
+  __requires("a: int");
+  __requires("b: int");
+  __requires("MT: MemType");
+  __requires("M: int -> T");
+  __consumes("for i in a..b -> &matrix[MINDEX1(n1, i)] ~~>[MT] M(i)");
+  __produces(
+      "for i in 0..(b - a) -> &(&matrix[a])[MINDEX1(b - a, i)] ~~>[MT] M(i + "
+      "a)");
+  __admitted();
+}
+
+__ghost_ret matrix1_span_unshift() {
+  __reverts(matrix1_span_shift);
+  __admitted();
+}
+
 __ghost_ret matrix2_span_shift() {
   __requires("T: Type");
   __requires("matrix: ptr(T)");
@@ -134,13 +154,19 @@ __ghost_ret matrix2_span_shift() {
   __requires("n2: int");
   __requires("a: int");
   __requires("b: int");
+  __requires("MT: MemType");
   __requires("M: int * int -> T");
   __consumes(
-      "for i in a..b -> for j in 0..n2 -> &matrix[MINDEX2(n1, n2, i, j)] ~~> "
-      "M(i, j)");
+      "for i in a..b -> for j in 0..n2 -> &matrix[MINDEX2(n1, n2, i, j)] "
+      "~~>[MT] M(i, j)");
   __produces(
       "for i in 0..(b - a) -> for j in 0..n2 -> &(&matrix[a * n2])[MINDEX2(b - "
-      "a, n2, i, j)] ~~> M(i + a, j)");
+      "a, n2, i, j)] ~~>[MT] M(i + a, j)");
+  __admitted();
+}
+
+__ghost_ret matrix2_span_unshift() {
+  __reverts(matrix2_span_shift);
   __admitted();
 }
 
@@ -152,14 +178,20 @@ __ghost_ret matrix3_span_shift() {
   __requires("n3: int");
   __requires("a: int");
   __requires("b: int");
+  __requires("MT: MemType");
   __requires("M: int * int * int -> T");
   __consumes(
       "for i1 in a..b -> for i2 in 0..n2 -> for i3 in 0..n3 -> "
-      "&matrix[MINDEX3(n1, n2, n3, i1, i2, i3)] ~~> M(i1, i2, i3)");
+      "&matrix[MINDEX3(n1, n2, n3, i1, i2, i3)] ~~>[MT] M(i1, i2, i3)");
   __produces(
       "for i1 in 0..(b - a) -> for i2 in 0..n2 -> for i3 in 0..n3 -> "
-      "&(&matrix[a * n2 * n3])[MINDEX3(b - a, n2, n3, i1, i2, i3)] ~~> M(i1 + "
-      "a, i2, i3)");
+      "&(&matrix[a * n2 * n3])[MINDEX3(b - a, n2, n3, i1, i2, i3)] ~~>[MT] "
+      "M(i1 + a, i2, i3)");
+  __admitted();
+}
+
+__ghost_ret matrix3_span_unshift() {
+  __reverts(matrix3_span_shift);
   __admitted();
 }
 
@@ -167,27 +199,25 @@ __ghost(assert_inhabited, "x := arbitrary(int * int * (int -> int) -> int)",
         "reduce_int_sum <- x");
 
 __ghost(assert_prop,
-        "proof := admit(forall (n: int) (f: int -> int) -> __is_true(0 == "
+        "proof := admit(forall (n: int) (f: int -> int) -> (0 = "
         "reduce_int_sum(n, n, f)))",
         "reduce_int_sum_empty <- proof");
 
-__ghost(
-    assert_prop,
-    "proof := admit(forall (a: int) (b: int) (f: int -> int) (_: __is_true(b "
-    ">= a)) (bp1: int) (_: __is_true(bp1 == b + 1)) -> "
-    "__is_true(reduce_int_sum(a, b, f) + f(b) == reduce_int_sum(a, bp1, f)))",
-    "reduce_int_sum_add_right <- proof");
-
-__ghost(
-    assert_prop,
-    "proof := admit(forall (a: int) (b: int) (f: int -> int) (_: __is_true(b > "
-    "a)) (ap1: int) (_: __is_true(ap1 == a + 1)) -> "
-    "__is_true(reduce_int_sum(a, b, f) - f(a) == reduce_int_sum(ap1, b, f)))",
-    "reduce_int_sum_sub_left <- proof");
+__ghost(assert_prop,
+        "proof := admit(forall (a: int) (b: int) (f: int -> int) (_: (b >= a)) "
+        "(bp1: int) (_: (bp1 = b + 1)) -> (reduce_int_sum(a, b, f) + f(b) = "
+        "reduce_int_sum(a, bp1, f)))",
+        "reduce_int_sum_add_right <- proof");
 
 __ghost(assert_prop,
-        "proof := admit(forall (a: int) (b: int) (ap1: int) (bp1: int) (f: int "
-        "-> int) (_: __is_true(b >= a)) (_: __is_true(ap1 == a + 1)) (_: "
-        "__is_true(bp1 == b + 1)) -> __is_true(reduce_int_sum(a, b, f) + (f(b) "
-        "- f(a)) == reduce_int_sum(ap1, bp1, f)))",
-        "reduce_int_sum_slide <- proof");
+        "proof := admit(forall (a: int) (b: int) (f: int -> int) (_: (b > a)) "
+        "(ap1: int) (_: (ap1 = a + 1)) -> (reduce_int_sum(a, b, f) - f(a) = "
+        "reduce_int_sum(ap1, b, f)))",
+        "reduce_int_sum_sub_left <- proof");
+
+__ghost(
+    assert_prop,
+    "proof := admit(forall (a: int) (b: int) (ap1: int) (bp1: int) (f: int -> "
+    "int) (_: (b >= a)) (_: (ap1 = a + 1)) (_: (bp1 = b + 1)) -> "
+    "(reduce_int_sum(a, b, f) + (f(b) - f(a)) = reduce_int_sum(ap1, bp1, f)))",
+    "reduce_int_sum_slide <- proof");

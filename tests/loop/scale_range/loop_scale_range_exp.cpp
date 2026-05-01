@@ -3,7 +3,7 @@
 void f(int N) {
   __pure();
   int x = 0;
-  __ghost(to_prove, "P := __is_true(2 != 0)");
+  __ghost(to_prove, "P := (2 != 0)");
   for (int i_s = 0; i_s < 2 * 10; i_s += 2) {
     __strict();
     __smodifies("&x ~> Cell");
@@ -11,7 +11,7 @@ void f(int N) {
     x += i_s;
   }
   const int ratio = 5;
-  __ghost(to_prove, "P := __is_true(ratio != 0)");
+  __ghost(to_prove, "P := (ratio != 0)");
   for (int j = 0; j < ratio * N; j += ratio) {
     __strict();
     __smodifies("&x ~> Cell");
@@ -23,7 +23,7 @@ void f(int N) {
 void ghost_in_range(int N) {
   __pure();
   int x = 0;
-  __ghost(to_prove, "P := __is_true(4 != 0)");
+  __ghost(to_prove, "P := (4 != 0)");
   for (int i = 0; i < 4 * (N - 2); i += 4) {
     __strict();
     __smodifies("&x ~> Cell");
@@ -37,7 +37,7 @@ void arrays(int N, int* w, int* r, int* f) {
   __modifies("f ~> Matrix1(N)");
   __writes("w ~> Matrix1(N)");
   __reads("r ~> Matrix1(N)");
-  __ghost(to_prove, "P := __is_true(2 != 0)");
+  __ghost(to_prove, "P := (2 != 0)");
   __ghost(group_scale,
           "stop := N, step := 1, items := fun (i: int) -> &w[MINDEX1(N, i)] ~> "
           "UninitCell, factor := 2, new_step := 2, new_stop := 2 * N");

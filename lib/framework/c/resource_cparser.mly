@@ -30,7 +30,7 @@
 %token LPAR RPAR LBRACKET RBRACKET
 %token COLON COMMA AMPERSAND ARROW SQUIG_ARROW LONG_SQUIG_ARROW COLON_EQUAL REV_ARROW DOT DOTDOT DOTDOTPLUS UNDERSCORE
 %token FUN FORALL FOR DESYNC_FOR IN EOF
-%token PLUS MINUS STAR SLASH PERCENT
+%token PLUS MINUS STAR SLASH PERCENT LSHIFT RSHIFT
 %token EQUAL LT GT LEQ GEQ NEQ
 
 %right AMPERSAND ARROW
@@ -93,20 +93,28 @@ arith_factor:
   | a=ampersand_formula;
     { a }
 
-arith_term:
-  | a=arith_term; PLUS; b=arith_factor;
+arith_sum:
+  | a=arith_sum; PLUS; b=arith_factor;
     { trm_add ~typ:typ_int a b }
-  | a=arith_term; MINUS; b=arith_factor;
+  | a=arith_sum; MINUS; b=arith_factor;
     { trm_sub ~typ:typ_int a b }
   | MINUS; b=arith_factor;
     { trm_minus ~typ:typ_int b }
-  | a=arith_term; PLUS; DOT; b=arith_factor;
+  | a=arith_sum; PLUS; DOT; b=arith_factor;
     { trm_add ~typ:typ_f32 a b }
-  | a=arith_term; MINUS; DOT; b=arith_factor;
+  | a=arith_sum; MINUS; DOT; b=arith_factor;
     { trm_sub ~typ:typ_f32 a b }
   | MINUS; DOT; b=arith_factor;
     { trm_minus ~typ:typ_f32 b }
   | a=arith_factor;
+    { a }
+
+arith_term:
+  | a=arith_term; LSHIFT; b=arith_sum;
+    { trm_shiftl ~typ:typ_int a b }
+  | a=arith_term; RSHIFT; b=arith_sum;
+    { trm_shiftr ~typ:typ_int a b }
+  | a=arith_sum;
     { a }
 
 formula_cmp:
@@ -186,8 +194,8 @@ formula:
     { formula_forall_in index range body }
   | FOR; index=binder; IN; range=formula_cmp; ARROW; body=formula;
     { formula_group index range body }
-  | DESYNC_FOR; LPAR; range=formula_cmp; RPAR; index=binder; IN; DOTDOT; bound=arith_term; ARROW; body=formula;
-    { formula_desyncgroup index range bound body }
+  | DESYNC_FOR; index=binder; IN; DOTDOT; bound=arith_term; ARROW; body=formula;
+    { formula_desyncgroup index bound body }
 
 resource:
   | f=formula

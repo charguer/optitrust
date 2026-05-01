@@ -232,6 +232,7 @@ type loop_mode =
   | Sequential     (* Sequential for loop (default) *)
   | Parallel       (* Parallel for loop e.g. #pragma omp parallel for *)
   | GpuThread      (* Loop over parallel GPU threads/blocks *)
+  | MagicThread    (* Desyncing loop without awareness of real threads *)
 [@@deriving show]
 
 (** [code_kind]; code kind entered by the user *)
@@ -461,6 +462,14 @@ and cstyle_annot =
 
   (* tag used by light diff *)
   | BodyHiddenForLightDiff
+
+  | RewriteSequence
+
+  | BarrierSequence
+
+  | CudaKernelBracketArg
+  | CudaGlobal
+  | CudaDevice
 
 (** [constructor_kind]: special annotation for constructors *)
 and constructor_kind =

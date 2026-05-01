@@ -56,7 +56,7 @@ __GHOST(rewrite_prop) {
   __requires("inside: int -> Prop");
   __requires("by: from = to");
   __requires("inside(from)");
-  __ensures("inside(to)");
+  __ensures("out: inside(to)");
   __admitted();
 }
 
@@ -66,6 +66,15 @@ __GHOST(rewrite_linear) {
   __requires("by: from = to");
   __consumes("inside(from)");
   __produces("inside(to)");
+  __admitted();
+}
+
+__GHOST(rewrite_float_prop) {
+  __requires("from: float, to: float");
+  __requires("inside: float -> Prop");
+  __requires("by: from =. to");
+  __requires("inside(from)");
+  __ensures("out: inside(to)");
   __admitted();
 }
 
@@ -88,7 +97,14 @@ __GHOST(rewrite_float_linear_admitted) {
 
 __GHOST(eq_refl_float) {
   __requires("x:float");
-  __ensures("x =. x");
+  __ensures("out: x =. x");
+  __admitted();
+}
+
+__GHOST(eq_sym_float) {
+  __requires("x:float, y:float");
+  __requires("H: x =. y");
+  __ensures("out: y =. x");
   __admitted();
 }
 
@@ -163,6 +179,13 @@ inline int MINDEX5(int N1, int N2, int N3, int N4, int N5, int i1, int i2, int i
   return i1 * N2 * N3 * N4 * N5 + i2 * N3 * N4 * N5 + i3 * N4 * N5 + i4 * N5 + i5;
 }
 
+inline int DMINDEX0() { return 0; }
+inline int DMINDEX1(int N1, int i1) { return 0; }
+inline int DMINDEX2(int N1, int N2, int i1, int i2) { return 0; }
+inline int DMINDEX3(int N1, int N2, int N3, int i1, int i2, int i3) { return 0; }
+inline int DMINDEX4(int N1, int N2, int N3, int N4, int i1, int i2, int i3, int i4) { return 0; }
+inline int DMINDEX5(int N1, int N2, int N3, int N4, int N5, int i1, int i2, int i3, int i4, int i5) { return 0; }
+
 inline size_t MSIZE0() {
   return 1;
 }
@@ -202,7 +225,6 @@ inline size_t MSIZE5(int N1, int N2, int N3, int N4, int N5) {
 #define CALLOC4(T, N1, N2, N3, N4) (T*) calloc(MSIZE4(N1, N2, N3, N4), sizeof(T))
 #define CALLOC5(T, N1, N2, N3, N4, N5) (T*) calloc(MSIZE5(N1, N2, N3, N4, N5), sizeof(T))
 
-
 /* ---- Arithmetic Functions ---- */
 
 inline int exact_div(int n, int b) {
@@ -222,6 +244,7 @@ inline int max(int a, int b) {
   __admitted();
   return a > b ? a : b;
 }
+
 inline float maxf(float a, float b) {
   __pure();
   __admitted();
@@ -308,6 +331,27 @@ __GHOST(in_range_bounds) {
   __requires("x: int, a: int, b: int, s: int");
   __requires("in_range(x, range(a, b, s)), s >= 0");
   __ensures("lower_bound: x >= a, upper_bound: x < b");
+  __admitted();
+}
+
+__GHOST(in_range_bounds_rev) {
+  __requires("x: int, a: int, b: int, s: int");
+  __requires("in_range(x, range(a, b, s)), s < 0");
+  __ensures("lower_bound: x > b, upper_bound: x <= a");
+  __admitted();
+}
+
+__GHOST(bounds_to_in_range) {
+  __requires("x: int, a: int, b: int");
+  __requires("lower_bound: x >= a, upper_bound: x < b");
+  __ensures("range_check: in_range(x, range(a, b, 1))");
+  __admitted();
+}
+
+__GHOST(expand_subrange) {
+  __requires("a: int, b: int, c: int, s: int");
+  __requires("lower: s >= 0, up_ineq: b <= c");
+  __ensures("is_subrange(range(a,b,s),range(a,c,s))");
   __admitted();
 }
 
@@ -731,19 +775,60 @@ __GHOST(group_intro_zero) {
   __admitted();
 }
 
+__GHOST(group_intro_empty) {
+  __requires("N: int, items: int -> HProp");
+  __produces("for i in N..N -> items(i)");
+  // can't prove for now because there is no way to cancel N in items(i + N - N)
+  __admitted();
+}
+
 __GHOST(group_elim_zero) {
   __reverts(group_intro_zero);
   __admitted();
 }
 
-__GHOST(group_one) {
+__GHOST(group_elim_empty) {
+  __reverts(group_intro_empty);
+  __admitted();
+}
+
+__GHOST(group_intro_one) {
   __requires("item: HProp");
   __consumes("item");
   __produces("for i in 0..1 -> item");
   __admitted();
 }
 
+__GHOST(group_elim_one) {
+  __reverts(group_intro_one);
+  __admitted();
+}
+
 /* MINDEX (un)folding */
+
+__GHOST(dmindex2_untile) {
+  __requires("H: (int * int -> int) -> HProp, n1: int, n2: int");
+  __consumes("H(fun i1 i2 -> DMINDEX1(n1 * n2, i1 * n2 + i2))");
+  __produces("H(fun i1 i2 -> DMINDEX2(n1, n2, i1, i2))");
+  __admitted();
+}
+
+__GHOST(dmindex2_tile) {
+  __reverts(dmindex2_untile);
+  __admitted();
+}
+
+__GHOST(dmindex3_untile) {
+  __requires("H: (int * int * int -> int) -> HProp, n1: int, n2: int, n3: int");
+  __consumes("H(fun i1 i2 i3 -> DMINDEX2(n1 * n2, n3, i1 * n2 + i2, i3))");
+  __produces("H(fun i1 i2 i3 -> DMINDEX3(n1, n2, n3, i1, i2, i3))");
+  __admitted();
+}
+
+__GHOST(dmindex3_tile) {
+  __reverts(dmindex3_untile);
+  __admitted();
+}
 
 __GHOST(mindex2_unfold) {
   __requires("T: Type, H: (int * int -> ptr(T)) -> HProp, matrix: ptr(T), n1: int, n2: int");
@@ -794,4 +879,115 @@ __GHOST(ro_mindex3_fold) {
   __admitted();
 }
 
+/* -------- Conditional heap permissions -------- */
+
+// If(P,H) means that the heap assertion H holds if the pure proposition P holds.
+// If P holds, then we can get H from If(P,H). If P does not hold, we can consume If(P,H) (since it means nothing) or rewrite it to If(P,H2) for any H2.
+__DECL(If, "(Prop * HProp) -> HProp");
+
+__GHOST(if_false_hprop_rewrite) {
+  __requires("b: bool, H: HProp, H2: HProp, HP: __is_false(b)");
+  __consumes("If(__is_true(b), H)");
+  __produces("If(__is_true(b), H2)");
+  __admitted();
+}
+
+__GHOST(if_false_hprop_drop) {
+  __requires("b: bool, H: HProp, HP: __is_false(b)");
+  __consumes("If(__is_true(b), H)");
+  __admitted();
+}
+
+__GHOST(if_true_hprop_elim) {
+  __requires("b: bool, H: HProp, HP: __is_true(b)");
+  __consumes("If(__is_true(b), H)");
+  __produces("H");
+  __admitted();
+}
+
+__GHOST(if_true_hprop_intro) {
+  __requires("b: bool, H: HProp, HP: __is_true(b)");
+  __consumes("H");
+  __produces("If(__is_true(b), H)");
+  __admitted();
+}
+
+__GHOST(group_expand_r_if_intros) {
+  __requires("n1: int, n2: int, items: int -> HProp");
+  __requires("expand_check: n1 <= n2");
+  __consumes("for i in 0..n1 -> items(i)");
+  __produces("for i in 0..n2 -> If(i < n1, items(i))");
+  __admitted();
+}
+
+__GHOST(group_shrink_r_if_elim) {
+  __reverts(group_expand_r_if_intros);
+  __admitted();
+}
+
+__GHOST(group_singleton_if_intros) {
+  __requires("n: int, H: HProp");
+  // __requires("n > 0");
+  __consumes("H");
+  __produces("for i in 0..n -> If(i = 0, H)");
+  __admitted();
+}
+
+__GHOST(group_singleton_if_elim) {
+  __requires("n: int, H: HProp");
+  // __requires("n > 0");
+  __consumes("for i in 0..n -> If(i = 0, H)");
+  __produces("H");
+  __admitted();
+}
+
+__AXIOM(shiftr_monotonic, "forall (b: int) (e1: int) (e2: int) (_: e1 <= e2) -> (b << e1) <= (b << e2)");
+
+extern const int __rewrite_sequence;
+
+
+/* ---- DesyncGroup and DMINDEX ghosts ---- */
+
+__GHOST(group_to_desyncgroup) {
+  __requires("N: int, items: int -> HProp, r: Range");
+  __preserves("ThreadsCtx(r)");
+  __consumes("for i in 0..N -> items(i)");
+  __produces("desync_for i in ..N -> items(i)");
+  __admitted();
+}
+
+__GHOST(unwrap_singleton_desyncgroup) {
+  __requires("t: int, H: int -> HProp");
+  __preserves("ThreadsCtx(t..+MSIZE0())");
+  __consumes("DesyncGroup(MSIZE0(), H)");
+  __produces("H(0)");
+  __admitted();
+}
+
+__GHOST(desync_tile_divides) {
+  __requires(
+    "tile_count: int, tile_size: int,"
+    "size: int, items: int -> HProp,"
+    "div_check: size = tile_count * tile_size,"
+    "positive_tile_size: tile_size >= 0"
+  );
+  __consumes("DesyncGroup(size, items)");
+  __produces("desync_for bi in ..tile_count ->"
+               "desync_for i in ..tile_size -> items(bi * tile_size + i)");
+  __admitted();
+}
+
+__GHOST(desync_untile_divides) {
+  __reverts(desync_tile_divides);
+  __admitted();
+}
+
+__GHOST(singleton_mindex_simplify) {
+  __requires("T: Type, H: ptr(T) -> HProp, p: ptr(T)");
+  __consumes("H(&p[MINDEX1(MSIZE0(), DMINDEX1(MSIZE0(), 0))])");
+  __produces("H(p)");
+  __admitted();
+}
+
 #endif
+

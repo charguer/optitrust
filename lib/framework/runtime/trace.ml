@@ -473,10 +473,10 @@ let check_the_trace ~(final:bool) : unit =
     such as "foo.cpp" and returns "foo_notfmt.cpp". This filename
     is meant to store the file before it is reformated using clang-format. *)
 let filename_before_clang_format (filename:string) : string =
-  let base =
-    try Filename.chop_suffix filename ".cpp"
-    with _ -> failwith "filename_before_clang_format: expects a .cpp file, provided: %s." filename in
-  base ^ "_notfmt.cpp"
+  let base = Filename.chop_extension filename in
+  let ext = Filename.extension filename in
+  if (not (List.mem ext [".cpp";".cu"])) then failwith "filename_before_clang_format: expects a .cpp or .cu file, provided: %s." filename;
+  base ^ "_notfmt" ^ ext
 
 (* LATER: document and factorize *)
 
@@ -629,6 +629,18 @@ let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code duri
     the_trace.cur_ast_typed <- false;
   end
 
+(******************************************************************************)
+(*                               CUDA codegen                                 *)
+(******************************************************************************)
+
+let generate_cuda ?(check_expected:bool=false) () =
+  let ctx = the_trace.cur_context in
+  let ast = the_trace.cur_ast in
+  output_prog (Style.cuda ()) ~beautify:false { ctx with extension = ".cu"; header = "" } (ctx.prefix ^ "_out") ast;
+  if check_expected then begin
+    let prefix = ctx.prefix in
+    if (not ((!Flags.aux_file_compare) (prefix ^ "_out.cu") (prefix ^ "_exp.cu"))) then begin failwith "Generated CUDA mismatch!" end
+  end
 
 (******************************************************************************)
 (*                               Step filtering                               *)

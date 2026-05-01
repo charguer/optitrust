@@ -523,3 +523,8 @@ let rename_index_on (new_index : string) (t: trm) : trm =
   let new_body = trm_subst_var range.index (trm_var new_index) body in
   let new_contract = Resource_contract.loop_contract_subst (Var_map.singleton range.index (trm_var new_index)) contract in
   trm_for ~mode ~annot:t.annot ~contract:new_contract { range with index = new_index } new_body
+
+let change_loop_mode_on (mode: loop_mode) (t: trm) : trm =
+  let error = "Loop_core.change_loop_mode_on: expected a target to a simple for loop" in
+  let range, _, body, contract = trm_inv ~error trm_for_inv t in
+  (trm_like ~old:t (trm_for ~contract ~mode:mode range body))

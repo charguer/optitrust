@@ -88,9 +88,9 @@ let group_range (range: loop_range) (res: resource_set): resource_set =
     struct_fields = res.struct_fields; }
 
 (** Given a resource set [res] that may depend on the [i] index of [range], produces the resource set resulting from applying DesyncGroup to resource items forall [i]. *)
-let desyncgroup_range (r_t: trm) (range: loop_range) (res: resource_set): resource_set =
+let desyncgroup_range (range: loop_range) (res: resource_set): resource_set =
   { pure = List.map (fun (x, fi) -> (x, formula_forall_range range fi)) res.pure;
-    linear = List.map (fun (x, fi) -> (x, formula_desyncgroup_range range r_t fi)) res.linear;
+    linear = List.map (fun (x, fi) -> (x, formula_desyncgroup_range range fi)) res.linear;
     fun_specs = res.fun_specs;
     aliases = res.aliases; (* FIXME: Probably wrong when aliasing variables from [pure] *)
     struct_fields = res.struct_fields; }
@@ -214,7 +214,10 @@ let find_result_fun_spec (res: resource_set): fun_spec_resource =
 let subst_loop_range_start range = subst_var range.index range.start
 
 (** Substitutes a loop index with its value after one iteration *)
-let subst_loop_range_step range = subst_var range.index (trm_add_int (trm_var range.index) range.step)
+let subst_loop_range_step range =
+  subst_var range.index (if (range.direction = DirDown || range.direction = DirDownEq) then (trm_sub_int (trm_var range.index) range.step)
+   else (trm_add_int (trm_var range.index) range.step))
+
 
 (** Substitutes a loop index with its end value. *)
 let subst_loop_range_end range = subst_var range.index range.stop

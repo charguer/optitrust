@@ -107,17 +107,39 @@ DEFINE_MATRIX_COPY(double)
 // span_shift unused for now: this pattern allows copy of an arbitrary span of a matrix
 // TODO: uninit and ro variants
 
+__GHOST(matrix1_span_shift) {
+  __requires("T: Type, matrix: ptr(T), n1: int, a: int, b: int, MT: MemType, M: int -> T");
+  __consumes("for i in a..b -> &matrix[MINDEX1(n1, i)] ~~>[MT] M(i)");
+  __produces("for i in 0..(b-a) -> &(&matrix[a])[MINDEX1(b-a, i)] ~~>[MT] M(i+a)");
+  __admitted();
+}
+
+__GHOST(matrix1_span_unshift) {
+  __reverts(matrix1_span_shift);
+  __admitted();
+}
+
 __GHOST(matrix2_span_shift) {
-  __requires("T: Type, matrix: ptr(T), n1: int, n2: int, a: int, b: int, M: int * int -> T");
-  __consumes("for i in a..b -> for j in 0..n2 -> &matrix[MINDEX2(n1, n2, i, j)] ~~> M(i, j)");
-  __produces("for i in 0..(b-a) -> for j in 0..n2 -> &(&matrix[a*n2])[MINDEX2(b-a, n2, i, j)] ~~> M(i+a, j)");
+  __requires("T: Type, matrix: ptr(T), n1: int, n2: int, a: int, b: int, MT: MemType, M: int * int -> T");
+  __consumes("for i in a..b -> for j in 0..n2 -> &matrix[MINDEX2(n1, n2, i, j)] ~~>[MT] M(i, j)");
+  __produces("for i in 0..(b-a) -> for j in 0..n2 -> &(&matrix[a*n2])[MINDEX2(b-a, n2, i, j)] ~~>[MT] M(i+a, j)");
+  __admitted();
+}
+
+__GHOST(matrix2_span_unshift) {
+  __reverts(matrix2_span_shift);
   __admitted();
 }
 
 __GHOST(matrix3_span_shift) {
-  __requires("T: Type, matrix: ptr(T), n1: int, n2: int, n3: int, a: int, b: int, M: int * int * int -> T");
-  __consumes("for i1 in a..b -> for i2 in 0..n2 -> for i3 in 0..n3 -> &matrix[MINDEX3(n1, n2, n3, i1, i2, i3)] ~~> M(i1, i2, i3)");
-  __produces("for i1 in 0..(b-a) -> for i2 in 0..n2 -> for i3 in 0..n3 -> &(&matrix[a*n2*n3])[MINDEX3(b-a, n2, n3, i1, i2, i3)] ~~> M(i1+a, i2, i3)");
+  __requires("T: Type, matrix: ptr(T), n1: int, n2: int, n3: int, a: int, b: int, MT: MemType, M: int * int * int -> T");
+  __consumes("for i1 in a..b -> for i2 in 0..n2 -> for i3 in 0..n3 -> &matrix[MINDEX3(n1, n2, n3, i1, i2, i3)] ~~>[MT] M(i1, i2, i3)");
+  __produces("for i1 in 0..(b-a) -> for i2 in 0..n2 -> for i3 in 0..n3 -> &(&matrix[a*n2*n3])[MINDEX3(b-a, n2, n3, i1, i2, i3)] ~~>[MT] M(i1+a, i2, i3)");
+  __admitted();
+}
+
+__GHOST(matrix3_span_unshift) {
+  __reverts(matrix3_span_shift);
   __admitted();
 }
 

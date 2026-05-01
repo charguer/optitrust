@@ -347,6 +347,14 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
         if not (is_typ_integer arg_typ) then failwith "MINDEX should only be applied on integer arguments but here has argument '%s' of type '%s'" (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ)
         ) args;
       typ_int
+    | Trm_var xf, _ when (List.length args / 2) <= (Matrix_trm.max_nb_dims) && var_eq xf (Matrix_trm.dmindex_var (List.length args / 2)) ->
+      (* TODO: This should not be a special case. We should add a way to register pure arithmetic functions that can be used both in code and in specs *)
+      assert ((List.length args) mod 2 = 0);
+      List.iter (fun arg ->
+        let arg_typ = compute_pure_typ env arg in
+        if not (is_typ_integer arg_typ) then failwith "DMINDEX should only be applied on integer arguments but here has argument '%s' of type '%s'" (Ast_to_c.ast_to_string arg) (Ast_to_c.typ_to_string arg_typ)
+        ) args;
+      typ_int
     | Trm_var xf, _ when (List.length args) <= (Matrix_trm.max_nb_dims) && var_eq xf (Matrix_trm.msize_var (List.length args)) ->
       (* TODO: This should not be a special case. We should add a way to register pure arithmetic functions that can be used both in code and in specs *)
       List.iter (fun arg ->
@@ -456,6 +464,18 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   : used_resource_item * linear_resource_set * unification_ctx =
   let open Option.Monad in
 
+  (* DesyncGroup coercion *)
+  (* TODO: does this need to change the formula instantiation? "Formula_inst.inst_forget_group?"
+    how would it combine with Uninit? *)
+  let desyncgroup_coerce formula_candidate =
+    Pattern.pattern_match formula_candidate [
+      Pattern.(formula_group !__ (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) !__)
+      (fun idx dim inner_formula () ->
+        formula_desyncgroup idx dim inner_formula
+      );
+      Pattern.__ (fun () -> formula_candidate)
+    ] in
+
   let rec extract
     (f : resource_item -> (used_resource_item * resource_item option * unification_ctx) option)
     (res: linear_resource_set)
@@ -481,14 +501,21 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
     (* Used by {!subtract_linear_resource_item} in the case where [formula] is not a read-only resource. *)
     (* LATER: Improve the structure of the linear_resource_set to make this
       function faster on most frequent cases *)
+    let is_desyncgroup = Option.is_some (formula_desyncgroup_inv formula) in
     extract (fun (candidate_name, formula_candidate) ->
+(*      (try
+        Printf.printf "ref: (%s) %s\ncandidate: (%s) %s \n\n" (if uninit then "UNINIT" else "INIT") (Ast_to_c.ast_to_string formula) (if (is_formula_uninit formula_candidate) then "UNINIT" else "INIT") (Ast_to_c.ast_to_string formula_candidate)
+      with CannotTransformIntoUninit _ -> ());*)
       try
+
+        let formula_candidate = if is_desyncgroup then (desyncgroup_coerce formula_candidate) else formula_candidate in
         let inst_by, formula_to_unify =
           (* Check for possible Uninit coercion if formula_candidate is not already uninit *)
-          if uninit && not (is_formula_uninit formula_candidate) then
+          if uninit && not (is_formula_uninit formula_candidate) then (
+            (*Printf.printf "unify %s with %s \n" (Ast_to_c.ast_to_string formula) (Ast_to_c.ast_to_string (formula_uninit formula_candidate));*)
             Formula_inst.inst_forget_init candidate_name, formula_uninit formula_candidate
-          else Formula_inst.inst_hyp candidate_name, formula_candidate
-        in
+          ) else
+            Formula_inst.inst_hyp candidate_name, formula_candidate in
         let* evar_ctx = trm_unify formula formula_to_unify evar_ctx (try_compute_and_unify_typ pure_ctx) in
         Some (
           { hyp = x; inst_by; used_formula = formula_to_unify },
@@ -1180,6 +1207,7 @@ let delete_stack_allocs instrs res =
   let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
   (removed_res, linear)
 
+
 let check_pure_resource_types ~(pure_ctx: pure_env) (pure_res: pure_resource_set): pure_env =
   List.fold_left (fun pure_ctx (pure_var, typ) ->
       let sort = compute_pure_typ pure_ctx typ in
@@ -1209,17 +1237,19 @@ let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): uni
 
 (* [sync_simplification res]: eagerly simplify any Sync(fM, H) permissions in [res],
   turning DesyncGroups to Groups. Simplification gets stuck if a term of the form
-    p ~~>[M] v is encountered in H and M does not satisfy the memory type predicate fM. *)
-let sync_simplification (res: resource_set): resource_set =
+    p ~~>[M] v is encountered in H and M does not satisfy the memory type predicate fM.
+  If [magic] is true, fM is not checked (works on any kind of Cell). *)
+let sync_simplification ?(magic = false) (res: resource_set): resource_set =
   let find_mem_fn_proof (mem_fn: trm) (mem: trm) =
     let proof_type = (trm_apps mem_fn [mem]) in
     List.find_opt (fun (_,r) -> Trm_unify.are_same_trm proof_type r) res.pure in
   let rec simplify (mem_fn: trm) (t: trm) = Pattern.pattern_match t [
     Pattern.(formula_group !__ !__ !__) (fun idx range sub () ->
       formula_group idx range (simplify mem_fn sub));
-    Pattern.(formula_desyncgroup !__ __ !__ !__) (fun idx bound sub () ->
+    Pattern.(formula_desyncgroup !__ !__ !__) (fun idx bound sub () ->
       formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (simplify mem_fn sub));
     Pattern.(formula_points_to !__ !__ !__) (fun var model mem_typ () ->
+      if magic then t else
       match (find_mem_fn_proof mem_fn mem_typ) with
       | Some _ -> t
       | None -> formula_sync mem_fn t
@@ -1725,13 +1755,14 @@ let rec compute_resources
         (* TODO: a solution for Sync(...) as a precondition; this only works when it is a postcondition *)
         let res_after = sync_simplification res_after in
         Some usage_map, Some res_after
-
       with
       | Spec_not_found fn when var_eq fn Trm.var_sizeof ->
         begin match effective_args with
         | [ty_arg] ->
           (* LATER: Count the type as a required resource *)
-          Some empty_usage_map, Some res
+          (* NOTE: using int as return for sizeof, since usize is not compatible with loop indices bounds etc. *)
+          let res = Resource_set.add_alias var_result (trm_sizeof ty_arg) res in
+          with_result typ_int (Some (Var_map.singleton var_sizeof Required)) res
         | _ -> failwith "expected 1 argument for sizeof"
         end
 
@@ -1874,8 +1905,27 @@ let rec compute_resources
         (* FIXME: Admitted should only be allowed as a flag on contracts.
           This is dangerous for transformations that can take admitted as a normal instruction in a sequence *)
         None, None
+      | Spec_not_found fn when var_eq fn Gpu_trm.magic_barrier_var ->
+        (* TODO: does this need to add the pure facts to usage map? *)
+        let usage_map = ref Var_map.empty in
+        let res = { res with linear = List.map (fun (v,h) -> if (formula_has_desyncgroups h) then (
+          let v' = new_anon_hyp () in
+          let usage = if is_formula_uninit h then ConsumedUninit else ConsumedFull in
+          usage_map := add_usage v usage !usage_map;
+          usage_map := add_usage v' Produced !usage_map;
+          (* pass a dummy term, proposition is not important since we are passing magic=true
+          this term wouldn't typecheck (trm_lit Lit_unit doesn't have type MemType -> Prop), but
+          it is assumed that the sync would be removed after simplification because magic=true. *)
+          v', formula_sync (trm_lit Lit_unit) h)
+        else (v,h)) res.linear} in
+        (* TODO: should not need this magic option in sync_simplification;
+          should just be able to pass a trivial Prop that the
+          typechecker can prove. Need to refactor sync_simplification to leverage the full
+          typechecker though because currently it just scans the context for a proof of the
+          requested proposition. *)
+        let res = sync_simplification ~magic:true res in
+        Some !usage_map, Some res
       end
-
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
     | Trm_for (range, mode, body, contract) ->
       let contract_ctx = pure_env res in
@@ -2058,6 +2108,7 @@ let rec trm_deep_copy (t: trm) : trm =
 let mindex_msize_specs =
   List.fold_left (fun specs n ->
     let mindex_name = Matrix_trm.mindex_var n in
+    let dmindex_name = Matrix_trm.dmindex_var n in
     let msize_name = Matrix_trm.msize_var n in
     let dims = List.map (fun i -> new_var (sprintf "N%s" (string_of_int i))) (List.range 1 n) in
     let indices = List.map (fun i -> new_var (sprintf "i%s" (string_of_int i))) (List.range 1 n) in
@@ -2072,7 +2123,13 @@ let mindex_msize_specs =
       pre = Resource_set.make ~pure:typed_dims ();
       post = Resource_set.make ~pure:[var_result, typ_int] ~aliases:(Var_map.singleton var_result (trm_apps (trm_var msize_name) (List.map trm_var dims))) ()
     }; inverse = None } in
-    Var_map.add mindex_name mindex_spec (Var_map.add msize_name msize_spec specs)
+    let dmindex_spec = { args; contract = {
+      pre = Resource_set.make ~pure:typed_args ();
+      post = Resource_set.make ~pure:[var_result, typ_int] ~aliases:(Var_map.singleton var_result (trm_apps (trm_var dmindex_name) (List.map trm_var args))) ()
+    }; inverse = None } in
+    let specs = Var_map.add msize_name msize_spec specs in
+    let specs = Var_map.add mindex_name mindex_spec specs in
+    Var_map.add dmindex_name dmindex_spec specs
   ) Var_map.empty (List.range 0 Matrix_trm.max_nb_dims)
 
 let ignore_spec =
@@ -2114,7 +2171,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_formula.var_range, typ_pure_simple_fun [typ_int; typ_int; typ_int] typ_range;
   Resource_formula.var_counted_range, typ_pure_simple_fun [typ_int; typ_int] typ_range;
   Resource_formula.var_group, typ_pure_simple_fun [typ_range; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
-  Resource_formula.var_desyncgroup, typ_pure_simple_fun [typ_range; typ_int; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
+  Resource_formula.var_desyncgroup, typ_pure_simple_fun [typ_int; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_threadsctx, typ_pure_simple_fun [typ_range] typ_hprop;
   Resource_formula.var_sync, typ_pure_simple_fun [typ_pure_simple_fun [typ_mem_type] typ_prop; typ_hprop] typ_hprop;
   Resource_formula.var_frac, typ_type;
@@ -2126,6 +2183,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_formula.var_or, typ_pure_simple_fun [typ_prop; typ_prop] typ_prop;
   Resource_formula.var_frac_div, typ_pure_simple_fun [typ_frac; typ_int] typ_frac;
   Resource_formula.var_frac_sub, typ_pure_simple_fun [typ_frac; typ_frac] typ_frac;
+  var_sizeof, typ_pure_simple_fun [typ_type] typ_int; (* TODO: having to use int for pure formulas instead of usize *)
   Resource_formula.var_spec_override_ret, (let typ = new_var "T" in let res = new_var "v" in typ_pure_fun [typ, typ_type; res, (typ_var typ)] (typ_prop));
   Resource_formula.var_spec_override_noret, (typ_pure_fun [] (typ_prop));
   Resource_formula.var_spec_override_ret_implicit, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_prop));

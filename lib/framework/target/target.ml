@@ -413,7 +413,8 @@ let cVarsDef ?(regexp : bool = false) ?(substr : bool = false) ?(body : target =
      [start] - match based on the initial value trm
      [direction] - match based on the direction of the loop
      [stop] - match based on the bound value trm
-     [body] - match based on the step value trm
+     [step] - match based on the step value trm
+     [body] - match based on the body of the loop
      [index] - match based on the index. *)
 let cFor ?(mode : loop_mode option) ?(start : target = []) ?(direction : loop_dir option) ?(stop : target = []) ?(step : target = [])
   ?(body : target = []) (index : string) : constr =
