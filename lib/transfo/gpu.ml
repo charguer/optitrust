@@ -4,6 +4,11 @@ open Flags
 
 include Gpu_basic
 
+(** [convert_tail_thread_for loops leaf] given a target [leaf] to a loop which is in tail position, convert len([loops]) number of loops
+  (also in tail position, except for the last) surrounding it to thread for.
+  A loop is in tail position if the only thing proceeding it is a ghost or the end of a surrounding loop.
+  The list [loops] is a list containing either 0 or 1: 0 means skip conversion (leave it as sequential for), 1 means convert.
+  It is always assumed that the leaf will be converted. *)
 let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
   let fission_helper tg =
     Flags.with_flag Flags.check_validity true (fun () -> Loop.fission tg) in
@@ -37,6 +42,10 @@ let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
     Target.iter (aux (next_m ()) (1 :: loops)) leaf;
   )
 
+(** [convert_magic_thread_fors ~patch_steps tg]: convert all loops pointed to by [tg] to thread for from magic thread for.
+  [tg] should only point to loops, but it is OK if it points to loops that are not magic thread for, it will just skip those.
+  For example, you can probably use something like [nbAny; cFor "outermost_block_loop"; cFor] most of the time.
+  If supplied, [~patch_steps] is called before recomputing resources, this is useful if some ghosts for rewriting threadsctx need to be added. *)
 let%transfo convert_magic_thread_fors ?(patch_steps: unit -> unit = fun () -> ()) (tg: target) =
   Flags.with_flag Flags.recompute_resources_between_steps false (fun () ->
   Target.apply_at_target_paths (fun t ->
@@ -51,6 +60,7 @@ let%transfo convert_magic_thread_fors ?(patch_steps: unit -> unit = fun () -> ()
   Resources.ensure_computed ();
   Resources.make_strict_loop_contracts tg)
 
+(** [convert_to_global_mem tg] convert the targeted declaration to global memory, replacing all operations on that variable with the appropriate ones. *)
 let%transfo convert_to_global_mem (tg: target): unit =
   Target.iter (fun p ->
     let _,tg_seq_p = Path.index_in_seq p in
@@ -59,7 +69,8 @@ let%transfo convert_to_global_mem (tg: target): unit =
     )
   ) tg
 
-
+(** [convert_to_shared_mem ~chop_dims tg] convert the targeted declaration to shared memory, replacing all operations on that variable with the appropriate ones.
+  [chop_dims]: number of dimensions that will become distributed, that should be chopped off. E.g. If there are 2 block dimensions, then chop_dims should most likely just be 2. *)
 let%transfo convert_to_shared_mem ~(chop_dims: int) (tg: target): unit =
   Target.iter (fun p ->
     let _,tg_seq_p = Path.index_in_seq p in

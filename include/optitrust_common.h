@@ -882,31 +882,30 @@ __GHOST(ro_mindex3_fold) {
 /* -------- Conditional heap permissions -------- */
 
 // If(P,H) means that the heap assertion H holds if the pure proposition P holds.
-// If P holds, then we can get H from If(P,H). If P does not hold, anything can be H.
+// If P holds, then we can get H from If(P,H). If P does not hold, we can consume If(P,H) (since it means nothing) or rewrite it to If(P,H2) for any H2.
 __DECL(If, "(Prop * HProp) -> HProp");
 
-__GHOST(if_false_rewrite) {
+__GHOST(if_false_hprop_rewrite) {
   __requires("b: bool, H: HProp, H2: HProp, HP: __is_false(b)");
   __consumes("If(__is_true(b), H)");
   __produces("If(__is_true(b), H2)");
   __admitted();
 }
 
-// TODO: is this right?
-__GHOST(if_false_elim) {
+__GHOST(if_false_hprop_drop) {
   __requires("b: bool, H: HProp, HP: __is_false(b)");
   __consumes("If(__is_true(b), H)");
   __admitted();
 }
 
-__GHOST(if_true_elim) {
+__GHOST(if_true_hprop_elim) {
   __requires("b: bool, H: HProp, HP: __is_true(b)");
   __consumes("If(__is_true(b), H)");
   __produces("H");
   __admitted();
 }
 
-__GHOST(if_true_intro) {
+__GHOST(if_true_hprop_intro) {
   __requires("b: bool, H: HProp, HP: __is_true(b)");
   __consumes("H");
   __produces("If(__is_true(b), H)");

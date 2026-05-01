@@ -31,6 +31,20 @@ let ghost_var_kernel_teardown_sync = toplevel_var "kernel_teardown_sync"
 (* LATER: put all the kernel-related targets (setup end, teardown begin, etc.) into one record that is passed around to all the GPU transfos.
 Each transfo takes what they need (for example, shared memory transformation wants to know about setup end position to put malloc), rather than the user having to manage it.
 Get rid of the arguments here and just take a reference to the record of targets. *)
+(** [create_kernel_launch ~grid_override ~setup_end ~teardown_begin bpgs tpbs smem_szs start stop]:
+  wrap the subsequence of instructions given by [start] and [stop] in a sequence and add GPU kernel transition calls inside
+  [start] - target to instruction in sequence, will be start of kernel sequence
+  [stop] - end of sequence
+  [bpgs] - list of block dimensions, will be passed as MSIZE(bpgs...) in kernel launch call
+  [tpbs] - list of thread dimensions, will be passed as MSIZE(tpbs...) in kernel launch call
+  [smem_szs] - list of sizes of shared memory to allocate (in bytes).
+    Each element in the list is the size of one allocation for use with smem_alloc.
+    They are passed as fold(+, smem_szs) in the kernel launch call.
+  [setup_end] - optional target for where to insert kernel_setup_end() call - default is directly after kernel_launch
+  [teardown_begin] - optional target for where to insert kernel_teardown_begin() call - default is directly before kernel_kill
+  [grid_override] - if supplied, this will insert a rewrite ghost so the ThreadsCtx is MSIZE(grid_override...) instead of the default MSIZE(bpgs) * MSIZE(tpbs). (It is asserted, not assumed.)
+    Useful in cases where the loop structure won't match the structure from the launch for example if you are flattening all the blocks and threads into one dimension (like vector add).
+*)
 let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: target option) ?(teardown_begin: target option) (bpgs: trm list) (tpbs: trm list) (smem_szs: trm list)
   (start: target) (stop: target): unit =
   (fun () -> (fun () -> (fun next_m ->
@@ -75,6 +89,9 @@ let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: 
 
 (* ------------------- Thread for conversion ------------------------- *)
 
+(** [seq_for_to_magicthread_for ~barrier_mark tg]: basic transformation to convert the loop at [tg] to magic thread for.
+  It will insert a magic barrier directly after, unless there already is one after.
+  If [barrier_mark] is supplied, it will mark the barrier with that mark. *)
 let%transfo seq_for_to_magicthread_for ?(barrier_mark: mark = "") (tg: target) =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let seq_ind, p = try (
@@ -140,7 +157,14 @@ let ghost_dmindex_untile dims res_pattern =
 
 (* Memory specifications *)
 
+(* An op_handler takes the variable of the resource currently being converted,
+the auxiliary data used for converting that variable ('a), the list of arguments for the operation being converted,
+and returns the converted term. *)
 type 'a op_handler = (var * 'a) -> (trm list) -> trm
+(* Every memory type has an implementation of memory_spec, which says how to convert each of the normal (Any) operations
+to those specialized for that type. Some memory types may need auxiliary data such as array dimensions, collected from the declaration/allocation, which is the 'a.
+Alloc, get, set, and free must be handled, but the memory type can define handlers for other operations, given patterns that match those operations.
+The variable of the memory type must also be provided (cell_var) e.g. SMem for shared memory. *)
 type 'a memory_spec = {
   alloc_handler: trm -> (trm * 'a * var);
   get_handler: 'a op_handler;
@@ -150,6 +174,7 @@ type 'a memory_spec = {
   extra_patterns: (var * 'a) -> (typ -> typ) -> (typ -> unit -> typ) list
 }
 
+(** [convert_memory spec alloc_tg] converts the variable declared in [alloc_tg] to the memory type given by the specification [spec]. *)
 let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
   let open Resource_formula in
   let rec convert_cell_mem_type f =
@@ -199,6 +224,9 @@ let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
      ) seq
   ) alloc_tg
 
+(** [fix_distrib_accesses] fixes distributed dimensions: e.g. if a 4D buffer declared at the kernel level is
+  converted to shared memory, and there are 2 dimensions of blocks, then there are now 2 distributed dimensions.
+  This function would convert all instances of MINDEX4(...) on that variable to MINDEX3(DMINDEX2(...), ...). *)
 let fix_distrib_accesses ~(aliases: Var_set.t ref) (chop_dims: int) (body_span_tg: target) (alloc_tg: target): unit =
   let body_seq_path,body_seq_span = Target.resolve_target_span_exactly_one body_span_tg in
   let _ = Target.resolve_target_exactly_one alloc_tg in (* expect only one target *)
@@ -239,6 +267,8 @@ let fix_distrib_accesses ~(aliases: Var_set.t ref) (chop_dims: int) (body_span_t
       Mlist.to_list (Mlist.map (fun instr -> Trm (aux 0 instr)) instrs))
     ) body_seq_path) alloc_tg
 
+(** [desync_alloc_ghosts] inserts the rewriting ghosts needed to take the flattened DesyncGroup of all distributed dimensions,
+which is produced by smem_alloc, treg_alloc, etc. into a nest of DesyncGroups, which can be used in a `thread for`. *)
 let desync_alloc_ghosts (inverse: bool) (distrib_dims: trm list) (real_dims: trm list) (matrix: var) (mem_typ: trm): trms =
   let open Resource_formula in
 
@@ -318,7 +348,6 @@ let desync_alloc_ghosts (inverse: bool) (distrib_dims: trm list) (real_dims: trm
   msize_assume :: ghosts
 
 (* Global memory specification *)
-
 let gmem_spec : unit memory_spec = {
   alloc_handler = (fun alloc_trm -> (
     let error = "Gpu.convert_to_global_mem: expected target to point to a matrix allocation" in
@@ -351,7 +380,6 @@ let gmem_spec : unit memory_spec = {
 }
 
 (* Shared memory specification *)
-
 let smem_spec ?(alloc_mark="") ?(free_mark="") (chop_dims: int): (trm list * trm list) memory_spec = {
   alloc_handler = (fun alloc_trm -> (
     let error = "Gpu.convert_to_global_mem: expected target to point to a matrix allocation" in
@@ -379,6 +407,9 @@ let smem_spec ?(alloc_mark="") ?(free_mark="") (chop_dims: int): (trm list * trm
   extra_patterns = (fun (var,_) aux -> []);
 }
 
+(* There is a separate handler for variables that are aliases of shared memory resources.
+We want to convert the operations, and the cells, but often the aliases refer to sub-tiles that have already thrown
+away all the distributed dimensions, so this special case assumes they don't need to be adjusted again. *)
 let smem_alias_spec (alias_var: var): unit memory_spec = {
   alloc_handler = (fun t -> (t,(),alias_var));
   get_handler = (fun _ args -> trm_apps (trm_var var__smem_get) args);
@@ -390,7 +421,23 @@ let smem_alias_spec (alias_var: var): unit memory_spec = {
 
 (* ----------------------- Barrier conversion ------------------------ *)
 
-
+(** [remove_loop_around_barrier] simplifies the pattern
+{[
+// { desync_for ..N -> desync_for ..M -> H }
+for (int i = 0; i < N; i++) {
+  __xconsumes("desync_for ..M -> H");
+  __xproduces("for 0..M -> H");
+  magic_barrier();
+}
+// { desync_for ..N -> for 0..M -> H }
+]}
+-->
+{[
+// { desync_for ..N -> desync_for ..M -> H }
+magic_barrier();
+// { for 0..N -> for 0..M -> H }
+]}
+*)
 let remove_loop_around_barrier (tg: target): unit =
   Target.iter (fun p ->
     let barrier_error = "Gpu_basic.remove_loop_around_barrier: expected magic barrier at target"  in

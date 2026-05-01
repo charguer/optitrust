@@ -1468,22 +1468,22 @@ let ghost_group_elim_one item =
 let var_formula_If = toplevel_var "If"
 let formula_If (cond: formula) (h: formula) = (trm_apps ~annot:Resource_formula.formula_annot ~typ:typ_hprop (trm_var var_formula_If) [cond; h])
 
-let ghost_var_if_false_rewrite = toplevel_var "if_false_rewrite"
-let ghost_var_if_true_elim = toplevel_var "if_true_elim"
-let ghost_var_if_true_intro = toplevel_var "if_true_intro"
-let ghost_var_if_false_elim = toplevel_var "if_false_elim"
+let ghost_var_if_false_hprop_rewrite = toplevel_var "if_false_hprop_rewrite"
+let ghost_var_if_true_hprop_elim = toplevel_var "if_true_hprop_elim"
+let ghost_var_if_true_hprop_intro = toplevel_var "if_true_hprop_intro"
+let ghost_var_if_false_hprop_drop = toplevel_var "if_false_hprop_drop"
 
-let ghost_if_false_rewrite ?b from into =
-  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_false_rewrite) (["b",b; "H",Some from; "H2",Some into]))
+let ghost_if_false_hprop_rewrite ?b from into =
+  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_false_hprop_rewrite) (["b",b; "H",Some from; "H2",Some into]))
 
-let ghost_if_false_elim ?b h =
-  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_false_elim) (["b",b; "H",Some h]))
+let ghost_if_false_hprop_drop ?b h =
+  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_false_hprop_drop) (["b",b; "H",Some h]))
 
-let ghost_if_true_elim ?b ?hp h =
-  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_true_elim) (["b",b; "HP",hp; "H",Some h]))
+let ghost_if_true_hprop_elim ?b ?hp h =
+  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_true_hprop_elim) (["b",b; "HP",hp; "H",Some h]))
 
-let ghost_if_true_intro ?b ?hp h =
-  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_true_intro) (["b",b; "HP",hp; "H",Some h]))
+let ghost_if_true_hprop_intro ?b ?hp h =
+  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_true_hprop_intro) (["b",b; "HP",hp; "H",Some h]))
 
 (* LATER: refactor with other loop/if transfos such as expand_range, fold, etc.
   modify those to support contracts/models like this one. *)
@@ -1561,18 +1561,18 @@ let%transfo intro_loop_single_on ?(index: string = "t") (bound: trm) (start_tg: 
       let if_cond_proof_var = new_var (fresh_var_name ~prefix:"Hcond" ()) in
 
       let then_elim_ghosts = List.map (fun (_,f) ->
-        ghost_if_true_elim ~hp:(trm_var if_cond_proof_var) f
+        ghost_if_true_hprop_elim ~hp:(trm_var if_cond_proof_var) f
       ) !before in
       let then_intro_ghosts = List.map (fun (_,f) ->
-        ghost_if_true_intro ~hp:(trm_var if_cond_proof_var) f
+        ghost_if_true_hprop_intro ~hp:(trm_var if_cond_proof_var) f
       ) !after in
       assert (List.length !before >= List.length !after); (* only one case handled for now *)
       let before_rewrite,before_drop = List.split_at (List.length !after) !before in
       let else_ghosts = List.map2 (fun (_,f1) (_,f2) ->
-        ghost_if_false_rewrite f1 f2
+        ghost_if_false_hprop_rewrite f1 f2
       ) before_rewrite !after in
       let else_ghosts = else_ghosts @ (List.map (fun (_,f) ->
-        ghost_if_false_elim f) before_drop) in
+        ghost_if_false_hprop_drop f) before_drop) in
 
       let assert_if_cond = Resource_trm.ghost_assert if_cond_proof_var
         (formula_eq ~typ:typ_int (trm_var range.index) (trm_int 0)) in
