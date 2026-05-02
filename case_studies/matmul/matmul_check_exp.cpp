@@ -1,5 +1,4 @@
-#include <optitrust.h>
-
+#include <optitrust_erased.h>
 #include "omp.h"
 // NOTE: using pretty matrix notation
 

@@ -1,11 +1,8 @@
 #ifndef OPTITRUST_INTRINSICS_H
 #define OPTITRUST_INTRINSICS_H
 
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
+#include <optitrust_erased.h>
 #include <assert.h>
-#include <string.h>
 #include <functional>
 
 /* ---- Resource Annotations ---- */

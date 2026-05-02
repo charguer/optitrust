@@ -1,3 +1,0 @@
-mkl
-numpy
-apache-tvm
