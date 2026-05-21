@@ -96,6 +96,11 @@ let compile () : unit =
       nbAny;
       cMark Apac_macros.candidate_body_mark
     ];
+  !? "Squash task candidates in innermost loop bodies"
+    Apac_task_candidate_discovery.squash_candidates [
+      nbAny;
+      cMark Apac_macros.candidate_body_mark
+    ];
   if !Apac_flags.profile then
     begin
       bigstep "Execution time modeling";

@@ -491,7 +491,9 @@ end
 module TaskGraphTraverse : sig
   type t = Strict | Priority | Relaxed
   val fold : TaskGraph.t -> TaskGraph.V.t list
+  val count_taskifiable : TaskGraph.t -> int
   val has_taskifiable : TaskGraph.t -> bool
+  val remove_taskifiable : TaskGraph.t -> unit
   val to_ast : (TaskGraph.V.t -> trms) -> TaskGraph.t -> trms
   val iter : (TaskGraph.V.t -> unit) -> TaskGraph.t -> unit
   val iter_schedule : (TaskGraph.V.t -> unit) -> TaskGraph.t -> unit
@@ -550,6 +552,22 @@ end = struct
         Int.compare t1.schedule t2.schedule
       ) vs
 
+  (** [TaskGraphTraverse.count_taskifiable g]: counts eligible task candidates,
+      i.e., task candidates carrying the [Taskifiable] attribute, within the
+      task candidate graph [g] and all of its nested task candidate graphs. *)
+  let rec count_taskifiable (g : TaskGraph.t) : int =
+    TaskGraph.fold_vertex (fun v acc ->
+        let t = TaskGraph.V.label v in
+        acc +
+          (if Task.attributed t Taskifiable then 1 else 0) +
+            (List.fold_left (fun acc gl ->
+                 acc +
+                   (List.fold_left (fun acc go ->
+                        acc + (count_taskifiable go)
+                      ) 0 gl)
+               ) 0 t.children)
+      ) g 0
+
   (** [TaskGraphTraverse.has_taskifiable g]: checks whether the task candidate
       graph [g] or any of its nested task candidate graphs feature at least one
       eligible task candidate, i.e. a task candidate carrying the [Taskifiable]
@@ -566,6 +584,17 @@ end = struct
                       ) false gl)
                ) false t.children)
       ) g false
+
+  (** [TaskGraphTraverse.remove_taskifiable g]: remove the [Taskifiable]
+      attribute from all the task candidates in the task candidate graph [g] and
+      all of its nested task candidate graphs. *)
+  let rec remove_taskifiable (g : TaskGraph.t) : unit =
+    TaskGraph.iter_vertex (fun v ->
+        let t = TaskGraph.V.label v in
+        t.attrs <- TaskAttr_set.remove Taskifiable t.attrs;
+        List.iter (fun gl ->
+            List.iter (fun go -> remove_taskifiable go) gl) t.children
+      ) g
   
   (** [TaskGraphTraverse.to_ast f g]: recursively traverses and translates the
       task candidate graph [g] into an abstract syntax tree by applying the

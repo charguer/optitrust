@@ -1581,6 +1581,76 @@ let detect_tasks_simple_on (p : path) (t : trm) : unit =
 let detect_tasks_simple (tg : target) : unit =
   Target.iter (fun t p -> detect_tasks_simple_on p (get_trm_at_path p t)) tg
 
+let squash_candidates_on (p : path) (t : trm) : unit =
+  let rec aux (v : TaskGraph.V.t) : unit =
+    let t = TaskGraph.V.label v in
+    if TaskAttr_set.mem IsInnermostLoop t.attrs then
+      begin
+        let bg = List.nth (List.nth t.children 0) 0 in
+        let bv = TaskGraphTraverse.fold bg in
+        let bvn =
+          List.map (fun v ->
+              let t = TaskGraph.V.label v in
+              (v, (if Task.attributed t Taskifiable then 1 else 0) +
+                    (List.fold_left (fun acc gl ->
+                         acc +
+                           (List.fold_left (fun acc go ->
+                                acc + (TaskGraphTraverse.count_taskifiable go)
+                              ) 0 gl)
+                       ) 0 t.children))
+            ) bv in
+        let bn = List.fold_left (fun acc (_, n) -> acc + n) 0 bvn in
+        if bn == 1 then
+          begin
+            let t', _ = List.find (fun (_, n) -> n == 1) bvn in
+            let p = TaskGraph.pred bg t' in
+            let s = TaskGraph.succ bg t' in
+            if (TaskGraph.in_degree bg (List.hd p)) > 0 ||
+                 (List.length s) > 0 then
+              let v0 = List.hd bv in
+              let vt = List.tl bv in
+              let s0 = TaskGraph.V.label v0 in
+              let sm = Task.copy s0 in
+              sm.schedule <- 1;
+              sm.attrs <- TaskAttr_set.remove Singleton sm.attrs;
+              sm.attrs <- TaskAttr_set.add Taskifiable sm.attrs;
+              let vm = TaskGraph.V.create sm in
+              TaskGraph.add_vertex bg vm;
+              TaskGraph.add_edge bg v0 vm;
+              List.iter (fun v -> TaskGraph.remove_vertex bg v) vt
+          end
+      end
+    else
+      (** Continue looking for innermost loops in all nested candidate graphs of
+          [v], if any. *)
+      List.iter (fun gl ->
+          List.iter (fun go -> TaskGraphTraverse.iter aux go) gl
+        ) t.children
+  in
+  (** Find the parent function [f]. *)
+  let f = match (find_parent_function p) with
+    | Some (v) -> v
+    | None -> fail t.loc
+                "Apac_task_candidate_discovery.squash_candidates_on: unable \
+                 to find parent function. Task group outside of a function?" in
+  (** Find its function record [r] in [!Apac_records.functions]. *)
+  let r = Var_Hashtbl.find functions f in
+  (** Add the [Taskifiable] attribute to every task candidate featuring a call
+      to a function we know the definition of. *)
+  TaskGraphTraverse.iter aux r.graph;
+  (** Dump the resulting task candidate graph, if requested. *)
+  if !Apac_flags.verbose then
+    begin
+      Printf.printf "Task candidate graph of `%s' (squash):\n"
+        (var_to_string f);
+      TaskGraphPrinter.print r.graph
+    end;
+  if !Apac_flags.keep_graphs then
+    TaskGraphExport.to_pdf r.graph (Apac_macros.gf ~suffix:"squash" f)
+
+let squash_candidates (tg : target) : unit =
+  Target.iter (fun t p -> squash_candidates_on p (get_trm_at_path p t)) tg
+
 (** [disqualify_candidates tg]: expects the target [tg] to point at a definition
     of a taskification candidate function. If the task candidate graph of the
     function features no taskifiable task candidates, the transformation pass
