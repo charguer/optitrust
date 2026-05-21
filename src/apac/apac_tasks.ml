@@ -595,6 +595,17 @@ end = struct
         List.iter (fun gl ->
             List.iter (fun go -> remove_taskifiable go) gl) t.children
       ) g
+
+  (** [TaskGraphTraverse.allow_heapification g]: checks whether we should
+      proceed with the heapification (see [!Apac_parallelization.heapify]) of
+      the local variables in the task candidate graph [g]. *)
+  let allow_heapification (g : TaskGraph.t) : bool =
+    let nt = count_taskifiable g in
+    let nv = TaskGraph.nb_vertex g in
+    (** If [g] features at least one eligible task candidate which is not the
+        only vertex of [g] in addition to the root vertex, we can proceed with
+        the heapification of local variables in [g]. *)
+    (nt > 0) && (nv > 2) 
   
   (** [TaskGraphTraverse.to_ast f g]: recursively traverses and translates the
       task candidate graph [g] into an abstract syntax tree by applying the
@@ -633,7 +644,7 @@ end = struct
                      eligible task candidate (a task candidate carrying the
                      [Taskifiable] attribute), and *)
                  let body =
-                   if (has_taskifiable cg) then
+                   if allow_heapification cg then
                      trm_add_mark Apac_macros.heapify_breakable_mark body
                    else body
                  in
@@ -652,7 +663,7 @@ end = struct
                      eligible task candidate (a task candidate carrying the
                      [Taskifiable] attribute), and *)
                  let body =
-                   if (has_taskifiable cg) then
+                   if allow_heapification cg then
                      trm_add_mark Apac_macros.heapify_breakable_mark body
                    else body
                  in
@@ -703,7 +714,7 @@ end = struct
                      eligible task candidate (a task candidate carrying the
                      [Taskifiable] attribute), and *)
                  let body =
-                   if (has_taskifiable cg) then
+                   if allow_heapification cg then
                      trm_add_mark Apac_macros.heapify_breakable_mark body
                    else body
                  in
@@ -722,7 +733,7 @@ end = struct
                      eligible task candidate (a task candidate carrying the
                      [Taskifiable] attribute), and *)
                  let body =
-                   if (has_taskifiable cg) then
+                   if allow_heapification cg then
                      trm_add_mark Apac_macros.heapify_breakable_mark body
                    else body
                  in
@@ -750,10 +761,12 @@ end = struct
                      ) cases cg in
                  (** Finally, rebuild the switch-term. *)
                  trm_switch ~annot:s.annot ~ctx:s.ctx cond cases
-              (** When [s] is a compound statements, we just need to mark it
-                  with the heapification helper mark
-                  [!Apac_macros.heapify_mark]. *)
-              | Trm_seq _ -> trm_add_mark Apac_macros.heapify_mark s
+              (** When [s] is a compound statement, we may need to mark it with
+                  the heapification helper mark [!Apac_macros.heapify_mark]. *)
+              | Trm_seq _ ->
+                 if allow_heapification g then
+                   trm_add_mark Apac_macros.heapify_mark s
+                 else s
               (** In any other case, we leave [s] as is. *)
               | _ -> s
             ) l.current;
