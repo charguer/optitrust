@@ -1607,17 +1607,40 @@ let squash_candidates_on (p : path) (t : trm) : unit =
             let s = TaskGraph.succ bg t' in
             if (TaskGraph.in_degree bg (List.hd p)) > 0 ||
                  (List.length s) > 0 then
-              let v0 = List.hd bv in
-              let vt = List.tl bv in
-              let s0 = TaskGraph.V.label v0 in
-              let sm = Task.copy s0 in
-              sm.schedule <- 1;
-              sm.attrs <- TaskAttr_set.remove Singleton sm.attrs;
-              sm.attrs <- TaskAttr_set.add Taskifiable sm.attrs;
-              let vm = TaskGraph.V.create sm in
-              TaskGraph.add_vertex bg vm;
-              TaskGraph.add_edge bg v0 vm;
-              List.iter (fun v -> TaskGraph.remove_vertex bg v) vt
+              begin
+                if List.for_all (fun tc ->
+                       let tc' = TaskGraph.V.label tc in
+                       (** Does the task candidates of [bv] have any
+                           dependencies [a] on variables local to the scope of
+                           the loop body and carrying the [Accessor]
+                           attribute? *)
+                       let a =
+                         Dep_set.filter (fun d ->
+                             Dep_map.has_with_attribute d Accessor tc'.ioattrs
+                           ) tc'.ins in
+                       Dep_set.for_all (fun d ->
+                           let v = Dep.variable d in Var_map.mem v t.scope
+                         ) a
+                     ) bv
+                then
+                  begin
+                    (** If they do not, i.e., all their dependencies on accessor
+                        variables refer to variables available also outside of
+                        the scope of the loop body, we can proceed with the
+                        squash operation. *)
+                    let v0 = List.hd bv in
+                    let vt = List.tl bv in
+                    let s0 = TaskGraph.V.label v0 in
+                    let sm = Task.copy s0 in
+                    sm.schedule <- 1;
+                    sm.attrs <- TaskAttr_set.remove Singleton sm.attrs;
+                    sm.attrs <- TaskAttr_set.add Taskifiable sm.attrs;
+                    let vm = TaskGraph.V.create sm in
+                    TaskGraph.add_vertex bg vm;
+                    TaskGraph.add_edge bg v0 vm;
+                    List.iter (fun v -> TaskGraph.remove_vertex bg v) vt
+                  end
+              end
           end
       end
     else
