@@ -1586,62 +1586,109 @@ let squash_candidates_on (p : path) (t : trm) : unit =
     let t = TaskGraph.V.label v in
     if TaskAttr_set.mem IsInnermostLoop t.attrs then
       begin
-        let bg = List.nth (List.nth t.children 0) 0 in
-        let bv = TaskGraphTraverse.fold bg in
-        let bvn =
-          List.map (fun v ->
-              let t = TaskGraph.V.label v in
-              (v, (if Task.attributed t Taskifiable then 1 else 0) +
-                    (List.fold_left (fun acc gl ->
-                         acc +
-                           (List.fold_left (fun acc go ->
-                                acc + (TaskGraphTraverse.count_taskifiable go)
-                              ) 0 gl)
-                       ) 0 t.children))
-            ) bv in
-        let bn = List.fold_left (fun acc (_, n) -> acc + n) 0 bvn in
-        if bn == 1 then
+        (** Proceed only if [t] represents a for-loop. *)
+        let loop = List.hd t.current in
+        if is_trm_for_loop loop then
           begin
-            let t', _ = List.find (fun (_, n) -> n == 1) bvn in
-            let p = TaskGraph.pred bg t' in
-            let s = TaskGraph.succ bg t' in
-            if (TaskGraph.in_degree bg (List.hd p)) > 0 ||
-                 (List.length s) > 0 then
+            (** Retrieve the list of vertices [bv] of the task candidate graph
+                of the loop's body [bg]. *)
+            let bg = List.nth (List.nth t.children 0) 0 in
+            let bv = TaskGraphTraverse.fold bg in
+            (** Retrieve in [bvn] the counts of eligible task candidates per
+                vertex in [bv] (including any nested task candidate graphs). *)
+            let bvn =
+              List.map (fun v ->
+                  let t = TaskGraph.V.label v in
+                  (v, (if Task.attributed t Taskifiable then 1 else 0) +
+                        (List.fold_left (fun acc gl ->
+                             acc +
+                               (List.fold_left (fun acc go ->
+                                    acc +
+                                      (TaskGraphTraverse.count_taskifiable go)
+                                  ) 0 gl)
+                           ) 0 t.children))
+                ) bv
+            in
+            (** Count the total number of eligible task candidate graphs in [bv]
+                based on [bvn]. *)
+            let bn = List.fold_left (fun acc (_, n) -> acc + n) 0 bvn in
+            (** Proceed if there is only one eligible task candidate in [bv]. *)
+            if bn == 1 then
               begin
-                (** Are all the dependencies [a] of the task candidates in
-                    [bv] *)
-                if List.for_all (fun tc ->
-                       let tc' = TaskGraph.V.label tc in
-                       (** which carry the [Accessor] attribute *)
-                       let a =
-                         Dep_set.filter (fun d ->
-                             Dep_map.has_with_attribute d Accessor tc'.ioattrs
-                           ) tc'.ins in
-                       Dep_set.for_all (fun d ->
-                           (** declared outside of the scope of the loop body *)
-                           let v = Dep.variable d in
-                           Var_map.mem v t.scope &&
-                             (** and read-only within the loop body? *)
-                             List.for_all (fun c ->
-                                 let c' = TaskGraph.V.label c in
-                                 not (Dep_set.mem d c'.inouts)
-                               ) bv
-                         ) a
-                     ) bv
-                then
+                (** Proceed only if the eligible task candidate is not the root
+                    vertex, i.e., the corresponding vertex has at least one
+                    predecessor, and if it is not the only vertex in the
+                    innermost loop's body, i.e., it has at least one
+                    successor. *)
+                let t', _ = List.find (fun (_, n) -> n == 1) bvn in
+                let p = TaskGraph.pred bg t' in
+                let s = TaskGraph.succ bg t' in
+                if (TaskGraph.in_degree bg (List.hd p)) > 0 ||
+                     (List.length s) > 0 then
                   begin
-                    (** If so, we can proceed with the squash operation. *)
+                    (** Retrieve the root vertex [v0] of the innermost loop's
+                        body and the corresponding task candidate [s0]. *)
                     let v0 = List.hd bv in
-                    let vt = List.tl bv in
                     let s0 = TaskGraph.V.label v0 in
-                    let sm = Task.copy s0 in
-                    sm.schedule <- 1;
-                    sm.attrs <- TaskAttr_set.remove Singleton sm.attrs;
-                    sm.attrs <- TaskAttr_set.add Taskifiable sm.attrs;
-                    let vm = TaskGraph.V.create sm in
-                    TaskGraph.add_vertex bg vm;
-                    TaskGraph.add_edge bg v0 vm;
-                    List.iter (fun v -> TaskGraph.remove_vertex bg v) vt
+                    (** Proceed only if all the inout-dependencies of [s0] are
+                        array accesses, i.e., their degree is greater than 0. *)
+                    if Dep_set.for_all (
+                           fun d -> (Dep.degree d) > 0
+                         ) s0.inouts then
+                      begin
+                        (** Retrieve the induction variable [iv] of the
+                            innermost loop. *)
+                        let iv = Trm.for_loop_index loop in
+                        (** Proceed only if each of the aforementionned accesses
+                            involves a reference to [iv]. *)
+                        if Dep_set.for_all (fun d ->
+                               let ad = Dep.accessors d in Var_set.mem iv ad
+                             ) s0.inouts then
+                          begin
+                            (** Finally, proceed with the squash operation only
+                                if all the dependencies [a] of the task
+                                candidates in [bv] *)
+                            if List.for_all (fun tc ->
+                                   let tc' = TaskGraph.V.label tc in
+                                   (** which carry the [Accessor] attribute *)
+                                   let a =
+                                     Dep_set.filter (fun d ->
+                                         Dep_map.has_with_attribute
+                                           d Accessor tc'.ioattrs
+                                       ) tc'.ins in
+                                   Dep_set.for_all (fun d ->
+                                       (** are declared outside of the scope of
+                                           the loop body *)
+                                       let v = Dep.variable d in
+                                       Var_map.mem v t.scope &&
+                                         (** and read-only within the loop
+                                             body. *)
+                                         List.for_all (fun c ->
+                                             let c' = TaskGraph.V.label c in
+                                             not (Dep_set.mem d c'.inouts)
+                                           ) bv
+                                     ) a
+                                 ) bv
+                            then
+                              begin
+                                let v0 = List.hd bv in
+                                let vt = List.tl bv in
+                                let s0 = TaskGraph.V.label v0 in
+                                let sm = Task.copy s0 in
+                                sm.schedule <- 1;
+                                sm.attrs <-
+                                  TaskAttr_set.remove Singleton sm.attrs;
+                                sm.attrs <-
+                                  TaskAttr_set.add Taskifiable sm.attrs;
+                                let vm = TaskGraph.V.create sm in
+                                TaskGraph.add_vertex bg vm;
+                                TaskGraph.add_edge bg v0 vm;
+                                List.iter (fun v ->
+                                    TaskGraph.remove_vertex bg v
+                                  ) vt
+                              end
+                          end
+                      end
                   end
               end
           end
