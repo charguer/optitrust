@@ -2614,6 +2614,13 @@ let var_has_name (v : var) (n : string) : bool =
     | Some (Lit_int c) when c = cst -> true
     | _ -> false
 
+(** [Trm.is_trm_for_loop t]: checks whether the term [t] represents a
+    for-loop. *)
+let is_trm_for_loop (t : trm) : bool =
+  match t.desc with
+  | Trm_for_c _ | Trm_for _ -> true
+  | _ -> false
+
 (* [is_fun_with_empty_body t]: checks if the function [t] has an empty body or not. *)
 let is_fun_with_empty_body (t : trm) : bool =
   match t.desc with
