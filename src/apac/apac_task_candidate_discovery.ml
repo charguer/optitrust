@@ -1608,26 +1608,29 @@ let squash_candidates_on (p : path) (t : trm) : unit =
             if (TaskGraph.in_degree bg (List.hd p)) > 0 ||
                  (List.length s) > 0 then
               begin
+                (** Are all the dependencies [a] of the task candidates in
+                    [bv] *)
                 if List.for_all (fun tc ->
                        let tc' = TaskGraph.V.label tc in
-                       (** Does the task candidates of [bv] have any
-                           dependencies [a] on variables local to the scope of
-                           the loop body and carrying the [Accessor]
-                           attribute? *)
+                       (** which carry the [Accessor] attribute *)
                        let a =
                          Dep_set.filter (fun d ->
                              Dep_map.has_with_attribute d Accessor tc'.ioattrs
                            ) tc'.ins in
                        Dep_set.for_all (fun d ->
-                           let v = Dep.variable d in Var_map.mem v t.scope
+                           (** declared outside of the scope of the loop body *)
+                           let v = Dep.variable d in
+                           Var_map.mem v t.scope &&
+                             (** and read-only within the loop body? *)
+                             List.for_all (fun c ->
+                                 let c' = TaskGraph.V.label c in
+                                 not (Dep_set.mem d c'.inouts)
+                               ) bv
                          ) a
                      ) bv
                 then
                   begin
-                    (** If they do not, i.e., all their dependencies on accessor
-                        variables refer to variables available also outside of
-                        the scope of the loop body, we can proceed with the
-                        squash operation. *)
+                    (** If so, we can proceed with the squash operation. *)
                     let v0 = List.hd bv in
                     let vt = List.tl bv in
                     let s0 = TaskGraph.V.label v0 in
