@@ -81,6 +81,7 @@ module Dep : sig
   type subscripted_mode = ElementWise | Dimension | Variable
   val degree : t -> int
   val variable : t -> var
+  val accessors : t -> Var_set.t
   val is_trm : t -> bool
   val of_trm : (trm -> trm) -> trm -> var -> int -> t
   val of_range : (trm -> trm) -> trm -> var -> (int * int) -> t list
@@ -125,6 +126,21 @@ end = struct
     | Dep_trm (_, v) -> v
     | Dep_var v -> v
     | Dep_ptr _ -> failwith "Dep.to_string: Unsupported dependency type."
+
+  (** [Dep.accessors d]: returns the set of variables involved in the array
+      accesses of [d], if any. *)
+  let accessors (d : t) : Var_set.t =
+    match d with
+    | Dep_trm (a, v) ->
+       let vs =
+         Trm.trm_fold (fun acc t ->
+             match t.desc with
+             | Trm_var (_, v) -> Var_set.add v acc
+             | _ -> acc
+           ) Var_set.empty a
+       in
+       Var_set.remove v vs
+    | _ -> Var_set.empty
 
   (** [Dep.is_trm d]: checks whether the dependency [d] is of type [Dep_trm]. *)
   let is_trm (d : t) : bool =
