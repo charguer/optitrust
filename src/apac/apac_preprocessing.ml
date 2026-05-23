@@ -184,8 +184,8 @@ let record_functions (tg : target) : unit =
           Apac_records.FunctionRecord.GenerateSequential
             (new_var (Apac_macros.depth_sequential ^ fn.name))
       in
-      (** Build the function record of [fn] while looking and recording write
-          operations to global variables and *)
+      (** Build the function record of [fn] while looking for and recording
+          write operations to global variables and *)
       let r =
         Apac_records.FunctionRecord.create
           args globs (writes body) t sequential in
@@ -1085,9 +1085,9 @@ end = struct
              (** Then, for each argument [arg] of the function call and *)
              List.iter (fun arg ->                 
                  (** for each L-variable [lv] we find in [arg], we have to check
-                     whether it aliases an argument [tg] of [f]. If so, we may
-                     have to unconstify the [tg]-th argument of [f] the variable
-                     [lv] behind the [arg] it is aliasing. *)
+                     whether it aliases an argument [tg] of [f]. If so, we have
+                     to unconstify the [tg]-th argument of [f] the variable [lv]
+                     behind the [arg] it is aliasing. *)
                  let ll = trm_find_memlocs arg in
                  let lva = aliasing aliases ll in
                  List.iter (fun (_, tg) -> Stack.push (f, tg) us) lva

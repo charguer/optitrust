@@ -99,8 +99,9 @@ end = struct
         (** [sequential]: name of the sequential implementation of the
             function. *)
         sequential : n;
-        (** [taskify]: flag telling us whether the function the taskification
-            candidate requirements (see [!section:candidate_preselection]). *)
+        (** [taskify]: flag telling us whether the function fullfils the
+            taskification candidate requirements (see
+            [!section:candidate_preselection]). *)
         mutable taskify : bool
       }
 
