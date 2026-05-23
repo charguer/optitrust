@@ -1,6 +1,6 @@
 open Optitrust
 
-let bots = Apac_macros.cwd () ^ "/case_studies/bots"
+let bots = Sys.getenv "OPTITRUST" ^ "/case_studies/bots"
 
 let includes = [
     bots ^ "/common";

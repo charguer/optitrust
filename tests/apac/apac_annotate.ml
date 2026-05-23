@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let () =
-  let header = Apac_macros.cwd () ^ "/tests/apac/apac_profiling.hpp" in
+  let header = Sys.getenv "OPTITRUST" ^ "/tests/apac/apac_profiling.hpp" in
   Apac_macros.profile_hpp "/dev/null" header;
   Apac_reset.tnt_blast ();
   Run.script_cpp ~check_syntax_at_end:true (fun () ->
