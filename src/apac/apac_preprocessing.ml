@@ -735,6 +735,8 @@ end = struct
                     typ_annot = annot;
                     typ_attributes = attributes } ->
          typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (aux ty))
+      (** When [ty] is an array, add the [const] qualifier to the inner type. *)
+      | Typ_array (ty, s) -> typ_array ~annot ~attributes (typ_const ty) s
       (** When [ty] is a user-defined constructed type and *)
       | Typ_constr (_, id, _) ->
          begin match Context.typid_to_typedef id with
