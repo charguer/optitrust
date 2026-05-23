@@ -2,6 +2,7 @@ open Optitrust
 open Target 
 
 let () =
+  Apac_reset.tnt_blast ();
   Run.script_cpp ~check_syntax_at_end:true (fun () ->
       !! Apac_preprocessing.explode_let_mult [
           nbMulti;
@@ -10,5 +11,4 @@ let () =
       !! Apac_parallelization.heapify [
           cFunBody "main"
         ];
-    );
-  Apac_reset.tnt_blast ()
+    )
