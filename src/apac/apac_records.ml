@@ -320,6 +320,30 @@ let restore_cfeatures (scope : FunctionRecord.s) (t : trm) : trm =
     entries (see [!module:Var_Hashtbl] and [!module:FunctionRecord]). *)
 let functions : FunctionRecord.t Var_Hashtbl.t = Var_Hashtbl.create 10
 
+(** [libc]: a string map where the keys are the names of selected C library
+    fonctions. Each function name maps to a list of pairs where each pair
+    describes an argument of the function. The first element of the pair is a
+    boolean indicating whether the argument is modified by the function ([true]
+    if it is) and an integer indicating the number of levels of indirection of
+    the argument variable. For example, in the case of an argument [n] we would
+    declare in C as [void * n] (likewise in the OptiTrust syntax because
+    arguments are always treated as immutable variables), the corresponding
+    entry in the string map would be the key-value pair (["n"], [1]). This map
+    allows us to be more precise during the constification and dependency
+    discovery phases without having to process the entire C library headers, a
+    thing that OptiTrust is not capable of for now. *)
+let libc : (bool * int) list String_map.t = 
+  let s = String_map.empty in
+  let s = String_map.add "sizeof" [(false, 0)] s in
+  let s = String_map.add "malloc" [(false, 0)] s in
+  let s = String_map.add "alloca" [(false, 0)] s in
+  let s = String_map.add "__builtin_alloca" [(false, 0)] s in
+  let s = String_map.add "calloc" [(false, 0); (false, 0)] s in
+  let s = String_map.add "realloc" [(true, 1); (false, 0)] s in
+  let s = String_map.add "free" [(true, 1)] s in
+  let s = String_map.add "memcpy" [(true, 1); (false, 1); (false, 0)] s in
+  String_map.add "memset" [(true, 1); (false, 0); (false, 0)] s
+
 (** [sequentials]: a list of sequential function variables. *)
 let sequentials : vars ref = ref []
 

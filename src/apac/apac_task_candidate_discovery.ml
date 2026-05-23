@@ -491,11 +491,26 @@ let discover_dependencies
              let access = if (FunctionRecord.is_rw ar) then `InOut else `In in
              main ins inouts dam 0 true access iao arg
            ) (ins, inouts, dam) args r.args
+       else if String_map.mem f.name Apac_records.libc then
+         (** If we do not have [f] on the record in [!Apac_records.functions],
+             let us see if we have it on the record in [!Apac_records.libc] and
+             if so, let us retrieve the mapping of [f] in the latter. *)
+         let r = String_map.find f.name Apac_records.libc in
+         (** Then, we continue the dependency discovery on each argument [arg]
+             in [args] and the corresponding mapping [(rw, _)] in [r] which tell
+             us if an [arg] is read or read-write (see [rw]). This way, we can
+             analyze each [arg] while passing the correct access classification
+             to [!discover_dependencies.main] through its [access] enumeration
+             parameter. *)
+         List.fold_left2 (fun (ins, inouts, dam) arg (rw, _) ->
+             let access = if rw then `InOut else `In in
+             main ins inouts dam 0 true access iao arg
+           ) (ins, inouts, dam) args r
        else
-         (** If we do not have [f] on the record, we cannot know which of the
-             arguments [f] is likely to modify by side-effect. We thus safely
-             consider each argument [arg] in [args] as a potential input-output
-             dependency. *)
+         (** If we do not have [f] on the record at all, we cannot know which of
+             the arguments [f] is likely to modify by side-effect. We thus
+             safely consider each argument [arg] in [args] as a potential
+             input-output dependency. *)
          List.fold_left (fun (ins, inouts, dam) arg ->
              main ins inouts dam 0 true `InOut iao arg
            ) (ins, inouts, dam) args

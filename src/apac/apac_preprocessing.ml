@@ -3,6 +3,8 @@ open Typ
 open Trm
 open Path
 open Target
+open Tools
+open Apac_records
 open Apac_miscellaneous
 
 (** {0:preprocessing Pre-processing}
@@ -1074,10 +1076,34 @@ end = struct
                    fail t.loc (missing_record "analyze_on.aux" f i)
                ) (if extra then (List.tl args) else args);
            end
-         (** When we do not have a constification record for [f'], it means that
-             we do not know the definition of [f'] and thus, we are not able to
-             perform the constification as usual. In this case, we consider that
-             [f'] may alter any of its arguments. *)
+         (** If we do not have a constification record for [f'], let us check
+             whether it is one of the C library functions we have the necessary
+             information about in [!Apac_records.libc]. *)
+         else if String_map.mem f'.name Apac_records.libc then
+           begin
+             (** Let us warn the user about that. *)
+             Printf.printf
+               "[APAC] [Warning] Missing definition of `%s', treating it as a \
+                C library function of the same name.\n" f'.name;
+             (** Then, for each argument [arg] of [f'], the corresponding value
+                 in the binding [lfr] of [f'] in [!Apac_records.libc] and *)
+             let lfr = String_map.find f'.name Apac_records.libc in
+             List.iter2 (fun arg (rw, nli) ->                 
+                 (** for each L-variable [lv] we find in [arg], we have to check
+                     whether it aliases an argument [tg] of [f]. If so, we have
+                     to consult [lfr] to determine whether we should unconstify
+                     the [tg]-th argument of [f] the variable [lv] behind the
+                     [arg] it is aliasing. *)
+                 if nli > 0 && rw then
+                   let ll = trm_find_memlocs arg in
+                   let lva = aliasing aliases ll in
+                   List.iter (fun (_, tg) -> Stack.push (f, tg) us) lva
+               ) args lfr
+           end
+         (** If we do not have a constification record for [f'] and if it is not
+             one of the C library functions in [!Apac_records.libc], it means
+             that we are not able to perform the constification as usual. In
+             this case, we consider that [f'] may alter any of its arguments. *)
          else
            begin
              (** Let us warn the user about that. *)
