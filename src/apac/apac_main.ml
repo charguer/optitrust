@@ -86,13 +86,13 @@ let compile () : unit =
       nbAny;
       cMark Apac_macros.candidate_body_mark
     ];
-  !? "Merge task candidates"
-    Apac_task_candidate_discovery.merge [
+  !? "Select eligible task candidates"
+    Apac_task_candidate_discovery.detect_tasks_simple [
       nbAny;
       cMark Apac_macros.candidate_body_mark
     ];
-  !? "Select eligible task candidates"
-    Apac_task_candidate_discovery.detect_tasks_simple [
+  !? "Merge task candidates"
+    Apac_task_candidate_discovery.merge [
       nbAny;
       cMark Apac_macros.candidate_body_mark
     ];
