@@ -770,6 +770,12 @@ let place_barriers_on (p : path) (t : trm) : unit =
                   (** Note that we must filter out dependencies on new variables
                       from the preceding task candidates too. *)
                   let task'' = Task.copy task' in
+                  task''.ins <-
+                    Dep_set.filter (fun d ->
+                        not (Dep_map.has_with_attribute
+                               d PrivateVariable task''.ioattrs) ||
+                          not (Dep_set.mem d temp.inouts)
+                      ) task''.ins;
                   task''.inouts <-
                     Dep_set.filter (fun d ->
                         not (Dep_map.has_with_attribute
@@ -992,13 +998,16 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
              Dep_set.filter (fun d ->
                  (Dep_map.has_with_attribute d Condition t.ioattrs) &&
                    not (Dep_map.has_with_attribute
-                          d InductionVariable t.ioattrs)
+                          d InductionVariable t.ioattrs) &&
+                     not (Dep_map.has_with_attribute
+                            d PrivateVariable t.ioattrs) 
                ) t.ins)
           else
             (Dep_set.empty, t.ins)
         else
           Dep_set.partition (fun d ->
-              Dep_map.has_with_attribute d InductionVariable t.ioattrs
+              (Dep_map.has_with_attribute d InductionVariable t.ioattrs) ||
+                (Dep_map.has_with_attribute d PrivateVariable t.ioattrs)
             ) t.ins
       in
       let ins' = Dep_set.to_list ins' in
