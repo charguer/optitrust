@@ -9,6 +9,7 @@ module DepAttr : sig
     | ArgInOut
     | InductionVariable
     | NewVariable
+    | PrivateVariable
     | Condition
     | Subscripted
     | Accessor
@@ -26,6 +27,9 @@ end = struct
     | InductionVariable
     (** variable appearing for the first time *)
     | NewVariable
+    (** variable identified for the promotion from a shared variable into a task
+        candidate's private variable through copy *)
+    | PrivateVariable
     (** part of a conditionnal statement, e.g. in an if-statement or in a
         switch-statement *)
     | Condition
@@ -56,6 +60,7 @@ end = struct
     | ArgInOut -> "ArgInOut"
     | InductionVariable -> "InductionVariable"
     | NewVariable -> "NewVariable"
+    | PrivateVariable -> "PrivateVariable"
     | Condition -> "Condition"
     | Subscripted -> "Subscripted"
     | Accessor -> "Accessor"

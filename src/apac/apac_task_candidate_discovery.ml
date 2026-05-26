@@ -249,6 +249,12 @@ let discover_dependencies
                  go with [d]. *)
              match access with
              | `In ->
+                let das =
+                  match List.hd ds with
+                  | Dep_var _ when (List.length ds) == 1 ->
+                     DepAttr_set.add PrivateVariable das
+                  | _ -> das
+                in
                 let ins, dam =
                   List.fold_left (fun (ins, dam) d ->
                       (Dep_set.add d ins,
