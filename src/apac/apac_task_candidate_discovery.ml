@@ -1341,7 +1341,7 @@ let merge_on (p : path) (t : trm) : unit =
     else
       let start' = TaskGraph.V.label start in
       let next = List.hd next in
-      (** Otherwise, we check whether the successor *)
+      (** Otherwise, we check whether the successor [next] *)
       let next' = TaskGraph.V.label next in
       (** can be merged, i.e. whether:
           + it does not carry the [Singleton] attribute or both [start] and its
