@@ -1360,11 +1360,18 @@ let merge_on (p : path) (t : trm) : unit =
       in
       let share = Dep_set.inter start'.inouts ains in
       let notd = (Dep_set.cardinal share) < 1 in
+      (**  + it does not carry the [Taskifiable] attribute while [start] does
+           not and it does not depend on input on a data produced by [start], *)
+      let nttioi =
+         not (Task.attributed start' Taskifiable) &&
+          Task.attributed next' Taskifiable &&
+            (Dep_set.cardinal (Dep_set.inter start'.inouts next'.ins)) > 0
+      in
       (**  + it has no other predecessors than [start]. Indeed, merging such a
             node with another one would break the original lexicographic order
             of the input program. *)
       let spred = (TaskGraph.in_degree g next) < 2 in
-      if (nots || waits) && notd && spred then
+      if (nots || waits) && notd && spred && not nttioi then
         (** If the successor of [start] meets the above conditions, we can
             include it into the sequence. *)
         start :: (seq g next)
