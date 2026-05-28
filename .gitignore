@@ -16,6 +16,7 @@ _doc
 *_after_enc.c
 *_before_enc.cpp
 *_out_enc.cpp
+*_out.opti
 *_out_enc.c
 *_notfmt.cpp
 *_notfmt.cu
