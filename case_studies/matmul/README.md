@@ -1,17 +1,18 @@
 # What is this case study?
 
-Matrix Multiplication case study corresponding to [TVM's schedule](https://web.archive.org/web/20240920165959/https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html) for Intel CPU.
+Matrix Multiplication case study corresponding to [a TVM schedule](https://web.archive.org/web/20240920165959/https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html) for Intel CPU.
 
 - Original TVM code in v0.19.0: https://github.com/apache/tvm/blob/v0.19.0/gallery/how_to/optimize_operators/opt_gemm.py
 - The TVM code was also copy-pasted in [bench.py](bench.py)
 
 # How do I install dependencies?
 
+## Intel OneAPI Base Toolkit
+
 Install the Intel OneAPI Base Toolkit to get access to the `icx` compiler and Intel MKL library (following instructions copy pasted from official documentation):
 ```sh
 # download the key to system keyring
-wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
-| gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
 
 # add signed entry to apt sources and configure the APT client to use Intel repository:
 echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
@@ -20,7 +21,8 @@ echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt
 sudo apt update
 
 # install the Intel® oneAPI Base Toolkit package
-sudo apt install intel-basekit
+sudo apt install intel-oneapi-base-toolkit
+# or : sudo apt install intel-basekit
 ```
 
 Then, everytime you want the Intel tools in your shell environment, run:
@@ -28,13 +30,32 @@ Then, everytime you want the Intel tools in your shell environment, run:
 source /opt/intel/oneapi/setvars.sh
 ```
 
-Install python dependencies (numpy, Intel MKL and Apache TVM):
+## Apache TVM
+
+[Install Apache TVM v0.19.0](https://web.archive.org/web/20240715205122/https://tvm.apache.org/docs/install/from_source.html#install-from-source):
 ```sh
-python3 -m pip install -r pip_requirements.txt 
+sudo apt install -y python3 python3-dev python3-setuptools gcc libtinfo-dev zlib1g-dev build-essential cmake libedit-dev libxml2-dev
+git clone --recursive --depth 1 --branch v0.19.0 https://github.com/apache/tvm tvm
+cd tvm
 ```
+
+Edit `build/config.cmake` to customize the compilation options and enable LLVM support:
+```
+set(USE_LLVM /usr/bin/llvm-config)
+set(LLVM_CONFIG /usr/bin/llvm-config)
+```
+
+Compile the main library:
+```
+make -j4
+```
+
+Install the [`uv` package manager](https://docs.astral.sh/uv/getting-started/installation/) which will handle the TVM Python library.
+Set the correct path to the TVM Python directory in `pyproject.toml`, if it is not `../../../tvm/python`.
 
 ## Versions successfully used
 
+First experiments (Ubuntu 22.04 LTS):
 ```sh
 > oneapi-cli version
 v0.2.0-36-g69364e768c
@@ -46,6 +67,26 @@ Thread model: posix
 
 > python3 --version
 Python 3.10.12
+```
+
+Second experiments (Ubuntu 24.04.2 LTS):
+```sh
+> oneapi-cli version
+v0.2.9-3-g67269ae723
+
+> icx --version
+Intel(R) oneAPI DPC++/C++ Compiler 2025.3.3 (2025.3.3.20260319)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+
+> python3 --version
+Python 3.12.3
+
+> llvm-config --version
+15.0.7
+
+> uv --version
+uv 0.7.17
 ```
 
 # How do I run the benchmarks?

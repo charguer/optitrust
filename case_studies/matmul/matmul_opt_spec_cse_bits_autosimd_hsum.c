@@ -1,4 +1,4 @@
-#include <optitrust.h>
+#include <optitrust_erased.h>
 #include "matmul.h"
 
 // NOTE: using pretty matrix notation
