@@ -1,0 +1,5 @@
+(executable
+  (name alist_monolith_test)
+  (modules naive_alist alist_monolith_test)
+  (libraries optitrust.ast monolith)
+  (flags (:standard -w A-4-44-70-60 -g)))
