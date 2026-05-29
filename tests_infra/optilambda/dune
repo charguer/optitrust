@@ -1,0 +1,17 @@
+(executable
+  (name printer_manual)
+  (modules printer_manual)
+  (libraries optitrust.ast optitrust.optilambda)
+  (flags (:standard -w A-4-44-70-60 -g)))
+
+(test
+  (name printer_basic)
+  (modules printer_basic)
+  (libraries optitrust.ast optitrust.optilambda)
+  (flags (:standard -w A-4-44-70-60 -g)))
+
+(test
+  (name printcpp)
+  (modules printcpp)
+  (libraries optitrust optitrust.optilambda)
+  (flags (:standard -w A-4-33-44-70-60 -g)))
