@@ -7,7 +7,7 @@ EXE := alist_monolith_test.exe
 
 -include $(shell ocamlfind query monolith)/Makefile.monolith
 
-DUNEBUILD := opam exec --switch $(SWITCH) -- dune build --no-print-directory --display quiet
+DUNEBUILD := opam exec --switch $(SWITCH) -- dune build --profile monolith --no-print-directory --display quiet
 
 .PHONY: setup
 setup:
@@ -24,15 +24,15 @@ else
 
 TIMEOUT ?= 10
 MAX_SCENARIOS ?= 1
-EXE := _build/default/tests/alist/alist_monolith_test.exe
+EXE := _build/default/tests_infra/alist/alist_monolith_test.exe
 
 .PHONY: all
 all:
-	dune build alist_monolith_test.exe
+	dune build --profile monolith alist_monolith_test.exe
 
 .PHONY: random
 random: all
-	dune exec ./alist_monolith_test.exe -- --timeout $(TIMEOUT) --max-scenarios $(MAX_SCENARIOS)
+	dune exec --profile monolith ./alist_monolith_test.exe -- --timeout $(TIMEOUT) --max-scenarios $(MAX_SCENARIOS)
 
 .PHONY: test min show summary setup
 test min show summary setup:
