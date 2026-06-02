@@ -23,6 +23,16 @@ fun f[A](x: A, y: B): A [h1, h2] {
 }
 ```
 
+Ghost functions hide the internal `__ghost_ret` return type in the simple display:
+
+```optilambda
+ghost fun assert_prop() {
+	requires P: Prop,
+	         proof: P;
+	ensures proof: P
+}
+```
+
 Function calls with contract arguments and returned contract bindings:
 
 ```optilambda
@@ -43,15 +53,21 @@ Blocks:
 {
 	t1;
 	t2;
-	t3;
-	return x
+	x
 }
 ```
+
+All regular block items end with a semicolon. A final returned expression is
+printed without the `return` keyword and without a trailing semicolon.
 
 Loops:
 
 ```optilambda
-for<seq, up>(i = 0, n, 1) [h1] {
+for<seq> i in 0..n [h1] {
+	BODY
+}
+
+for<seq> i in 0..n:2 {
 	BODY
 }
 ```
@@ -65,14 +81,8 @@ gpu_thread   GpuThread
 magic_thread MagicThread
 ```
 
-Loop directions:
-
-```text
-up      DirUp
-up_eq   DirUpEq
-down    DirDown
-down_eq DirDownEq
-```
+Loop directions are omitted in the simple display. A negative step represents a
+downward loop, e.g. `for<seq> i in n..0:-1`.
 
 Conditionals:
 
@@ -108,6 +118,8 @@ x
 x = 3
 t[i][j]
 t[i][j] = 3
+v.x
+{1, 2}
 ```
 
 The verbose/debug form for indexed accesses may later expose dimensions:
@@ -147,10 +159,10 @@ xconsumes
 Examples:
 
 ```optilambda
-requires h1: x = y;
+requires h1: x = y,
+         h2: y = z;
 produces h2: y = x;
 ```
 
 Logical terms follow the existing resource formula syntax used by
 `resource_cparser.mly`.
-

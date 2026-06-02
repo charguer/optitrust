@@ -1,7 +1,7 @@
 (** Printing options for the OptiLambda textual language. *)
 
 type loop_mode_style =
-  | Short (** Print loop modes as [seq], [par], [gpu_thread], [magic_thread]. *)
+  | Short  (** Print loop modes as [seq], [par], [gpu_thread], [magic_thread]. *)
   | Full  (** Print loop modes using their OCaml constructor names. *)
 
 type style = {
@@ -15,21 +15,22 @@ type style = {
   print_ghosts : bool;
   (* Print OptiTrust marks as [@marks[...]] prefixes. *)
   print_marks : bool;
-  (* Include loop directions in [for<mode, direction>] headers. *)
+  (* Deprecated: loop directions are no longer printed in simple loop headers. *)
   print_loop_direction : bool;
-  (* Print [(i = start, stop)] instead of [(i = start, stop, 1)]. *)
+  (* Omit [:1] from [for<mode> i in start..stop:1]. *)
   omit_default_loop_step : bool;
   (* Choose compact or constructor-style loop mode names. *)
   loop_mode_style : loop_mode_style;
 }
 
-let default = {
-  print_var_ids = false;
-  print_types = true;
-  print_contracts = true;
-  print_ghosts = true;
-  print_marks = true;
-  print_loop_direction = true;
-  omit_default_loop_step = false;
-  loop_mode_style = Short;
-}
+let default =
+  {
+    print_var_ids = false;
+    print_types = true;
+    print_contracts = true;
+    print_ghosts = true;
+    print_marks = true;
+    print_loop_direction = false;
+    omit_default_loop_step = true;
+    loop_mode_style = Short;
+  }
