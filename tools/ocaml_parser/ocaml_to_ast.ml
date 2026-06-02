@@ -370,6 +370,7 @@ let tr_structure_desc (s : structure_item) : trm (* list of trm instead TODO *) 
 (**[tr_structure_list s]: translates an OCaml [structure_item list] into an OptiTrust [trm list].*)
 let tr_structure_list (l : structure_item list) : trm list =
   let str_list = List.map (tr_structure_desc) l in
+  (* Flattening sequences *)
   List.fold_left
     (fun acc t -> match trm_seq_inv t with
       | Some (tl, _) -> acc @ (Mlist.to_list tl)
