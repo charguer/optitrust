@@ -198,7 +198,7 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
 
   if !Flags.dump_as_text then begin
     Printf.printf "generated ast as text : \n";
-    let s = {Ast_to_text.default_style with print_var_id = !Flags.debug_var_id} in
+    let s = {Ast_to_text.default_style with print_var_id = !Flags.debug_var_id; show_other = !Flags.verbose} in
     let ast_style = s in
     print_string (Ast_to_text.ast_to_string ~style:ast_style ast);
   end;

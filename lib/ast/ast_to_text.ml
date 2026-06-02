@@ -475,9 +475,9 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Shortcircuit_and -> string "Shortcircuit_and"
  | Shortcircuit_or -> string "Shortcircuit_or"
 
- | AndAsSwitch -> string "AndAsSwitch"
- | OrAsSwitch -> string "OrAsSwitch"
- | NotAsSwitch -> string "NotAsSwitch"
+ | And_bbe -> string "And_bbe"
+ | Or_bbe -> string "Or_bbe"
+ | Not_bbe -> string "Not_bbe"
 
  | Shortcircuit_neg -> string "Shortcircuit_neg"
  | No_braces id -> string ("No_braces " ^ string_of_int id)

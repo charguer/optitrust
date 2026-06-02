@@ -6,10 +6,13 @@ _doc
 *.ast
 *_out.cpp
 *_out.c
+*_out.ml
 *_before.cpp
 *_before.c
+*_before.ml
 *_after.cpp
 *_after.c
+*_after.ml
 *_before_enc.cpp
 *_after_enc.cpp
 *_after_enc.c

@@ -2270,7 +2270,7 @@ let prepare_for_serialize ?(remove_ctx : bool = false) (t:trm) : trm =
 (** TODO yanni *)
 (* let remove_all_my_cstyle (t:trm) : trm =
   let rec aux t =
-    let t = trm_filter_cstyle (function (AndAsSwitch | IfAsSwitch ..) -> false | ... -> true) t in
+    let t = trm_filter_cstyle (function (And_bbe | IfAsSwitch ..) -> false | ... -> true) t in
     trm_map aux t
     in
   aux t
@@ -2630,17 +2630,17 @@ let trm_ands (ts : trm list) : trm =
 (** [trm_bbe_and]: alias of [trm_and], represents binding [&&] clauses in a bbe. To be used when creating switch clauses.*)
 let trm_bbe_and ?(loc) ?(ctx : ctx option) (b1 : bbe) (b2 : bbe) : bbe =
   let body = trm_my_switch ?loc ?ctx [(b1, b2); (trm_pat_any (), trm_bool false)] in
-  trm_add_cstyle AndAsSwitch body
+  trm_add_cstyle And_bbe body
 
 (** [trm_bbe_or]: represents non-binding [||] clauses in a bbe. To be used when creating switch clauses.*)
 let trm_bbe_or ?(loc) ?(ctx : ctx option) (b1 : bbe) (b2 : bbe) : bbe =
   let body = trm_my_switch ?loc ?ctx [(b1, trm_bool true); (trm_pat_any (), b2)] in
-  trm_add_cstyle OrAsSwitch body
+  trm_add_cstyle Or_bbe body
 
-(**[trm_bbe_neg]: returns [not] clause of a bbe. Is equivalent to [trm_apps (trm_prim Unop_neg) [t1]].*)
+(**[trm_bbe_neg]: returns [not] clause of a bbe.*)
 let trm_bbe_neg ?(loc) ?(ctx : ctx option) (b : bbe) : bbe =
   let body = trm_my_switch ?loc ?ctx [(b, trm_bool false); (trm_pat_any (), trm_bool true)] in
-  trm_add_cstyle NotAsSwitch body
+  trm_add_cstyle Not_bbe body
 
 
 (*****************************************************************************)

@@ -681,12 +681,12 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
 
       (*TODO: check the structure inside before looking at the annotations*)
       let body = match cases with
-        | [(b1, k1); (b2,k2)] when trm_has_cstyle AndAsSwitch t ->
-          decorate_trm style b1 ^^ string "&&" ^^ decorate_trm style k1
-        | [(b1, k1); (b2,k2)] when trm_has_cstyle OrAsSwitch t  ->
-          decorate_trm style b1 ^^ string "||" ^^ decorate_trm style k2
-        | [(b1, k1); (b2,k2)] when trm_has_cstyle NotAsSwitch t ->
-          string "not" ^^ decorate_trm style b1
+        | [(b1, k1); (b2,k2)] when trm_has_cstyle And_bbe t ->
+          decorate_trm style b1 ^^ string " && " ^^ decorate_trm style k1
+        | [(b1, k1); (b2,k2)] when trm_has_cstyle Or_bbe t  ->
+          decorate_trm style b1 ^^ string " || " ^^ decorate_trm style k2
+        | [(b1, k1); (b2,k2)] when trm_has_cstyle Not_bbe t ->
+          string "not " ^^ decorate_trm style b1
         | _ -> let dcases = separate hardline
                             (List.map (fun (bbt, k) ->
                                         string "case" ^^ blank 1 ^^ decorate_trm style bbt ^^ blank 1 ^^

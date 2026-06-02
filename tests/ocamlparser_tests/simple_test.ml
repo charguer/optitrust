@@ -1,0 +1,15 @@
+open Optitrust
+open Prelude
+
+open Trm_matching
+
+let _ = Ast.behavior_ocaml := true
+let _ = Flags.dump_as_c := false
+let _ = Flags.dump_as_text := true
+let _ = Flags.debug_var_id := true
+let _ = Flags.c_parser_name := "Ocaml_parser"
+let _ = Flags.debug_ocaml := false
+let _ = Flags.verbose := false
+
+let _ = Run.script_ml (fun () -> ()
+)
