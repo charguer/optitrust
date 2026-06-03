@@ -13,6 +13,11 @@ OPTITRUST_FOLDER="${TOOLS_FOLDER}/.."
 URL=$1
 WINDOWTITLE=$2
 
+if [ "${OPTITRUST_NO_BROWSER:-0}" = "1" ]; then
+  echo "OPTITRUST_NO_BROWSER=1, not opening external browser."
+  exit 0
+fi
+
 # Debug function
 msg() {
   echo $1
