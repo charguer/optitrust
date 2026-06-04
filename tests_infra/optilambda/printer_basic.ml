@@ -60,7 +60,27 @@ let check_typ name typ expected =
     exit 1
   end
 
+let check_repr name input expected =
+  let actual =
+    match representation_of_string input with
+    | Some representation -> representation_to_string representation
+    | None -> "<none>"
+  in
+  if actual <> expected then begin
+    Printf.eprintf "OptiLambda representation test failed: %s\nexpected:\n%s\nactual:\n%s\n" name expected actual;
+    exit 1
+  end
+
 let () =
+  check_repr "surface representation" "surface" "surface";
+  check_repr "internal representation" "internal" "internal";
+  check_repr "typed representation" "typed" "typed";
+
+  if representation_to_label FullyTypedInternal <> "Fully-Typed Internal" then begin
+    Printf.eprintf "OptiLambda representation label test failed\n";
+    exit 1
+  end;
+
   check "int literal" (Trm.trm_int 3) "3";
 
   check "variable" (term "x") "x";
@@ -74,6 +94,16 @@ let () =
   check "assignment" (Trm.trm_set (term "x") (Trm.trm_int 4)) "x = 4";
 
   check "array access" (Trm.trm_array_get (term "t") (term "i")) "t[i]";
+
+  check_with_style "internal representation currently preserves surface output"
+    { OL.default_style with representation = Internal }
+    (Trm.trm_array_get (term "t") (term "i"))
+    "t[i]";
+
+  check_with_style "fully typed representation currently preserves surface output"
+    { OL.default_style with representation = FullyTypedInternal }
+    (Trm.trm_array_get (term "t") (term "i"))
+    "t[i]";
 
   check "record literal" (Trm.trm_record ~typ:(term "Pair") [ Trm.trm_int 1; Trm.trm_int 2 ]) "{1, 2}";
 
