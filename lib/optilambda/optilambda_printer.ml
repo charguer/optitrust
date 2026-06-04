@@ -51,6 +51,12 @@ let code_block_doc items =
 (** [var_to_doc style v] prints a variable, optionally including its internal id. *)
 let var_to_doc (style : Optilambda_style.style) (v : var) : document = string (if style.print_var_ids then var_to_string v else var_name v)
 
+let is_internal (style : Optilambda_style.style) : bool =
+  match style.representation with
+  | Internal -> true
+  | Surface
+  | FullyTypedInternal -> false
+
 (** [is_auto_type ty] checks whether [ty] is the internal [auto] type. *)
 let is_auto_type (ty : typ) : bool =
   match ty.desc with
@@ -225,6 +231,8 @@ and prim_to_doc (style : Optilambda_style.style) (ty : typ) (prim : prim) : docu
       | Some doc -> parens_doc (doc ^^ equals)
       | None -> string "compound_assign"
       end
+  | Prim_ref when is_internal style -> string "ref"
+  | Prim_ref_uninit when is_internal style -> string "ref_uninit"
   | Prim_ref -> string "ref" ^^ angles_doc (typ_to_doc style ty)
   | Prim_ref_uninit -> string "ref_uninit" ^^ angles_doc (typ_to_doc style ty)
   | Prim_new -> string "new" ^^ angles_doc (typ_to_doc style ty)
@@ -424,6 +432,11 @@ and fun_def_to_doc (style : Optilambda_style.style) ?(type_params = []) (name : 
 and let_to_doc (style : Optilambda_style.style) ((v, ty) : typed_var) (body : trm) : document =
   match body.desc with
   | Trm_fun (args, ret_ty, fun_body, spec) -> fun_def_to_doc style (Some v) args ret_ty spec fun_body
+  | Trm_apps ({ desc = Trm_prim (_, Prim_ref); _ }, [ init ], [], []) when is_internal style ->
+      string "let" ^^ blank 1 ^^ var_to_doc style v ^^ blank 1 ^^ equals ^^ blank 1 ^^ string "ref"
+      ^^ parens_doc (trm_to_doc_at style 0 init)
+  | Trm_apps ({ desc = Trm_prim (_, Prim_ref_uninit); _ }, [], [], []) when is_internal style ->
+      string "let" ^^ blank 1 ^^ var_to_doc style v ^^ blank 1 ^^ equals ^^ blank 1 ^^ string "ref_uninit" ^^ parens_doc empty
   | Trm_apps ({ desc = Trm_prim (_, Prim_ref); _ }, [ init ], [], []) ->
       string "letmut" ^^ blank 1 ^^ var_to_doc style v ^^ blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc_at style 0 init
   | Trm_apps ({ desc = Trm_prim (_, Prim_ref_uninit); _ }, [], [], []) -> string "letmut" ^^ blank 1 ^^ var_to_doc style v
@@ -438,8 +451,17 @@ and let_to_doc (style : Optilambda_style.style) ((v, ty) : typed_var) (body : tr
 and app_to_doc (style : Optilambda_style.style) (f : trm) (args : trm list) (ghost_args : resource_item list)
     (ghost_bind : (var option * var) list) : document =
   match (f.desc, args) with
+  | Trm_prim (_, Prim_binop Binop_array_access), [ base; index ] when is_internal style ->
+      string "Array_Access" ^^ parens_doc (comma_sep [ trm_to_doc_at style 0 base; trm_to_doc_at style 0 index ])
+  | Trm_prim (_, Prim_binop Binop_array_get), [ base; index ] when is_internal style ->
+      string "get"
+      ^^ parens_doc
+           (string "Array_Access"
+           ^^ parens_doc (comma_sep [ trm_to_doc_at style 0 base; trm_to_doc_at style 0 index ]))
   | Trm_prim (_, Prim_binop (Binop_array_access | Binop_array_get)), [ base; index ] ->
       trm_to_doc_at style 10 base ^^ brackets_doc (trm_to_doc_at style 0 index)
+  | Trm_prim (_, Prim_binop Binop_set), [ lhs; rhs ] when is_internal style ->
+      string "set" ^^ parens_doc (comma_sep [ trm_to_doc_at style 0 lhs; trm_to_doc_at style 0 rhs ])
   | Trm_prim (_, Prim_binop Binop_set), [ lhs; rhs ] ->
       trm_to_doc_at style 2 lhs ^^ blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc_at style 1 rhs
   | Trm_prim (_, Prim_binop op), [ lhs; rhs ] ->
@@ -449,8 +471,13 @@ and app_to_doc (style : Optilambda_style.style) (f : trm) (args : trm list) (gho
           trm_to_doc_at style prec lhs ^^ blank 1 ^^ op_doc ^^ blank 1 ^^ trm_to_doc_at style (prec + 1) rhs
       | None -> prim_to_doc style typ_auto (Prim_binop op) ^^ parens_doc (comma_sep (List.map (trm_to_doc_at style 0) args))
       end
+  | Trm_prim (_, Prim_unop (Unop_struct_get field)), [ base ] when is_internal style ->
+      string "Record_Access" ^^ parens_doc (comma_sep [ trm_to_doc_at style 0 base; string field ])
+  | Trm_prim (_, Prim_unop (Unop_struct_access field)), [ base ] when is_internal style ->
+      string "Record_Access" ^^ parens_doc (comma_sep [ trm_to_doc_at style 0 base; string field ])
   | Trm_prim (_, Prim_unop (Unop_struct_get field)), [ base ] -> trm_to_doc_at style 10 base ^^ string "." ^^ string field
   | Trm_prim (_, Prim_unop (Unop_struct_access field)), [ base ] -> trm_to_doc_at style 10 base ^^ string "." ^^ string field
+  | Trm_prim (_, Prim_unop Unop_get), [ arg ] when is_internal style -> string "get" ^^ parens_doc (trm_to_doc_at style 0 arg)
   | Trm_prim (_, Prim_unop Unop_get), [ arg ] -> trm_to_doc_at style 8 arg
   | Trm_prim (_, Prim_unop Unop_address), [ arg ] -> string "&" ^^ trm_to_doc_at style 8 arg
   | Trm_prim (_, Prim_unop Unop_minus), [ arg ] -> string "-" ^^ trm_to_doc_at style 8 arg

@@ -71,6 +71,9 @@ let check_repr name input expected =
     exit 1
   end
 
+let internal_style = { OL.default_style with representation = Internal }
+let typed_style = { OL.default_style with representation = FullyTypedInternal }
+
 let () =
   check_repr "surface representation" "surface" "surface";
   check_repr "internal representation" "internal" "internal";
@@ -89,19 +92,32 @@ let () =
 
   check "letmut" (Trm.trm_let (tv "x" (Typ.typ_ptr Typ.typ_int)) (Trm.trm_ref Typ.typ_int (Trm.trm_int 3))) "letmut x = 3";
 
+  check_with_style "internal letmut"
+    internal_style
+    (Trm.trm_let (tv "x" (Typ.typ_ptr Typ.typ_int)) (Trm.trm_ref Typ.typ_int (Trm.trm_int 3)))
+    "let x = ref(3)";
+
+  check_with_style "internal uninitialized letmut"
+    internal_style
+    (Trm.trm_let (tv "x" (Typ.typ_ptr Typ.typ_int)) (Trm.trm_ref_uninit Typ.typ_int))
+    "let x = ref_uninit()";
+
   check "call" (Trm.trm_apps (term "f") [ term "x"; Trm.trm_int 1 ]) "f(x, 1)";
 
   check "assignment" (Trm.trm_set (term "x") (Trm.trm_int 4)) "x = 4";
 
+  check_with_style "internal assignment" internal_style (Trm.trm_set (term "x") (Trm.trm_int 4)) "set(x, 4)";
+
+  check_with_style "internal get" internal_style (Trm.trm_get ~typ:Typ.typ_int (term "p")) "get(p)";
+
   check "array access" (Trm.trm_array_get (term "t") (term "i")) "t[i]";
 
-  check_with_style "internal representation currently preserves surface output"
-    { OL.default_style with representation = Internal }
-    (Trm.trm_array_get (term "t") (term "i"))
-    "t[i]";
+  check_with_style "internal array access" internal_style (Trm.trm_array_access (term "t") (term "i")) "Array_Access(t, i)";
+
+  check_with_style "internal array get" internal_style (Trm.trm_array_get (term "t") (term "i")) "get(Array_Access(t, i))";
 
   check_with_style "fully typed representation currently preserves surface output"
-    { OL.default_style with representation = FullyTypedInternal }
+    typed_style
     (Trm.trm_array_get (term "t") (term "i"))
     "t[i]";
 
@@ -195,6 +211,10 @@ let () =
   check "compound operator call" (Trm.trm_compound_assign ~typ:Typ.typ_int Binop_add (term "r") (Trm.trm_int 2)) "(+=)(r, 2)";
 
   check "struct access" (Trm.trm_struct_access ~struct_typ:Typ.typ_auto (term "v") "x") "v.x";
+
+  check_with_style "internal struct access" internal_style (Trm.trm_struct_access ~struct_typ:Typ.typ_auto (term "v") "x") "Record_Access(v, x)";
+
+  check_with_style "internal resource formula" internal_style (Trm.trm_apps (term "cell") [ term "v" ]) "cell(v)";
 
   check "ghost call" ghost_call_example "ghost(rewrite()[h := x = y][z : h_out])";
 
