@@ -6,6 +6,7 @@ open Optitrust_optilambda.Optilambda_style
 let v name = Ast.name_to_var name
 let tv name ty = (v name, ty)
 let term name = Trm.trm_var (v name)
+let typed_term name ty = Trm.trm_var ~typ:ty (v name)
 let resource_set ?(pure = []) ?(linear = []) () = { empty_resource_set with pure; linear }
 
 let simple_fun_contract =
@@ -97,10 +98,20 @@ let () =
     (Trm.trm_let (tv "x" (Typ.typ_ptr Typ.typ_int)) (Trm.trm_ref Typ.typ_int (Trm.trm_int 3)))
     "let x = ref(3)";
 
+  check_with_style "typed letmut"
+    typed_style
+    (Trm.trm_let (tv "x" (Typ.typ_ptr Typ.typ_int)) (Trm.trm_ref Typ.typ_int (Trm.trm_int 3)))
+    "let x = ref<int>(3)";
+
   check_with_style "internal uninitialized letmut"
     internal_style
     (Trm.trm_let (tv "x" (Typ.typ_ptr Typ.typ_int)) (Trm.trm_ref_uninit Typ.typ_int))
     "let x = ref_uninit()";
+
+  check_with_style "typed uninitialized letmut"
+    typed_style
+    (Trm.trm_let (tv "x" (Typ.typ_ptr Typ.typ_int)) (Trm.trm_ref_uninit Typ.typ_int))
+    "let x = ref_uninit<int>()";
 
   check "call" (Trm.trm_apps (term "f") [ term "x"; Trm.trm_int 1 ]) "f(x, 1)";
 
@@ -108,18 +119,27 @@ let () =
 
   check_with_style "internal assignment" internal_style (Trm.trm_set (term "x") (Trm.trm_int 4)) "set(x, 4)";
 
+  check_with_style "typed assignment" typed_style (Trm.trm_set (term "x") (Trm.trm_int 4)) "set<int>(x, 4)";
+
   check_with_style "internal get" internal_style (Trm.trm_get ~typ:Typ.typ_int (term "p")) "get(p)";
+
+  check_with_style "typed get" typed_style (Trm.trm_get ~typ:Typ.typ_int (term "p")) "get<int>(p)";
 
   check "array access" (Trm.trm_array_get (term "t") (term "i")) "t[i]";
 
   check_with_style "internal array access" internal_style (Trm.trm_array_access (term "t") (term "i")) "Array_Access(t, i)";
 
+  check_with_style "typed array access"
+    typed_style
+    (Trm.trm_array_access ~elem_typ:Typ.typ_int (term "t") (term "i"))
+    "Array_Access<int>(t, i)";
+
   check_with_style "internal array get" internal_style (Trm.trm_array_get (term "t") (term "i")) "get(Array_Access(t, i))";
 
-  check_with_style "fully typed representation currently preserves surface output"
+  check_with_style "typed array get"
     typed_style
-    (Trm.trm_array_get (term "t") (term "i"))
-    "t[i]";
+    (Trm.trm_array_get ~typ:Typ.typ_int (term "t") (term "i"))
+    "get<int>(Array_Access<int>(t, i))";
 
   check "record literal" (Trm.trm_record ~typ:(term "Pair") [ Trm.trm_int 1; Trm.trm_int 2 ]) "{1, 2}";
 
@@ -214,7 +234,14 @@ let () =
 
   check_with_style "internal struct access" internal_style (Trm.trm_struct_access ~struct_typ:Typ.typ_auto (term "v") "x") "Record_Access(v, x)";
 
-  check_with_style "internal resource formula" internal_style (Trm.trm_apps (term "cell") [ term "v" ]) "cell(v)";
+  check_with_style "typed struct access"
+    typed_style
+    (Trm.trm_struct_access ~field_typ:Typ.typ_int ~struct_typ:(Typ.typ_var (Typ.name_to_typvar "Pair")) (term "v") "x")
+    "Record_Access<int>(v, x)";
+
+  check_with_style "internal resource formula" internal_style (Trm.trm_apps (term "cell") [ typed_term "v" Typ.typ_int ]) "cell(v)";
+
+  check_with_style "typed resource formula" typed_style (Trm.trm_apps (term "cell") [ typed_term "v" Typ.typ_int ]) "cell<int>(v)";
 
   check "ghost call" ghost_call_example "ghost(rewrite()[h := x = y][z : h_out])";
 
