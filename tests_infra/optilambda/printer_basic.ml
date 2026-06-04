@@ -127,14 +127,14 @@ let () =
 
   check "array access" (Trm.trm_array_get (term "t") (term "i")) "t[i]";
 
-  check_with_style "internal array access" internal_style (Trm.trm_array_access (term "t") (term "i")) "Array_Access(t, i)";
+  check_with_style "internal array access" internal_style (Trm.trm_array_access (term "t") (term "i")) "t [+] i";
 
   check_with_style "typed array access"
     typed_style
     (Trm.trm_array_access ~elem_typ:Typ.typ_int (term "t") (term "i"))
     "Array_Access<int>(t, i)";
 
-  check_with_style "internal array get" internal_style (Trm.trm_array_get (term "t") (term "i")) "get(Array_Access(t, i))";
+  check_with_style "internal array get" internal_style (Trm.trm_array_get (term "t") (term "i")) "get(t [+] i)";
 
   check_with_style "typed array get"
     typed_style
@@ -232,12 +232,22 @@ let () =
 
   check "struct access" (Trm.trm_struct_access ~struct_typ:Typ.typ_auto (term "v") "x") "v.x";
 
-  check_with_style "internal struct access" internal_style (Trm.trm_struct_access ~struct_typ:Typ.typ_auto (term "v") "x") "Record_Access(v, x)";
+  check_with_style "internal struct access" internal_style (Trm.trm_struct_access ~struct_typ:Typ.typ_auto (term "v") "x") "v [.] x";
+
+  check_with_style "internal struct get"
+    internal_style
+    (Trm.trm_struct_get ~field_typ:Typ.typ_int ~struct_typ:(Typ.typ_var (Typ.name_to_typvar "Pair")) (term "v") "x")
+    "get(v [.] x)";
 
   check_with_style "typed struct access"
     typed_style
     (Trm.trm_struct_access ~field_typ:Typ.typ_int ~struct_typ:(Typ.typ_var (Typ.name_to_typvar "Pair")) (term "v") "x")
     "Record_Access<int>(v, x)";
+
+  check_with_style "typed struct get"
+    typed_style
+    (Trm.trm_struct_get ~field_typ:Typ.typ_int ~struct_typ:(Typ.typ_var (Typ.name_to_typvar "Pair")) (term "v") "x")
+    "get<int>(Record_Access<int>(v, x))";
 
   check_with_style "internal resource formula" internal_style (Trm.trm_apps (term "cell") [ typed_term "v" Typ.typ_int ]) "cell(v)";
 

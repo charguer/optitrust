@@ -485,10 +485,15 @@ and let_to_doc (style : Optilambda_style.style) ((v, ty) : typed_var) (body : tr
 and app_to_doc (style : Optilambda_style.style) ~(result_typ : typ) (f : trm) (args : trm list) (ghost_args : resource_item list)
     (ghost_bind : (var option * var) list) : document =
   match (f.desc, args) with
-  | Trm_prim (_, Prim_binop Binop_array_access), [ base; index ] when is_explicit_internal style ->
+  | Trm_prim (_, Prim_binop Binop_array_access), [ base; index ] when is_internal style ->
+      trm_to_doc_at style 10 base ^^ blank 1 ^^ string "[+]" ^^ blank 1 ^^ trm_to_doc_at style 0 index
+  | Trm_prim (_, Prim_binop Binop_array_get), [ base; index ] when is_internal style ->
+      string "get"
+      ^^ parens_doc (trm_to_doc_at style 10 base ^^ blank 1 ^^ string "[+]" ^^ blank 1 ^^ trm_to_doc_at style 0 index)
+  | Trm_prim (_, Prim_binop Binop_array_access), [ base; index ] when is_fully_typed_internal style ->
       name_with_optional_type_arg style "Array_Access" (elem_typ_of_access_result result_typ)
       ^^ parens_doc (comma_sep [ trm_to_doc_at style 0 base; trm_to_doc_at style 0 index ])
-  | Trm_prim (_, Prim_binop Binop_array_get), [ base; index ] when is_explicit_internal style ->
+  | Trm_prim (_, Prim_binop Binop_array_get), [ base; index ] when is_fully_typed_internal style ->
       name_with_optional_type_arg style "get" result_typ
       ^^ parens_doc
            (name_with_optional_type_arg style "Array_Access" result_typ
@@ -507,10 +512,16 @@ and app_to_doc (style : Optilambda_style.style) ~(result_typ : typ) (f : trm) (a
           trm_to_doc_at style prec lhs ^^ blank 1 ^^ op_doc ^^ blank 1 ^^ trm_to_doc_at style (prec + 1) rhs
       | None -> prim_to_doc style typ_auto (Prim_binop op) ^^ parens_doc (comma_sep (List.map (trm_to_doc_at style 0) args))
       end
-  | Trm_prim (_, Prim_unop (Unop_struct_get field)), [ base ] when is_explicit_internal style ->
-      name_with_optional_type_arg style "Record_Access" result_typ
-      ^^ parens_doc (comma_sep [ trm_to_doc_at style 0 base; string field ])
-  | Trm_prim (_, Prim_unop (Unop_struct_access field)), [ base ] when is_explicit_internal style ->
+  | Trm_prim (_, Prim_unop (Unop_struct_get field)), [ base ] when is_internal style ->
+      string "get" ^^ parens_doc (trm_to_doc_at style 10 base ^^ blank 1 ^^ string "[.]" ^^ blank 1 ^^ string field)
+  | Trm_prim (_, Prim_unop (Unop_struct_access field)), [ base ] when is_internal style ->
+      trm_to_doc_at style 10 base ^^ blank 1 ^^ string "[.]" ^^ blank 1 ^^ string field
+  | Trm_prim (_, Prim_unop (Unop_struct_get field)), [ base ] when is_fully_typed_internal style ->
+      name_with_optional_type_arg style "get" result_typ
+      ^^ parens_doc
+           (name_with_optional_type_arg style "Record_Access" result_typ
+           ^^ parens_doc (comma_sep [ trm_to_doc_at style 0 base; string field ]))
+  | Trm_prim (_, Prim_unop (Unop_struct_access field)), [ base ] when is_fully_typed_internal style ->
       name_with_optional_type_arg style "Record_Access" (elem_typ_of_access_result result_typ)
       ^^ parens_doc (comma_sep [ trm_to_doc_at style 0 base; string field ])
   | Trm_prim (_, Prim_unop (Unop_struct_get field)), [ base ] -> trm_to_doc_at style 10 base ^^ string "." ^^ string field
