@@ -61,6 +61,20 @@ let check_typ name typ expected =
     exit 1
   end
 
+let check_html name trm expected =
+  let actual = OL.trm_to_html trm in
+  if actual <> expected then begin
+    Printf.eprintf "OptiLambda HTML printer test failed: %s\nexpected:\n%s\nactual:\n%s\n" name expected actual;
+    exit 1
+  end
+
+let check_html_with_style name style trm expected =
+  let actual = OL.trm_to_html ~style trm in
+  if actual <> expected then begin
+    Printf.eprintf "OptiLambda HTML printer test failed: %s\nexpected:\n%s\nactual:\n%s\n" name expected actual;
+    exit 1
+  end
+
 let check_repr name input expected =
   let actual =
     match representation_of_string input with
@@ -88,6 +102,19 @@ let () =
   check "int literal" (Trm.trm_int 3) "3";
 
   check "variable" (term "x") "x";
+
+  check_html "surface html with type"
+    (Trm.trm_var ~typ:Typ.typ_int (v "x"))
+    "<span class=\"optilambda optilambda-surface\" data-optilambda-representation=\"surface\" title=\"type: int\">x</span>";
+
+  check_html "surface html escapes code"
+    (Trm.trm_lt ~typ:Typ.typ_bool (term "x") (term "n"))
+    "<span class=\"optilambda optilambda-surface\" data-optilambda-representation=\"surface\" title=\"type: bool\">x &lt; n</span>";
+
+  check_html_with_style "internal html representation metadata"
+    internal_style
+    (Trm.trm_get ~typ:Typ.typ_int (term "p"))
+    "<span class=\"optilambda optilambda-internal\" data-optilambda-representation=\"internal\" title=\"type: int\">get(p)</span>";
 
   check "let" (Trm.trm_let (tv "x" Typ.typ_int) (Trm.trm_int 3)) "let x: int = 3";
 
