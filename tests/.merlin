@@ -1,8 +1,5 @@
-PKG monolith
 S ./**
-FLG -open Dune__exe
 S ../lib/**
-B ../_build/default/tests/alist/.alist_monolith_test.eobjs/byte
 B ../_build/default/lib/**
 B ../_build/default/lib/.optitrust.objs/byte
 B ../_build/default/lib/utils/.optitrust_utils.objs/byte
