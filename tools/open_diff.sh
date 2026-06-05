@@ -62,17 +62,36 @@ FILENAME="${FILEBASE}_diff.html"
 
 TITLESTR="${FILEBASE} - OptiTrust Diff"
 
-# Compute the diff in base64 encoding
-DIFFCODE=`git diff --ignore-all-space --no-index -U${CONTEXTSIZE} ${FILEBASE}_before.${FILEEXT} ${FILEBASE}_after.${FILEEXT} | base64 -w 0`
+# Compute a diff in base64 encoding, or return an empty payload when the
+# requested representation was not generated.
+compute_diff_payload() {
+  local BEFORE_FILE=$1
+  local AFTER_FILE=$2
+  if [ -f "${BEFORE_FILE}" ] && [ -f "${AFTER_FILE}" ]; then
+    git diff --ignore-all-space --no-index -U${CONTEXTSIZE} "${BEFORE_FILE}" "${AFTER_FILE}" | base64 -w 0
+  else
+    printf ""
+  fi
+}
 
-# Don't launch a browser for an empty diff
-if [ "$DIFFCODE" == "" ]; then
+DIFFCODE=`compute_diff_payload ${FILEBASE}_before.${FILEEXT} ${FILEBASE}_after.${FILEEXT}`
+
+if [ -f "${FILEBASE}_before_surface.opti" ] && [ -f "${FILEBASE}_after_surface.opti" ]; then
+  DIFFCODE_OPTILAMBDA_SURFACE=`compute_diff_payload ${FILEBASE}_before_surface.opti ${FILEBASE}_after_surface.opti`
+else
+  DIFFCODE_OPTILAMBDA_SURFACE=`compute_diff_payload ${FILEBASE}_before.opti ${FILEBASE}_after.opti`
+fi
+DIFFCODE_OPTILAMBDA_INTERNAL=`compute_diff_payload ${FILEBASE}_before_internal.opti ${FILEBASE}_after_internal.opti`
+DIFFCODE_OPTILAMBDA_TYPED=`compute_diff_payload ${FILEBASE}_before_typed.opti ${FILEBASE}_after_typed.opti`
+
+# Don't launch a browser if every available representation has an empty diff.
+if [ "$DIFFCODE" == "" ] && [ "$DIFFCODE_OPTILAMBDA_SURFACE" == "" ] && [ "$DIFFCODE_OPTILAMBDA_INTERNAL" == "" ] && [ "$DIFFCODE_OPTILAMBDA_TYPED" == "" ]; then
   echo ">>>============EMPTY DIFF============<<<"
   exit 0
 fi
 
-# Generate the JavaScript definition
-DIFFSTR="var diffString = window.atob(\"${DIFFCODE}\");"
+# Generate the JavaScript definitions
+DIFFSTR="var diffStrings = { cpp: window.atob(\"${DIFFCODE}\"), surface: window.atob(\"${DIFFCODE_OPTILAMBDA_SURFACE}\"), internal: window.atob(\"${DIFFCODE_OPTILAMBDA_INTERNAL}\"), typed: window.atob(\"${DIFFCODE_OPTILAMBDA_TYPED}\") };"
 
 # Take templace and substitute ${WEB_VIEW_FOLDER}, ${INSERT_TITLE}, and ${INSERT_DIFF}
 TEMPLATE="${WEB_VIEW_FOLDER}/diff_template.html"

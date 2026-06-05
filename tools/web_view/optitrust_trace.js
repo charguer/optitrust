@@ -150,15 +150,34 @@ var optionsDescr = [ // extended by initAllTags
     kind: "ast",
     default: false,
   },
+  { radio: "syntax",
+    value: "cpp",
+    name: "C/C++",
+    kind: "ast",
+    default: true,
+  },
+  { radio: "syntax",
+    value: "surface",
+    name: "Surface",
+    kind: "optilambda",
+    default: false,
+  },
+  { radio: "syntax",
+    value: "internal",
+    name: "Internal",
+    kind: "optilambda",
+    default: false,
+  },
+  { radio: "syntax",
+    value: "typed",
+    name: "Fully-Typed",
+    kind: "optilambda",
+    default: false,
+  },
   { key: "decode",
     name: "Decode",
     kind: "serialized_ast",
     default: true,
-  },
-  { key: "optitrust_syntax",
-    name: "OptiTrust syntax",
-    kind: "serialized_ast",
-    default: false,
   },
   { key: "print_types",
     name: "Print types",
@@ -387,6 +406,7 @@ function extractShowStep(step) {
 function loadDiffFromString(diffString) {
   // this function should be called only after DOM contents is loaded
  var targetElement = document.getElementById("diffDiv");
+ targetElement.innerHTML = "";
  var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
  diff2htmlUi.draw();
  diff2htmlUi.highlightCode();
@@ -406,6 +426,54 @@ if (options.compact) {
   $('.d2h-code-line-ctn').each(function() {
     $(this).html( $(this).html().replace(reg3, " ") );
   });
+}
+
+function optilambdaRepresentationSuffix(representation) {
+  return representation == "surface" ? "surface" : representation;
+}
+
+function selectedSyntaxRepresentation() {
+  return getRadioOption("syntax") || "cpp";
+}
+
+function traceHasOptiLambdaData() {
+  if (serialized_trace) {
+    return true;
+  }
+  for (var i = 0; i < steps.length; i++) {
+    var step = steps[i];
+    if (step && (
+      step.diff_optilambda !== undefined ||
+      step.diff_optilambda_surface !== undefined ||
+      step.diff_optilambda_internal !== undefined ||
+      step.diff_optilambda_typed !== undefined ||
+      step.code_before_optilambda_surface !== undefined ||
+      step.code_after_optilambda_surface !== undefined)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function fieldForView(step, view, typing_style) {
+  var representation = selectedSyntaxRepresentation();
+  if (representation == "cpp") {
+    return view + ((typing_style == "hide") ? "_raw" : "");
+  }
+  var field = view + "_optilambda_" + optilambdaRepresentationSuffix(representation);
+  if (representation == "surface" && step[field] == undefined) {
+    return view + "_optilambda";
+  }
+  return field;
+}
+
+function syntaxQueryString() {
+  var representation = selectedSyntaxRepresentation();
+  if (representation == "cpp") {
+    let typing_style = getRadioOption("typing_style");
+    return `syntax=cpp&decode=${options.decode}&print_types=${options.print_types}&typing_style=${typing_style}`;
+  }
+  return `syntax=optilambda&repr=${optilambdaRepresentationSuffix(representation)}`;
 }
 
  /* Currently, this is a buggy feature: there is no code to jump to the relevant line, reactivate if there is a workaround
@@ -579,7 +647,7 @@ function queryStepDetails(step, view, hadEmptyDiff = false) {
   var stepCode;
   if (serialized_trace) {
     // We have a serialized trace server, get the step details from there
-    stepCode = fetch(serialized_trace + `?view=${view}&step=${step.id + root_serialized_step_id}&decode=${options.decode}&optitrust_syntax=${options.optitrust_syntax}&print_types=${options.print_types}&typing_style=${typing_style}&timestamp=${serialized_trace_timestamp}`)
+    stepCode = fetch(serialized_trace + `?view=${view}&step=${step.id + root_serialized_step_id}&${syntaxQueryString()}&timestamp=${serialized_trace_timestamp}`)
       .then((response) => {
         if (response.status == 419) {
           window.location.reload();
@@ -595,9 +663,7 @@ function queryStepDetails(step, view, hadEmptyDiff = false) {
   }
   else {
     // No trace server: get the step details directly from the step object or fail
-    var field = view + ((typing_style == "hide") ? "_raw" : "");
-    // field is one of: "diff", "code_before", "code_after", "diff_raw", "code_before_raw", "code_after_raw",
-    // where the "_raw" suffix indicates that annotations/contracts should be hidden
+    var field = fieldForView(step, view, typing_style);
     if (step[field] == undefined) {
       stepCode = Promise.reject(new Error(field + " was not recorded for this step."))
     } else {
@@ -945,6 +1011,9 @@ function initControls() {
     if (descr.name == "advanced") {
       oncheck += "; initControls()";
     }
+    if (descr.radio == "syntax") {
+      oncheck += "; initControls()";
+    }
     let sControl;
     if (descr.radio) {
       sControl = htmlRadio(id, descr.name, "ast-radio", descr.radio, oncheck);
@@ -953,9 +1022,13 @@ function initControls() {
     }
     if (descr.kind == "ast") {
       sAstControls += sControl;
+    } else if (descr.kind == "optilambda") {
+      if (traceHasOptiLambdaData()) {
+        sAstControls += sControl;
+      }
     } else if (descr.kind == "serialized_ast") {
       // use only two styles if not in serialized-trace mode
-      if (    serialized_trace
+      if (    serialized_trace && selectedSyntaxRepresentation() == "cpp"
            || (descr.radio && descr.radio == "typing_style" && (descr.value == "hide" || descr.value == "annot"))) {
         if (descr.value == "hide") { // title for radio group
           sAstControls += "&nbsp;<b>Show:</b>";
@@ -1143,4 +1216,3 @@ const mouseUpHandler = function () {
   document.removeEventListener('mousemove', mouseMoveHandler);
   document.removeEventListener('mouseup', mouseUpHandler);
 };
-

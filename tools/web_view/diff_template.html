@@ -19,12 +19,29 @@
    <script type="text/javascript" src="{WEB_VIEW_FOLDER}/lib/diff2html-ui.min.js"></script>
 
 <script>
-   var diffString = "";
+   var diffStrings = { cpp: "" };
+   var selectedDiffRepresentation = "cpp";
 
    {INSERT_DIFF}
 
-   document.addEventListener('DOMContentLoaded', function () {
+   function diffLabel(representation) {
+     if (representation === "cpp") return "C/C++";
+     if (representation === "surface") return "Surface";
+     if (representation === "internal") return "Internal";
+     if (representation === "typed") return "Fully-Typed";
+     return representation;
+   }
+
+   function availableDiffRepresentations() {
+     return ["cpp", "surface", "internal", "typed"].filter(function (representation) {
+       return diffStrings[representation] !== undefined && diffStrings[representation] !== "";
+     });
+   }
+
+   function renderDiff(representation) {
+     selectedDiffRepresentation = representation;
      var targetElement = document.getElementById('diffDiv');
+     targetElement.innerHTML = "";
      var configuration = {
          inputFormat: 'json',
          drawFileList: false,
@@ -42,9 +59,35 @@
          // maxLineSizeInBlockForComparison: maximum number os characters of the bigger line in a block to apply comparison, default is 200
          // maxLineLengthHighlight: only perform diff changes highlight if lines are smaller than this, default is 10000
          };
-     var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
+     var diff2htmlUi = new Diff2HtmlUI(targetElement, diffStrings[representation] || "", configuration);
      diff2htmlUi.draw();
      diff2htmlUi.highlightCode();
+   }
+
+   function initDiffRepresentationSelector() {
+     var representations = availableDiffRepresentations();
+     var controls = document.getElementById("diffControls");
+     if (representations.length <= 1) {
+       controls.style.display = "none";
+       return;
+     }
+     controls.innerHTML = representations.map(function (representation) {
+       var checked = representation === selectedDiffRepresentation ? " checked" : "";
+       return "<label class='diff-representation-choice'>" +
+         "<input type='radio' name='diffRepresentation' value='" + representation + "'" + checked + ">" +
+         diffLabel(representation) +
+         "</label>";
+     }).join("");
+     controls.addEventListener("change", function (event) {
+       if (event.target && event.target.name === "diffRepresentation") {
+         renderDiff(event.target.value);
+       }
+     });
+   }
+
+   document.addEventListener('DOMContentLoaded', function () {
+     initDiffRepresentationSelector();
+     renderDiff(selectedDiffRepresentation);
    });
   // hide line numbers
 </script>
@@ -53,6 +96,7 @@
 
 <body>
 
+<div id="diffControls" class="diff-representation-controls"></div>
 <div id="diffDiv"></div>
 
 </body>
