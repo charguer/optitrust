@@ -107,6 +107,19 @@ let print_only_code = ref false
 (** [print_optitrust_syntax]: flag used for printing the optitrust AST in near-C syntax, without applying the decoding *)
 let print_optitrust_syntax = ref false
 
+(** [print_optilambda_syntax]: flag used for printing the OptiTrust AST in OptiLambda syntax. *)
+let print_optilambda_syntax = ref false
+
+(** [optilambda_repr]: OptiLambda representation selected by [-optilambda-repr]. *)
+let optilambda_repr = ref "surface"
+
+let set_optilambda_repr repr =
+  match repr with
+  | "surface"
+  | "internal"
+  | "typed" -> optilambda_repr := repr
+  | _ -> failwith "OptiLambda representation should be one of: surface, internal, typed"
+
 (** [stop_on_first_resource_error]: Stops on the first resource error found.
    This allows for the propagation of the backtrace. *)
 let stop_on_first_resource_error = ref true
@@ -301,6 +314,8 @@ let spec : cmdline_args =
      ("-analyse-stats-details", Arg.Set analyse_stats_details, " produce more details in the file reporting on the execution time (implies -analyse_stats)");
      ("-print-only-code", Arg.Set print_only_code, " print output without showing ghost operations");
      ("-print-optitrust-syntax", Arg.Set print_optitrust_syntax, " print output without conversion to C, i.e. print the internal AST, using near-C syntax");
+     ("-print-optilambda-syntax", Arg.Set print_optilambda_syntax, " print output in OptiLambda syntax");
+     ("-optilambda-repr", Arg.String set_optilambda_repr, " select OptiLambda representation: surface, internal, or typed");
      ("-ignore-serialized", Arg.Set ignore_serialized, " ignore the serialized AST, forces the reparse of source file");
      ("-use-light-diff", Arg.Set use_light_diff, " enable light diff");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
@@ -347,6 +362,8 @@ let reset_flags_to_default () : unit =
   dump_ast_details := false;
   bypass_cfeatures := false;
   print_optitrust_syntax := false;
+  print_optilambda_syntax := false;
+  optilambda_repr := "surface";
   disable_stringreprs := false;
   debug_stringreprs := false;
   use_light_diff := false;

@@ -78,20 +78,34 @@ let paths ?(msg : string = "") (ps : paths) : unit =
 
 let trm ?(style = default_style ()) ?(msg : string = "") (t : trm) : unit =
   prt_msg msg;
-  let t =
-    if style.decode then begin
-      if not (Trm.trm_is_mainfile t) then begin
-        prt "WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term\n";
-        t
-      end else begin
-        C_encoding.(encode_to_c (style_of_output_style style)) t
-      end
-    end else C_encoding.(encode_meta ~skip_var_ids:true (style_of_output_style style)) t
-  in
   let st =
     match style.print with
-    | Lang_AST ast_style -> Ast_to_text.ast_to_string ~style:ast_style t
-    | Lang_C c_style -> Ast_to_c.ast_to_string ~style:c_style t
+    | Lang_OptiLambda optilambda_style ->
+      Optitrust_optilambda.Optilambda.trm_to_string ~style:optilambda_style t
+    | Lang_AST ast_style ->
+      let t =
+        if style.decode then begin
+          if not (Trm.trm_is_mainfile t) then begin
+            prt "WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term\n";
+            t
+          end else begin
+            C_encoding.(encode_to_c (style_of_output_style style)) t
+          end
+        end else C_encoding.(encode_meta ~skip_var_ids:true (style_of_output_style style)) t
+      in
+      Ast_to_text.ast_to_string ~style:ast_style t
+    | Lang_C c_style ->
+      let t =
+        if style.decode then begin
+          if not (Trm.trm_is_mainfile t) then begin
+            prt "WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term\n";
+            t
+          end else begin
+            C_encoding.(encode_to_c (style_of_output_style style)) t
+          end
+        end else C_encoding.(encode_meta ~skip_var_ids:true (style_of_output_style style)) t
+      in
+      Ast_to_c.ast_to_string ~style:c_style t
     in
   prt ~suffix:"\n" st
 

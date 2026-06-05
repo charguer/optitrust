@@ -557,6 +557,7 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
     (* Print the code into file, using the specified style *)
     let cstyle = match style.print with
       | Lang_AST _-> raise (TraceFailure "output_prog requires a Lang_C printing mode, not a Lang_AST")
+      | Lang_OptiLambda _ -> raise (TraceFailure "output_prog requires a Lang_C printing mode, not a Lang_OptiLambda")
       | Lang_C cstyle -> cstyle
       in
     Ast_to_c.ast_to_outchannel cstyle out_prog ast;
@@ -2166,5 +2167,4 @@ let () = (* LATER: better factorization with Tools module; how should we handle 
   Tools.error_fun := Terminal.(report red ("ERROR" ^ get_current_script_line_as_string()));
   Tools.warn_fun := Terminal.(report orange ("WARNING" ^ get_current_script_line_as_string()));
   Tools.info_fun := Terminal.(report blue ("INFO" ^ get_current_script_line_as_string()))
-
 

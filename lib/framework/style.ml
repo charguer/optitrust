@@ -36,6 +36,7 @@ type output_style = {
 and print_language =
   | Lang_AST of Ast_to_text.style
   | Lang_C of Ast_to_c.style
+  | Lang_OptiLambda of Optitrust_optilambda.Optilambda.style
   (* Redundant constructors, to avoid need for parentheses,
      e.g. ~style:XC  instead of ~style:(c()) *)
 
@@ -123,10 +124,19 @@ let internal_ast_only_desc () : output_style =
     print = Lang_AST { Ast_to_text.style_desc with
       print_var_id = !Flags.debug_var_id } }
 
+let optilambda ?(representation = Optitrust_optilambda.Optilambda.Style.Surface) () : output_style =
+  { decode = false;
+    typing = typing_annot;
+    print = Lang_OptiLambda { Optitrust_optilambda.Optilambda.default_style with
+      representation } }
+
 let default_style () : output_style =
-  { decode = not !Flags.bypass_cfeatures && not !Flags.print_optitrust_syntax;
-    typing = if !Flags.print_only_code then typing_none else typing_annot;
-    print = Lang_C (Ast_to_c.default_style ()) }
+  if !Flags.print_optilambda_syntax then
+    optilambda ~representation:(Optitrust_optilambda.Optilambda.Style.parse_representation !Flags.optilambda_repr) ()
+  else
+    { decode = not !Flags.bypass_cfeatures && not !Flags.print_optitrust_syntax;
+      typing = if !Flags.print_only_code then typing_none else typing_annot;
+      print = Lang_C (Ast_to_c.default_style ()) }
 
 let style_for_reparse () : output_style =
   { decode = true;
