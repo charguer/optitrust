@@ -6,6 +6,12 @@ import { AssociatedFile, findAssociatedFiles, outputPairs, pickAssociatedFile } 
 import { openFileOrHtml } from "../optitrust/views";
 import { OptitrustWorkspace } from "../optitrust/workspace";
 
+type AssociatedQuickPickItem = vscode.QuickPickItem & {
+  readonly all?: true;
+  readonly pair?: Awaited<ReturnType<typeof outputPairs>>[number];
+  readonly file?: AssociatedFile;
+};
+
 function activePathOrThrow(): string {
   const editor = vscode.window.activeTextEditor;
   if (!editor || editor.document.uri.scheme !== "file") {
@@ -30,6 +36,42 @@ async function openAssociated(workspace: OptitrustWorkspace, candidates: Associa
     return;
   }
   await openFileOrHtml(workspace.root, file.path, file.label);
+}
+
+function stripOptilambdaRepresentationSuffix(name: string): string {
+  return name.replace(/_(surface|internal|typed)$/u, "");
+}
+
+function isFrequentAssociatedFile(file: AssociatedFile): boolean {
+  const parsed = path.parse(file.label);
+  const name = stripOptilambdaRepresentationSuffix(parsed.name);
+  return (
+    parsed.ext === ".ml" ||
+    [".cpp", ".c"].includes(parsed.ext) ||
+    /_(out|exp|after)$/u.test(name)
+  );
+}
+
+function associatedFileItem(file: AssociatedFile): AssociatedQuickPickItem {
+  return {
+    label: file.label,
+    description: file.kind,
+    detail: file.path,
+    file
+  };
+}
+
+function associatedFileGroup(label: string, files: AssociatedFile[]): AssociatedQuickPickItem[] {
+  if (files.length === 0) {
+    return [];
+  }
+  return [
+    {
+      label,
+      kind: vscode.QuickPickItemKind.Separator
+    },
+    ...files.map(associatedFileItem)
+  ];
 }
 
 export async function openGeneratedOutput(workspace: OptitrustWorkspace): Promise<void> {
@@ -86,25 +128,25 @@ export async function openAssociatedFiles(workspace: OptitrustWorkspace): Promis
 
   // Keep the editor-title button compact: one command opens a QuickPick that
   // exposes bulk open, pair comparison, and individual file navigation.
+  const frequentFiles = files.filter(isFrequentAssociatedFile);
+  const otherFiles = files.filter(file => !isFrequentAssociatedFile(file));
+  const items: AssociatedQuickPickItem[] = [
+    {
+      label: "Open all associated files",
+      description: `${files.length} file(s)`,
+      all: true
+    },
+    ...pairs.map(pair => ({
+      label: `Compare ${pair.label}`,
+      description: `${path.basename(pair.out)} <-> ${path.basename(pair.exp)}`,
+      pair
+    })),
+    ...associatedFileGroup("Frequent files", frequentFiles),
+    ...associatedFileGroup("Other files", otherFiles)
+  ];
+
   const picked = await vscode.window.showQuickPick(
-    [
-      {
-        label: "Open all associated files",
-        description: `${files.length} file(s)`,
-        all: true
-      },
-      ...pairs.map(pair => ({
-        label: `Compare ${pair.label}`,
-        description: `${path.basename(pair.out)} <-> ${path.basename(pair.exp)}`,
-        pair
-      })),
-      ...files.map(file => ({
-        label: file.label,
-        description: file.kind,
-        detail: file.path,
-        file
-      }))
-    ],
+    items,
     { placeHolder: "Select associated OptiTrust file" }
   );
 
