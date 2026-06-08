@@ -15,6 +15,15 @@ export interface OutputPair {
 }
 
 const KIND_ORDER: AssociatedFile["kind"][] = ["script", "input", "generated", "expected", "diff", "trace", "other"];
+const OPTILAMBDA_REPRESENTATIONS = ["surface", "internal", "typed"] as const;
+
+type OptilambdaRepresentation = (typeof OPTILAMBDA_REPRESENTATIONS)[number];
+
+const OPTILAMBDA_REPRESENTATION_LABELS: Record<OptilambdaRepresentation, string> = {
+  surface: "Surface",
+  internal: "Internal",
+  typed: "Fully-Typed"
+};
 
 async function exists(filePath: string): Promise<boolean> {
   try {
@@ -41,10 +50,23 @@ function normalizeAssociatedBase(name: string, ext: string): string {
   if (ext === ".trace") {
     return name;
   }
-  return name.replace(
+  return stripOptilambdaRepresentationSuffix(name).replace(
     /_(standalone_trace|trace|diff|out|exp|before|after|out_notfmt|exp_notfmt|before_enc|after_enc)$/u,
     ""
   );
+}
+
+function optilambdaRepresentationSuffix(name: string): OptilambdaRepresentation | undefined {
+  const match = /_(surface|internal|typed)$/u.exec(name);
+  return match?.[1] as OptilambdaRepresentation | undefined;
+}
+
+function stripOptilambdaRepresentationSuffix(name: string): string {
+  const representation = optilambdaRepresentationSuffix(name);
+  if (!representation) {
+    return name;
+  }
+  return name.slice(0, -(representation.length + 1));
 }
 
 /**
@@ -59,26 +81,32 @@ function classifyAssociatedFile(base: string, fileName: string): AssociatedFile[
     return undefined;
   }
 
+  const representation = optilambdaRepresentationSuffix(parsed.name);
+  const semanticName = stripOptilambdaRepresentationSuffix(parsed.name);
+
   if (parsed.ext === ".ml" && parsed.name === base) {
     return "script";
   }
   if ([".cpp", ".c", ".opti"].includes(parsed.ext) && parsed.name === base) {
     return "input";
   }
-  if (/_diff$/u.test(parsed.name) && parsed.ext === ".html") {
+  if (parsed.ext === ".opti" && representation && semanticName === base) {
+    return "generated";
+  }
+  if (/_diff$/u.test(semanticName) && parsed.ext === ".html") {
     return "diff";
   }
   if (
     parsed.ext === ".trace" ||
-    (/_trace$/u.test(parsed.name) && [".html", ".js"].includes(parsed.ext)) ||
-    (/_standalone_trace$/u.test(parsed.name) && parsed.ext === ".html")
+    (/_trace$/u.test(semanticName) && [".html", ".js"].includes(parsed.ext)) ||
+    (/_standalone_trace$/u.test(semanticName) && parsed.ext === ".html")
   ) {
     return "trace";
   }
-  if (/_(out|before|after)$/u.test(parsed.name) && [".cpp", ".c", ".opti"].includes(parsed.ext)) {
+  if (/_(out|before|after)$/u.test(semanticName) && [".cpp", ".c", ".opti"].includes(parsed.ext)) {
     return "generated";
   }
-  if (/_exp$/u.test(parsed.name) && [".cpp", ".c", ".opti"].includes(parsed.ext)) {
+  if (/_exp$/u.test(semanticName) && [".cpp", ".c", ".opti"].includes(parsed.ext)) {
     return "expected";
   }
   return "other";
@@ -137,6 +165,18 @@ export async function outputPairs(filePath: string): Promise<OutputPair[]> {
       pairs.push(pair);
     }
   }
+
+  for (const representation of OPTILAMBDA_REPRESENTATIONS) {
+    const pair = {
+      label: `OptiLambda ${OPTILAMBDA_REPRESENTATION_LABELS[representation]} output`,
+      out: path.join(dir, `${base}_out_${representation}.opti`),
+      exp: path.join(dir, `${base}_exp_${representation}.opti`)
+    };
+    if ((await exists(pair.out)) && (await exists(pair.exp))) {
+      pairs.push(pair);
+    }
+  }
+
   return pairs;
 }
 
