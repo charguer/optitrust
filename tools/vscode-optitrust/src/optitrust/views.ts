@@ -3,6 +3,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 const panels = new Map<string, vscode.WebviewPanel>();
+const MAX_INLINE_ASSET_BYTES = 2 * 1024 * 1024;
 
 function webviewKey(filePath: string, viewKind: string, metadata: string): string {
   return `${path.resolve(filePath)}::${viewKind}::${metadata}`;
@@ -35,6 +36,9 @@ async function inlineLocalScriptsAndStyles(htmlDir: string, html: string): Promi
     }
 
     const scriptPath = path.resolve(htmlDir, value.split(/[?#]/u, 1)[0]);
+    if (await shouldKeepExternal(scriptPath)) {
+      return match[0];
+    }
     const script = await fs.readFile(scriptPath, "utf8");
     return `<script${beforeSrc}${afterSrc}>\n${script}\n</script>`;
   });
@@ -47,9 +51,17 @@ async function inlineLocalScriptsAndStyles(htmlDir: string, html: string): Promi
     }
 
     const stylePath = path.resolve(htmlDir, value.split(/[?#]/u, 1)[0]);
+    if (await shouldKeepExternal(stylePath)) {
+      return match[0];
+    }
     const style = await fs.readFile(stylePath, "utf8");
     return `<style>\n${style}\n</style>`;
   });
+}
+
+async function shouldKeepExternal(filePath: string): Promise<boolean> {
+  const stat = await fs.stat(filePath);
+  return stat.size > MAX_INLINE_ASSET_BYTES;
 }
 
 /**
