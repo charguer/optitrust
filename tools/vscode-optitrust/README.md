@@ -37,9 +37,9 @@ and OCaml-LSP.
 - Adds OptiLambda syntax highlighting with theme-friendly TextMate scopes.
 - Shows generated diff and trace views inside VS Code webviews.
 - Reuses an existing diff/trace panel for the same file and view metadata.
-- Lets generated diffs switch between C/C++ and OptiLambda syntax in the panel.
-- Lets standalone traces switch between C/C++ and OptiLambda syntax in the panel.
-- Supports server-backed trace requests with `syntax=cpp` or `syntax=optilambda`.
+- Lets generated diffs switch between C/C++ and OptiLambda representations in the panel.
+- Lets standalone traces switch between C/C++ and OptiLambda representations in the panel.
+- Supports server-backed trace requests with `syntax=cpp` or `syntax=optilambda&repr=...`.
 - Provides a health check for the OptiTrust installation.
 - Supports local `.vsix` packaging and manual installation.
 
@@ -113,8 +113,13 @@ Default keybinding:
 F6
 ```
 
-The generated diff opens inside VS Code. If OptiLambda sidecar files are available,
-the panel shows an `OptiLambda syntax` checkbox.
+The generated diff opens inside VS Code. When OptiLambda payloads are available,
+the panel can switch in place between:
+
+- C/C++,
+- OptiLambda Surface,
+- OptiLambda Internal,
+- OptiLambda Fully-Typed.
 
 ### View A Full Trace
 
@@ -131,8 +136,8 @@ Shift+F5
 ```
 
 The trace opens in the standard OptiTrust trace viewer inside VS Code. The tree,
-step navigation, and controls are preserved. The `OptiLambda syntax` checkbox
-switches the displayed code and diff content without replacing the trace UI.
+step navigation, and controls are preserved. The representation selector switches
+the displayed code and diff content without replacing the trace UI.
 
 ### View A Step Trace
 
@@ -152,7 +157,9 @@ For server-backed traces, the selected syntax is sent to the trace server as:
 
 ```text
 syntax=cpp
-syntax=optilambda
+syntax=optilambda&repr=surface
+syntax=optilambda&repr=internal
+syntax=optilambda&repr=typed
 ```
 
 ### Run The Current Test
@@ -242,7 +249,8 @@ Disable all contributed keybindings with:
 "optitrust.enableKeybindings": true,
 "optitrust.rootOverride": "",
 "optitrust.scriptFolders": [],
-"optitrust.viewSyntax": "cpp"
+"optitrust.viewSyntax": "cpp",
+"optitrust.optilambdaRepresentation": "surface"
 ```
 
 `optitrust.scriptFolders` accepts workspace-relative folders for user-created
@@ -253,13 +261,22 @@ transformation scripts.
 - `cpp`
 - `optilambda`
 
+`optitrust.optilambdaRepresentation` accepts:
+
+- `surface`
+- `internal`
+- `typed`
+
 Generated step diffs and standalone full traces keep the normal OptiTrust UI and
-provide an in-panel `OptiLambda syntax` toggle. The setting is mainly used for
-server-backed views and commands that need to request one syntax up front.
+provide an in-panel selector for C/C++ and the three OptiLambda representations.
+The settings are mainly used for server-backed views and commands that need to
+request one syntax up front.
 
 ## OptiLambda Support
 
-The extension registers `.opti` as OptiLambda.
+The extension registers `.opti` as the OptiLambda file extension. Surface,
+Internal, and Fully-Typed are representations of the same OptiLambda language;
+they are not separate VS Code languages and do not use separate language ids.
 
 It provides:
 
@@ -268,7 +285,14 @@ It provides:
 - basic syntax highlighting,
 - theme-friendly TextMate scopes,
 - generated/expected `.opti` comparison support,
+- representation-specific `.opti` artifact discovery,
 - OptiLambda display in diff and trace panels.
+
+The current representation model is:
+
+- Surface: the readable display syntax used for human-facing OptiLambda output.
+- Internal: explicit internal operations such as `get`, `set`, and `ref`.
+- Fully-Typed: explicit internal operations with type parameters when available.
 
 The extension is display-oriented. Parsing OptiLambda back into the OptiTrust AST
 is a future backend milestone.
@@ -338,7 +362,13 @@ If npm reports unsupported Node versions:
 If OptiLambda fields are missing in a trace:
 
 - regenerate the trace after rebuilding the backend,
-- old generated trace files do not contain the newer `*_optilambda` fields.
+- old generated trace files do not contain the newer `*_optilambda_*` fields.
+
+If a large trace stays on `Loading the trace ...`:
+
+- reload the Extension Development Host or reinstall the rebuilt `.vsix`,
+- regenerate the trace,
+- check that the generated `_trace.js` file exists next to the trace HTML.
 
 ## Known Limitations
 
@@ -347,3 +377,4 @@ If OptiLambda fields are missing in a trace:
 - Diff and trace generation still depends on existing OptiTrust scripts.
 - The exact syntax colors in webviews may differ from custom editor themes.
 - OptiLambda parsing is not implemented in this extension pass.
+- Fully-Typed output quality depends on type information available in the AST.
