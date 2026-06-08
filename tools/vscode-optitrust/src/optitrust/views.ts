@@ -130,9 +130,21 @@ function injectDiffFallback(html: string): string {
 
   const fallbackScript = `
 <script>
+function getOptitrustRawDiffString() {
+  if (typeof diffString === 'string') {
+    return diffString;
+  }
+  if (typeof diffStrings === 'object' && diffStrings !== null) {
+    var selected = typeof selectedDiffRepresentation === 'string' ? selectedDiffRepresentation : 'cpp';
+    return diffStrings[selected] || diffStrings.cpp || diffStrings.surface || diffStrings.internal || diffStrings.typed || '';
+  }
+  return '';
+}
+
 function renderOptitrustRawDiffFallback() {
   var target = document.getElementById('diffDiv');
-  if (!target || target.textContent.trim() !== '' || typeof diffString !== 'string') {
+  var rawDiff = getOptitrustRawDiffString();
+  if (!target || target.textContent.trim() !== '' || rawDiff === '') {
     return;
   }
   var warning = document.createElement('p');
@@ -140,7 +152,7 @@ function renderOptitrustRawDiffFallback() {
   warning.style.fontFamily = 'sans-serif';
   warning.style.color = '#a15c00';
   var pre = document.createElement('pre');
-  pre.textContent = diffString;
+  pre.textContent = rawDiff;
   pre.style.whiteSpace = 'pre-wrap';
   pre.style.fontFamily = 'var(--vscode-editor-font-family, monospace)';
   pre.style.fontSize = 'var(--vscode-editor-font-size, 13px)';
