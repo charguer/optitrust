@@ -6,7 +6,7 @@ import { markExecutedLine } from "../optitrust/decorations";
 import { appendLine } from "../optitrust/output";
 import { runCommand } from "../optitrust/runner";
 import { validateTransformationScript } from "../optitrust/scripts";
-import { backendFlagsForViewSyntax, getViewSyntax } from "../optitrust/viewMode";
+import { backendFlagsForViewMode, getSelectedViewMode, ViewModeDefinition } from "../optitrust/viewMode";
 import { openHtmlView } from "../optitrust/views";
 import { OptitrustWorkspace } from "../optitrust/workspace";
 
@@ -65,8 +65,8 @@ export async function runViewCommand(workspace: OptitrustWorkspace, mode: ViewMo
 
   markExecutedLine(context.editor, context.line);
 
-  const syntax = getViewSyntax();
-  const extraArgs = viewArgs(spec.mode, syntax, option);
+  const selectedViewMode = getSelectedViewMode();
+  const extraArgs = viewArgs(spec.mode, selectedViewMode, option);
   const args = [spec.scriptMode, context.relativePath, String(context.line), ...extraArgs];
 
   try {
@@ -85,14 +85,14 @@ export async function runViewCommand(workspace: OptitrustWorkspace, mode: ViewMo
 
   const htmlFile = path.join(context.fileDir, `${context.fileBase}${spec.htmlSuffix}`);
   if (await exists(htmlFile)) {
-    await openHtmlView(workspace.root, htmlFile, spec.viewKind, `${syntax}:${option ?? "default"}:${context.relativePath}`, `${context.fileBase} ${spec.viewKind}`);
+    await openHtmlView(workspace.root, htmlFile, spec.viewKind, `${selectedViewMode.id}:${option ?? "default"}:${context.relativePath}`, `${context.fileBase} ${spec.viewKind}`);
   } else {
     appendLine(`Generated view was not found: ${htmlFile}`);
     vscode.window.showWarningMessage(`OptiTrust command finished, but generated view was not found: ${path.basename(htmlFile)}`);
   }
 }
 
-function viewArgs(mode: ViewMode, syntax: ReturnType<typeof getViewSyntax>, option?: ViewOption): string[] {
+function viewArgs(mode: ViewMode, selectedViewMode: ViewModeDefinition, option?: ViewOption): string[] {
   if (option === "diff-only-code") {
     return ["-print-only-code"];
   }
@@ -110,7 +110,7 @@ function viewArgs(mode: ViewMode, syntax: ReturnType<typeof getViewSyntax>, opti
   if (mode === "full_trace" || mode === "step_diff") {
     return [];
   }
-  return backendFlagsForViewSyntax(syntax);
+  return backendFlagsForViewMode(selectedViewMode);
 }
 
 export function runViewDiffOnlyCode(workspace: OptitrustWorkspace): Promise<void> {

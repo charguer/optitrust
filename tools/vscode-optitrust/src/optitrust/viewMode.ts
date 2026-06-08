@@ -68,10 +68,11 @@ export async function updateSelectedViewMode(mode: ViewModeDefinition): Promise<
   }
 }
 
-export function backendFlagsForViewSyntax(syntax: ViewSyntax): string[] {
-  if (syntax === "optilambda") {
-    appendLine("Requesting OptiLambda diff/trace output.");
-    return ["-print-optilambda-syntax"];
+export function backendFlagsForViewMode(mode: ViewModeDefinition): string[] {
+  if (mode.syntax === "optilambda") {
+    const representation = mode.optilambdaRepresentation ?? "surface";
+    appendLine(`Requesting ${mode.label} diff/trace output.`);
+    return ["-print-optilambda-syntax", "-optilambda-repr", representation];
   }
   return [];
 }
