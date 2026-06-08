@@ -150,6 +150,21 @@
             "Request OptiLambda trace and diff output."
           ],
           "description": "Default syntax to request for OptiTrust diff and trace views."
+        },
+        "optitrust.optilambdaRepresentation": {
+          "type": "string",
+          "default": "surface",
+          "enum": [
+            "surface",
+            "internal",
+            "typed"
+          ],
+          "enumDescriptions": [
+            "Use readable OptiLambda syntax.",
+            "Use explicit internal OptiLambda operations.",
+            "Use explicit OptiLambda operations with type parameters."
+          ],
+          "description": "Default OptiLambda representation for backend-generated diff and trace views."
         }
       }
     },

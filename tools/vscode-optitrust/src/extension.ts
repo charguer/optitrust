@@ -17,7 +17,7 @@ import {
 } from "./commands/viewCommands";
 import { disposeDecorations, updateDecorations } from "./optitrust/decorations";
 import { appendLine, disposeOutput } from "./optitrust/output";
-import type { ViewSyntax } from "./optitrust/viewMode";
+import { getSelectedViewMode, updateSelectedViewMode, VIEW_MODES } from "./optitrust/viewMode";
 import { findOptitrustRoot, OptitrustWorkspace } from "./optitrust/workspace";
 
 let currentWorkspace: OptitrustWorkspace | undefined;
@@ -178,21 +178,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   });
 
   registerCommand(context, "optitrust.selectViewSyntax", async () => {
+    const selected = getSelectedViewMode();
     const picked = await vscode.window.showQuickPick(
-      [
-        { label: "C/C++", description: "Use current C/C++ diff and trace output", value: "cpp" as ViewSyntax },
-        {
-          label: "OptiLambda",
-          description: "Request OptiLambda output for supported diff and trace views",
-          value: "optilambda" as ViewSyntax
-        }
-      ],
+      VIEW_MODES.map(mode => ({
+        label: mode.label,
+        description: mode.description,
+        picked: mode.id === selected.id,
+        mode
+      })),
       { placeHolder: "Select OptiTrust diff/trace syntax" }
     );
     if (!picked) {
       return;
     }
-    await vscode.workspace.getConfiguration("optitrust").update("viewSyntax", picked.value, vscode.ConfigurationTarget.Workspace);
+    await updateSelectedViewMode(picked.mode);
     vscode.window.showInformationMessage(`OptiTrust diff/trace syntax set to ${picked.label}.`);
   });
 
