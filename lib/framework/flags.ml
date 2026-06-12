@@ -169,6 +169,22 @@ let process_mode (mode : string) : unit =
 (* Options to report execution time information about script and trace generation *)
 let report_exectime : bool ref = ref false
 
+let set_report_exectime () : unit =
+  report_exectime := true;
+  Benchmark_logger.set_report_exectime true
+
+let set_report_test_time () : unit =
+  Benchmark_logger.set_report_test_time true
+
+let set_mlist_correctness () : unit =
+  Benchmark_logger.set_mlist_correctness true
+
+let set_mlist_bench () : unit =
+  Benchmark_logger.set_mlist_bench true
+
+let set_mlist_profile () : unit =
+  Benchmark_logger.set_mlist_profile true
+
 (* Options to generate a text version of the trace *)
 let trace_as_text : bool ref = ref false
 
@@ -297,6 +313,14 @@ let spec : cmdline_args =
      ("-dump-small-steps", Arg.String set_dump_small_steps, " produce a distinct file for each small step");
      ("-dump-big-steps", Arg.String set_dump_big_steps, " produce a distinct file for each big step");
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");
+     ("-report-exectime", Arg.Unit set_report_exectime, " report script execution timing and log benchmark timing files.");
+     ("-report-test-time", Arg.Unit set_report_test_time, " report tester per-test timing and log benchmark timing files.");
+     ("-mlist-correctness", Arg.Unit set_mlist_correctness, " enable Mlist versus Mlist_old correctness logging.");
+     ("-mlist-bench", Arg.Unit set_mlist_bench, " enable the opt-in Mlist microbenchmark entrypoint.");
+     ("-mlist-profile", Arg.Unit set_mlist_profile, " enable opt-in Mlist function profiling.");
+     ("-benchmark-dir", Arg.String Benchmark_logger.set_benchmark_dir, " set the benchmark output directory, default: benchmark.");
+     ("-benchmark-run-id", Arg.String Benchmark_logger.set_run_id, " set the benchmark run id, default: timestamp.");
+     ("-benchmark-implementation", Arg.String Benchmark_logger.set_implementation, " set the benchmark implementation label, e.g. old-mlist or new-alist-mlist.");
      ("-analyse-stats", Arg.Set analyse_stats, " produce a file reporting on the execution time");
      ("-analyse-stats-details", Arg.Set analyse_stats_details, " produce more details in the file reporting on the execution time (implies -analyse_stats)");
      ("-print-only-code", Arg.Set print_only_code, " print output without showing ghost operations");
