@@ -1,3 +1,23 @@
+(** Marked lists used by the OptiTrust AST.
+
+    [Mlist] stores a logical sequence of items together with marks attached to
+    positions around those items. Marks can appear before the first item,
+    between two items, or after the last item. This is used in the AST to keep
+    transformation metadata, comments, and other annotations attached to stable
+    positions while sequences are split, merged, filtered, or edited.
+
+    The public API is intentionally close to the standard [List] API for common
+    operations such as [map], [mapi], [iter], [fold_left], [nth], [rev],
+    [filter], and [concat_map]. It also provides mark-aware editing operations:
+    [split], [split_on_marks], [merge], [extract], [remove], [insert_at],
+    [insert_sublist_at], [replace_at], [update_nth], and mark operations such as
+    [insert_mark_at], [insert_marks_at], [filter_marks], [remove_mark], and
+    [flatten_marks].
+
+    Internally, items and mark slots are stored in [Alist], a chunked-array
+    sequence representation that replaces the previous list-backed storage for
+    better indexed access and local edits. *)
+
 type mark = string (* must be the same as Ast.mark *)
 
 type 'a seq = 'a Alist.t
