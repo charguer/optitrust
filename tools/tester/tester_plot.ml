@@ -254,7 +254,8 @@ let plot_overview rows output_path limit =
     if new_s.count > 0 then draw_values "#1b9e77" (gx +. 12.) new_values;
     if old_s.count > 0 && new_s.count > 0 && old_s.mean <> 0. then begin
       let speedup = ((old_s.mean -. new_s.mean) /. old_s.mean) *. 100. in
-      add "<text x=\"%.2f\" y=\"%d\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\">speedup=%.1f%%</text>\n" gx (height - 82) speedup
+      let speedup_factor = if new_s.mean = 0. then 0. else old_s.mean /. new_s.mean in
+      add "<text x=\"%.2f\" y=\"%d\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\">speedup=%.1f%% (%.2fx)</text>\n" gx (height - 82) speedup speedup_factor
     end;
     add "<text x=\"%.2f\" y=\"%d\" transform=\"rotate(-35 %.2f %d)\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"end\">%s</text>\n"
       gx (height - 58) gx (height - 58) (svg_escape (Filename.basename test)))

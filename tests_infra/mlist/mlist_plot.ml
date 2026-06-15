@@ -276,7 +276,8 @@ let plot_operation (rows : row list) (operation : string) (output_path : string)
         let old_s = summarize old_values in
         let new_s = summarize new_values in
         let speedup_percent = if old_s.mean = 0. then 0. else ((old_s.mean -. new_s.mean) /. old_s.mean) *. 100. in
-        add "<text x=\"%.2f\" y=\"%d\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\" fill=\"#111\">speedup=%.1f%%</text>\n" gx (height - 64) speedup_percent
+        let speedup_factor = if new_s.mean = 0. then 0. else old_s.mean /. new_s.mean in
+        add "<text x=\"%.2f\" y=\"%d\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\" fill=\"#111\">speedup=%.1f%% (%.2fx)</text>\n" gx (height - 64) speedup_percent speedup_factor
       | _ -> ()
     end;
     List.iter (fun (implementation, color, offset) ->
@@ -399,7 +400,8 @@ let plot_case (rows : row list) operation size pattern output_path : bool =
     let old_s = summarize old_values in
     let new_s = summarize new_values in
     let speedup_percent = if old_s.mean = 0. then 0. else ((old_s.mean -. new_s.mean) /. old_s.mean) *. 100. in
-    add "<text x=\"%.0f\" y=\"%d\" font-family=\"sans-serif\" font-size=\"13\" text-anchor=\"middle\" fill=\"#111\">speedup = %.2f%%</text>\n" (left +. (plot_w /. 2.)) (height - 12) speedup_percent
+    let speedup_factor = if new_s.mean = 0. then 0. else old_s.mean /. new_s.mean in
+    add "<text x=\"%.0f\" y=\"%d\" font-family=\"sans-serif\" font-size=\"13\" text-anchor=\"middle\" fill=\"#111\">speedup = %.2f%% (%.2fx)</text>\n" (left +. (plot_w /. 2.)) (height - 12) speedup_percent speedup_factor
   | _ -> ()
   end;
   add "</svg>\n";

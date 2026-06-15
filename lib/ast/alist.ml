@@ -173,21 +173,35 @@ let insert_array (index : int) (inserted : 'a array) (seq : 'a t) : 'a t =
         else locate chunks index
     in
     let chunk = chunks.(chunk_index) in
-    let left = Array.sub chunk 0 item_index in
-    let right = Array.sub chunk item_index (Array.length chunk - item_index) in
-    let replacement =
-      let left_and_inserted = Array.append left inserted in
-      let left_chunks = chunks_of_array left_and_inserted in
-      if Array.length right = 0 then left_chunks else Array.append left_chunks [|right|]
-    in
-    let new_chunks =
-      normalize_chunks (Array.concat [
-        Array.sub chunks 0 chunk_index;
-        replacement;
-        Array.sub chunks (chunk_index + 1) (Array.length chunks - chunk_index - 1);
-      ])
-    in
-    if Array.length new_chunks = 0 then Empty else Long new_chunks
+    let chunk_length = Array.length chunk in
+    let inserted_length = Array.length inserted in
+    if chunk_length + inserted_length <= chunk_size then begin
+      let new_chunk =
+        Array.init (chunk_length + inserted_length) (fun i ->
+          if i < item_index then chunk.(i)
+          else if i < item_index + inserted_length then inserted.(i - item_index)
+          else chunk.(i - inserted_length))
+      in
+      let new_chunks = Array.copy chunks in
+      new_chunks.(chunk_index) <- new_chunk;
+      Long new_chunks
+    end else begin
+      let left = Array.sub chunk 0 item_index in
+      let right = Array.sub chunk item_index (chunk_length - item_index) in
+      let replacement =
+        let left_and_inserted = Array.append left inserted in
+        let left_chunks = chunks_of_array left_and_inserted in
+        if Array.length right = 0 then left_chunks else Array.append left_chunks [|right|]
+      in
+      let new_chunks =
+        normalize_chunks (Array.concat [
+          Array.sub chunks 0 chunk_index;
+          replacement;
+          Array.sub chunks (chunk_index + 1) (Array.length chunks - chunk_index - 1);
+        ])
+      in
+      if Array.length new_chunks = 0 then Empty else Long new_chunks
+    end
 
 let insert_list (index : int) (inserted : 'a list) (seq : 'a t) : 'a t =
   insert_array index (Array.of_list inserted) seq
