@@ -1,9 +1,12 @@
-(** alist : represnetation of sequence optimised for length between 1 and a few 1000s elements.
+(** Generic chunked-array sequence representation used to optimize [Mlist].
 
-  Generic chunked array lists.
+    [Alist] provides the internal sequence storage that replaces the previous
+    list-backed representation used by [Mlist]. It is designed for efficient
+    indexed access and local edits on sequences ranging from small lists to a
+    few thousand elements.
 
     This module only manages the array-of-arrays representation. Mark handling
-    belongs in [mlist_new.ml]. *)
+    belongs in [Mlist]. *)
 
 (** Maximum number of values in one chunk, that is, an Internal Array. *)
 let chunk_size : int = 32
