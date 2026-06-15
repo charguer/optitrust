@@ -68,7 +68,7 @@ let log_test_execution_timing
         operation = "run_test";
         size = "";
         pattern = "";
-        iteration = "1";
+        iteration = Benchmark_logger.get_iteration ();
         elapsed_ms = string_of_float elapsed_ms;
         minor_words;
         major_words;

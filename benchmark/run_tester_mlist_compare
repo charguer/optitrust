@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -lt 1 ]; then
+  echo "Usage: $0 <comparison-run-id> [tester target ...]" >&2
+  exit 2
+fi
+
+COMPARE_RUN_ID="$1"
+shift
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BENCHMARK_DIR="${BENCHMARK_DIR:-benchmark}"
+ABS_BENCHMARK_DIR="$(cd "$ROOT_DIR" && mkdir -p "$BENCHMARK_DIR" && cd "$BENCHMARK_DIR" && pwd)"
+
+NEW_RUN_ID="${COMPARE_RUN_ID}-new"
+OLD_RUN_ID="${COMPARE_RUN_ID}-old"
+PLOT_RUN_ID="${COMPARE_RUN_ID}-compare"
+
+TMP_ROOT="${TMPDIR:-/tmp}/optitrust-mlist-compare-$COMPARE_RUN_ID-$$"
+NEW_DIR="$TMP_ROOT/new"
+OLD_DIR="$TMP_ROOT/old"
+
+copy_checkout() {
+  local destination="$1"
+  mkdir -p "$destination"
+  rsync -a --delete \
+    --exclude ".git/" \
+    --exclude "_build/" \
+    --exclude "benchmark/runs/" \
+    --exclude "tools/vscode-optitrust/node_modules/" \
+    --exclude "node_modules/" \
+    --exclude "practice/*.pdf" \
+    --exclude "clang+llvm-*.tar.xz" \
+    "$ROOT_DIR/" "$destination/"
+}
+
+adapt_old_mlist_api() {
+  local file="$1"
+  perl -0pi -e 's/let empty : '\''a t =/let empty () : '\''a t =/g;
+              s/List\.fold_left \(fun acc ml -> merge acc ml\) empty mll/List.fold_left (fun acc ml -> merge acc ml) (empty ()) mll/g;
+              s/then of_list \[x\] else empty\)/then of_list [x] else empty ())/g;
+              s/if delete then empty else/if delete then empty () else/g' \
+    "$file"
+}
+
+cleanup_tmp() {
+  if [ "${KEEP_TMP:-0}" != "1" ]; then
+    rm -rf "$TMP_ROOT"
+  else
+    echo "[run-tester-mlist-compare] keeping temp dirs: $TMP_ROOT"
+  fi
+}
+
+trap cleanup_tmp EXIT INT TERM
+
+echo "[run-tester-mlist-compare] comparison_run_id=$COMPARE_RUN_ID"
+echo "[run-tester-mlist-compare] temp_root=$TMP_ROOT"
+echo "[run-tester-mlist-compare] new_run_id=$NEW_RUN_ID"
+echo "[run-tester-mlist-compare] old_run_id=$OLD_RUN_ID"
+echo "[run-tester-mlist-compare] plot_run_id=$PLOT_RUN_ID"
+
+echo "[run-tester-mlist-compare] creating isolated new checkout copy"
+copy_checkout "$NEW_DIR"
+
+echo "[run-tester-mlist-compare] creating isolated old checkout copy"
+copy_checkout "$OLD_DIR"
+
+if [ ! -f "$OLD_DIR/lib/ast/mlist_old.ml" ]; then
+  echo "[run-tester-mlist-compare] missing old implementation in isolated copy: lib/ast/mlist_old.ml" >&2
+  exit 2
+fi
+
+echo "[run-tester-mlist-compare] installing old implementation as active Mlist in isolated old copy"
+cp "$OLD_DIR/lib/ast/mlist_old.ml" "$OLD_DIR/lib/ast/mlist.ml"
+adapt_old_mlist_api "$OLD_DIR/lib/ast/mlist.ml"
+
+echo "[run-tester-mlist-compare] running tester with current new Mlist in isolated copy"
+set +e
+(
+  cd "$NEW_DIR"
+  IMPLEMENTATION=new-alist-mlist BENCHMARK_DIR="$ABS_BENCHMARK_DIR" \
+    ./benchmark/run_tester_bench "$NEW_RUN_ID" "$@"
+)
+NEW_EXIT=$?
+set -e
+
+echo "[run-tester-mlist-compare] running tester with old Mlist in isolated copy"
+set +e
+(
+  cd "$OLD_DIR"
+  IMPLEMENTATION=old-mlist BENCHMARK_DIR="$ABS_BENCHMARK_DIR" \
+    ./benchmark/run_tester_bench "$OLD_RUN_ID" "$@"
+)
+OLD_EXIT=$?
+set -e
+
+NEW_CSV="$ABS_BENCHMARK_DIR/runs/$NEW_RUN_ID/tester/per_test_timing.csv"
+OLD_CSV="$ABS_BENCHMARK_DIR/runs/$OLD_RUN_ID/tester/per_test_timing.csv"
+
+if [ -f "$OLD_CSV" ] && [ -f "$NEW_CSV" ]; then
+  echo "[run-tester-mlist-compare] generating old/new comparison plots"
+  (
+    cd "$ROOT_DIR"
+    ./benchmark/plot_tester_compare "$PLOT_RUN_ID" "$OLD_CSV" "$NEW_CSV"
+  )
+else
+  echo "[run-tester-mlist-compare] missing CSV for comparison" >&2
+  echo "[run-tester-mlist-compare] old_csv=$OLD_CSV" >&2
+  echo "[run-tester-mlist-compare] new_csv=$NEW_CSV" >&2
+fi
+
+echo "[run-tester-mlist-compare] done"
+echo "[run-tester-mlist-compare] new_exit=$NEW_EXIT"
+echo "[run-tester-mlist-compare] old_exit=$OLD_EXIT"
+echo "[run-tester-mlist-compare] comparison: $ABS_BENCHMARK_DIR/runs/$PLOT_RUN_ID"
+
+if [ "$NEW_EXIT" -ne 0 ]; then
+  exit "$NEW_EXIT"
+fi
+exit "$OLD_EXIT"

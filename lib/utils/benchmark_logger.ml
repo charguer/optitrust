@@ -25,6 +25,7 @@ let enabled : bool ref = ref false
 let benchmark_dir : string ref = ref "benchmark"
 let run_id : string option ref = ref None
 let implementation : string ref = ref "new-alist-mlist"
+let iteration : string ref = ref "1"
 
 let metadata_written : bool ref = ref false
 
@@ -88,6 +89,12 @@ let set_run_id (id : string) : unit =
 
 let set_implementation (name : string) : unit =
   implementation := name
+
+let set_iteration (value : string) : unit =
+  iteration := value
+
+let get_iteration () : string =
+  !iteration
 
 let timestamp () : string =
   let tm = Unix.localtime (Unix.time ()) in

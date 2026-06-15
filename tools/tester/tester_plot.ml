@@ -220,13 +220,21 @@ let plot_overview rows output_path limit =
   in
   let b = Buffer.create 65536 in
   let add fmt = Printf.bprintf b fmt in
-  let draw_point color x value =
-    add "<circle cx=\"%.2f\" cy=\"%.2f\" r=\"4\" fill=\"%s\" fill-opacity=\"0.75\"/>\n" x (y value) color
+  let draw_values color x values =
+    let stats = summarize values in
+    values
+    |> List.sort compare
+    |> List.iteri (fun j value ->
+      let jitter = float_of_int ((j mod 7) - 3) *. 2.4 in
+      add "<circle cx=\"%.2f\" cy=\"%.2f\" r=\"3\" fill=\"%s\" fill-opacity=\"0.55\"/>\n" (x +. jitter) (y value) color);
+    if stats.count > 0 then
+      add "<path d=\"M %.2f %.2f L %.2f %.2f L %.2f %.2f L %.2f %.2f Z\" fill=\"%s\"/>\n"
+        x (y stats.mean -. 5.) (x +. 5.) (y stats.mean) x (y stats.mean +. 5.) (x -. 5.) (y stats.mean) color
   in
   add "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\">\n" width height width height;
   add "<rect width=\"100%%\" height=\"100%%\" fill=\"white\"/>\n";
   add "<text x=\"%.0f\" y=\"30\" font-family=\"sans-serif\" font-size=\"20\" font-weight=\"700\">Tester timing by test</text>\n" left;
-  add "<text x=\"%.0f\" y=\"50\" font-family=\"sans-serif\" font-size=\"12\" fill=\"#555\">Top tests by elapsed time. Points show mean elapsed time. Y axis is log10(ms).</text>\n" left;
+  add "<text x=\"%.0f\" y=\"50\" font-family=\"sans-serif\" font-size=\"12\" fill=\"#555\">Top tests by elapsed time. Dots are measured iterations; diamond is mean. Y axis is log10(ms).</text>\n" left;
   for tick = int_of_float (floor y_min) to int_of_float (ceil y_max) do
     let yy = top +. ((y_max -. float_of_int tick) /. (y_max -. y_min) *. plot_h) in
     if yy >= top && yy <= top +. plot_h then begin
@@ -238,10 +246,12 @@ let plot_overview rows output_path limit =
   add "<line x1=\"%.0f\" y1=\"%.0f\" x2=\"%.0f\" y2=\"%.0f\" stroke=\"#111\"/>\n" left (top +. plot_h) (left +. plot_w) (top +. plot_h);
   List.iteri (fun i test ->
     let gx = x_group i in
-    let old_s = summarize (values grouped test "old-mlist") in
-    let new_s = summarize (values grouped test "new-alist-mlist") in
-    if old_s.count > 0 then draw_point "#d95f02" (gx -. 12.) old_s.mean;
-    if new_s.count > 0 then draw_point "#1b9e77" (gx +. 12.) new_s.mean;
+    let old_values = values grouped test "old-mlist" in
+    let new_values = values grouped test "new-alist-mlist" in
+    let old_s = summarize old_values in
+    let new_s = summarize new_values in
+    if old_s.count > 0 then draw_values "#d95f02" (gx -. 12.) old_values;
+    if new_s.count > 0 then draw_values "#1b9e77" (gx +. 12.) new_values;
     if old_s.count > 0 && new_s.count > 0 && old_s.mean <> 0. then begin
       let speedup = ((old_s.mean -. new_s.mean) /. old_s.mean) *. 100. in
       add "<text x=\"%.2f\" y=\"%d\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\">speedup=%.1f%%</text>\n" gx (height - 82) speedup

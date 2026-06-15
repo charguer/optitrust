@@ -321,6 +321,7 @@ let spec : cmdline_args =
      ("-benchmark-dir", Arg.String Benchmark_logger.set_benchmark_dir, " set the benchmark output directory, default: benchmark.");
      ("-benchmark-run-id", Arg.String Benchmark_logger.set_run_id, " set the benchmark run id, default: timestamp.");
      ("-benchmark-implementation", Arg.String Benchmark_logger.set_implementation, " set the benchmark implementation label, e.g. old-mlist or new-alist-mlist.");
+     ("-benchmark-iteration", Arg.String Benchmark_logger.set_iteration, " set the benchmark iteration label, default: 1.");
      ("-analyse-stats", Arg.Set analyse_stats, " produce a file reporting on the execution time");
      ("-analyse-stats-details", Arg.Set analyse_stats_details, " produce more details in the file reporting on the execution time (implies -analyse_stats)");
      ("-print-only-code", Arg.Set print_only_code, " print output without showing ghost operations");

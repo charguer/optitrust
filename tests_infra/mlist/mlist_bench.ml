@@ -51,13 +51,19 @@ type bench = {
   operation : string;
   size : int;
   pattern : pattern;
+  repetitions : int;
+  tier : string;
   old_setup : unit -> unit -> int;
   new_setup : unit -> unit -> int;
 }
 
-let repetitions = 10
+let normal_repetitions = 10
 
-let sizes = [16; 32; 64; 1_000; 10_000; 100_000; 1_000_000; 10_000_000]
+let large_repetitions = 3
+
+let normal_sizes = [16; 32; 64; 1_000; 10_000; 100_000]
+
+let large_sizes = [1_000_000]
 
 let string_of_pattern = function
   | Beginning -> "beginning"
@@ -287,19 +293,39 @@ let operations =
     "repeated_insert_remove", [Transform_like];
     "transform_like", [Transform_like] ]
 
-let make_bench operation size pattern : bench =
+let large_operations =
+  [ "of_list", [Deterministic];
+    "to_list", [Deterministic];
+    "length", [Deterministic];
+    "nth", [Beginning; Middle; End; Deterministic];
+    "nth_opt", [Beginning; Middle; End; Deterministic];
+    "map", [Deterministic];
+    "iter", [Deterministic];
+    "fold_left", [Deterministic];
+    "split", [Beginning; Middle; End];
+    "merge", [Middle];
+    "push_front", [Beginning];
+    "push_back", [End] ]
+
+let make_bench ~repetitions ~tier operation size pattern : bench =
   { operation;
     size;
     pattern;
+    repetitions;
+    tier;
     old_setup = make_for_impl (module Old_adapter) operation size pattern;
     new_setup = make_for_impl (module New_adapter) operation size pattern }
 
-let all_benches () : bench list =
+let benches_for_sizes ~repetitions ~tier sizes operations : bench list =
   List.concat_map (fun size ->
     List.concat_map (fun (operation, patterns) ->
-      List.map (fun pattern -> make_bench operation size pattern) patterns)
+      List.map (fun pattern -> make_bench ~repetitions ~tier operation size pattern) patterns)
       operations)
     sizes
+
+let all_benches () : bench list =
+  benches_for_sizes ~repetitions:normal_repetitions ~tier:"normal" normal_sizes operations
+  @ benches_for_sizes ~repetitions:large_repetitions ~tier:"large" large_sizes large_operations
 
 let sink : int ref = ref 0
 
@@ -324,7 +350,7 @@ let run_measured ~implementation bench iteration setup : unit =
     bench.size
     (string_of_pattern bench.pattern)
     iteration
-    repetitions
+    bench.repetitions
     implementation;
   let f = setup () in
   let value, elapsed_ms, before, after = measure f in
@@ -350,25 +376,27 @@ let run_measured ~implementation bench iteration setup : unit =
       minor_collections;
       major_collections;
       status = "pass";
-      notes = "result=" ^ string_of_int value ^ ";" ^ memory_notes };
+      notes = "tier=" ^ bench.tier ^ ";result=" ^ string_of_int value ^ ";" ^ memory_notes };
   progress "done operation=%s size=%d pattern=%s iteration=%d/%d implementation=%s elapsed_ms=%.6f result=%d"
     bench.operation
     bench.size
     (string_of_pattern bench.pattern)
     iteration
-    repetitions
+    bench.repetitions
     implementation
     elapsed_ms
     value
 
 let run_bench bench : unit =
-  progress "case operation=%s size=%d pattern=%s warmup=old,new"
+  progress "case tier=%s operation=%s size=%d pattern=%s repetitions=%d warmup=old,new"
+    bench.tier
     bench.operation
     bench.size
-    (string_of_pattern bench.pattern);
+    (string_of_pattern bench.pattern)
+    bench.repetitions;
   ignore ((bench.old_setup ()) ());
   ignore ((bench.new_setup ()) ());
-  for iteration = 1 to repetitions do
+  for iteration = 1 to bench.repetitions do
     run_measured ~implementation:"old-mlist" bench iteration bench.old_setup;
     run_measured ~implementation:"new-alist-mlist" bench iteration bench.new_setup
   done
@@ -381,15 +409,19 @@ let run () : unit =
     Benchmark_logger.log
       ~subdir:"micro"
       ~filename:"mlist_microbench.log"
-      (Printf.sprintf "Starting %d Mlist microbenchmarks with %d repetitions"
+      (Printf.sprintf "Starting %d Mlist microbenchmarks: normal_repetitions=%d large_repetitions=%d normal_sizes=%s large_sizes=%s"
         (List.length benches)
-        repetitions);
+        normal_repetitions
+        large_repetitions
+        (String.concat ";" (List.map string_of_int normal_sizes))
+        (String.concat ";" (List.map string_of_int large_sizes)));
     List.iter run_bench benches;
     Benchmark_logger.set_implementation "new-alist-mlist";
     let summary =
-      Printf.sprintf "Mlist microbenchmarks complete: %d benchmark cases, %d repetitions, sink=%d"
+      Printf.sprintf "Mlist microbenchmarks complete: %d benchmark cases, normal_repetitions=%d, large_repetitions=%d, sink=%d"
         (List.length benches)
-        repetitions
+        normal_repetitions
+        large_repetitions
         !sink
     in
     Benchmark_logger.log ~subdir:"micro" ~filename:"mlist_microbench.log" summary;
