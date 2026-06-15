@@ -316,6 +316,93 @@ let plot_operation (rows : row list) (operation : string) (output_path : string)
   File.put_contents output_path (Buffer.contents b);
   true
 
+let plot_operation_speedup (rows : row list) (operation : string) (output_path : string) : bool =
+  let rows = List.filter (fun row -> row.operation = operation) rows in
+  if rows = [] then false else
+  let grouped = grouped_values rows in
+  let groups =
+    rows
+    |> List.map (fun row -> row.size, row.pattern)
+    |> List.sort_uniq compare
+    |> List.filter (fun (size, pattern) ->
+      Hashtbl.mem grouped (group_key operation size pattern "old-mlist")
+      && Hashtbl.mem grouped (group_key operation size pattern "new-alist-mlist"))
+  in
+  if groups = [] then false else
+  let speedup_for size pattern =
+    let old_values = Option.value ~default:[] (Hashtbl.find_opt grouped (group_key operation size pattern "old-mlist")) in
+    let new_values = Option.value ~default:[] (Hashtbl.find_opt grouped (group_key operation size pattern "new-alist-mlist")) in
+    let old_s = summarize old_values in
+    let new_s = summarize new_values in
+    if new_s.mean = 0. then 0. else old_s.mean /. new_s.mean
+  in
+  let speedup_cutoff = 4. in
+  let y_max = speedup_cutoff in
+  let group_count = List.length groups in
+  let width = max 1000 (160 + (group_count * 104)) in
+  let height = 620 in
+  let left = 82. in
+  let right = 28. in
+  let top = 58. in
+  let bottom = 156. in
+  let plot_w = float_of_int width -. left -. right in
+  let plot_h = float_of_int height -. top -. bottom in
+  let x_group i =
+    if group_count = 1 then left +. (plot_w /. 2.)
+    else left +. ((float_of_int i) *. (plot_w /. float_of_int (group_count - 1)))
+  in
+  let y factor =
+    top +. ((y_max -. factor) /. y_max *. plot_h)
+  in
+  let b = Buffer.create 65536 in
+  let add fmt = Printf.bprintf b fmt in
+  let draw_bar x width color factor =
+    let display_factor = min factor speedup_cutoff in
+    let y0 = y 0. in
+    let y1 = y display_factor in
+    add "<rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"%.2f\" fill=\"%s\" fill-opacity=\"0.74\"/>\n"
+      (x -. (width /. 2.)) y1 width (max 1. (y0 -. y1)) color;
+    if factor > speedup_cutoff then begin
+      add "<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke=\"#111827\" stroke-width=\"2\" stroke-dasharray=\"3 3\"/>\n"
+        (x -. (width /. 2.) -. 3.) (top +. 6.) (x +. (width /. 2.) +. 3.) (top +. 6.);
+      add "<path d=\"M %.2f %.2f L %.2f %.2f L %.2f %.2f\" fill=\"none\" stroke=\"#111827\" stroke-width=\"1.4\"/>\n"
+        (x -. 6.) (top +. 13.) x (top +. 6.) (x +. 6.) (top +. 13.)
+    end
+  in
+  add "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\">\n" width height width height;
+  add "<rect width=\"100%%\" height=\"100%%\" fill=\"white\"/>\n";
+  add "<text x=\"%.0f\" y=\"30\" font-family=\"sans-serif\" font-size=\"20\" font-weight=\"700\">%s speedup by size/pattern</text>\n" left (svg_escape operation);
+  add "<text x=\"%.0f\" y=\"50\" font-family=\"sans-serif\" font-size=\"12\" fill=\"#555\">Y axis is speedup factor capped at 4x. Dashed marks mean the real new bar is higher.</text>\n" left;
+  for tick = 0 to 5 do
+    let factor = y_max *. float_of_int tick /. 5. in
+    let yy = y factor in
+    add "<line x1=\"%.0f\" y1=\"%.2f\" x2=\"%.0f\" y2=\"%.2f\" stroke=\"#e5e7eb\" stroke-width=\"1\"/>\n" left yy (left +. plot_w) yy;
+    add "<text x=\"%.0f\" y=\"%.2f\" font-family=\"sans-serif\" font-size=\"11\" text-anchor=\"end\" fill=\"#555\">%.2fx</text>\n" (left -. 8.) (yy +. 4.) factor
+  done;
+  let baseline_y = y 1. in
+  add "<line x1=\"%.0f\" y1=\"%.2f\" x2=\"%.0f\" y2=\"%.2f\" stroke=\"#111827\" stroke-width=\"1.4\" stroke-dasharray=\"4 4\"/>\n" left baseline_y (left +. plot_w) baseline_y;
+  add "<line x1=\"%.0f\" y1=\"%.0f\" x2=\"%.0f\" y2=\"%.0f\" stroke=\"#111\" stroke-width=\"1\"/>\n" left top left (top +. plot_h);
+  add "<line x1=\"%.0f\" y1=\"%.0f\" x2=\"%.0f\" y2=\"%.0f\" stroke=\"#111\" stroke-width=\"1\"/>\n" left (top +. plot_h) (left +. plot_w) (top +. plot_h);
+  List.iteri (fun i (size, pattern) ->
+    let gx = x_group i in
+    let factor = speedup_for size pattern in
+    let percent = if factor = 0. then 0. else (1. -. (1. /. factor)) *. 100. in
+    let label_y = y (min factor speedup_cutoff) -. 6. in
+    draw_bar (gx -. 15.) 20. "#d95f02" 1.;
+    draw_bar (gx +. 15.) 20. "#1b9e77" factor;
+    add "<text x=\"%.2f\" y=\"%.2f\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\" fill=\"#111\">%.2fx</text>\n" (gx +. 15.) label_y factor;
+    add "<text x=\"%.2f\" y=\"%d\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\" fill=\"#111\">%.1f%%</text>\n" gx (height - 66) percent;
+    add "<text x=\"%.2f\" y=\"%d\" font-family=\"sans-serif\" font-size=\"10\" text-anchor=\"middle\" fill=\"#333\">%d</text>\n" gx (height - 94) size;
+    add "<text x=\"%.2f\" y=\"%d\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\" fill=\"#555\">%s</text>\n" gx (height - 80) (svg_escape pattern))
+    groups;
+  add "<rect x=\"%.0f\" y=\"%d\" width=\"12\" height=\"12\" fill=\"#d95f02\" fill-opacity=\"0.74\"/>\n" left (height - 42);
+  add "<text x=\"%.0f\" y=\"%d\" font-family=\"sans-serif\" font-size=\"12\">old baseline 1.00x</text>\n" (left +. 18.) (height - 32);
+  add "<rect x=\"%.0f\" y=\"%d\" width=\"12\" height=\"12\" fill=\"#1b9e77\" fill-opacity=\"0.74\"/>\n" (left +. 170.) (height - 42);
+  add "<text x=\"%.0f\" y=\"%d\" font-family=\"sans-serif\" font-size=\"12\">new speedup factor</text>\n" (left +. 188.) (height - 32);
+  add "</svg>\n";
+  File.put_contents output_path (Buffer.contents b);
+  true
+
 let plot_case (rows : row list) operation size pattern output_path : bool =
   let rows =
     List.filter (fun row ->
@@ -445,7 +532,10 @@ let () =
   List.iter (fun operation ->
     let path = Filename.concat plots_dir ("mlist_" ^ operation ^ ".svg") in
     if plot_operation rows operation path then
-      Printf.printf "Wrote plot: %s\n" path)
+      Printf.printf "Wrote plot: %s\n" path;
+    let speedup_path = Filename.concat plots_dir ("mlist_" ^ operation ^ "_speedup.svg") in
+    if plot_operation_speedup rows operation speedup_path then
+      Printf.printf "Wrote speedup plot: %s\n" speedup_path)
     operations;
   let operation_is_selected operation = List.mem operation operations in
   let case_count = ref 0 in

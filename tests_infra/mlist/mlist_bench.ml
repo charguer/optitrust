@@ -57,13 +57,13 @@ type bench = {
   new_setup : unit -> unit -> int;
 }
 
-let normal_repetitions = 10
+let normal_repetitions = 3
 
 let large_repetitions = 3
 
-let normal_sizes = [16; 32; 64; 1_000; 10_000; 100_000]
+let normal_sizes = [2;4;8;16; 32; 64;256; 1_024; 10_000]
 
-let large_sizes = [1_000_000]
+let large_sizes = []
 
 let string_of_pattern = function
   | Beginning -> "beginning"
