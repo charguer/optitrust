@@ -2,6 +2,11 @@ open Optitrust
 open Target
 module OL = Optitrust_optilambda.Optilambda
 
+(** Regression test for the C/C++ frontend to OptiLambda translation.
+    It parses [printcpp.cpp] and writes the printed OptiLambda AST to
+    [printcpp_out.opti], for comparison with [printcpp_exp.opti].
+    When [OPTITRUST_C_PARSER] is set, the test calls that parser directly. *)
+
 let rec find_repo_root dir =
   if Sys.file_exists (Filename.concat dir "dune-project") && Sys.file_exists (Filename.concat dir "optitrust.opam") then dir
   else

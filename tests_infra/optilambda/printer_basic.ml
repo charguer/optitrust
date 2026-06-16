@@ -3,6 +3,10 @@ open Ast
 module OL = Optitrust_optilambda.Optilambda
 open Optitrust_optilambda.Optilambda_style
 
+(** Unit tests for the OptiLambda printer.
+    The file builds small AST fragments by hand and checks their exact text,
+    HTML, type, style, and representation output. *)
+
 let v name = Ast.name_to_var name
 let tv name ty = (v name, ty)
 let term name = Trm.trm_var (v name)
