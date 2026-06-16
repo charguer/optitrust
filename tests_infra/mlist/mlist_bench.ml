@@ -57,11 +57,11 @@ type bench = {
   new_setup : unit -> unit -> int;
 }
 
-let normal_repetitions = 3
+let normal_repetitions = 10
 
 let large_repetitions = 3
 
-let normal_sizes = [2;4;8;16; 32; 64;256; 1_024; 10_000]
+let normal_sizes = [2;4;8;16; 32; 64;256;512]
 
 let large_sizes = []
 
@@ -329,31 +329,56 @@ let all_benches () : bench list =
 
 let sink : int ref = ref 0
 
+let is_compound_operation operation : bool =
+  match operation with
+  | "repeated_split_merge" | "repeated_insert_remove" | "transform_like" -> true
+  | _ -> false
+
+let is_scan_operation operation : bool =
+  match operation with
+  | "nth_sequential_scan" | "nth_stride_scan" | "nth_random_scan" -> true
+  | _ -> false
+
+let inner_repetitions bench : int =
+  if bench.size <= 64 then begin
+    if is_compound_operation bench.operation then 20
+    else if is_scan_operation bench.operation then 100
+    else 1000
+  end else
+    1
+
 let progress fmt =
   Printf.ksprintf (fun msg ->
     Printf.printf "[mlist-bench] %s\n%!" msg)
     fmt
 
-let measure (f : unit -> int) : int * float * Gc.stat * Gc.stat =
+let measure ~inner_repetitions (f : unit -> int) : int * float * float * Gc.stat * Gc.stat =
   Gc.compact ();
   let before = Gc.stat () in
   let t0 = Unix.gettimeofday () in
-  let value = f () in
+  let value = ref 0 in
+  for _i = 1 to inner_repetitions do
+    value := !value + f ()
+  done;
   let t1 = Unix.gettimeofday () in
   let after = Gc.stat () in
-  sink := !sink + value;
-  value, (1000. *. (t1 -. t0)), before, after
+  sink := !sink + !value;
+  let total_elapsed_ms = 1000. *. (t1 -. t0) in
+  let normalized_elapsed_ms = total_elapsed_ms /. float_of_int inner_repetitions in
+  !value, total_elapsed_ms, normalized_elapsed_ms, before, after
 
 let run_measured ~implementation bench iteration setup : unit =
-  progress "running operation=%s size=%d pattern=%s iteration=%d/%d implementation=%s"
+  let inner_repetitions = inner_repetitions bench in
+  progress "running operation=%s size=%d pattern=%s iteration=%d/%d implementation=%s inner_repetitions=%d"
     bench.operation
     bench.size
     (string_of_pattern bench.pattern)
     iteration
     bench.repetitions
-    implementation;
+    implementation
+    inner_repetitions;
   let f = setup () in
-  let value, elapsed_ms, before, after = measure f in
+  let value, total_elapsed_ms, elapsed_ms, before, after = measure ~inner_repetitions f in
   let minor_words, major_words, promoted_words, minor_collections, major_collections =
     Benchmark_logger.gc_stats_fields before after
   in
@@ -376,8 +401,13 @@ let run_measured ~implementation bench iteration setup : unit =
       minor_collections;
       major_collections;
       status = "pass";
-      notes = "tier=" ^ bench.tier ^ ";result=" ^ string_of_int value ^ ";" ^ memory_notes };
-  progress "done operation=%s size=%d pattern=%s iteration=%d/%d implementation=%s elapsed_ms=%.6f result=%d"
+      notes = Printf.sprintf "tier=%s;result=%d;inner_repetitions=%d;total_elapsed_ms=%.6f;%s"
+        bench.tier
+        value
+        inner_repetitions
+        total_elapsed_ms
+        memory_notes };
+  progress "done operation=%s size=%d pattern=%s iteration=%d/%d implementation=%s elapsed_ms=%.6f total_elapsed_ms=%.6f result=%d"
     bench.operation
     bench.size
     (string_of_pattern bench.pattern)
@@ -385,15 +415,17 @@ let run_measured ~implementation bench iteration setup : unit =
     bench.repetitions
     implementation
     elapsed_ms
+    total_elapsed_ms
     value
 
 let run_bench bench : unit =
-  progress "case tier=%s operation=%s size=%d pattern=%s repetitions=%d warmup=old,new"
+  progress "case tier=%s operation=%s size=%d pattern=%s repetitions=%d inner_repetitions=%d warmup=old,new"
     bench.tier
     bench.operation
     bench.size
     (string_of_pattern bench.pattern)
-    bench.repetitions;
+    bench.repetitions
+    (inner_repetitions bench);
   ignore ((bench.old_setup ()) ());
   ignore ((bench.new_setup ()) ());
   for iteration = 1 to bench.repetitions do
