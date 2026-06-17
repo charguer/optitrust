@@ -146,7 +146,7 @@ for<seq> i in 0..n [h1] {
   BODY
 }
 
-for<seq> i in 0..n:2 {
+for<seq> i in range(0, n, 2) {
   BODY
 }
 ```
@@ -164,7 +164,28 @@ Loop directions are omitted in Surface syntax. A negative step represents a
 downward loop, for example:
 
 ```optilambda
-for<seq> i in n..0:-1
+for<seq> i in range(n, 0, -1)
+```
+
+Resource groups are displayed with the same surface range notation when they
+wrap a `range(...)` iterator:
+
+```optilambda
+for i in 0..n {
+  items(i)
+}
+
+for i in range(0, n, step) {
+  items(i)
+}
+```
+
+Desugared read-only and write contracts are recovered in Surface syntax when
+the consumed and produced resources clearly form the expected pair:
+
+```optilambda
+reads h: H
+writes h: H
 ```
 
 Conditionals and loops:

@@ -35,6 +35,8 @@ let block_doc docs =
 type block_item = Regular of document | FinalExpr of document
 type contract_clause = ContractClause of string * resource_item | ContractRaw of document
 
+type read_only_formula = { read_frac : trm; read_body : trm }
+
 (** [code_block_doc items] prints executable block items.
 
     Regular items always end with a semicolon. The optional final expression is printed without a trailing semicolon, matching
@@ -315,6 +317,52 @@ and var_has_name (name : string) (t : trm) : bool =
   | Trm_var v -> v.name = name && v.namespaces = []
   | _ -> false
 
+(** [app_var_name t] returns the unqualified function name of an application head. *)
+and app_var_name (t : trm) : string option =
+  match t.desc with
+  | Trm_var v when v.namespaces = [] -> Some v.name
+  | _ -> None
+
+(** [read_only_formula_inv formula] recognizes [_RO(frac, body)]. *)
+and read_only_formula_inv (formula : trm) : read_only_formula option =
+  match formula.desc with
+  | Trm_apps (f, [ frac; body ], [], []) when var_has_name "_RO" f -> Some { read_frac = frac; read_body = body }
+  | _ -> None
+
+(** [fraction_var_of_formula formula] recognizes a fraction variable used by [_RO]. *)
+and fraction_var_of_formula (formula : trm) : var option =
+  match formula.desc with
+  | Trm_var v -> Some v
+  | _ -> None
+
+(** [is_fraction_type_formula formula] recognizes the pure type formula [_Fraction]. *)
+and is_fraction_type_formula (formula : trm) : bool = var_has_name "_Fraction" formula
+
+(** [is_uninit_constructor_name name] recognizes resource constructors that describe uninitialized memory. *)
+and is_uninit_constructor_name (name : string) : bool = String.starts_with ~prefix:"Uninit" name || name = "_Uninit"
+
+(** [is_uninit_formula formula] conservatively recognizes uninitialized resource formulas.
+
+    This is intentionally local to the printer: it is used only to recover readable surface syntax from already computed contracts. *)
+and is_uninit_formula (formula : trm) : bool =
+  match formula.desc with
+  | Trm_apps (f, [ body ], [], []) when var_has_name "Uninit" f || var_has_name "_Uninit" f -> is_uninit_formula body || true
+  | Trm_apps (f, [ _addr; repr ], [], []) when var_has_name "~>" f -> is_uninit_formula repr
+  | Trm_apps (f, [ _range; { desc = Trm_fun ([ _ ], _, body, _); _ } ], [], []) when var_has_name "Group" f ->
+      is_uninit_formula body
+  | Trm_apps (f, _, [], []) ->
+      begin match app_var_name f with
+      | Some name when is_uninit_constructor_name name -> true
+      | _ -> false
+      end
+  | _ -> false
+
+(** [uninit_formula_body formula] extracts [body] from [Uninit(body)]-style formulas when present. *)
+and uninit_formula_body (formula : trm) : trm option =
+  match formula.desc with
+  | Trm_apps (f, [ body ], [], []) when var_has_name "Uninit" f || var_has_name "_Uninit" f -> Some body
+  | _ -> None
+
 (** [resource_item_to_doc style item] prints a named logical/resource formula. *)
 and resource_item_to_doc (style : Optilambda_style.style) ((hyp, formula) : resource_item) : document =
   var_to_doc style hyp ^^ colon ^^ blank 1 ^^ trm_to_doc_at style 0 formula
@@ -322,6 +370,61 @@ and resource_item_to_doc (style : Optilambda_style.style) ((hyp, formula) : reso
 (** [contract_clauses keyword items] builds a group of contract clauses. *)
 and contract_clauses (keyword : string) (items : resource_item list) : contract_clause list =
   List.map (fun item -> ContractClause (keyword, item)) items
+
+(** [simplify_surface_linear_contract pre post] recovers surface [reads] and [writes] clauses from desugared linear resources. *)
+and simplify_surface_linear_contract (pre : resource_item list) (post : resource_item list) :
+    resource_item list * resource_item list * resource_item list * resource_item list * var list =
+  let rec find_remove pred before = function
+    | [] -> None
+    | item :: rest ->
+        begin match pred item with
+        | Some payload -> Some (payload, List.rev_append before rest)
+        | None -> find_remove pred (item :: before) rest
+        end
+  in
+  let rec aux kept_pre reads writes used_fracs remaining_post = function
+    | [] -> (List.rev kept_pre, remaining_post, List.rev reads, List.rev writes, List.rev used_fracs)
+    | ((pre_hyp, pre_formula) as pre_item) :: rest ->
+        begin match read_only_formula_inv pre_formula with
+        | Some pre_ro ->
+            let pred (post_hyp, post_formula) =
+              match read_only_formula_inv post_formula with
+              | Some post_ro
+                when pre_hyp = post_hyp && pre_ro.read_frac = post_ro.read_frac && pre_ro.read_body = post_ro.read_body ->
+                  Some post_ro
+              | _ -> None
+            in
+            begin match find_remove pred [] remaining_post with
+            | Some (post_ro, remaining_post) ->
+                let used_fracs =
+                  match fraction_var_of_formula post_ro.read_frac with
+                  | Some frac -> frac :: used_fracs
+                  | None -> used_fracs
+                in
+                aux kept_pre ((pre_hyp, post_ro.read_body) :: reads) writes used_fracs remaining_post rest
+            | None -> aux (pre_item :: kept_pre) reads writes used_fracs remaining_post rest
+            end
+        | None ->
+            let pred (post_hyp, post_formula) =
+              if pre_hyp = post_hyp then
+                match uninit_formula_body pre_formula with
+                | Some body when body = post_formula -> Some post_formula
+                | _ when is_uninit_formula pre_formula && not (is_uninit_formula post_formula) -> Some post_formula
+                | _ -> None
+              else None
+            in
+            begin match find_remove pred [] remaining_post with
+            | Some (post_formula, remaining_post) ->
+                aux kept_pre reads ((pre_hyp, post_formula) :: writes) used_fracs remaining_post rest
+            | None -> aux (pre_item :: kept_pre) reads writes used_fracs remaining_post rest
+            end
+        end
+  in
+  aux [] [] [] [] post pre
+
+(** [remove_used_fraction_requirements used_fracs pure] drops generated [_Fraction] hypotheses that only support recovered [reads] clauses. *)
+and remove_used_fraction_requirements (used_fracs : var list) (pure : resource_item list) : resource_item list =
+  List.filter (fun (hyp, formula) -> not (List.exists (( = ) hyp) used_fracs && is_fraction_type_formula formula)) pure
 
 (** [contract_group_to_doc style keyword items] prints consecutive clauses sharing a keyword. *)
 and contract_group_to_doc (style : Optilambda_style.style) (keyword : string) (items : resource_item list) : document =
@@ -357,6 +460,15 @@ and contract_clauses_to_docs (style : Optilambda_style.style) (clauses : contrac
 (** [fun_contract_clause_docs style contract] prints the direct internal function contract. *)
 and fun_contract_clauses (style : Optilambda_style.style) (contract : fun_contract) : contract_clause list =
   if not style.print_contracts then []
+  else if style.representation = Surface then
+    let consumes, produces, reads, writes, used_fracs = simplify_surface_linear_contract contract.pre.linear contract.post.linear in
+    let pure = remove_used_fraction_requirements used_fracs contract.pre.pure in
+    contract_clauses "requires" pure
+    @ contract_clauses "reads" reads
+    @ contract_clauses "writes" writes
+    @ contract_clauses "consumes" consumes
+    @ contract_clauses "ensures" contract.post.pure
+    @ contract_clauses "produces" produces
   else
     contract_clauses "requires" contract.pre.pure
     @ contract_clauses "consumes" contract.pre.linear
@@ -485,6 +597,19 @@ and let_to_doc (style : Optilambda_style.style) ((v, ty) : typed_var) (body : tr
 and app_to_doc (style : Optilambda_style.style) ~(result_typ : typ) (f : trm) (args : trm list) (ghost_args : resource_item list)
     (ghost_bind : (var option * var) list) : document =
   match (f.desc, args) with
+  | Trm_var group_var, [ { desc = Trm_apps ({ desc = Trm_var range_var; _ }, [ start; stop; step ], [], []); _ };
+                         { desc = Trm_fun ([ (index, _) ], _, body, _); _ } ]
+    when style.representation = Surface && group_var.name = "Group" && group_var.namespaces = [] && range_var.name = "range"
+         && range_var.namespaces = [] ->
+      let range_doc =
+        if is_int_one step then
+          var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc_at style 0 start ^^ string ".."
+          ^^ trm_to_doc_at style 0 stop
+        else
+          var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ string "range"
+          ^^ parens_doc (comma_sep [ trm_to_doc_at style 0 start; trm_to_doc_at style 0 stop; trm_to_doc_at style 0 step ])
+      in
+      string "for" ^^ blank 1 ^^ range_doc ^^ blank 1 ^^ trm_to_block_doc style body
   | Trm_prim (_, Prim_binop Binop_array_access), [ base; index ] when is_internal style ->
       trm_to_doc_at style 10 base ^^ blank 1 ^^ string "[+]" ^^ blank 1 ^^ trm_to_doc_at style 0 index
   | Trm_prim (_, Prim_binop Binop_array_get), [ base; index ] when is_internal style ->
@@ -609,9 +734,12 @@ and for_to_doc (style : Optilambda_style.style) (range : loop_range) (mode : loo
         not (style.omit_default_loop_step && is_int_one range.step)
   in
   let range_doc =
-    var_to_doc style range.index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc_at style 0 range.start ^^ string ".."
-    ^^ trm_to_doc_at style 0 range.stop
-    ^^ if show_step then colon ^^ step_doc else empty
+    if show_step then
+      var_to_doc style range.index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ string "range"
+      ^^ parens_doc (comma_sep [ trm_to_doc_at style 0 range.start; trm_to_doc_at style 0 range.stop; step_doc ])
+    else
+      var_to_doc style range.index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc_at style 0 range.start ^^ string ".."
+      ^^ trm_to_doc_at style 0 range.stop
   in
   string "for"
   ^^ angles_doc (loop_mode_to_doc style mode)
