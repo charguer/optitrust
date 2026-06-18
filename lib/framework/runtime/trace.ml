@@ -492,6 +492,25 @@ let style_resources ?(print_var_id : bool option) () = (*TODO factorize with Sho
       print_var_id = Option.value ~default:cstyle.print_var_id print_var_id;
       optitrust_syntax = true; } })
 
+let output_extension (style : output_style) (ctx : context) : string =
+  match style.print with
+  | Lang_OptiLambda _ -> ".opti"
+  | Lang_AST _
+  | Lang_C _ -> ctx.extension
+
+let output_filename (style : output_style) (ctx : context) (prefix : string) : string =
+  prefix ^ output_extension style ctx
+
+let optilambda_representations : (string * Optitrust_optilambda.Optilambda.Style.representation) list =
+  Optitrust_optilambda.Optilambda.Style.[
+    "surface", Surface;
+    "internal", Internal;
+    "typed", FullyTypedInternal;
+  ]
+
+let optilambda_style representation : output_style =
+  Style.optilambda ~representation ()
+
 
 (** [cleanup_cpp_file_using_clang_format filename]: makes a system call to
    reformat a CPP file using the clang format tool.
@@ -533,33 +552,34 @@ exception MissingAst
 let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
   if ast = trm_dummy then raise MissingAst;
   let use_clang_format = beautify && !Flags.use_clang_format in
-  let file_prog = prefix ^ ctx.extension in
+  let file_prog = output_filename style ctx prefix in
   let out_prog = open_out file_prog in
   begin try
-    (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
-    output_string out_prog ctx.header;
-    (* Convert contracts into code *)
-    let fromto_style = C_encoding.style_of_output_style style in
-    let ast = C_encoding.computed_resources_intro fromto_style ast in
-    (* Optionally convert from OptiTrust to C syntax *)
-    let ast =
-      if style.decode then begin
-        try
-          C_encoding.encode_to_c fromto_style ast
-        with
-        | Scope_computation.InvalidVarId msg ->
-          Tools.warn "output_prog could not decode due do invalid var ids: %s" msg;
-          (* TODO: add comment in code or in trace by returning info to callers *)
+    begin match style.print with
+    | Lang_OptiLambda optilambda_style ->
+      output_string out_prog (Optitrust_optilambda.Optilambda.trm_to_string ~style:optilambda_style ast)
+    | Lang_AST _ -> raise (TraceFailure "output_prog requires a Lang_C or Lang_OptiLambda printing mode, not a Lang_AST")
+    | Lang_C cstyle ->
+      (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
+      output_string out_prog ctx.header;
+      (* Convert contracts into code *)
+      let fromto_style = C_encoding.style_of_output_style style in
+      let ast = C_encoding.computed_resources_intro fromto_style ast in
+      (* Optionally convert from OptiTrust to C syntax *)
+      let ast =
+        if style.decode then begin
+          try
+            C_encoding.encode_to_c fromto_style ast
+          with
+          | Scope_computation.InvalidVarId msg ->
+            Tools.warn "output_prog could not decode due do invalid var ids: %s" msg;
+            (* TODO: add comment in code or in trace by returning info to callers *)
+            C_encoding.encode_meta fromto_style ast
+        end else
           C_encoding.encode_meta fromto_style ast
-      end else
-        C_encoding.encode_meta fromto_style ast
-      in
-    (* Print the code into file, using the specified style *)
-    let cstyle = match style.print with
-      | Lang_AST _-> raise (TraceFailure "output_prog requires a Lang_C printing mode, not a Lang_AST")
-      | Lang_C cstyle -> cstyle
-      in
-    Ast_to_c.ast_to_outchannel cstyle out_prog ast;
+        in
+      Ast_to_c.ast_to_outchannel cstyle out_prog ast
+    end;
     output_string out_prog "\n";
     close_out out_prog;
   with Failure _ as exn ->
@@ -569,10 +589,10 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
     Printexc.(raise_with_backtrace exn backtrace)
   end;
   (* Beautify the generated C++ code using clang-format *)
-  if use_clang_format
+  if use_clang_format && output_extension style ctx <> ".opti"
     then cleanup_cpp_file_using_clang_format ~uncomment_pragma:use_clang_format file_prog;
   (* Optionally (flag [-dump-ast-details]), generated output also in OptiTrust syntax and Raw syntax *)
-  if !Flags.dump_ast_details then begin
+  if !Flags.dump_ast_details && output_extension style ctx <> ".opti" then begin
     let file_ast = prefix ^ ".ast" in
     let file_enc = prefix ^ "_enc" ^ ctx.extension in
     let out_ast = open_out file_ast in
@@ -1499,7 +1519,7 @@ let trace_custom_postprocessing : (trm -> trm) ref = ref (fun t -> t)
 let code_to_temp_file ?(temp_prefix="code") (style:output_style) (ctx: context) (ast: trm): string =
   (* Patch the AST with custom processing, only for debugging purposes *)
   let ast = !trace_custom_postprocessing ast in
-  let filename = Filename.temp_file temp_prefix ctx.extension in
+  let filename = Filename.temp_file temp_prefix (output_extension style ctx) in
   let prefix = Filename.remove_extension filename in
   output_prog style ctx prefix ast;
   filename
@@ -1538,6 +1558,13 @@ let compute_before_after_and_diff ?(style:output_style option) ?(hide_annot:bool
   Sys.remove after_file;
   sBefore, sAfter, sDiff
 
+let compute_before_after_and_diff_opt ?(style:output_style option) ?(hide_annot:bool=false) (s:step_tree) : (string * string * string) option =
+  try Some (compute_before_after_and_diff ~hide_annot ?style ~drop_before_after:false s)
+  with e ->
+    let exn = Printexc.to_string e in
+    Tools.warn "Error while saving trace:\n%s" exn;
+    None
+
 (** [compute_diff s] returns the string describing the diff associated with the step [s].
     The AST are printed using the style_before and style_after of [s]. *)
 let compute_diff ?(hide_annot:bool=false) ?(style:output_style option) (s:step_tree) : string =
@@ -1573,36 +1600,41 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
   (* Recursive calls *)
   let aux = dump_step_tree_to_js ~is_substep_of_targeted_line root_id out in
   (* Compute code display for this node *)
-  let sBefore, sAfter, sDiff =
+  let sCode =
     if should_compute_diff then begin
-      try
-        let sBefore, sAfter, sDiff = compute_before_after_and_diff ~hide_annot:false s in
-        Some sBefore, Some sAfter, Some sDiff
-      with e ->
-        (* Prevent any exception during printing to corrupt the entire trace *)
-        let exn = Printexc.to_string e in
-        Tools.warn "Error while saving trace:\n%s" exn;
-        None, None, None
+      compute_before_after_and_diff_opt ~hide_annot:false s
     end else
-      None, None, None
+      None
     in
-  let sBefore_raw, sAfter_raw, sDiff_raw =
+  let sCode_raw =
     if should_compute_diff then begin
-      try
-        let sBefore_raw, sAfter_raw, sDiff_raw = compute_before_after_and_diff ~hide_annot:true s in
-        Some sBefore_raw, Some sAfter_raw, Some sDiff_raw
-      with e ->
-        (* Prevent any exception during printing to corrupt the entire trace *)
-        let exn = Printexc.to_string e in
-        Tools.warn "Error while saving trace:\n%s" exn;
-        None, None, None
+      compute_before_after_and_diff_opt ~hide_annot:true s
     end else
-      None, None, None
+      None
     in
+  let compute_optilambda representation =
+    if should_compute_diff then
+      compute_before_after_and_diff_opt ~style:(optilambda_style representation) s
+    else
+      None
+    in
+  let sCode_optilambda_surface = compute_optilambda Optitrust_optilambda.Optilambda.Style.Surface in
+  let sCode_optilambda_internal = compute_optilambda Optitrust_optilambda.Optilambda.Style.Internal in
+  let sCode_optilambda_typed = compute_optilambda Optitrust_optilambda.Optilambda.Style.FullyTypedInternal in
+  let code_fields before_key after_key diff_key = function
+    | Some (before, after, diff) ->
+      [ before_key, Json.base64 before;
+        after_key, Json.base64 after;
+        diff_key, Json.base64 diff ]
+    | None ->
+      [ before_key, Json.raw "undefined";
+        after_key, Json.raw "undefined";
+        diff_key, Json.raw "undefined" ]
+  in
   (* Dump Json for this node *)
   let id = s.step_infos.step_id - root_id in
   let json = (* TODO: check if ~html_newlines:true is needed for certain calls to [Json.str] *)
-    Json.obj_quoted_keys [
+    Json.obj_quoted_keys ([
       "id", Json.int id;
       "kind", Json.str (step_kind_to_string s.step_kind);
       "exectime", Json.float i.step_exectime;
@@ -1618,13 +1650,14 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
       "tags", Json.(listof str) i.step_tags;
       "debug_msgs", Json.(listof str) i.step_debug_msgs;
       "sub", Json.(listof int) (List.map (fun sub -> sub.step_infos.step_id - root_id) s.step_sub);
-      "code_before", Json.(optionof base64) sBefore;
-      "code_after", Json.(optionof base64) sAfter;
-      "diff", Json.(optionof base64) sDiff;
-      "code_before_raw", Json.(optionof base64) sBefore_raw;
-      "code_after_raw", Json.(optionof base64) sAfter_raw;
-      "diff_raw", Json.(optionof base64) sDiff_raw;
-    ] in
+    ]
+    @ code_fields "code_before" "code_after" "diff" sCode
+    @ code_fields "code_before_raw" "code_after_raw" "diff_raw" sCode_raw
+    @ code_fields "code_before_optilambda_surface" "code_after_optilambda_surface" "diff_optilambda_surface" sCode_optilambda_surface
+    @ code_fields "code_before_optilambda_internal" "code_after_optilambda_internal" "diff_optilambda_internal" sCode_optilambda_internal
+    @ code_fields "code_before_optilambda_typed" "code_after_optilambda_typed" "diff_optilambda_typed" sCode_optilambda_typed
+    @ code_fields "code_before_optilambda" "code_after_optilambda" "diff_optilambda" sCode_optilambda_surface)
+  in
   out (sprintf "steps[%d] = %s;\n" id (Json.to_string json));
   (* If this step is the targeted step, mention it as such *)
   if is_smallstep_of_targeted_line
@@ -1780,11 +1813,20 @@ let produce_diff_output_internal (step:step_tree) : unit =
   (* Common printing function *)
   let output_ast style filename_prefix ast =
     output_prog style ctx filename_prefix ast;
-    Flags.verbose_info "Generated: %s%s" filename_prefix ctx.extension;
+    Flags.verbose_info "Generated: %s" (output_filename style ctx filename_prefix);
+    in
+  let output_optilambda_pair suffix representation =
+    let style = optilambda_style representation in
+    output_ast style (prefix ^ "_before" ^ suffix) ast_before;
+    output_ast style (prefix ^ "_after" ^ suffix) ast_after;
     in
   (* Generate files. *)
   output_ast style_before (prefix ^ "_before") ast_before;
   output_ast style_after (prefix ^ "_after") ast_after;
+  output_optilambda_pair "" Optitrust_optilambda.Optilambda.Style.Surface;
+  List.iter
+    (fun (suffix, representation) -> output_optilambda_pair ("_" ^ suffix) representation)
+    optilambda_representations;
   Flags.verbose_info "Writing ast and code into %s.js" prefix
 
 (** [produce_trace_output step] is an auxiliary function for [produce_output_and_exit] *)
@@ -2066,7 +2108,7 @@ let dump (style : output_style) ?(store_in_trace = true) ?(prefix : string = "")
       if prefix = "" then (* ctx.directory ^ *) ctx.prefix else prefix in
     output_prog style ctx (prefix ^ "_out") (the_trace.cur_ast);
     if append_comments <> "" then begin
-      let filename = prefix ^ "_out.cpp" in
+      let filename = output_filename style ctx (prefix ^ "_out") in
       File.append_contents filename ("/*\n" ^ append_comments ^ "\n*/\n");
     end
     in
@@ -2166,5 +2208,3 @@ let () = (* LATER: better factorization with Tools module; how should we handle 
   Tools.error_fun := Terminal.(report red ("ERROR" ^ get_current_script_line_as_string()));
   Tools.warn_fun := Terminal.(report orange ("WARNING" ^ get_current_script_line_as_string()));
   Tools.info_fun := Terminal.(report blue ("INFO" ^ get_current_script_line_as_string()))
-
-

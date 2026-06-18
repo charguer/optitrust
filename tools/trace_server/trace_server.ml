@@ -21,36 +21,67 @@ let get_query request query_name =
   | Some query -> query
   | None -> raise (Invalid_query ("Missing query parameter " ^ query_name))
 
+let get_query_opt request query_name =
+  Dream.query request query_name
+
+let get_query_or_default request query_name default =
+  match get_query_opt request query_name with
+  | Some query -> query
+  | None -> default
+
 let get_query_as_int request query_name =
   let query = get_query request query_name in
   match int_of_string_opt query with
   | Some query -> query
   | None -> raise (Invalid_query ("Query parameter " ^ query_name ^ " should be an integer"))
 
-let get_query_as_bool request query_name =
-  let query = get_query request query_name in
-  match bool_of_string_opt query with
-  | Some query -> query
-  | None -> raise (Invalid_query ("Query parameter " ^ query_name ^ " should be a boolean"))
+let get_query_as_bool_or_default request query_name default =
+  match get_query_opt request query_name with
+  | Some query ->
+    begin match bool_of_string_opt query with
+    | Some query -> query
+    | None -> raise (Invalid_query ("Query parameter " ^ query_name ^ " should be a boolean"))
+    end
+  | None -> default
+
+let typing_style_of_query request =
+  let open Style in
+  match get_query_or_default request "typing_style" "annot" with
+  | "hide" -> typing_none
+  | "annot" -> typing_annot
+  | "ctx" -> typing_ctx
+  | "usage" -> typing_usage
+  | "full" -> typing_all_but_frame
+  | style -> raise (Invalid_query ("Invalid typing style " ^ style))
+
+let optilambda_representation_of_query request =
+  let repr = get_query_or_default request "repr" "surface" in
+  match Optitrust_optilambda.Optilambda.Style.representation_of_string repr with
+  | Some representation -> representation
+  | None -> raise (Invalid_query ("Invalid OptiLambda representation " ^ repr))
+
+let cpp_style_of_query request : Trace.output_style =
+  let open Style in
+  let c_style = Ast_to_c.default_style () in
+  { decode = get_query_as_bool_or_default request "decode" true;
+    typing = typing_style_of_query request;
+    print = Lang_C { c_style with
+      optitrust_syntax = get_query_as_bool_or_default request "optitrust_syntax" false;
+      print_types = get_query_as_bool_or_default request "print_types" false;
+    } }
+
+let optilambda_style_of_query request : Trace.output_style =
+  Style.optilambda ~representation:(optilambda_representation_of_query request) ()
 
 let style_of_query request : Trace.output_style =
-  let open Style in
-  let typing =
-    match (get_query request "typing_style") with
-    | "hide" -> typing_none
-    | "annot" -> typing_annot
-    | "ctx" -> typing_ctx
-    | "usage" -> typing_usage
-    | "full" -> typing_all_but_frame
-    | style -> raise (Invalid_query ("Invalid typing style " ^ style))
-    in
-  let c_style = Ast_to_c.default_style () in
-  { decode = get_query_as_bool request "decode";
-    typing;
-    print = Lang_C { c_style with
-      optitrust_syntax = get_query_as_bool request "optitrust_syntax";
-      print_types = get_query_as_bool request "print_types";
-    } }
+  match Option.map String.lowercase_ascii (get_query_opt request "syntax") with
+  | Some "cpp" -> cpp_style_of_query request
+  | Some "optilambda" -> optilambda_style_of_query request
+  | Some syntax -> raise (Invalid_query ("Invalid syntax " ^ syntax))
+  | None ->
+    if get_query_as_bool_or_default request "optitrust_syntax" false
+      then Style.optilambda ()
+      else cpp_style_of_query request
 
 type trace_cache_entry = {
   trace_path: string;

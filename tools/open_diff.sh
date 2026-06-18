@@ -62,17 +62,51 @@ FILENAME="${FILEBASE}_diff.html"
 
 TITLESTR="${FILEBASE} - OptiTrust Diff"
 
-# Compute the diff in base64 encoding
-DIFFCODE=`git diff --ignore-all-space --no-index -U${CONTEXTSIZE} ${FILEBASE}_before.${FILEEXT} ${FILEBASE}_after.${FILEEXT} | base64 -w 0`
+# Compute a diff in base64 encoding, or return an empty payload when the
+# requested representation was not generated.
+print_diff_payload() {
+  local BEFORE_FILE=$1
+  local AFTER_FILE=$2
+  git diff --ignore-all-space --no-index -U${CONTEXTSIZE} "${BEFORE_FILE}" "${AFTER_FILE}" | base64 -w 0
+}
 
-# Don't launch a browser for an empty diff
-if [ "$DIFFCODE" == "" ]; then
+compute_diff_payload() {
+  local BEFORE_FILE=$1
+  local AFTER_FILE=$2
+  if [ -f "${BEFORE_FILE}" ] && [ -f "${AFTER_FILE}" ]; then
+    print_diff_payload "${BEFORE_FILE}" "${AFTER_FILE}"
+  fi
+}
+
+compute_first_diff_payload() {
+  local BEFORE_FILE
+  local AFTER_FILE
+  while [ "$#" -gt 0 ]; do
+    BEFORE_FILE=$1
+    AFTER_FILE=$2
+    if [ -f "${BEFORE_FILE}" ] && [ -f "${AFTER_FILE}" ]; then
+      print_diff_payload "${BEFORE_FILE}" "${AFTER_FILE}"
+      return
+    fi
+    shift 2
+  done
+}
+
+DIFFCODE=$(compute_diff_payload "${FILEBASE}_before.${FILEEXT}" "${FILEBASE}_after.${FILEEXT}")
+DIFFCODE_OPTILAMBDA_SURFACE=$(compute_first_diff_payload \
+  "${FILEBASE}_before_surface.opti" "${FILEBASE}_after_surface.opti" \
+  "${FILEBASE}_before.opti" "${FILEBASE}_after.opti")
+DIFFCODE_OPTILAMBDA_INTERNAL=$(compute_diff_payload "${FILEBASE}_before_internal.opti" "${FILEBASE}_after_internal.opti")
+DIFFCODE_OPTILAMBDA_TYPED=$(compute_diff_payload "${FILEBASE}_before_typed.opti" "${FILEBASE}_after_typed.opti")
+
+# Don't launch a browser if every available representation has an empty diff.
+if [ "$DIFFCODE" == "" ] && [ "$DIFFCODE_OPTILAMBDA_SURFACE" == "" ] && [ "$DIFFCODE_OPTILAMBDA_INTERNAL" == "" ] && [ "$DIFFCODE_OPTILAMBDA_TYPED" == "" ]; then
   echo ">>>============EMPTY DIFF============<<<"
   exit 0
 fi
 
-# Generate the JavaScript definition
-DIFFSTR="var diffString = window.atob(\"${DIFFCODE}\");"
+# Generate the JavaScript definitions
+DIFFSTR="var diffStrings = { cpp: window.atob(\"${DIFFCODE}\"), surface: window.atob(\"${DIFFCODE_OPTILAMBDA_SURFACE}\"), internal: window.atob(\"${DIFFCODE_OPTILAMBDA_INTERNAL}\"), typed: window.atob(\"${DIFFCODE_OPTILAMBDA_TYPED}\") };"
 
 # Take templace and substitute ${WEB_VIEW_FOLDER}, ${INSERT_TITLE}, and ${INSERT_DIFF}
 TEMPLATE="${WEB_VIEW_FOLDER}/diff_template.html"

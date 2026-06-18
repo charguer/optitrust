@@ -1,0 +1,23 @@
+(executable
+  (name printer_manual)
+  (modules printer_manual)
+  (libraries optitrust.ast optitrust.optilambda)
+  (flags (:standard -w A-4-44-70-60 -g)))
+
+(test
+  (name printer_basic)
+  (modules printer_basic)
+  (libraries optitrust.ast optitrust.optilambda)
+  (flags (:standard -w A-4-44-70-60 -g)))
+
+(executable
+  (name printcpp)
+  (modules printcpp)
+  (libraries optitrust optitrust.optilambda)
+  (flags (:standard -w A-4-33-44-70-60 -g)))
+
+(rule
+  (alias runtest)
+  (action
+    (setenv OPTITRUST_C_PARSER %{exe:../../tools/c_parser/c_parser.exe}
+      (run ./printcpp.exe))))

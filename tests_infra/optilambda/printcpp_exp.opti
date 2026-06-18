@@ -1,0 +1,1394 @@
+-- CPP test --
+{
+  record vect {
+    x: int;
+    y: int
+  };
+  record particle {
+    pos: vect;
+    speed: vect
+  };
+  record vects {
+    head: vect;
+    tail: ptr(vects)
+  };
+  type vect2 = vect;
+  type vect3 = vect2;
+  type int2 = array(int, 2);
+  type intstar = ptr(int);
+  fun addr_array_cell(): unit {
+    letmut p;
+    letmut n = p[0];
+  };
+  fun initlist(): unit {
+    letmut v1 = {1, 2};
+    letmut v2 = {1, 2};
+    letmut p = {1, 2};
+    letmut n = (p)[0];
+  };
+  fun f(n: int): int {
+    let __res: int = n;
+    __res
+  };
+  fun test_loop(): unit {
+    letmut a = 0;
+    for<seq> i in 0..10 { __ignore(post_incr(a)); };
+    for<seq> i in range(10, 0, -1) { __ignore(post_decr(a)); };
+    let x: int = 3;
+    let y: int = 2;
+    for_c(letmut x = 2, true, unit) {
+      letmut y = 1;
+      letmut r = x + y;
+    };
+    let z: int = x + y;
+  };
+  fun stack_var(): unit {
+    letmut r = 3;
+    r = r + 1 + 2;
+    (+=)(r, 2);
+    __ignore(post_incr(r));
+    letmut s = f(r);
+  };
+  fun stack_array(): unit {
+    letmut t = array(5, 6);
+    letmut a = t[0];
+    t[1] = a + 2;
+  };
+  fun stack_struct(): unit {
+    letmut v = {5, 6};
+    letmut a = v.x;
+    v.y = a + 2;
+    letmut v2 = v;
+    v2 = v;
+    letmut p1 = {v, v};
+    letmut p2 = {v, {7, 8}};
+  };
+  fun references(): unit {
+    letmut a = 3;
+    let b: ptr(int) = a;
+    b = b + 4;
+  };
+  fun constants(): unit {
+    let a: int = 3;
+    let b: int = a + 3;
+    letmut c = b + 4;
+    let v: vect = {0, 1};
+    letmut d = v.x;
+  };
+  fun const_pointers(): unit {
+    letmut a = 3;
+    letmut b = a;
+    let c: int = b + 4;
+  };
+  fun nonconst_pointers(): unit {
+    letmut a = 3;
+    letmut b = a;
+    b = b + 4;
+    letmut c = 3;
+    b = c;
+  };
+  fun main(): int {};
+  fun h(x: int): int {
+    letmut y = x + 1;
+    let __res: int = y;
+    __res
+  };
+  fun immutable_stack_ptr(): int {
+    letmut x = 3;
+    letmut y = f(x);
+    letmut p = x;
+    let q: ptr(int) = x;
+    let r: ptr(int) = x;
+    p = y;
+    q = 5;
+    let __res: int = p + q + r;
+    __res
+  };
+  fun immutable_stack_array(): int {
+    letmut x = 3;
+    letmut y = 4;
+    letmut t = array(x, y);
+    t[0] = 3;
+    letmut u = array(x, y);
+    u[0] = y;
+    letmut v = array(x, y);
+    let __res: int = t[0];
+    __res
+  };
+  fun immutable_stack_var(): int {
+    let a: int = 4;
+    let r: int = 3;
+    let s: int = r + 1;
+    r
+  };
+  fun mutable_stack_var(): int {
+    letmut r = 3;
+    r = r + 1;
+    __ignore(post_incr(r));
+    let __res: int = r;
+    __res
+  };
+  fun mutable_stack_array(): int {
+    letmut x = 3;
+    letmut y = 4;
+    letmut w = array(x, y);
+    w[0] = y;
+    w[0] = 3;
+    let __res: int = w[0];
+    __res
+  };
+  fun access_encoding(): unit {
+    let a: vect = {0, 1};
+    let b: vect = a;
+    letmut c = a;
+    let ax: int = a.x;
+    let cy: int = c.y;
+  };
+  fun foo(v: vect): int {
+    let __res: int = v.x;
+    __res
+  };
+  fun mutable_var_encoding(): int {
+    let a: vect = {0, 1};
+    letmut ax = foo(a);
+    letmut c = a;
+    letmut cx = foo(c);
+    let __res: int = cx;
+    __res
+  };
+  record vectpair {
+    fst: vect;
+    snd: vect
+  };
+  fun lvalue_encoding(): unit {
+    letmut p;
+    (p).x = 2;
+    (p).x = 3;
+    letmut q;
+    ((q).fst).x = 2;
+    ((q).fst).x = 3;
+    letmut v;
+    v = 4;
+  };
+  fun arrow(): unit {
+    letmut v = {0, 1};
+    letmut p = v;
+    (p).x = (p).y;
+    (p).x = (p).y;
+  };
+  {
+    fun __ghost_begin(#2: __ghost_fn, #3: __ghost_args, #4: __ghost_bind): __ghost_fn {
+      __admitted
+    };
+    fun __ghost_end(#5: __ghost_fn): unit {};
+    fun __with_reverse(g: __ghost_fn, g_rev: __ghost_fn): __ghost_fn {
+      let __res: __ghost_fn = g;
+      __res
+    };
+    fun __reverts(#6: __ghost_fn): unit {};
+    ghost fun __clear(#7: __ghost_args) {};
+    ghost fun assert_inhabited() {
+      requires T: Type,
+               x: T;
+      ensures x: T;
+    };
+    ghost fun define() {};
+    ghost fun assert_prop() {
+      requires P: Prop,
+               proof: P;
+      ensures proof: P;
+    };
+    ghost fun assert_eq() {
+      requires x: int,
+               y: int,
+               eq: __is_true(x = y);
+    };
+    ghost fun assert_alias() {};
+    ghost fun rewrite_prop() {
+      requires from: int,
+               to: int,
+               inside: pure_fun(fun(#71: int): Prop),
+               by: __is_true(from = to),
+               #70: inside(from);
+      ensures out: inside(to);
+      __admitted();
+    };
+    ghost fun rewrite_linear() {
+      requires from: int,
+               to: int,
+               inside: pure_fun(fun(#74: int): HProp),
+               by: __is_true(from = to);
+      consumes #73: inside(from);
+      produces #72: inside(to);
+      __admitted();
+    };
+    ghost fun rewrite_float_prop() {
+      requires from: f32,
+               to: f32,
+               inside: pure_fun(fun(#76: f32): Prop),
+               by: __is_true(from = to),
+               #75: inside(from);
+      ensures out: inside(to);
+      __admitted();
+    };
+    ghost fun rewrite_float_linear() {
+      requires from: f32,
+               to: f32,
+               inside: pure_fun(fun(#79: f32): HProp),
+               by: __is_true(from = to);
+      consumes #78: inside(from);
+      produces #77: inside(to);
+      __admitted();
+    };
+    ghost fun rewrite_float_linear_admitted() {
+      requires from: f32,
+               to: f32,
+               inside: pure_fun(fun(#82: f32): HProp);
+      consumes #81: inside(from);
+      produces #80: inside(to);
+      __admitted();
+    };
+    ghost fun eq_refl_float() {
+      requires x: f32;
+      ensures out: __is_true(x = x);
+      __admitted();
+    };
+    ghost fun eq_sym_float() {
+      requires x: f32,
+               y: f32,
+               H: __is_true(x = y);
+      ensures out: __is_true(y = x);
+      __admitted();
+    };
+    ghost fun assume() {
+      requires P: Prop;
+      ensures H: P;
+      __admitted();
+    };
+    ghost fun to_prove() {
+      requires P: Prop;
+      ensures H: P;
+      __admitted();
+    };
+    ghost fun to_prove_hprop() {
+      requires H1: HProp,
+               H2: HProp;
+      consumes #84: H1;
+      produces #83: H2;
+      __admitted();
+    };
+    ghost(assert_prop()[proof := admit(pure_fun(fun(n: int, d: int): __is_true(n - d + d = n)))][z_cancel_minus_plus : proof]);
+    ghost(assert_prop()[proof := admit(pure_fun(fun(n: int, d: int): __is_true(n + d - d = n)))][z_cancel_plus_minus : proof]);
+    fun wrap_z_cancel_minus_plus(m: int): int [n, d, #86, #85] {
+      requires n: int,
+               d: int,
+               #86: __is_true(m = n - d + d);
+      ensures #85: __is_true(_Res = n);
+      __admitted();
+      return m;
+      ghost(rewrite_linear()[inside := fun(v) { __is_true(_Res = v) }, by := z_cancel_minus_plus]);
+    };
+    ghost(assert_prop()[proof := admit(pure_fun(fun(n: f32, d: f32): __is_true(n - d + d = n)))][r_cancel_minus_plus : proof]);
+    ghost(assert_prop()[proof := admit(pure_fun(fun(n: f32, d: f32): __is_true(n + d - d = n)))][r_cancel_plus_minus : proof]);
+    fun MINDEX0(): int {
+      let __res: int = 0;
+      __res
+    };
+    fun MINDEX1(N1: int, i1: int): int {
+      let __res: int = i1;
+      __res
+    };
+    fun MINDEX2(N1: int, N2: int, i1: int, i2: int): int {
+      let __res: int = i1 * N2 + i2;
+      __res
+    };
+    fun MINDEX3(N1: int, N2: int, N3: int, i1: int, i2: int, i3: int): int {
+      let __res: int = i1 * N2 * N3 + i2 * N3 + i3;
+      __res
+    };
+    fun MINDEX4(N1: int, N2: int, N3: int, N4: int, i1: int, i2: int, i3: int, i4: int): int {
+      let __res: int = i1 * N2 * N3 * N4 + i2 * N3 * N4 + i3 * N4 + i4;
+      __res
+    };
+    fun MINDEX5(N1: int, N2: int, N3: int, N4: int, N5: int, i1: int, i2: int, i3: int, i4: int, i5: int): int {
+      let __res: int = i1 * N2 * N3 * N4 * N5 + i2 * N3 * N4 * N5 + i3 * N4 * N5 + i4 * N5 + i5;
+      __res
+    };
+    fun DMINDEX0(): int {
+      let __res: int = 0;
+      __res
+    };
+    fun DMINDEX1(N1: int, i1: int): int {
+      let __res: int = 0;
+      __res
+    };
+    fun DMINDEX2(N1: int, N2: int, i1: int, i2: int): int {
+      let __res: int = 0;
+      __res
+    };
+    fun DMINDEX3(N1: int, N2: int, N3: int, i1: int, i2: int, i3: int): int {
+      let __res: int = 0;
+      __res
+    };
+    fun DMINDEX4(N1: int, N2: int, N3: int, N4: int, i1: int, i2: int, i3: int, i4: int): int {
+      let __res: int = 0;
+      __res
+    };
+    fun DMINDEX5(N1: int, N2: int, N3: int, N4: int, N5: int, i1: int, i2: int, i3: int, i4: int, i5: int): int {
+      let __res: int = 0;
+      __res
+    };
+    fun MSIZE0(): usize {
+      let __res: int = 1;
+      __res
+    };
+    fun MSIZE1(N1: int): usize {
+      let __res: usize = cast<usize>(N1);
+      __res
+    };
+    fun MSIZE2(N1: int, N2: int): usize {
+      let __res: usize = cast<usize>(N1) * cast<usize>(N2);
+      __res
+    };
+    fun MSIZE3(N1: int, N2: int, N3: int): usize {
+      let __res: usize = cast<usize>(N1) * cast<usize>(N2) * cast<usize>(N3);
+      __res
+    };
+    fun MSIZE4(N1: int, N2: int, N3: int, N4: int): usize {
+      let __res: usize = cast<usize>(N1) * cast<usize>(N2) * cast<usize>(N3) * cast<usize>(N4);
+      __res
+    };
+    fun MSIZE5(N1: int, N2: int, N3: int, N4: int, N5: int): usize {
+      let __res: usize = cast<usize>(N1) * cast<usize>(N2) * cast<usize>(N3) * cast<usize>(N4) * cast<usize>(N5);
+      __res
+    };
+    fun exact_div(n: int, b: int): int {
+      __admitted();
+      let __res: int = n / b;
+      __res
+    };
+    fun min(a: int, b: int): int {
+      __admitted();
+      if (a < b) { a } else { b }
+    };
+    fun max(a: int, b: int): int {
+      __admitted();
+      if (a > b) { a } else { b }
+    };
+    fun maxf(a: f32, b: f32): f32 {
+      __admitted();
+      if (a > b) { a } else { b }
+    };
+    fun ANY(maxValue: int): int {
+      let __res: int = 0;
+      __res
+    };
+    ghost(assert_inhabited()[x := arbitrary(pure_fun(fun(#355: HProp, #356: HProp): HProp))][Wand : x]);
+    ghost fun close_wand() {
+      requires H1: HProp,
+               H2: HProp;
+      consumes #89: Wand(H1, H2),
+               #88: H1;
+      produces #87: H2;
+      __admitted();
+    };
+    ghost fun hide() {
+      requires H: HProp;
+      consumes #92: H;
+      ensures H2: HProp;
+      produces #91: Wand(H2, H),
+               #90: H2;
+      __admitted();
+    };
+    ghost fun hide_rev() {
+      reverts hide;
+      ghost(close_wand());
+    };
+    ghost fun wand_simplify() {
+      requires H1: HProp,
+               H2: HProp,
+               H3: HProp;
+      consumes #95: Wand(H1, H2),
+               #94: Wand(H2, H3);
+      produces #93: Wand(H1, H3);
+      __admitted();
+    };
+    ghost fun assert_hprop() {
+      requires H: HProp;
+      consumes #97: H;
+      produces #96: H;
+    };
+    ghost fun forget_init() {};
+    ghost(assert_inhabited()[x := arbitrary(pure_fun(fun(#357: int, #358: Range): Prop))][in_range : x]);
+    ghost(assert_inhabited()[x := arbitrary(pure_fun(fun(#359: Range, #360: Range): Prop))][is_subrange : x]);
+    ghost(assert_inhabited()[x := arbitrary(pure_fun(fun(#361: Range): int))][range_count : x]);
+    ghost fun in_range_extend() {
+      requires x: int,
+               r1: Range,
+               r2: Range,
+               #100: in_range(x, r1),
+               #99: is_subrange(r1, r2);
+      ensures #98: in_range(x, r2);
+      __admitted();
+    };
+    ghost fun in_range_shift() {
+      requires x: int,
+               k: int,
+               a: int,
+               b: int,
+               s: int,
+               #102: in_range(x, range(a, b, s));
+      ensures #101: in_range(x + k, range(a + k, b + k, s));
+      __admitted();
+    };
+    ghost fun in_range_shift_extend() {
+      requires x: int,
+               k: int,
+               r: Range,
+               a: int,
+               b: int,
+               s: int,
+               #105: in_range(x, range(a, b, s)),
+               #104: is_subrange(range(a + k, b + k, s), r);
+      ensures #103: in_range(x + k, r);
+      __admitted();
+      ghost(in_range_shift()[x := x, k := k, a := a, b := b, s := s]);
+      ghost(in_range_extend()[x := x + k, r1 := range(a + k, b + k, s), r2 := r]);
+    };
+    ghost fun in_range_bounds() {
+      requires x: int,
+               a: int,
+               b: int,
+               s: int,
+               #107: in_range(x, range(a, b, s)),
+               #106: __is_true(s >= 0);
+      ensures lower_bound: __is_true(x >= a),
+              upper_bound: __is_true(x < b);
+      __admitted();
+    };
+    ghost fun in_range_bounds_rev() {
+      requires x: int,
+               a: int,
+               b: int,
+               s: int,
+               #109: in_range(x, range(a, b, s)),
+               #108: __is_true(s < 0);
+      ensures lower_bound: __is_true(x > b),
+              upper_bound: __is_true(x <= a);
+      __admitted();
+    };
+    ghost fun bounds_to_in_range() {
+      requires x: int,
+               a: int,
+               b: int,
+               lower_bound: __is_true(x >= a),
+               upper_bound: __is_true(x < b);
+      ensures range_check: in_range(x, range(a, b, 1));
+      __admitted();
+    };
+    ghost fun expand_subrange() {
+      requires a: int,
+               b: int,
+               c: int,
+               s: int,
+               lower: __is_true(s >= 0),
+               up_ineq: __is_true(b <= c);
+      ensures #110: is_subrange(range(a, b, s), range(a, c, s));
+      __admitted();
+    };
+    ghost fun ro_split2() {
+      requires f: _Fraction,
+               H: HProp;
+      consumes #113: _RO(f, H);
+      produces #112: _RO(__frac_div(f, 2), H),
+               #111: _RO(__frac_div(f, 2), H);
+      __admitted();
+    };
+    ghost fun ro_split3() {
+      requires f: _Fraction,
+               H: HProp;
+      consumes #117: _RO(f, H);
+      produces #116: _RO(__frac_div(f, 3), H),
+               #115: _RO(__frac_div(f, 3), H),
+               #114: _RO(__frac_div(f, 3), H);
+      __admitted();
+    };
+    ghost fun ro_split4() {
+      requires f: _Fraction,
+               H: HProp;
+      consumes #122: _RO(f, H);
+      produces #121: _RO(__frac_div(f, 4), H),
+               #120: _RO(__frac_div(f, 4), H),
+               #119: _RO(__frac_div(f, 4), H),
+               #118: _RO(__frac_div(f, 4), H);
+      __admitted();
+    };
+    ghost fun ro_allow_join2() {
+      requires f: _Fraction,
+               H: HProp;
+      consumes #124: _RO(__frac_div(f, 2), H);
+      produces #123: _RO(__frac_sub(f, __frac_div(f, 2)), H);
+      __admitted();
+    };
+    ghost fun ro_allow_join3() {
+      requires f: _Fraction,
+               H: HProp;
+      consumes #126: _RO(__frac_div(f, 3), H);
+      produces #125: _RO(__frac_sub(__frac_sub(f, __frac_div(f, 3)), __frac_div(f, 3)), H);
+      __admitted();
+    };
+    ghost fun ro_allow_join4() {
+      requires f: _Fraction,
+               H: HProp;
+      consumes #128: _RO(__frac_div(f, 4), H);
+      produces #127: _RO(__frac_sub(__frac_sub(__frac_sub(f, __frac_div(f, 4)), __frac_div(f, 4)), __frac_div(f, 4)), H);
+      __admitted();
+    };
+    ghost fun ro_fork_group() {
+      requires f: _Fraction,
+               H: HProp,
+               r: Range;
+      consumes #131: _RO(f, H);
+      produces #130: _RO(__frac_div(f, range_count(r)), Group(r, fun(#129: int) {
+        H
+      }));
+      __admitted();
+    };
+    ghost fun ro_join_group() {
+      reverts ro_fork_group;
+      __admitted();
+    };
+    ghost fun swap_groups() {
+      requires items: pure_fun(fun(#134: int, #135: int): HProp),
+               inner_range: Range,
+               outer_range: Range;
+      consumes #133: Group(outer_range, fun(i: int) {
+        Group(inner_range, fun(j: int) { items(i, j) })
+      });
+      produces #132: Group(inner_range, fun(j: int) {
+        Group(outer_range, fun(i: int) { items(i, j) })
+      });
+      __admitted();
+    };
+    ghost fun swap_groups_rev() {
+      reverts swap_groups;
+      __admitted();
+    };
+    ghost fun ro_swap_groups() {
+      requires items: pure_fun(fun(#138: int, #139: int): HProp),
+               inner_range: Range,
+               outer_range: Range,
+               f: _Fraction;
+      consumes #137: _RO(f, Group(outer_range, fun(i: int) {
+        Group(inner_range, fun(j: int) { items(i, j) })
+      }));
+      produces #136: _RO(f, Group(inner_range, fun(j: int) {
+        Group(outer_range, fun(i: int) { items(i, j) })
+      }));
+      __admitted();
+    };
+    ghost fun ro_swap_groups_rev() {
+      reverts ro_swap_groups;
+      __admitted();
+    };
+    ghost fun tiled_index_in_range() {
+      requires tile_index: int,
+               index: int,
+               tile_count: int,
+               tile_size: int,
+               size: int,
+               div_check: __is_true(size = tile_count * tile_size),
+               #142: in_range(tile_index, range(0, tile_count, 1)),
+               #141: in_range(index, range(0, tile_size, 1));
+      ensures #140: in_range(tile_index * tile_size + index, range(0, size, 1));
+      __admitted();
+    };
+    ghost(assert_prop()[proof := admit(pure_fun(fun(n: int): __is_true(n = n)))][eq_refl : proof]);
+    ghost(assert_prop()[proof := admit(pure_fun(fun(m: int, n: int, eq: __is_true(m = n)): __is_true(n = m)))][eq_sym : proof]);
+    ghost(assert_prop()[proof := admit(pure_fun(fun(n: int): __is_true(0 = 0 * n)))][zero_mul_intro : proof]);
+    ghost(assert_prop()[proof := admit(pure_fun(fun(n: int): __is_true(n = n + 0)))][plus_zero_intro : proof]);
+    ghost(assert_prop()[proof := admit(pure_fun(fun(m: int, n: int, p: int): __is_true(m + n + p = m + (n + p))))][add_assoc_right : proof]);
+    ghost(assert_prop()[proof := admit(pure_fun(fun(m: int, n: int): __is_true(m * n + n = (m + 1) * n)))][mul_add_factor : proof]);
+    ghost fun tile_divides() {
+      requires tile_count: int,
+               tile_size: int,
+               size: int,
+               items: pure_fun(fun(#145: int): HProp),
+               div_check: __is_true(size = tile_count * tile_size),
+               positive_tile_size: __is_true(tile_size >= 0);
+      consumes #144: Group(range(0, size, 1), items);
+      produces #143: for bi in 0..tile_count {
+        for i in 0..tile_size { items(bi * tile_size + i) }
+      };
+      __admitted();
+    };
+    ghost fun untile_divides() {
+      reverts tile_divides;
+      __admitted();
+    };
+    ghost fun ro_tile_divides() {
+      requires tile_count: int,
+               tile_size: int,
+               size: int,
+               items: pure_fun(fun(#148: int): HProp),
+               div_check: __is_true(size = tile_count * tile_size),
+               positive_tile_size: __is_true(tile_size >= 0),
+               f: _Fraction;
+      consumes #147: _RO(f, Group(range(0, size, 1), items));
+      produces #146: _RO(f, for bi in 0..tile_count {
+        for i in 0..tile_size { items(bi * tile_size + i) }
+      });
+      __admitted();
+    };
+    ghost fun ro_untile_divides() {
+      reverts ro_tile_divides;
+      __admitted();
+    };
+    ghost fun group_collapse() {
+      requires n: int,
+               m: int,
+               items: pure_fun(fun(#151: int, #152: int): HProp);
+      consumes #150: for i in 0..n { for j in 0..m { items(i, j) } };
+      produces #149: for ij in 0..n * m { items(ij / m, ij % m) };
+      __admitted();
+    };
+    ghost fun group_uncollapse() {
+      reverts group_collapse;
+      __admitted();
+    };
+    ghost fun ro_group_collapse() {
+      requires n: int,
+               m: int,
+               items: pure_fun(fun(#155: int, #156: int): HProp),
+               f: _Fraction;
+      consumes #154: _RO(f, for i in 0..n { for j in 0..m { items(i, j) } });
+      produces #153: _RO(f, for ij in 0..n * m { items(ij / m, ij % m) });
+      __admitted();
+    };
+    ghost fun ro_group_uncollapse() {
+      reverts ro_group_collapse;
+      __admitted();
+    };
+    ghost fun group_focus() {
+      requires i: int,
+               range: Range,
+               items: pure_fun(fun(#160: int): HProp),
+               bound_check: in_range(i, range);
+      consumes #159: Group(range, items);
+      produces #158: Wand(items(i), Group(range, items)),
+               #157: items(i);
+      __admitted();
+    };
+    ghost fun group_unfocus() {
+      reverts group_focus;
+      __admitted();
+      ghost(close_wand());
+    };
+    ghost fun ro_group_focus() {
+      requires i: int,
+               range: Range,
+               items: pure_fun(fun(#164: int): HProp),
+               f: _Fraction,
+               bound_check: in_range(i, range);
+      consumes #163: _RO(f, Group(range, items));
+      produces #162: Wand(_RO(f, items(i)), _RO(f, Group(range, items))),
+               #161: _RO(f, items(i));
+      __admitted();
+    };
+    ghost fun ro_group_unfocus() {
+      reverts ro_group_focus;
+      __admitted();
+      ghost(close_wand());
+    };
+    ghost fun ro_group2_focus() {
+      requires i: int,
+               r: Range,
+               r2: Range,
+               items: pure_fun(fun(#168: int, #169: int): HProp),
+               f: _Fraction,
+               bound_check: in_range(i, r);
+      consumes #167: _RO(f, Group(r2, fun(i2: int) {
+        Group(r, fun(i: int) { items(i2, i) })
+      }));
+      produces #166: Wand(_RO(f, Group(r2, fun(i2: int) { items(i2, i) })), _RO(f, Group(r2, fun(i2: int) {
+        Group(r, fun(i: int) { items(i2, i) })
+      }))),
+               #165: _RO(f, Group(r2, fun(i2: int) { items(i2, i) }));
+      __admitted();
+    };
+    ghost fun ro_group2_unfocus() {
+      reverts ro_group2_focus;
+      ghost(close_wand());
+    };
+    ghost fun group_focus_subrange() {
+      requires sub_range: Range,
+               big_range: Range,
+               items: pure_fun(fun(#173: int): HProp),
+               bound_check: is_subrange(sub_range, big_range);
+      consumes #172: Group(big_range, items);
+      produces #171: Wand(Group(sub_range, items), Group(big_range, items)),
+               #170: Group(sub_range, items);
+      __admitted();
+    };
+    ghost fun group_unfocus_subrange() {
+      reverts group_focus_subrange;
+      ghost(close_wand());
+    };
+    ghost fun ro_group_focus_subrange() {
+      requires sub_range: Range,
+               big_range: Range,
+               items: pure_fun(fun(#177: int): HProp),
+               f: _Fraction,
+               bound_check: is_subrange(sub_range, big_range);
+      consumes #176: _RO(f, Group(big_range, items));
+      produces #175: Wand(_RO(f, Group(sub_range, items)), _RO(f, Group(big_range, items))),
+               #174: _RO(f, Group(sub_range, items));
+      __admitted();
+    };
+    ghost fun ro_group_unfocus_subrange() {
+      reverts ro_group_focus_subrange;
+      ghost(close_wand());
+    };
+    ghost fun group2_focus_subrange() {
+      requires outer_range: Range,
+               sub_range: Range,
+               big_range: Range,
+               items: pure_fun(fun(#182: int): pure_fun(fun(#181: int): HProp)),
+               bound_check: is_subrange(sub_range, big_range);
+      consumes #180: Group(outer_range, fun(i: int) {
+        Group(big_range, items(i))
+      });
+      produces #179: Wand(Group(outer_range, fun(i: int) {
+        Group(sub_range, items(i))
+      }), Group(outer_range, fun(i: int) { Group(big_range, items(i)) })),
+               #178: Group(outer_range, fun(i: int) {
+        Group(sub_range, items(i))
+      });
+      __admitted();
+    };
+    ghost fun group2_unfocus_subrange() {
+      reverts group2_focus_subrange;
+      __admitted();
+    };
+    ghost fun group_shift() {
+      requires start: int,
+               stop: int,
+               step: int,
+               items: pure_fun(fun(#185: int): HProp),
+               shift: int,
+               new_start: int,
+               new_stop: int,
+               check_start: __is_true(new_start = start + shift),
+               check_stop: __is_true(new_stop = stop + shift);
+      consumes #184: for i in range(start, stop, step) { items(i) };
+      produces #183: for i in range(new_start, new_stop, step) {
+        items(i - shift)
+      };
+      __admitted();
+    };
+    ghost fun group_unshift() {
+      reverts group_shift;
+      __admitted();
+    };
+    ghost fun ro_group_shift() {
+      requires start: int,
+               stop: int,
+               step: int,
+               items: pure_fun(fun(#188: int): HProp),
+               shift: int,
+               new_start: int,
+               new_stop: int,
+               check_start: __is_true(new_start = start + shift),
+               check_stop: __is_true(new_stop = stop + shift),
+               f: _Fraction;
+      consumes #187: _RO(f, for i in range(start, stop, step) { items(i) });
+      produces #186: _RO(f, for i in range(new_start, new_stop, step) {
+        items(i - shift)
+      });
+      __admitted();
+    };
+    ghost fun ro_group_unshift() {
+      reverts ro_group_shift;
+      __admitted();
+    };
+    ghost fun group_scale() {
+      requires stop: int,
+               step: int,
+               items: pure_fun(fun(#191: int): HProp),
+               factor: int,
+               new_step: int,
+               new_stop: int,
+               check_stop: __is_true(new_stop = factor * stop),
+               check_step: __is_true(new_step = factor * step),
+               check_factor: __is_true(factor <> 0);
+      consumes #190: for i in range(0, stop, step) { items(i) };
+      produces #189: for i in range(0, new_stop, new_step) {
+        items(i / factor)
+      };
+      __admitted();
+    };
+    ghost fun group_unscale() {
+      reverts group_scale;
+      __admitted();
+    };
+    ghost fun ro_group_scale() {
+      requires stop: int,
+               step: int,
+               items: pure_fun(fun(#194: int): HProp),
+               factor: int,
+               new_step: int,
+               new_stop: int,
+               check_stop: __is_true(new_stop = factor * stop),
+               check_step: __is_true(new_step = factor * step),
+               f: _Fraction;
+      consumes #193: _RO(f, for i in range(0, stop, step) { items(i) });
+      produces #192: _RO(f, for i in range(0, new_stop, new_step) {
+        items(i / factor)
+      });
+      __admitted();
+    };
+    ghost fun ro_group_unscale() {
+      reverts ro_group_scale;
+      __admitted();
+    };
+    ghost fun group_split() {
+      requires start: int,
+               stop: int,
+               step: int,
+               split: int,
+               items: pure_fun(fun(#198: int): HProp),
+               range_check: is_subrange(range(start, split, step), range(start, stop, step));
+      consumes #197: for i in range(start, stop, step) { items(i) };
+      produces #196: for i in range(start, split, step) { items(i) },
+               #195: for i in range(split, stop, step) { items(i) };
+      __admitted();
+    };
+    ghost fun group_join() {
+      reverts group_split;
+      __admitted();
+    };
+    ghost fun ro_group_split() {
+      requires start: int,
+               stop: int,
+               step: int,
+               split: int,
+               items: pure_fun(fun(#202: int): HProp),
+               bound_check: in_range(split, range(start, stop, step)),
+               f: _Fraction;
+      consumes #201: _RO(f, for i in range(start, stop, step) { items(i) });
+      produces #200: _RO(f, for i in range(start, split, step) { items(i) }),
+               #199: _RO(f, for i in range(split, stop, step) { items(i) });
+      __admitted();
+    };
+    ghost fun ro_group_join() {
+      reverts ro_group_split;
+      __admitted();
+    };
+    ghost fun pure_group_split() {
+      requires start: int,
+               stop: int,
+               step: int,
+               split: int,
+               items: pure_fun(fun(#209: int): Prop),
+               bound_check: in_range(split, range(start, stop, step)),
+               #208: pure_fun(fun(i: int, #207: in_range(i, range(start, stop, step))): items(i));
+      ensures #206: pure_fun(fun(i: int, #205: in_range(i, range(start, split, step))): items(i)),
+              #204: pure_fun(fun(i: int, #203: in_range(i, range(split, stop, step))): items(i));
+      __admitted();
+    };
+    ghost fun pure_group_join() {
+      reverts pure_group_split;
+      __admitted();
+    };
+    ghost fun group_intro_zero() {
+      requires items: pure_fun(fun(#211: int): HProp);
+      produces #210: for i in 0..0 { items(i) };
+      __admitted();
+    };
+    ghost fun group_intro_empty() {
+      requires N: int,
+               items: pure_fun(fun(#213: int): HProp);
+      produces #212: for i in N..N { items(i) };
+      __admitted();
+    };
+    ghost fun group_elim_zero() {
+      reverts group_intro_zero;
+      __admitted();
+    };
+    ghost fun group_elim_empty() {
+      reverts group_intro_empty;
+      __admitted();
+    };
+    ghost fun group_intro_one() {
+      requires item: HProp;
+      consumes #215: item;
+      produces #214: for i in 0..1 { item };
+      __admitted();
+    };
+    ghost fun group_elim_one() {
+      reverts group_intro_one;
+      __admitted();
+    };
+    ghost fun dmindex2_untile() {
+      requires H: pure_fun(fun(#220: pure_fun(fun(#218: int, #219: int): int)): HProp),
+               n1: int,
+               n2: int;
+      consumes #217: H(fun(i1, i2) { DMINDEX1(n1 * n2, i1 * n2 + i2) });
+      produces #216: H(fun(i1, i2) { DMINDEX2(n1, n2, i1, i2) });
+      __admitted();
+    };
+    ghost fun dmindex2_tile() {
+      reverts dmindex2_untile;
+      __admitted();
+    };
+    ghost fun dmindex3_untile() {
+      requires H: pure_fun(fun(#226: pure_fun(fun(#223: int, #224: int, #225: int): int)): HProp),
+               n1: int,
+               n2: int,
+               n3: int;
+      consumes #222: H(fun(i1, i2, i3) {
+        DMINDEX2(n1 * n2, n3, i1 * n2 + i2, i3)
+      });
+      produces #221: H(fun(i1, i2, i3) { DMINDEX3(n1, n2, n3, i1, i2, i3) });
+      __admitted();
+    };
+    ghost fun dmindex3_tile() {
+      reverts dmindex3_untile;
+      __admitted();
+    };
+    ghost fun mindex2_unfold() {
+      requires T: Type,
+               H: pure_fun(fun(#231: pure_fun(fun(#229: int, #230: int): ptr(T))): HProp),
+               matrix: ptr(T),
+               n1: int,
+               n2: int;
+      consumes #228: H(fun(i1, i2) { matrix[MINDEX2(n1, n2, i1, i2)] });
+      produces #227: H(fun(i1, i2) { matrix[i1 * n2][MINDEX1(n2, i2)] });
+      __admitted();
+    };
+    ghost fun mindex2_fold() {
+      reverts mindex2_unfold;
+      __admitted();
+    };
+    ghost fun mindex3_unfold() {
+      requires T: Type,
+               H: pure_fun(fun(#237: pure_fun(fun(#234: int, #235: int, #236: int): ptr(T))): HProp),
+               matrix: ptr(T),
+               n1: int,
+               n2: int,
+               n3: int;
+      consumes #233: H(fun(i1, i2, i3) {
+        matrix[MINDEX3(n1, n2, n3, i1, i2, i3)]
+      });
+      produces #232: H(fun(i1, i2, i3) {
+        matrix[i1 * n2 * n3][MINDEX2(n2, n3, i2, i3)]
+      });
+      __admitted();
+    };
+    ghost fun mindex3_fold() {
+      reverts mindex3_unfold;
+      __admitted();
+    };
+    ghost fun ro_mindex2_unfold() {
+      requires T: Type,
+               H: pure_fun(fun(#242: pure_fun(fun(#240: int, #241: int): ptr(T))): HProp),
+               matrix: ptr(T),
+               n1: int,
+               n2: int,
+               f: _Fraction;
+      consumes #239: _RO(f, H(fun(i1, i2) { matrix[MINDEX2(n1, n2, i1, i2)] }));
+      produces #238: _RO(f, H(fun(i1, i2) { matrix[i1 * n2][MINDEX1(n2, i2)] }));
+      __admitted();
+    };
+    ghost fun ro_mindex2_fold() {
+      reverts ro_mindex2_unfold;
+      __admitted();
+    };
+    ghost fun ro_mindex3_unfold() {
+      requires T: Type,
+               H: pure_fun(fun(#248: pure_fun(fun(#245: int, #246: int, #247: int): ptr(T))): HProp),
+               matrix: ptr(T),
+               n1: int,
+               n2: int,
+               n3: int,
+               f: _Fraction;
+      consumes #244: _RO(f, H(fun(i1, i2, i3) {
+        matrix[MINDEX3(n1, n2, n3, i1, i2, i3)]
+      }));
+      produces #243: _RO(f, H(fun(i1, i2, i3) {
+        matrix[i1 * n2 * n3][MINDEX2(n2, n3, i2, i3)]
+      }));
+      __admitted();
+    };
+    ghost fun ro_mindex3_fold() {
+      reverts ro_mindex3_unfold;
+      __admitted();
+    };
+    ghost(assert_inhabited()[x := arbitrary(pure_fun(fun(#362: Prop, #363: HProp): HProp))][If : x]);
+    ghost fun if_false_hprop_rewrite() {
+      requires b: bool,
+               H: HProp,
+               H2: HProp,
+               HP: __is_false(b);
+      consumes #250: If(__is_true(b), H);
+      produces #249: If(__is_true(b), H2);
+      __admitted();
+    };
+    ghost fun if_false_hprop_drop() {
+      requires b: bool,
+               H: HProp,
+               HP: __is_false(b);
+      consumes #251: If(__is_true(b), H);
+      __admitted();
+    };
+    ghost fun if_true_hprop_elim() {
+      requires b: bool,
+               H: HProp,
+               HP: __is_true(b);
+      consumes #253: If(__is_true(b), H);
+      produces #252: H;
+      __admitted();
+    };
+    ghost fun if_true_hprop_intro() {
+      requires b: bool,
+               H: HProp,
+               HP: __is_true(b);
+      consumes #255: H;
+      produces #254: If(__is_true(b), H);
+      __admitted();
+    };
+    ghost fun group_expand_r_if_intros() {
+      requires n1: int,
+               n2: int,
+               items: pure_fun(fun(#258: int): HProp),
+               expand_check: __is_true(n1 <= n2);
+      consumes #257: for i in 0..n1 { items(i) };
+      produces #256: for i in 0..n2 { If(__is_true(i < n1), items(i)) };
+      __admitted();
+    };
+    ghost fun group_shrink_r_if_elim() {
+      reverts group_expand_r_if_intros;
+      __admitted();
+    };
+    ghost fun group_singleton_if_intros() {
+      requires n: int,
+               H: HProp;
+      consumes #260: H;
+      produces #259: for i in 0..n { If(__is_true(i = 0), H) };
+      __admitted();
+    };
+    ghost fun group_singleton_if_elim() {
+      requires n: int,
+               H: HProp;
+      consumes #262: for i in 0..n { If(__is_true(i = 0), H) };
+      produces #261: H;
+      __admitted();
+    };
+    ghost(assert_prop()[proof := admit(pure_fun(fun(b: int, e1: int, e2: int, #364: __is_true(e1 <= e2)): __is_true(b << e1 <= b << e2)))][shiftr_monotonic : proof]);
+    let __rewrite_sequence: const(int);
+    ghost fun group_to_desyncgroup() {
+      requires N: int,
+               items: pure_fun(fun(#266: int): HProp),
+               r: Range;
+      consumes #265: ThreadsCtx(r),
+               #264: for i in 0..N { items(i) };
+      produces #265: ThreadsCtx(r),
+               #263: DesyncGroup(N, fun(i: int) { items(i) });
+      __admitted();
+    };
+    ghost fun unwrap_singleton_desyncgroup() {
+      requires t: int,
+               H: pure_fun(fun(#270: int): HProp);
+      consumes #269: ThreadsCtx(counted_range(t, MSIZE0())),
+               #268: DesyncGroup(MSIZE0(), H);
+      produces #269: ThreadsCtx(counted_range(t, MSIZE0())),
+               #267: H(0);
+      __admitted();
+    };
+    ghost fun desync_tile_divides() {
+      requires tile_count: int,
+               tile_size: int,
+               size: int,
+               items: pure_fun(fun(#273: int): HProp),
+               div_check: __is_true(size = tile_count * tile_size),
+               positive_tile_size: __is_true(tile_size >= 0);
+      consumes #272: DesyncGroup(size, items);
+      produces #271: DesyncGroup(tile_count, fun(bi: int) {
+        DesyncGroup(tile_size, fun(i: int) { items(bi * tile_size + i) })
+      });
+      __admitted();
+    };
+    ghost fun desync_untile_divides() {
+      reverts desync_tile_divides;
+      __admitted();
+    };
+    ghost fun singleton_mindex_simplify() {
+      requires T: Type,
+               H: pure_fun(fun(#276: ptr(T)): HProp),
+               p: ptr(T);
+      consumes #275: H(p[MINDEX1(MSIZE0(), DMINDEX1(MSIZE0(), 0))]);
+      produces #274: H(p);
+      __admitted();
+    };
+  };
+  {
+    let __OPTITRUST_ENABLE_MODELS: __ghost_unit;
+    ghost fun ro_matrix1_focus() {
+      requires T: Type,
+               matrix: ptr(T),
+               i: int,
+               n: int,
+               MT: MemType,
+               M: pure_fun(fun(#280: int): T),
+               f: _Fraction,
+               bound_check: in_range(i, range(0, n, 1));
+      consumes #279: _RO(f, ~>(matrix, Matrix1Of(n, MT, M)));
+      produces #278: Wand(_RO(f, ~>(matrix[MINDEX1(n, i)], CellOf(MT))), _RO(f, ~>(matrix, Matrix1Of(n, MT, M)))),
+               #277: _RO(f, ~>(matrix[MINDEX1(n, i)], CellOf(MT)));
+      __admitted();
+      ghost(ro_group_focus()[f := f, i := i, bound_check := bound_check]);
+    };
+    ghost fun ro_matrix1_unfocus() {
+      reverts ro_matrix1_focus;
+      __admitted();
+      ghost(close_wand());
+    };
+    ghost fun ro_matrix2_focus() {
+      requires T: Type,
+               matrix: ptr(T),
+               i: int,
+               j: int,
+               m: int,
+               n: int,
+               MT: MemType,
+               M: pure_fun(fun(#284: int, #285: int): T),
+               f: _Fraction,
+               bound_check_i: in_range(i, range(0, m, 1)),
+               bound_check_j: in_range(j, range(0, n, 1));
+      consumes #283: _RO(f, ~>(matrix, Matrix2Of(m, n, MT, M)));
+      produces #282: Wand(_RO(f, ~>(matrix[MINDEX2(m, n, i, j)], CellOf(MT))), _RO(f, ~>(matrix, Matrix2Of(m, n, MT, M)))),
+               #281: _RO(f, ~>(matrix[MINDEX2(m, n, i, j)], CellOf(MT)));
+      __admitted();
+      ghost(ro_group_focus()[f := f, i := i, bound_check := bound_check_i]);
+      ghost(ro_group_focus()[f := f, i := j, bound_check := bound_check_j]);
+      ghost(wand_simplify());
+    };
+    ghost fun ro_matrix2_unfocus() {
+      reverts ro_matrix2_focus;
+      __admitted();
+      ghost(close_wand());
+    };
+    fun MATRIX1_COPY_int(dest: ptr(int), src: ptr(int), length: int): unit [model, #288, #287, #286, #287, #286] {
+      requires model: pure_fun(fun(#289: int): int);
+      reads #287: ~>(src, Matrix1(length, model));
+      writes #286: ~>(dest, Matrix1(length, model));
+      __admitted();
+      __ignore(memcpy(dest, src, length * sizeof(int)));
+    };
+    fun MATRIX2_COPY_int(dest: ptr(int), src: ptr(int), n1: int, n2: int): unit [model, #292, #291, #290, #291, #290] {
+      requires model: pure_fun(fun(#293: int, #294: int): int);
+      reads #291: ~>(src, Matrix2(n1, n2, model));
+      writes #290: ~>(dest, Matrix2(n1, n2, model));
+      __admitted();
+      __ignore(memcpy(dest, src, n1 * n2 * sizeof(int)));
+    };
+    fun MATRIX3_COPY_int(dest: ptr(int), src: ptr(int), n1: int, n2: int, n3: int): unit [model, #297, #296, #295, #296, #295] {
+      requires model: pure_fun(fun(#298: int, #299: int, #300: int): int);
+      reads #296: ~>(src, Matrix3(n1, n2, n3, model));
+      writes #295: ~>(dest, Matrix3(n1, n2, n3, model));
+      __admitted();
+      __ignore(memcpy(dest, src, n1 * n2 * n3 * sizeof(int)));
+    };
+    fun MATRIX1_COPY_float(dest: ptr(f32), src: ptr(f32), length: int): unit [model, #303, #302, #301, #302, #301] {
+      requires model: pure_fun(fun(#304: int): f32);
+      reads #302: ~>(src, Matrix1(length, model));
+      writes #301: ~>(dest, Matrix1(length, model));
+      __admitted();
+      __ignore(memcpy(dest, src, length * sizeof(f32)));
+    };
+    fun MATRIX2_COPY_float(dest: ptr(f32), src: ptr(f32), n1: int, n2: int): unit [model, #307, #306, #305, #306, #305] {
+      requires model: pure_fun(fun(#308: int, #309: int): f32);
+      reads #306: ~>(src, Matrix2(n1, n2, model));
+      writes #305: ~>(dest, Matrix2(n1, n2, model));
+      __admitted();
+      __ignore(memcpy(dest, src, n1 * n2 * sizeof(f32)));
+    };
+    fun MATRIX3_COPY_float(dest: ptr(f32), src: ptr(f32), n1: int, n2: int, n3: int): unit [model, #312, #311, #310, #311, #310] {
+      requires model: pure_fun(fun(#313: int, #314: int, #315: int): f32);
+      reads #311: ~>(src, Matrix3(n1, n2, n3, model));
+      writes #310: ~>(dest, Matrix3(n1, n2, n3, model));
+      __admitted();
+      __ignore(memcpy(dest, src, n1 * n2 * n3 * sizeof(f32)));
+    };
+    fun MATRIX1_COPY_double(dest: ptr(f64), src: ptr(f64), length: int): unit [model, #318, #317, #316, #317, #316] {
+      requires model: pure_fun(fun(#319: int): f64);
+      reads #317: ~>(src, Matrix1(length, model));
+      writes #316: ~>(dest, Matrix1(length, model));
+      __admitted();
+      __ignore(memcpy(dest, src, length * sizeof(f64)));
+    };
+    fun MATRIX2_COPY_double(dest: ptr(f64), src: ptr(f64), n1: int, n2: int): unit [model, #322, #321, #320, #321, #320] {
+      requires model: pure_fun(fun(#323: int, #324: int): f64);
+      reads #321: ~>(src, Matrix2(n1, n2, model));
+      writes #320: ~>(dest, Matrix2(n1, n2, model));
+      __admitted();
+      __ignore(memcpy(dest, src, n1 * n2 * sizeof(f64)));
+    };
+    fun MATRIX3_COPY_double(dest: ptr(f64), src: ptr(f64), n1: int, n2: int, n3: int): unit [model, #327, #326, #325, #326, #325] {
+      requires model: pure_fun(fun(#328: int, #329: int, #330: int): f64);
+      reads #326: ~>(src, Matrix3(n1, n2, n3, model));
+      writes #325: ~>(dest, Matrix3(n1, n2, n3, model));
+      __admitted();
+      __ignore(memcpy(dest, src, n1 * n2 * n3 * sizeof(f64)));
+    };
+    ghost fun matrix1_span_shift() {
+      requires T: Type,
+               matrix: ptr(T),
+               n1: int,
+               a: int,
+               b: int,
+               MT: MemType,
+               M: pure_fun(fun(#333: int): T);
+      consumes #332: for i in a..b { ~>(matrix[MINDEX1(n1, i)], CellOf(MT)) };
+      produces #331: for i in 0..b - a {
+        ~>(matrix[a][MINDEX1(b - a, i)], CellOf(MT))
+      };
+      __admitted();
+    };
+    ghost fun matrix1_span_unshift() {
+      reverts matrix1_span_shift;
+      __admitted();
+    };
+    ghost fun matrix2_span_shift() {
+      requires T: Type,
+               matrix: ptr(T),
+               n1: int,
+               n2: int,
+               a: int,
+               b: int,
+               MT: MemType,
+               M: pure_fun(fun(#336: int, #337: int): T);
+      consumes #335: for i in a..b {
+        for j in 0..n2 { ~>(matrix[MINDEX2(n1, n2, i, j)], CellOf(MT)) }
+      };
+      produces #334: for i in 0..b - a {
+        for j in 0..n2 {
+          ~>(matrix[a * n2][MINDEX2(b - a, n2, i, j)], CellOf(MT))
+        }
+      };
+      __admitted();
+    };
+    ghost fun matrix2_span_unshift() {
+      reverts matrix2_span_shift;
+      __admitted();
+    };
+    ghost fun matrix3_span_shift() {
+      requires T: Type,
+               matrix: ptr(T),
+               n1: int,
+               n2: int,
+               n3: int,
+               a: int,
+               b: int,
+               MT: MemType,
+               M: pure_fun(fun(#340: int, #341: int, #342: int): T);
+      consumes #339: for i1 in a..b {
+        for i2 in 0..n2 {
+          for i3 in 0..n3 {
+            ~>(matrix[MINDEX3(n1, n2, n3, i1, i2, i3)], CellOf(MT))
+          }
+        }
+      };
+      produces #338: for i1 in 0..b - a {
+        for i2 in 0..n2 {
+          for i3 in 0..n3 {
+            ~>(matrix[a * n2 * n3][MINDEX3(b - a, n2, n3, i1, i2, i3)], CellOf(MT))
+          }
+        }
+      };
+      __admitted();
+    };
+    ghost fun matrix3_span_unshift() {
+      reverts matrix3_span_shift;
+      __admitted();
+    };
+    ghost(assert_inhabited()[x := arbitrary(pure_fun(fun(#366: int, #367: int, #368: pure_fun(fun(#365: int): int)): int))][reduce_int_sum : x]);
+    ghost(assert_prop()[proof := admit(pure_fun(fun(n: int, f: pure_fun(fun(#369: int): int)): __is_true(0 = reduce_int_sum(n, n, f))))][reduce_int_sum_empty : proof]);
+    ghost(assert_prop()[proof := admit(pure_fun(fun(a: int, b: int, f: pure_fun(fun(#370: int): int), #371: __is_true(b >= a), bp1: int, #372: __is_true(bp1 = b + 1)): __is_true(reduce_int_sum(a, b, f) + f(b) = reduce_int_sum(a, bp1, f))))][reduce_int_sum_add_right : proof]);
+    ghost(assert_prop()[proof := admit(pure_fun(fun(a: int, b: int, f: pure_fun(fun(#373: int): int), #374: __is_true(b > a), ap1: int, #375: __is_true(ap1 = a + 1)): __is_true(reduce_int_sum(a, b, f) - f(a) = reduce_int_sum(ap1, b, f))))][reduce_int_sum_sub_left : proof]);
+    ghost(assert_prop()[proof := admit(pure_fun(fun(a: int, b: int, ap1: int, bp1: int, f: pure_fun(fun(#376: int): int), #377: __is_true(b >= a), #378: __is_true(ap1 = a + 1), #379: __is_true(bp1 = b + 1)): __is_true(reduce_int_sum(a, b, f) + (f(b) - f(a)) = reduce_int_sum(ap1, bp1, f))))][reduce_int_sum_slide : proof]);
+  };
+  fun one_fork(): unit {
+    letmut x = 0;
+    let fork_out: __ghost_fn = __ghost_begin(ghost(ro_fork_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]));
+    for<seq> i in 0..5 [#344, #343, #343] {
+      strict;
+      requires #344: _Fraction;
+      xconsumes #343: _RO(#344, ~>(x, CellOf(Any)));
+      xproduces #343: _RO(#344, ~>(x, CellOf(Any)));
+      ghost(ro_split2()[f := #_1, H := ~>(x, CellOf(Any))]);
+      ghost(ro_fork_group()[f := #_1 / 2, H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_allow_join2()[f := #_1, H := ~>(x, CellOf(Any))]);
+      for<seq> j in 0..5 [#346, #345, #345] {
+        strict;
+        requires #346: _Fraction;
+        xconsumes #345: _RO(#346, ~>(x, CellOf(Any)));
+        xproduces #345: _RO(#346, ~>(x, CellOf(Any)));
+        __ignore(x + 1);
+      };
+      ghost(ro_join_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
+    };
+    __ghost_end(fork_out);
+  };
+  fun two_forks(): unit {
+    letmut x = 0;
+    let fork_out: __ghost_fn = __ghost_begin(ghost(ro_fork_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]));
+    for<seq> i in 0..5 [#348, #347, #347] {
+      strict;
+      requires #348: _Fraction;
+      xconsumes #347: _RO(#348, ~>(x, CellOf(Any)));
+      xproduces #347: _RO(#348, ~>(x, CellOf(Any)));
+      ghost(ro_split3()[f := #_1, H := ~>(x, CellOf(Any))]);
+      ghost(ro_fork_group()[f := #_1 / 3, H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_fork_group()[f := #_1 / 3, H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_allow_join3()[f := #_1, H := ~>(x, CellOf(Any))]);
+      for<seq> j in 0..5 [#350, #349, #349] {
+        strict;
+        requires #350: _Fraction;
+        xconsumes #349: _RO(#350, ~>(x, CellOf(Any)));
+        xproduces #349: _RO(#350, ~>(x, CellOf(Any)));
+        __ignore(x + 1);
+      };
+      ghost(ro_join_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_join_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
+    };
+    __ghost_end(fork_out);
+  };
+  fun two_forks_spe_twice(): unit {
+    letmut x = 0;
+    let fork_out: __ghost_fn = __ghost_begin(ghost(ro_fork_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]));
+    for<seq> i in 0..5 [#352, #351, #351] {
+      strict;
+      requires #352: _Fraction;
+      xconsumes #351: _RO(#352, ~>(x, CellOf(Any)));
+      xproduces #351: _RO(#352, ~>(x, CellOf(Any)));
+      ghost(ro_split2()[f := #_1, H := ~>(x, CellOf(Any))]);
+      ghost(ro_split2()[f := #_1 / 2, H := ~>(x, CellOf(Any))]);
+      ghost(ro_fork_group()[f := #_1 / 2, H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_fork_group()[f := #_1 / 2 / 2, H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_allow_join2()[f := #_1 / 2, H := ~>(x, CellOf(Any))]);
+      for<seq> j in 0..5 [#354, #353, #353] {
+        strict;
+        requires #354: _Fraction;
+        xconsumes #353: _RO(#354, ~>(x, CellOf(Any)));
+        xproduces #353: _RO(#354, ~>(x, CellOf(Any)));
+        __ignore(x + 1);
+      };
+      ghost(ro_join_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_allow_join2()[f := #_1, H := ~>(x, CellOf(Any))]);
+      ghost(ro_join_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
+    };
+    __ghost_end(fork_out);
+  };
+}
+

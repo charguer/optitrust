@@ -1,0 +1,8 @@
+(library
+  (name optitrust_optilambda)
+  (public_name optitrust.optilambda)
+  (libraries optitrust.ast optitrust.utils pprint)
+  (modes byte native)
+  (flags ((:standard \ -short-paths) -g -warn-error -69 -w -9-27-32-33 -open Optitrust_utils -open Optitrust_ast))
+  (ocamlopt_flags (-opaque)))
+

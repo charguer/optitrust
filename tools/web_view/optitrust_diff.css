@@ -2,6 +2,25 @@ body {
   margin: 0;
 }
 
+.diff-representation-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid #bbb;
+  font-family: sans-serif;
+  font-size: 10pt;
+}
+
+.diff-representation-choice {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.diff-representation-choice input {
+  margin-right: 4px;
+}
+
 /* Hide the filename since we're concerned with only one file name */
 .d2h-file-header {
   display: none;
