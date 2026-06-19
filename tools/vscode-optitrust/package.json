@@ -314,7 +314,8 @@
     ]
   },
   "scripts": {
-    "compile": "tsc -p ./",
+    "build:webview": "esbuild ../web_view/optitrust_syntax_highlight.mjs --bundle --format=esm --target=es2020 --outfile=../web_view/optitrust_syntax_highlight.js",
+    "compile": "npm run build:webview && tsc -p ./",
     "watch": "tsc -watch -p ./",
     "package": "vsce package",
     "vscode:prepublish": "npm run compile"
@@ -323,6 +324,10 @@
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^2.15.0",
+    "esbuild": "^0.28.1",
     "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "shiki": "^4.2.0"
   }
 }

@@ -322,7 +322,7 @@ var configuration = {
    outputFormat: 'side-by-side',
    // outputFormat: 'line-by-line',
    synchronisedScroll: true,
-   highlight: true,
+   highlight: false,
    renderNothingWhenEmpty: false,
    // LATER tune?
    // matchWordsThreshold : similarity threshold for word matching, default is 0.25
@@ -409,7 +409,6 @@ function loadDiffFromString(diffString) {
   targetElement.innerHTML = "";
   var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
   diff2htmlUi.draw();
-  diff2htmlUi.highlightCode();
 
   const reg1 = /<del>([\s\n]*)/g;
   $('.d2h-code-line-ctn').each(function() {
@@ -428,6 +427,10 @@ function loadDiffFromString(diffString) {
     });
   }
 
+  highlightRenderedDiff(targetElement, function () {
+    diff2htmlUi.highlightCode();
+  });
+
  /* Currently, this is a buggy feature: there is no code to jump to the relevant line, reactivate if there is a workaround
  // identify the two sides of the diff, and register handlers for click on the line numbers;
  $('.d2h-file-side-diff').first().addClass('diffBefore');
@@ -442,6 +445,17 @@ function loadDiffFromString(diffString) {
   if (hiddenLines) {
     hideLines();
   }
+}
+
+function highlightRenderedDiff(targetElement, fallback) {
+  if (!window.OptitrustSyntaxHighlight) {
+    fallback();
+    return;
+  }
+  window.OptitrustSyntaxHighlight.highlightDiff(targetElement).catch(function (error) {
+    console.warn("OptiTrust syntax highlighting failed; using Diff2Html fallback.", error);
+    fallback();
+  });
 }
 
 function optilambdaRepresentationSuffix(representation) {

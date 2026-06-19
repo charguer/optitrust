@@ -19,7 +19,8 @@ async function htmlWithBase(webview: vscode.Webview, htmlFile: string): Promise<
   const htmlDir = path.dirname(htmlFile);
   const inlined = await inlineLocalScriptsAndStyles(htmlDir, html);
   const rewritten = rewriteLocalResourceUris(webview, htmlDir, inlined);
-  return injectDiffFallback(injectDiffWebviewStyle(rewritten));
+  const withHighlightingConfig = await injectSyntaxHighlightingConfig(rewritten);
+  return injectDiffFallback(injectDiffWebviewStyle(withHighlightingConfig));
 }
 
 /**
@@ -31,6 +32,10 @@ async function htmlWithBase(webview: vscode.Webview, htmlFile: string): Promise<
 async function inlineLocalScriptsAndStyles(htmlDir: string, html: string): Promise<string> {
   const withScripts = await replaceMatches(html, /<script([^>]*)\bsrc="([^"]+)"([^>]*)><\/script>/giu, async match => {
     const [, beforeSrc, value, afterSrc] = match;
+    const attributes = `${beforeSrc}${afterSrc}`;
+    if (/\btype\s*=\s*["']module["']/iu.test(attributes)) {
+      return match[0];
+    }
     if (!isLocalPath(value) || path.extname(value.split(/[?#]/u, 1)[0]) !== ".js") {
       return match[0];
     }
@@ -128,6 +133,154 @@ body,
     return html.replace("</head>", `${style}\n</head>`);
   }
   return `${style}\n${html}`;
+}
+
+interface TextMateRule {
+  readonly scope?: string | readonly string[];
+  readonly settings?: Record<string, unknown>;
+}
+
+interface ThemeJson {
+  readonly name?: string;
+  readonly type?: string;
+  readonly include?: string;
+  readonly colors?: Record<string, string>;
+  readonly tokenColors?: readonly TextMateRule[];
+  readonly settings?: readonly TextMateRule[];
+  readonly semanticHighlighting?: boolean;
+  readonly semanticTokenColors?: Record<string, unknown>;
+}
+
+interface WebviewHighlightConfig {
+  readonly theme?: ThemeJson;
+}
+
+async function injectSyntaxHighlightingConfig(html: string): Promise<string> {
+  if (!html.includes('id="diffDiv"') || html.includes('id="optitrustSyntaxHighlightConfig"')) {
+    return html;
+  }
+
+  const config: WebviewHighlightConfig = {
+    theme: await activeThemeJson()
+  };
+  const script = `<script type="application/json" id="optitrustSyntaxHighlightConfig">${escapeScriptJson(JSON.stringify(config))}</script>`;
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${script}\n</head>`);
+  }
+  return `${script}\n${html}`;
+}
+
+async function activeThemeJson(): Promise<ThemeJson | undefined> {
+  const activeTheme = vscode.workspace.getConfiguration("workbench").get<string>("colorTheme", "");
+  const themePath = activeTheme ? findThemePath(activeTheme) : undefined;
+  if (!themePath) {
+    return undefined;
+  }
+
+  try {
+    const theme = await loadThemeJson(themePath);
+    const customRules = customTokenRules(activeTheme);
+    const tokenColors = [...themeRules(theme), ...customRules];
+    return {
+      ...theme,
+      name: "optitrust-active-vscode-theme",
+      tokenColors
+    };
+  } catch (error) {
+    console.warn(`OptiTrust: failed to load VS Code theme ${activeTheme}: ${error instanceof Error ? error.message : String(error)}`);
+    return undefined;
+  }
+}
+
+function findThemePath(activeTheme: string): string | undefined {
+  for (const extension of vscode.extensions.all) {
+    const themes = extension.packageJSON?.contributes?.themes;
+    if (!Array.isArray(themes)) {
+      continue;
+    }
+    for (const theme of themes) {
+      if ((theme.id === activeTheme || theme.label === activeTheme) && typeof theme.path === "string") {
+        return path.join(extension.extensionPath, theme.path);
+      }
+    }
+  }
+  return undefined;
+}
+
+async function loadThemeJson(themePath: string, seen: Set<string> = new Set()): Promise<ThemeJson> {
+  const resolved = path.resolve(themePath);
+  if (seen.has(resolved)) {
+    return {};
+  }
+  seen.add(resolved);
+
+  const theme = parseJsonWithComments<ThemeJson>(await fs.readFile(resolved, "utf8"));
+  const inherited = theme.include ? await loadThemeJson(path.resolve(path.dirname(resolved), theme.include), seen) : {};
+  return {
+    ...inherited,
+    ...theme,
+    colors: {
+      ...(inherited.colors ?? {}),
+      ...(theme.colors ?? {})
+    },
+    tokenColors: [
+      ...themeRules(inherited),
+      ...themeRules(theme)
+    ]
+  };
+}
+
+function customTokenRules(activeTheme: string): TextMateRule[] {
+  const customizations = vscode.workspace.getConfiguration("editor").get<Record<string, unknown>>("tokenColorCustomizations", {});
+  const rules: TextMateRule[] = [];
+  rules.push(...textMateRulesFrom(customizations.textMateRules));
+
+  const themeSpecific = customizations[`[${activeTheme}]`];
+  if (isRecord(themeSpecific)) {
+    rules.push(...textMateRulesFrom(themeSpecific.textMateRules));
+  }
+  return rules;
+}
+
+function themeRules(theme: ThemeJson): TextMateRule[] {
+  return [
+    ...textMateRulesFrom(theme.settings),
+    ...textMateRulesFrom(theme.tokenColors)
+  ];
+}
+
+function textMateRulesFrom(value: unknown): TextMateRule[] {
+  return Array.isArray(value) ? value.filter(isTextMateRule) : [];
+}
+
+function isTextMateRule(value: unknown): value is TextMateRule {
+  return isRecord(value) && isRecord(value.settings);
+}
+
+function parseJsonWithComments<T>(text: string): T {
+  return JSON.parse(stripJsonComments(text)) as T;
+}
+
+function stripJsonComments(text: string): string {
+  return text
+    .replace(/\/\*[\s\S]*?\*\//gu, "")
+    .replace(/(^|[^:])\/\/.*$/gmu, "$1");
+}
+
+function escapeScriptJson(value: string): string {
+  return value.replace(/[<\u2028\u2029]/gu, character => {
+    if (character === "<") {
+      return "\\u003c";
+    }
+    if (character === "\u2028") {
+      return "\\u2028";
+    }
+    return "\\u2029";
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 /**
