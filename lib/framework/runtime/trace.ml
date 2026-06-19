@@ -1565,10 +1565,6 @@ let compute_before_after_and_diff_opt ?(style:output_style option) ?(hide_annot:
     Tools.warn "Error while saving trace:\n%s" exn;
     None
 
-let option_triple = function
-  | Some (x, y, z) -> Some x, Some y, Some z
-  | None -> None, None, None
-
 (** [compute_diff s] returns the string describing the diff associated with the step [s].
     The AST are printed using the style_before and style_after of [s]. *)
 let compute_diff ?(hide_annot:bool=false) ?(style:output_style option) (s:step_tree) : string =
@@ -1604,34 +1600,41 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
   (* Recursive calls *)
   let aux = dump_step_tree_to_js ~is_substep_of_targeted_line root_id out in
   (* Compute code display for this node *)
-  let sBefore, sAfter, sDiff =
+  let sCode =
     if should_compute_diff then begin
-      option_triple (compute_before_after_and_diff_opt ~hide_annot:false s)
+      compute_before_after_and_diff_opt ~hide_annot:false s
     end else
-      None, None, None
+      None
     in
-  let sBefore_raw, sAfter_raw, sDiff_raw =
+  let sCode_raw =
     if should_compute_diff then begin
-      option_triple (compute_before_after_and_diff_opt ~hide_annot:true s)
+      compute_before_after_and_diff_opt ~hide_annot:true s
     end else
-      None, None, None
+      None
     in
   let compute_optilambda representation =
     if should_compute_diff then
-      option_triple (compute_before_after_and_diff_opt ~style:(optilambda_style representation) s)
+      compute_before_after_and_diff_opt ~style:(optilambda_style representation) s
     else
-      None, None, None
+      None
     in
-  let sBefore_optilambda_surface, sAfter_optilambda_surface, sDiff_optilambda_surface =
-    compute_optilambda Optitrust_optilambda.Optilambda.Style.Surface in
-  let sBefore_optilambda_internal, sAfter_optilambda_internal, sDiff_optilambda_internal =
-    compute_optilambda Optitrust_optilambda.Optilambda.Style.Internal in
-  let sBefore_optilambda_typed, sAfter_optilambda_typed, sDiff_optilambda_typed =
-    compute_optilambda Optitrust_optilambda.Optilambda.Style.FullyTypedInternal in
+  let sCode_optilambda_surface = compute_optilambda Optitrust_optilambda.Optilambda.Style.Surface in
+  let sCode_optilambda_internal = compute_optilambda Optitrust_optilambda.Optilambda.Style.Internal in
+  let sCode_optilambda_typed = compute_optilambda Optitrust_optilambda.Optilambda.Style.FullyTypedInternal in
+  let code_fields before_key after_key diff_key = function
+    | Some (before, after, diff) ->
+      [ before_key, Json.base64 before;
+        after_key, Json.base64 after;
+        diff_key, Json.base64 diff ]
+    | None ->
+      [ before_key, Json.raw "undefined";
+        after_key, Json.raw "undefined";
+        diff_key, Json.raw "undefined" ]
+  in
   (* Dump Json for this node *)
   let id = s.step_infos.step_id - root_id in
   let json = (* TODO: check if ~html_newlines:true is needed for certain calls to [Json.str] *)
-    Json.obj_quoted_keys [
+    Json.obj_quoted_keys ([
       "id", Json.int id;
       "kind", Json.str (step_kind_to_string s.step_kind);
       "exectime", Json.float i.step_exectime;
@@ -1647,25 +1650,14 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
       "tags", Json.(listof str) i.step_tags;
       "debug_msgs", Json.(listof str) i.step_debug_msgs;
       "sub", Json.(listof int) (List.map (fun sub -> sub.step_infos.step_id - root_id) s.step_sub);
-      "code_before", Json.(optionof base64) sBefore;
-      "code_after", Json.(optionof base64) sAfter;
-      "diff", Json.(optionof base64) sDiff;
-      "code_before_raw", Json.(optionof base64) sBefore_raw;
-      "code_after_raw", Json.(optionof base64) sAfter_raw;
-      "diff_raw", Json.(optionof base64) sDiff_raw;
-      "code_before_optilambda_surface", Json.(optionof base64) sBefore_optilambda_surface;
-      "code_after_optilambda_surface", Json.(optionof base64) sAfter_optilambda_surface;
-      "diff_optilambda_surface", Json.(optionof base64) sDiff_optilambda_surface;
-      "code_before_optilambda_internal", Json.(optionof base64) sBefore_optilambda_internal;
-      "code_after_optilambda_internal", Json.(optionof base64) sAfter_optilambda_internal;
-      "diff_optilambda_internal", Json.(optionof base64) sDiff_optilambda_internal;
-      "code_before_optilambda_typed", Json.(optionof base64) sBefore_optilambda_typed;
-      "code_after_optilambda_typed", Json.(optionof base64) sAfter_optilambda_typed;
-      "diff_optilambda_typed", Json.(optionof base64) sDiff_optilambda_typed;
-      "code_before_optilambda", Json.(optionof base64) sBefore_optilambda_surface;
-      "code_after_optilambda", Json.(optionof base64) sAfter_optilambda_surface;
-      "diff_optilambda", Json.(optionof base64) sDiff_optilambda_surface;
-    ] in
+    ]
+    @ code_fields "code_before" "code_after" "diff" sCode
+    @ code_fields "code_before_raw" "code_after_raw" "diff_raw" sCode_raw
+    @ code_fields "code_before_optilambda_surface" "code_after_optilambda_surface" "diff_optilambda_surface" sCode_optilambda_surface
+    @ code_fields "code_before_optilambda_internal" "code_after_optilambda_internal" "diff_optilambda_internal" sCode_optilambda_internal
+    @ code_fields "code_before_optilambda_typed" "code_after_optilambda_typed" "diff_optilambda_typed" sCode_optilambda_typed
+    @ code_fields "code_before_optilambda" "code_after_optilambda" "diff_optilambda" sCode_optilambda_surface)
+  in
   out (sprintf "steps[%d] = %s;\n" id (Json.to_string json));
   (* If this step is the targeted step, mention it as such *)
   if is_smallstep_of_targeted_line

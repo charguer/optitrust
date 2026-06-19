@@ -3,10 +3,15 @@ open Ast
 module OL = Optitrust_optilambda.Optilambda
 open Optitrust_optilambda.Optilambda_style
 
+(** Unit tests for the OptiLambda printer.
+    The file builds small AST fragments by hand and checks their exact text,
+    HTML, type, style, and representation output. *)
+
 let v name = Ast.name_to_var name
 let tv name ty = (v name, ty)
 let term name = Trm.trm_var (v name)
 let typed_term name ty = Trm.trm_var ~typ:ty (v name)
+let app name args = Trm.trm_apps (term name) args
 let resource_set ?(pure = []) ?(linear = []) () = { empty_resource_set with pure; linear }
 
 let simple_fun_contract =
@@ -22,6 +27,30 @@ let multi_requires_contract =
       resource_set
         ~pure:[ (v "from", Typ.typ_int); (v "to", Typ.typ_int); (v "inside", Typ.typ_pure_fun [ (v "x", Typ.typ_int) ] Typ.typ_prop) ]
         ();
+  }
+
+let range start stop step = app "range" [ start; stop; step ]
+
+let group_formula index range body =
+  app "Group" [ range; Trm.trm_fun [ tv index Typ.typ_int ] Typ.typ_auto body ]
+
+let read_only_formula frac body = app "_RO" [ frac; body ]
+
+let uninit_formula body = app "Uninit" [ body ]
+
+let surface_reads_contract =
+  let frac = term "f" in
+  let body = term "H" in
+  {
+    pre = resource_set ~pure:[ (v "f", term "_Fraction") ] ~linear:[ (v "x", read_only_formula frac body) ] ();
+    post = resource_set ~linear:[ (v "x", read_only_formula frac body) ] ();
+  }
+
+let surface_writes_contract =
+  let body = term "H" in
+  {
+    pre = resource_set ~linear:[ (v "x", uninit_formula body) ] ();
+    post = resource_set ~linear:[ (v "x", body) ] ();
   }
 
 let simple_loop_contract =
@@ -235,13 +264,31 @@ let () =
     (Trm.trm_for
        { index = v "i"; start = Trm.trm_int 0; direction = DirUp; stop = term "n"; step = Trm.trm_int 2 }
        (Trm.trm_seq_nomarks [ Trm.trm_set (term "x") (Trm.trm_add ~typ:Typ.typ_int (term "x") (Trm.trm_int 1)) ]))
-    "for<seq> i in 0..n:2 { x = x + 1; }";
+    "for<seq> i in range(0, n, 2) { x = x + 1; }";
 
   check "for downward"
     (Trm.trm_for
        { index = v "i"; start = term "n"; direction = DirDown; stop = Trm.trm_int 0; step = Trm.trm_int 1 }
        (Trm.trm_seq_nomarks [ Trm.trm_set (term "x") (Trm.trm_sub ~typ:Typ.typ_int (term "x") (Trm.trm_int 1)) ]))
-    "for<seq> i in n..0:-1 { x = x - 1; }";
+    "for<seq> i in range(n, 0, -1) { x = x - 1; }";
+
+  check "surface group formula"
+    (group_formula "i" (range (Trm.trm_int 0) (term "n") (Trm.trm_int 1)) (app "items" [ term "i" ]))
+    "for i in 0..n { items(i) }";
+
+  check "surface group formula with step"
+    (group_formula "i" (range (Trm.trm_int 0) (term "n") (Trm.trm_int 2)) (app "items" [ term "i" ]))
+    "for i in range(0, n, 2) { items(i) }";
+
+  check "surface reads contract"
+    (Trm.trm_let_fun ~contract:(FunSpecContract surface_reads_contract) (v "read_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    "fun read_example(): unit [f, x, x] { reads x: H; }";
+
+  check "surface writes contract"
+    (Trm.trm_let_fun ~contract:(FunSpecContract surface_writes_contract) (v "write_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    "fun write_example(): unit [x, x] { writes x: H; }";
 
   check "loop contract"
     (Trm.trm_for ~contract:simple_loop_contract

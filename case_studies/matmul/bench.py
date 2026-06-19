@@ -35,11 +35,11 @@ N = 1024
 P = 1024
 dt = "float32"
 
-# rotate through 10 arrays to mitigate cache interference
+# rotate through 20 arrays to mitigate cache interference
 # LATER: numpy.random.seed()
-n_allocs = 10
+n_allocs = 20
 # TODO: adapt n_bench to confidence intervals / percentiles
-n_bench = 200 if implementation_name != "matmul" else 10
+n_bench = 400 if implementation_name != "matmul" else 20
 C = [ numpy.zeros((M, N), dtype=dt) for i in range(0, n_allocs) ]
 A = [ numpy.random.rand(M, P).astype(dt) for i in range(0, n_allocs) ]
 B = [ numpy.random.rand(P, N).astype(dt) for i in range(0, n_allocs) ]
@@ -48,7 +48,7 @@ C_ref = [ numpy.zeros((M, N), dtype=dt) for i in range(0, n_allocs) ]
 def run_mm_ref(i):
   numpy.matmul(A[i], B[i], out=C_ref[i])
 
-def benchmark(msg, f):
+def benchmark(name, implem, f):
   durations_s = []
   for i in range(0, n_bench):
     start = time.time_ns()
@@ -57,18 +57,24 @@ def benchmark(msg, f):
     durations_s.append((stop - start) / (10 ** 9))
   qs = [1, 5, 10, 25, 50, 75, 90, 95, 99]
   percentiles = numpy.percentile(durations_s, qs) # , method='median_unbiased'
-  print("{:<40}: {:.4f} s median, range [{:.4f}; {:.4f}], over {} runs".format(
-    msg, numpy.median(durations_s), numpy.min(durations_s), numpy.max(durations_s), n_bench))
+  print("{:<10} {:<20}: {:.4f} s median, range [{:.4f}; {:.4f}], over {} runs".format(
+    name, implem, numpy.median(durations_s), numpy.min(durations_s), numpy.max(durations_s), n_bench))
   for (q, p) in zip(qs, percentiles):
     print("{}th percentile: {:.4f}".format(q, p))
-  # print("raw: {}".format(durations_s))
+
+  filename = f"results/{name}_{implem}"
+  os.makedirs(os.path.dirname(filename), exist_ok=True)
+  with open(filename, "w") as f:
+      for sample in durations_s:
+        f.write(f"{sample}\n")
+
   print()
 
 if implementation_given:
   def run_mm(i):
     mm1024(C[i], A[i], B[i])
 
-  benchmark("matmul '{}'".format(implementation_name), run_mm)
+  benchmark("matmul", implementation_name, run_mm)
 
   for i in range(0, n_allocs):
     run_mm_ref(i)
@@ -140,7 +146,7 @@ else:
   def run_mm_tvm(i):
     mm_tvm(a[i], b[i], c[i])
 
-  benchmark("matmul numpy", run_mm_ref)
-  benchmark("matmul TVM", run_mm_tvm)
+  benchmark("matmul", "numpy", run_mm_ref)
+  benchmark("matmul", "TVM", run_mm_tvm)
   for (a, b) in zip(c, C_ref):
     numpy.testing.assert_allclose(a.numpy(), b, rtol=1e-5, equal_nan=False)

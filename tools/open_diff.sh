@@ -64,25 +64,40 @@ TITLESTR="${FILEBASE} - OptiTrust Diff"
 
 # Compute a diff in base64 encoding, or return an empty payload when the
 # requested representation was not generated.
+print_diff_payload() {
+  local BEFORE_FILE=$1
+  local AFTER_FILE=$2
+  git diff --ignore-all-space --no-index -U${CONTEXTSIZE} "${BEFORE_FILE}" "${AFTER_FILE}" | base64 -w 0
+}
+
 compute_diff_payload() {
   local BEFORE_FILE=$1
   local AFTER_FILE=$2
   if [ -f "${BEFORE_FILE}" ] && [ -f "${AFTER_FILE}" ]; then
-    git diff --ignore-all-space --no-index -U${CONTEXTSIZE} "${BEFORE_FILE}" "${AFTER_FILE}" | base64 -w 0
-  else
-    printf ""
+    print_diff_payload "${BEFORE_FILE}" "${AFTER_FILE}"
   fi
 }
 
-DIFFCODE=`compute_diff_payload ${FILEBASE}_before.${FILEEXT} ${FILEBASE}_after.${FILEEXT}`
+compute_first_diff_payload() {
+  local BEFORE_FILE
+  local AFTER_FILE
+  while [ "$#" -gt 0 ]; do
+    BEFORE_FILE=$1
+    AFTER_FILE=$2
+    if [ -f "${BEFORE_FILE}" ] && [ -f "${AFTER_FILE}" ]; then
+      print_diff_payload "${BEFORE_FILE}" "${AFTER_FILE}"
+      return
+    fi
+    shift 2
+  done
+}
 
-if [ -f "${FILEBASE}_before_surface.opti" ] && [ -f "${FILEBASE}_after_surface.opti" ]; then
-  DIFFCODE_OPTILAMBDA_SURFACE=`compute_diff_payload ${FILEBASE}_before_surface.opti ${FILEBASE}_after_surface.opti`
-else
-  DIFFCODE_OPTILAMBDA_SURFACE=`compute_diff_payload ${FILEBASE}_before.opti ${FILEBASE}_after.opti`
-fi
-DIFFCODE_OPTILAMBDA_INTERNAL=`compute_diff_payload ${FILEBASE}_before_internal.opti ${FILEBASE}_after_internal.opti`
-DIFFCODE_OPTILAMBDA_TYPED=`compute_diff_payload ${FILEBASE}_before_typed.opti ${FILEBASE}_after_typed.opti`
+DIFFCODE=$(compute_diff_payload "${FILEBASE}_before.${FILEEXT}" "${FILEBASE}_after.${FILEEXT}")
+DIFFCODE_OPTILAMBDA_SURFACE=$(compute_first_diff_payload \
+  "${FILEBASE}_before_surface.opti" "${FILEBASE}_after_surface.opti" \
+  "${FILEBASE}_before.opti" "${FILEBASE}_after.opti")
+DIFFCODE_OPTILAMBDA_INTERNAL=$(compute_diff_payload "${FILEBASE}_before_internal.opti" "${FILEBASE}_after_internal.opti")
+DIFFCODE_OPTILAMBDA_TYPED=$(compute_diff_payload "${FILEBASE}_before_typed.opti" "${FILEBASE}_after_typed.opti")
 
 # Don't launch a browser if every available representation has an empty diff.
 if [ "$DIFFCODE" == "" ] && [ "$DIFFCODE_OPTILAMBDA_SURFACE" == "" ] && [ "$DIFFCODE_OPTILAMBDA_INTERNAL" == "" ] && [ "$DIFFCODE_OPTILAMBDA_TYPED" == "" ]; then
