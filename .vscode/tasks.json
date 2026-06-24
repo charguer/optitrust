@@ -4,6 +4,22 @@
     // The -i option is necessary for launching GUI programs from tasks
     "version": "2.0.0",
     "tasks": [
+      {
+        "label": "OptiTrust: Run Extension Dev Host",
+        "type": "shell",
+        "command": "tools/vscode-optitrust/scripts/run_extension_dev_host.sh",
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "problemMatcher": [],
+        "presentation": {
+          "clear": true,
+          "reveal": "always"
+        },
+        "runOptions": {
+          "runOn": "folderOpen"
+        }
+      },
       // Build using make (currently not using run_action.sh)
       {
         "label": "Build everything",
