@@ -7,6 +7,15 @@ import {
   openUnitTestMlCppFiles
 } from "./commands/associatedFiles";
 import { runHealthCheck } from "./commands/healthCheck";
+import {
+  clearOptiNlpSession,
+  generateOptiNlpScript,
+  generateOptiNlpTarget,
+  setOptiNlpOpenAiApiKey,
+  setOptiNlpGeminiApiKey,
+  suggestOptiNlpCandidateScript
+} from "./commands/optinlpCommands";
+import { OptiNlpPanel } from "./commands/optinlpPanel";
 import { rerunLastTests, runCurrentTest, runCurrentTestAndOpenDiff } from "./commands/runTests";
 import {
   redoLastViewCommand,
@@ -19,9 +28,11 @@ import { disposeDecorations, updateDecorations } from "./optitrust/decorations";
 import { appendLine, disposeOutput } from "./optitrust/output";
 import { getSelectedViewMode, updateSelectedViewMode, VIEW_MODES } from "./optitrust/viewMode";
 import { findOptitrustRoot, OptitrustWorkspace } from "./optitrust/workspace";
+import { OptiNlpSessionMemory } from "./optinlp/sessionMemory";
 
 let currentWorkspace: OptitrustWorkspace | undefined;
 let warnedUnsupportedWorkspace = false;
+let optiNlpSession: OptiNlpSessionMemory | undefined;
 
 async function refreshWorkspace(startPath?: string): Promise<OptitrustWorkspace | undefined> {
   const detection = await findOptitrustRoot(startPath);
@@ -65,6 +76,7 @@ function registerCommand(context: vscode.ExtensionContext, command: string, call
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   await refreshWorkspace(vscode.window.activeTextEditor?.document.uri.fsPath);
+  optiNlpSession = new OptiNlpSessionMemory();
 
   registerCommand(context, "optitrust.hello", async () => {
     const workspace = await requireWorkspace();
@@ -202,6 +214,48 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   });
 
+  registerCommand(context, "optitrust.optinlpChat", async () => {
+    const workspace = await requireWorkspace();
+    if (workspace && optiNlpSession) {
+      OptiNlpPanel.show(context, workspace, optiNlpSession);
+    }
+  });
+
+  registerCommand(context, "optitrust.optinlpGenerateTarget", async () => {
+    const workspace = await requireWorkspace();
+    if (workspace && optiNlpSession) {
+      await generateOptiNlpTarget(context, workspace, optiNlpSession);
+    }
+  });
+
+  registerCommand(context, "optitrust.optinlpGenerateScript", async () => {
+    const workspace = await requireWorkspace();
+    if (workspace && optiNlpSession) {
+      await generateOptiNlpScript(context, workspace, optiNlpSession);
+    }
+  });
+
+  registerCommand(context, "optitrust.optinlpSuggestCandidateScript", async () => {
+    const workspace = await requireWorkspace();
+    if (workspace && optiNlpSession) {
+      await suggestOptiNlpCandidateScript(context, workspace, optiNlpSession);
+    }
+  });
+
+  registerCommand(context, "optitrust.optinlpSetGeminiApiKey", async () => {
+    await setOptiNlpGeminiApiKey(context);
+  });
+
+  registerCommand(context, "optitrust.optinlpSetOpenAiApiKey", async () => {
+    await setOptiNlpOpenAiApiKey(context);
+  });
+
+  registerCommand(context, "optitrust.optinlpClearSession", async () => {
+    if (optiNlpSession) {
+      await clearOptiNlpSession(optiNlpSession);
+    }
+  });
+
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(editor => updateDecorations(editor)),
     vscode.workspace.onDidChangeTextDocument(event => {
@@ -228,4 +282,5 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 export function deactivate(): void {
   disposeDecorations();
   disposeOutput();
+  optiNlpSession = undefined;
 }

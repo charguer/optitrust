@@ -12,8 +12,8 @@ export interface ActiveEditorContext {
   readonly line: number;
 }
 
-export function getActiveEditorContext(root: string): ActiveEditorContext {
-  const editor = vscode.window.activeTextEditor;
+export function getActiveEditorContext(root: string, sourceEditor?: vscode.TextEditor): ActiveEditorContext {
+  const editor = sourceEditor ?? vscode.window.activeTextEditor;
   if (!editor) {
     throw new Error("No active editor.");
   }

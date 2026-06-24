@@ -38,9 +38,19 @@
     "onCommand:optitrust.openAssociatedFiles",
     "onCommand:optitrust.openUnitTestMlCppFiles",
     "onCommand:optitrust.selectViewSyntax",
-    "onCommand:optitrust.healthCheck"
+    "onCommand:optitrust.healthCheck",
+    "onCommand:optitrust.optinlpChat",
+    "onCommand:optitrust.optinlpGenerateTarget",
+    "onCommand:optitrust.optinlpGenerateScript",
+    "onCommand:optitrust.optinlpSuggestCandidateScript",
+    "onCommand:optitrust.optinlpSetGeminiApiKey",
+    "onCommand:optitrust.optinlpSetOpenAiApiKey",
+    "onCommand:optitrust.optinlpClearSession"
   ],
   "main": "./out/extension.js",
+  "bin": {
+    "optinlp": "./out/optinlp/cli.js"
+  },
   "contributes": {
     "commands": [
       {
@@ -115,6 +125,34 @@
       {
         "command": "optitrust.healthCheck",
         "title": "OptiTrust: Health Check"
+      },
+      {
+        "command": "optitrust.optinlpChat",
+        "title": "OptiTrust: OptiNLP Chat"
+      },
+      {
+        "command": "optitrust.optinlpGenerateTarget",
+        "title": "OptiTrust: OptiNLP Generate Target"
+      },
+      {
+        "command": "optitrust.optinlpGenerateScript",
+        "title": "OptiTrust: OptiNLP Generate Script"
+      },
+      {
+        "command": "optitrust.optinlpSuggestCandidateScript",
+        "title": "OptiTrust: OptiNLP Generate Full Transformation"
+      },
+      {
+        "command": "optitrust.optinlpSetGeminiApiKey",
+        "title": "OptiTrust: OptiNLP Set Gemini API Key"
+      },
+      {
+        "command": "optitrust.optinlpSetOpenAiApiKey",
+        "title": "OptiTrust: OptiNLP Set OpenAI API Key"
+      },
+      {
+        "command": "optitrust.optinlpClearSession",
+        "title": "OptiTrust: OptiNLP Clear Session"
       }
     ],
     "configuration": {
@@ -165,6 +203,26 @@
             "Use explicit OptiLambda operations with type parameters."
           ],
           "description": "Default OptiLambda representation for backend-generated diff and trace views."
+        },
+        "optitrust.optinlpProvider": {
+          "type": "string",
+          "default": "gemini",
+          "enum": [
+            "gemini",
+            "mock",
+            "openai"
+          ],
+          "enumDescriptions": [
+            "Use Gemini through the configured API key.",
+            "Use deterministic local mock responses for UI testing.",
+            "Use OpenAI through the configured API key."
+          ],
+          "description": "AI provider used by OptiNLP commands and the OptiNLP panel."
+        },
+        "optitrust.optinlpModel": {
+          "type": "string",
+          "default": "",
+          "description": "Optional model override for the configured OptiNLP provider. Leave empty to use the provider default."
         }
       }
     },
@@ -235,6 +293,23 @@
           "group": "navigation@50"
         }
       ],
+      "editor/context": [
+        {
+          "command": "optitrust.optinlpGenerateTarget",
+          "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti",
+          "group": "optinlp@1"
+        },
+        {
+          "command": "optitrust.optinlpGenerateScript",
+          "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti",
+          "group": "optinlp@2"
+        },
+        {
+          "command": "optitrust.optinlpSuggestCandidateScript",
+          "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti",
+          "group": "optinlp@3"
+        }
+      ],
       "commandPalette": [
         {
           "command": "optitrust.hello"
@@ -289,6 +364,27 @@
         },
         {
           "command": "optitrust.healthCheck"
+        },
+        {
+          "command": "optitrust.optinlpChat"
+        },
+        {
+          "command": "optitrust.optinlpGenerateTarget"
+        },
+        {
+          "command": "optitrust.optinlpGenerateScript"
+        },
+        {
+          "command": "optitrust.optinlpSuggestCandidateScript"
+        },
+        {
+          "command": "optitrust.optinlpSetGeminiApiKey"
+        },
+        {
+          "command": "optitrust.optinlpSetOpenAiApiKey"
+        },
+        {
+          "command": "optitrust.optinlpClearSession"
         }
       ]
     },
@@ -316,12 +412,16 @@
   "scripts": {
     "build:webview": "esbuild ../web_view/optitrust_syntax_highlight.mjs --bundle --format=esm --target=es2020 --outfile=../web_view/optitrust_syntax_highlight.js",
     "compile": "npm run build:webview && tsc -p ./",
+    "dev:extension": "./scripts/run_extension_dev_host.sh",
+    "optinlp": "node ./out/optinlp/cli.js",
+    "test:optinlp": "npm run compile && node ./out/optinlp/provider.test.js && node ./out/optinlp/cli.test.js && node ./out/optinlp/sessionMemory.test.js",
     "watch": "tsc -watch -p ./",
     "package": "vsce package",
     "vscode:prepublish": "npm run compile"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/unist": "^3.0.3",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^2.15.0",
     "esbuild": "^0.28.1",
