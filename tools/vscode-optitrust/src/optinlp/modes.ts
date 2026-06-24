@@ -37,9 +37,9 @@ export const OPTINLP_MODE_DEFINITIONS: readonly OptiNlpModeDefinition[] = [
   {
     id: "code_to_candidate_script",
     cliCommand: "candidates",
-    label: "Suggest Candidate Script",
-    shortLabel: "Candidates",
-    placeholder: "suggest a first transformation",
+    label: "Generate Full Transformation",
+    shortLabel: "Full Transformation",
+    placeholder: "generate a complete transformation script for the whole file",
     promptFile: "03_code_to_candidate_script.md",
     knowledgeFiles: ["targets.md", "script_patterns.md", "transformations.md", "optilambda.md"]
   }
@@ -65,6 +65,13 @@ export function isOptiNlpCliCommand(command: string): command is OptiNlpCliComma
 }
 
 export function resolveAutoMode(mode: OptiNlpUiMode, request: string): OptiNlpMode {
+  return resolveRequestedMode(mode, request);
+}
+
+export function resolveRequestedMode(mode: OptiNlpUiMode, request: string): OptiNlpMode {
+  if (isFullFileScriptRequest(request)) {
+    return "code_to_candidate_script";
+  }
   if (mode !== "auto") {
     return mode;
   }
@@ -76,4 +83,12 @@ export function resolveAutoMode(mode: OptiNlpUiMode, request: string): OptiNlpMo
     return "code_to_candidate_script";
   }
   return "command_to_script";
+}
+
+function isFullFileScriptRequest(request: string): boolean {
+  const text = request.toLowerCase();
+  const wantsScript = /\b(generate|create|write|make|produce|build)\b[\s\S]*\b(script|transformation|transformations|optimi[sz]ation)\b/u.test(text);
+  const wantsFullScope = /\b(whole|entire|full|complete)\b[\s\S]*\b(file|source|code|script|transformation|transformations)\b/u.test(text);
+  const namesMlScript = /\b[a-z0-9_-]+\.ml\b/u.test(text);
+  return (wantsScript && wantsFullScope) || namesMlScript;
 }
