@@ -722,7 +722,7 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
     step_name = "";
     step_args = [("extension", the_trace.cur_context.extension) ];
     step_justif = [];
-    step_flag_check_validity = !Flags.check_validity;
+    step_flag_check_validity = !Flags.check_validity && (not !Flags.use_resources_with_models);
     step_valid = false;
     step_tags = [];
     step_debug_msgs = [];
@@ -770,7 +770,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
     step_name = name;
     step_args = [];
     step_justif = [];
-    step_flag_check_validity = !Flags.check_validity;
+    step_flag_check_validity = !Flags.check_validity && (not !Flags.use_resources_with_models);
     step_valid = valid;
     step_tags = tags;
     step_debug_msgs = [];
@@ -974,7 +974,7 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
   if not (is_kind_preserving_code step.step_kind)
     then make_substeps_chained step;
   (* Check that [Flags.check_validity] is like at the start of the step *)
-  if not on_error && !Flags.check_validity <> infos.step_flag_check_validity
+  if not on_error && (!Flags.check_validity && (not !Flags.use_resources_with_models)) <> infos.step_flag_check_validity
     then raise (TraceFailure "At finalize_step, Flags.check_validity is not same as when step was opened.");
   (* Set the validity flag if it is not already set, in particular
      if the step is an identity step, or if all substeps are valid.
