@@ -19,6 +19,10 @@ You may receive:
 - trace, diff, or error output;
 - the OptiNLP knowledge files about targets and script patterns.
 
+Use only the source code, script fragments, trace/error text, prompts, and
+knowledge included in the current request. Do not rely on unstated files or
+examples.
+
 ## Hard Rules
 
 - Use only known `Target` constructors.

@@ -1,6 +1,6 @@
 # Code To Full Script Evaluation Cases
 
-Use these cases to manually test `prompts/03_code_to_candidate_script.md`.
+Use these cases to manually test `prompts/03_code_to_full_script.md`.
 
 ## Case 1: Simple Loop
 
@@ -19,7 +19,7 @@ Acceptable full-script behavior:
 - Emit a complete OCaml script with `open Optitrust`, target-related opens, and
   `Run.script_cpp`.
 - Include at least one conservative candidate transformation in the table.
-- The `Candidate Script` section must contain a complete `.ml` script, not just
+- The `Full Transformation Script` section must contain a complete `.ml` script, not just
   `[cFor "i"]`.
 
 Required behavior:
@@ -54,7 +54,7 @@ Required behavior:
 
 - Explain that inlining may expose further simplifications.
 - Require validation with diff/trace or tests.
-- Emit the complete script in the `Candidate Script` section.
+- Emit the complete script in the `Full Transformation Script` section.
 
 ## Case 3: Adjacent Loops
 
@@ -76,7 +76,7 @@ Required behavior:
 - Mark as medium confidence.
 - Mention dependency and resource checks.
 - Do not claim semantic safety without validation.
-- Emit the complete script in the `Candidate Script` section.
+- Emit the complete script in the `Full Transformation Script` section.
 
 ## Case 4: Printed OptiLambda
 

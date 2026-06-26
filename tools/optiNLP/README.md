@@ -29,7 +29,7 @@ Implemented in this first pass:
 - three engineered prompts:
   - `prompts/01_target_generator.md`;
   - `prompts/02_command_to_script.md`;
-  - `prompts/03_code_to_candidate_script.md`;
+  - `prompts/03_code_to_full_script.md`;
 - separate manual evaluation cases for each prompt.
 
 Not implemented yet:
@@ -63,7 +63,7 @@ works on concrete cases.
 ```text
 prompts/01_target_generator.md          target request -> target syntax
 prompts/02_command_to_script.md         user command -> transformation script
-prompts/03_code_to_candidate_script.md  input code -> candidate scripts
+prompts/03_code_to_full_script.md       input code -> full transformation script
 
 eval/target_cases.md
 eval/command_to_script_cases.md

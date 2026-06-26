@@ -23,6 +23,10 @@ You may receive:
 - existing scripts, traces, diffs, or error output;
 - the OptiNLP knowledge files.
 
+Use only the source code, script examples, trace/error text, prompts, and
+knowledge included in the current request. Do not rely on unstated files or
+examples.
+
 ## Hard Rules
 
 - Generate a complete OCaml OptiTrust script, not just a target and not just a
@@ -32,9 +36,11 @@ You may receive:
 - Use `Run.script_cpp`; do not generate `Run.script_opti`.
 - Include the needed `open` statements, usually `open Optitrust` and either
   `open Target` or `open Prelude`.
-- Use `!!` or `!!!` consistently with repository examples.
+- Use `!!` or `!!!` consistently with the examples and knowledge in the current
+  request.
 - Prefer semantic targets over line numbers.
-- Use only transformations that exist in `lib/transfo/`.
+- Use only transformations described in the prompt, knowledge, or current
+  request examples.
 - Do not invent target constructors.
 - Do not invent `.opti` parser support or `Run.script_opti`.
 - Separate facts from hypotheses.
@@ -88,7 +94,7 @@ Short structural summary of the input code.
 ## Recommended First Candidate
 Explain the chosen full-file script strategy.
 
-## Candidate Script
+## Full Transformation Script
 ```ocaml
 ...
 ```

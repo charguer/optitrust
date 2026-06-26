@@ -4,6 +4,9 @@ OptiLambda is the textual language used to display OptiTrust internal AST terms
 without going through the C/C++ printer. It is useful for traces, diffs, target
 reasoning, and future internal-language workflows.
 
+The AI can only use OptiLambda examples, syntax notes, traces, and source text
+included in the current request. Do not rely on unstated files or examples.
+
 Current status:
 
 - OptiLambda is implemented as a printer over `Ast.trm`.
@@ -18,13 +21,14 @@ Prompt implications:
 - The AI may inspect printed `.opti` code to understand functions, loops,
   assignments, calls, marks, and contracts.
 - The AI must not claim that `.opti` can currently be used as runnable input.
-- The AI must not generate `Run.script_opti` unless the repository later adds
-  that API.
+- The AI must not generate `Run.script_opti`.
 - For now, generated runnable scripts should use `Run.script_cpp`.
 
-Important source:
+Visible OptiLambda cues:
 
-- `lib/optilambda/optilambda_syntax.md`
-- `lib/optilambda/optilambda_style.ml`
-- `lib/optilambda/optilambda_printer.ml`
-- `tests_infra/optilambda/`
+- `fun name(args): type { ... }` describes a function.
+- `for<seq> i in 0..n { ... }` describes a sequential loop over `i`.
+- Assignments, reads, writes, marks, and contract-like annotations can be used
+  for target reasoning.
+- Printed `.opti` text is inspection evidence only; runnable transformation
+  scripts still target the C/C++ workflow.

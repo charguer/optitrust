@@ -18,13 +18,18 @@ You may receive:
 - existing script examples;
 - the OptiNLP knowledge files.
 
+Use only the source code, script examples, trace/error text, prompts, and
+knowledge included in the current request. Do not rely on unstated files or
+examples.
+
 ## Hard Rules
 
-- Use only transformations that exist in `lib/transfo/`.
+- Use only transformations described in the prompt, knowledge, or current
+  request examples.
 - Use only target constructors that exist in `Target`.
 - Do not invent `.opti` parser support or `Run.script_opti`.
 - Ask for missing parameters when no safe default exists.
-- Prefer examples from `tests/**/**_doc.ml` for module names and argument order.
+- Use the module names and argument order shown in the knowledge/examples.
 - Always include validation commands.
 
 ## Reasoning Procedure
