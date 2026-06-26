@@ -6,7 +6,11 @@
     few thousand elements.
 
     This module only manages the array-of-arrays representation. Mark handling
-    belongs in [Mlist]. *)
+    belongs in [Mlist].
+
+    If changing this file, there is a test inside [tests_infra/alist] that allows checking the implementation via fuzzing.
+
+    *)
 
 (** Maximum number of values in one chunk, that is, an Internal Array. *)
 let chunk_size : int = 32
