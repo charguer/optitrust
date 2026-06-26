@@ -2,7 +2,7 @@
 // Gemini wire format and converts responses back into provider-neutral results.
 import { OptiNlpProviderError, technicalDetailFrom } from "./providerErrors";
 import { OptiNlpProvider, OptiNlpProviderRequest, OptiNlpProviderResult, requestWithMode } from "./providerTypes";
-import { OptiNlpSchemaError, parseOptiNlpMarkdownResult } from "./resultSchemas";
+import { parseOptiNlpMarkdownResultSafely } from "./resultSchemas";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
 
@@ -53,8 +53,8 @@ export class GeminiProvider implements OptiNlpProvider {
     return this.generate(requestWithMode(request, "command_to_script"));
   }
 
-  async generateCandidateScript(request: OptiNlpProviderRequest): Promise<OptiNlpProviderResult> {
-    return this.generate(requestWithMode(request, "code_to_candidate_script"));
+  async generateFullScript(request: OptiNlpProviderRequest): Promise<OptiNlpProviderResult> {
+    return this.generate(requestWithMode(request, "code_to_full_script"));
   }
 
   buildPromptForTest(request: OptiNlpProviderRequest): string {
@@ -113,15 +113,7 @@ export class GeminiProvider implements OptiNlpProvider {
       throw new OptiNlpProviderError(this.name, "Gemini returned an empty OptiNLP response.", "No candidate text parts found.");
     }
 
-    let structured;
-    try {
-      structured = parseOptiNlpMarkdownResult(request.mode, markdownOutput);
-    } catch (error) {
-      if (error instanceof OptiNlpSchemaError) {
-        throw new OptiNlpProviderError(this.name, "Gemini returned an invalid OptiNLP response.", error.message, error);
-      }
-      throw error;
-    }
+    const structured = parseOptiNlpMarkdownResultSafely(request.mode, markdownOutput);
 
     return {
       provider: this.name,

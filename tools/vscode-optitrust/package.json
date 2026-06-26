@@ -42,7 +42,7 @@
     "onCommand:optitrust.optinlpChat",
     "onCommand:optitrust.optinlpGenerateTarget",
     "onCommand:optitrust.optinlpGenerateScript",
-    "onCommand:optitrust.optinlpSuggestCandidateScript",
+    "onCommand:optitrust.optinlpGenerateFullTransformation",
     "onCommand:optitrust.optinlpSetGeminiApiKey",
     "onCommand:optitrust.optinlpSetOpenAiApiKey",
     "onCommand:optitrust.optinlpClearSession"
@@ -139,7 +139,7 @@
         "title": "OptiTrust: OptiNLP Generate Script"
       },
       {
-        "command": "optitrust.optinlpSuggestCandidateScript",
+        "command": "optitrust.optinlpGenerateFullTransformation",
         "title": "OptiTrust: OptiNLP Generate Full Transformation"
       },
       {
@@ -305,7 +305,7 @@
           "group": "optinlp@2"
         },
         {
-          "command": "optitrust.optinlpSuggestCandidateScript",
+          "command": "optitrust.optinlpGenerateFullTransformation",
           "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti",
           "group": "optinlp@3"
         }
@@ -375,7 +375,7 @@
           "command": "optitrust.optinlpGenerateScript"
         },
         {
-          "command": "optitrust.optinlpSuggestCandidateScript"
+          "command": "optitrust.optinlpGenerateFullTransformation"
         },
         {
           "command": "optitrust.optinlpSetGeminiApiKey"

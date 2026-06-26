@@ -107,7 +107,7 @@ function parseArgs(argv: readonly string[]): CliOptions {
   }
   const userRequest = values.get("--request") ?? values.get("--goal");
   if (!userRequest) {
-    throw new Error(commandArg === "candidates" ? "Missing required --goal option." : "Missing required --request option.");
+    throw new Error("Missing required --request option.");
   }
 
   return {
@@ -151,12 +151,11 @@ function writeResult(stdout: NodeJS.WritableStream, result: OptiNlpProviderResul
 
 function usage(): string {
   const providers = IMPLEMENTED_OPTINLP_PROVIDER_IDS.join("|");
-  const commands = ["target", "script", "candidates"]
+  const commands = ["target", "script", "full"]
     .map(command => {
       const definition = modeFromCliCommand(command);
       const placeholder = definition ? modeDefinition(definition).placeholder : "...";
-      const requestFlag = command === "candidates" ? "--goal" : "--request";
-      return `  optinlp ${command} --file path ${requestFlag} "${placeholder}" [--json] [--provider ${providers}]`;
+      return `  optinlp ${command} --file path --request "${placeholder}" [--json] [--provider ${providers}]`;
     })
     .join("\n");
   return [

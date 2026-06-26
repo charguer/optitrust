@@ -32,17 +32,17 @@ export interface CandidateTransformation {
   readonly risk: string;
 }
 
-export interface CandidateScriptResult {
-  readonly kind: "code_to_candidate_script";
+export interface FullScriptResult {
+  readonly kind: "code_to_full_script";
   readonly codeSummary: string;
   readonly candidateTransformations: readonly CandidateTransformation[];
   readonly recommendedFirstCandidate: string;
-  readonly candidateScript: string;
+  readonly fullScript: string;
   readonly validation: string;
   readonly missingInformation?: string;
 }
 
-export type OptiNlpStructuredResult = TargetResult | ScriptResult | CandidateScriptResult;
+export type OptiNlpStructuredResult = TargetResult | ScriptResult | FullScriptResult;
 
 export const targetResultSchema = {
   type: "object",
@@ -74,11 +74,11 @@ export const scriptResultSchema = {
   }
 } as const;
 
-export const candidateScriptResultSchema = {
+export const fullScriptResultSchema = {
   type: "object",
-  required: ["kind", "codeSummary", "candidateTransformations", "recommendedFirstCandidate", "candidateScript", "validation"],
+  required: ["kind", "codeSummary", "candidateTransformations", "recommendedFirstCandidate", "fullScript", "validation"],
   properties: {
-    kind: { const: "code_to_candidate_script" },
+    kind: { const: "code_to_full_script" },
     codeSummary: { type: "string" },
     candidateTransformations: {
       type: "array",
@@ -95,7 +95,7 @@ export const candidateScriptResultSchema = {
       }
     },
     recommendedFirstCandidate: { type: "string" },
-    candidateScript: { type: "string" },
+    fullScript: { type: "string" },
     validation: { type: "string" },
     missingInformation: { type: "string" }
   }
@@ -117,8 +117,19 @@ export function parseOptiNlpMarkdownResult(mode: OptiNlpMode, markdown: string):
       return parseTargetResult(markdown);
     case "command_to_script":
       return parseScriptResult(markdown);
-    case "code_to_candidate_script":
-      return parseCandidateScriptResult(markdown);
+    case "code_to_full_script":
+      return parseFullScriptResult(markdown);
+  }
+}
+
+export function parseOptiNlpMarkdownResultSafely(mode: OptiNlpMode, markdown: string): OptiNlpStructuredResult | undefined {
+  try {
+    return parseOptiNlpMarkdownResult(mode, markdown);
+  } catch (error) {
+    if (error instanceof OptiNlpSchemaError) {
+      return undefined;
+    }
+    throw error;
   }
 }
 
@@ -167,14 +178,14 @@ function parseScriptResult(markdown: string): ScriptResult {
   };
 }
 
-function parseCandidateScriptResult(markdown: string): CandidateScriptResult {
+function parseFullScriptResult(markdown: string): FullScriptResult {
   return {
-    kind: "code_to_candidate_script",
-    codeSummary: requiredSection(markdown, "Code Summary", "code_to_candidate_script"),
-    candidateTransformations: parseCandidateTable(requiredSection(markdown, "Candidate Transformations", "code_to_candidate_script")),
-    recommendedFirstCandidate: requiredSection(markdown, "Recommended First Candidate", "code_to_candidate_script"),
-    candidateScript: requiredCodeBlock(markdown, "Candidate Script", "code_to_candidate_script"),
-    validation: requiredCodeBlock(markdown, "Validation", "code_to_candidate_script"),
+    kind: "code_to_full_script",
+    codeSummary: requiredSection(markdown, "Code Summary", "code_to_full_script"),
+    candidateTransformations: parseCandidateTable(requiredSection(markdown, "Candidate Transformations", "code_to_full_script")),
+    recommendedFirstCandidate: requiredSection(markdown, "Recommended First Candidate", "code_to_full_script"),
+    fullScript: requiredCodeBlock(markdown, "Full Transformation Script", "code_to_full_script"),
+    validation: requiredCodeBlock(markdown, "Validation", "code_to_full_script"),
     missingInformation: section(markdown, "Missing Information")
   };
 }

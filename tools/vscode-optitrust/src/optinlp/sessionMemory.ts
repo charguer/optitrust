@@ -18,7 +18,7 @@ export interface OptiNlpSessionTurn {
   readonly model: string;
   readonly target?: string;
   readonly script?: string;
-  readonly candidateScript?: string;
+  readonly fullScript?: string;
   readonly assumptions: readonly string[];
   readonly validation?: string;
 }
@@ -89,8 +89,8 @@ export class OptiNlpSessionMemory {
       if (lastTurn.script) {
         lines.push(`Previous script: ${truncateOneLine(lastTurn.script, 500)}`);
       }
-      if (lastTurn.candidateScript) {
-        lines.push(`Previous candidate script: ${truncateOneLine(lastTurn.candidateScript, 500)}`);
+      if (lastTurn.fullScript) {
+        lines.push(`Previous full script: ${truncateOneLine(lastTurn.fullScript, 500)}`);
       }
       if (lastTurn.assumptions.length > 0) {
         lines.push(`Previous assumptions: ${lastTurn.assumptions.join("; ")}`);
@@ -128,7 +128,7 @@ function turnFromResult(request: OptiNlpProviderRequest, result: OptiNlpProvider
     model: result.model,
     target: targetFrom(structured),
     script: scriptFrom(structured),
-    candidateScript: candidateScriptFrom(structured),
+    fullScript: fullScriptFrom(structured),
     assumptions: assumptionsFrom(structured),
     validation: validationFrom(structured)
   };
@@ -143,7 +143,7 @@ function targetFrom(result: OptiNlpStructuredResult | undefined): string | undef
       return result.recommendedTarget;
     case "command_to_script":
       return result.target;
-    case "code_to_candidate_script":
+    case "code_to_full_script":
       return result.candidateTransformations[0]?.target;
   }
 }
@@ -152,8 +152,8 @@ function scriptFrom(result: OptiNlpStructuredResult | undefined): string | undef
   return result?.kind === "command_to_script" ? result.generatedScript : undefined;
 }
 
-function candidateScriptFrom(result: OptiNlpStructuredResult | undefined): string | undefined {
-  return result?.kind === "code_to_candidate_script" ? result.candidateScript : undefined;
+function fullScriptFrom(result: OptiNlpStructuredResult | undefined): string | undefined {
+  return result?.kind === "code_to_full_script" ? result.fullScript : undefined;
 }
 
 function assumptionsFrom(result: OptiNlpStructuredResult | undefined): readonly string[] {

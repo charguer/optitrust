@@ -2,7 +2,7 @@
 // prompt loading, CLI routing, UI labels, and auto-routing stay in sync.
 import { OptiNlpMode } from "./providerTypes";
 
-export type OptiNlpCliCommand = "target" | "script" | "candidates";
+export type OptiNlpCliCommand = "target" | "script" | "full";
 export type OptiNlpUiMode = OptiNlpMode | "auto";
 
 export interface OptiNlpModeDefinition {
@@ -35,12 +35,12 @@ export const OPTINLP_MODE_DEFINITIONS: readonly OptiNlpModeDefinition[] = [
     knowledgeFiles: ["targets.md", "script_patterns.md", "transformations.md", "optilambda.md"]
   },
   {
-    id: "code_to_candidate_script",
-    cliCommand: "candidates",
+    id: "code_to_full_script",
+    cliCommand: "full",
     label: "Generate Full Transformation",
     shortLabel: "Full Transformation",
     placeholder: "generate a complete transformation script for the whole file",
-    promptFile: "03_code_to_candidate_script.md",
+    promptFile: "03_code_to_full_script.md",
     knowledgeFiles: ["targets.md", "script_patterns.md", "transformations.md", "optilambda.md"]
   }
 ] as const;
@@ -70,7 +70,7 @@ export function resolveAutoMode(mode: OptiNlpUiMode, request: string): OptiNlpMo
 
 export function resolveRequestedMode(mode: OptiNlpUiMode, request: string): OptiNlpMode {
   if (isFullFileScriptRequest(request)) {
-    return "code_to_candidate_script";
+    return "code_to_full_script";
   }
   if (mode !== "auto") {
     return mode;
@@ -80,7 +80,7 @@ export function resolveRequestedMode(mode: OptiNlpUiMode, request: string): Opti
     return "target";
   }
   if (/\b(suggest|candidate|optimi[sz]e|opportunity|what can)\b/u.test(text)) {
-    return "code_to_candidate_script";
+    return "code_to_full_script";
   }
   return "command_to_script";
 }

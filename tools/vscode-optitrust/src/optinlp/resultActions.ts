@@ -15,7 +15,7 @@ export function editorActionForResult(result: OptiNlpStructuredResult | undefine
       return result.recommendedTarget ? { kind: "insert_target", text: result.recommendedTarget } : undefined;
     case "command_to_script":
       return { kind: "open_script", text: result.generatedScript };
-    case "code_to_candidate_script":
-      return { kind: "open_script", text: result.candidateScript };
+    case "code_to_full_script":
+      return { kind: "open_script", text: result.fullScript };
   }
 }

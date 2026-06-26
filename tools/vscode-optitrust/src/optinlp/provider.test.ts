@@ -36,8 +36,8 @@ async function testMockProvider(): Promise<void> {
   const scriptResult = await provider.generateScript(sampleRequest);
   assert.strictEqual(scriptResult.structured?.kind, "command_to_script");
 
-  const candidateResult = await provider.generateCandidateScript(sampleRequest);
-  assert.strictEqual(candidateResult.structured?.kind, "code_to_candidate_script");
+  const fullScriptResult = await provider.generateFullScript(sampleRequest);
+  assert.strictEqual(fullScriptResult.structured?.kind, "code_to_full_script");
 }
 
 async function testGeminiPromptConstruction(): Promise<void> {
@@ -108,22 +108,22 @@ async function testGeminiProviderException(): Promise<void> {
 
 async function testGeminiSuccessfulResponse(): Promise<void> {
   const fetchImpl: typeof fetch = async () =>
-    new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: validCandidateMarkdown }] } }] }), {
+    new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: validFullScriptMarkdown }] } }] }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
 
   const provider = new GeminiProvider({ apiKey: "test-key", model: "gemini-test", fetchImpl });
-  const result = await provider.generateCandidateScript(sampleRequest);
+  const result = await provider.generateFullScript(sampleRequest);
 
   assert.strictEqual(result.provider, "gemini");
   assert.strictEqual(result.model, "gemini-test");
-  assert.strictEqual(result.markdownOutput, validCandidateMarkdown);
-  assert.strictEqual(result.structured?.kind, "code_to_candidate_script");
+  assert.strictEqual(result.markdownOutput, validFullScriptMarkdown);
+  assert.strictEqual(result.structured?.kind, "code_to_full_script");
   assert.ok(result.rawResponse);
 }
 
-async function testGeminiInvalidStructuredResponse(): Promise<void> {
+async function testGeminiUnstructuredResponseStillDisplays(): Promise<void> {
   const fetchImpl: typeof fetch = async () =>
     new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "## Intent\nGenerated." }] } }] }), {
       status: 200,
@@ -131,14 +131,10 @@ async function testGeminiInvalidStructuredResponse(): Promise<void> {
     });
 
   const provider = new GeminiProvider({ apiKey: "test-key", fetchImpl });
-  await assert.rejects(
-    () => provider.generateTarget(sampleRequest),
-    (error: unknown) =>
-      error instanceof OptiNlpProviderError &&
-      error.provider === "gemini" &&
-      error.userMessage === "Gemini returned an invalid OptiNLP response." &&
-      /Recommended Target|Candidate Nodes|Ambiguities|Intent/u.test(error.technicalDetail ?? "")
-  );
+  const result = await provider.generateTarget(sampleRequest);
+
+  assert.strictEqual(result.markdownOutput, "## Intent\nGenerated.");
+  assert.strictEqual(result.structured, undefined);
 }
 
 async function testOpenAiPromptConstruction(): Promise<void> {
@@ -225,7 +221,7 @@ async function testOpenAiSuccessfulResponse(): Promise<void> {
   assert.match(requestBody?.input ?? "", /# User Request/);
 }
 
-async function testOpenAiInvalidStructuredResponse(): Promise<void> {
+async function testOpenAiUnstructuredResponseStillDisplays(): Promise<void> {
   const fetchImpl: typeof fetch = async () =>
     new Response(JSON.stringify({ output_text: "## Intent\nGenerated." }), {
       status: 200,
@@ -233,14 +229,10 @@ async function testOpenAiInvalidStructuredResponse(): Promise<void> {
     });
 
   const provider = new OpenAiProvider({ apiKey: "test-key", fetchImpl });
-  await assert.rejects(
-    () => provider.generateTarget(sampleRequest),
-    (error: unknown) =>
-      error instanceof OptiNlpProviderError &&
-      error.provider === "openai" &&
-      error.userMessage === "OpenAI returned an invalid OptiNLP response." &&
-      /Recommended Target|Candidate Nodes|Ambiguities|Intent/u.test(error.technicalDetail ?? "")
-  );
+  const result = await provider.generateTarget(sampleRequest);
+
+  assert.strictEqual(result.markdownOutput, "## Intent\nGenerated.");
+  assert.strictEqual(result.structured, undefined);
 }
 
 async function testMarkdownSchemaParsing(): Promise<void> {
@@ -252,9 +244,9 @@ async function testMarkdownSchemaParsing(): Promise<void> {
   assert.strictEqual(parsedScript.kind, "command_to_script");
   assert.match(parsedScript.generatedScript, /Loop\.unroll/u);
 
-  const parsedCandidate = parseOptiNlpMarkdownResult("code_to_candidate_script", validCandidateMarkdown);
-  assert.strictEqual(parsedCandidate.kind, "code_to_candidate_script");
-  assert.strictEqual(parsedCandidate.candidateTransformations.length, 1);
+  const parsedFullScript = parseOptiNlpMarkdownResult("code_to_full_script", validFullScriptMarkdown);
+  assert.strictEqual(parsedFullScript.kind, "code_to_full_script");
+  assert.strictEqual(parsedFullScript.candidateTransformations.length, 1);
 }
 
 const validTargetMarkdown = [
@@ -318,7 +310,7 @@ const validScriptMarkdown = [
   "```"
 ].join("\n");
 
-const validCandidateMarkdown = [
+const validFullScriptMarkdown = [
   "## Code Summary",
   "One loop over `i` calls `work`.",
   "",
@@ -330,7 +322,7 @@ const validCandidateMarkdown = [
   "## Recommended First Candidate",
   "Try unrolling the visible loop first.",
   "",
-  "## Candidate Script",
+  "## Full Transformation Script",
   "```ocaml",
   "open Optitrust",
   "open Target",
@@ -357,13 +349,13 @@ async function main(): Promise<void> {
   await testGeminiEmptyResponse();
   await testGeminiProviderException();
   await testGeminiSuccessfulResponse();
-  await testGeminiInvalidStructuredResponse();
+  await testGeminiUnstructuredResponseStillDisplays();
   await testOpenAiPromptConstruction();
   await testOpenAiMissingApiKey();
   await testOpenAiEmptyResponse();
   await testOpenAiProviderException();
   await testOpenAiSuccessfulResponse();
-  await testOpenAiInvalidStructuredResponse();
+  await testOpenAiUnstructuredResponseStillDisplays();
   await testMarkdownSchemaParsing();
   console.log("OptiNLP provider tests passed.");
 }

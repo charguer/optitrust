@@ -13,7 +13,7 @@ import {
   generateOptiNlpTarget,
   setOptiNlpOpenAiApiKey,
   setOptiNlpGeminiApiKey,
-  suggestOptiNlpCandidateScript
+  generateOptiNlpFullTransformation
 } from "./commands/optinlpCommands";
 import { OptiNlpPanel } from "./commands/optinlpPanel";
 import { rerunLastTests, runCurrentTest, runCurrentTestAndOpenDiff } from "./commands/runTests";
@@ -235,10 +235,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   });
 
-  registerCommand(context, "optitrust.optinlpSuggestCandidateScript", async () => {
+  registerCommand(context, "optitrust.optinlpGenerateFullTransformation", async () => {
     const workspace = await requireWorkspace();
     if (workspace && optiNlpSession) {
-      await suggestOptiNlpCandidateScript(context, workspace, optiNlpSession);
+      await generateOptiNlpFullTransformation(context, workspace, optiNlpSession);
     }
   });
 

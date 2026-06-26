@@ -29,6 +29,12 @@ export interface OptiNlpGenerationOutcome {
   readonly result: OptiNlpProviderResult;
 }
 
+interface OptiNlpGenerationOptions {
+  readonly renderToOutput?: boolean;
+  readonly editor?: vscode.TextEditor;
+  readonly throwProviderErrors?: boolean;
+}
+
 export async function setOptiNlpGeminiApiKey(context: vscode.ExtensionContext): Promise<void> {
   await setProviderApiKey(context, "Gemini", GEMINI_API_KEY_SECRET);
 }
@@ -93,8 +99,8 @@ export async function generateOptiNlpScript(context: vscode.ExtensionContext, wo
   }
 }
 
-export async function suggestOptiNlpCandidateScript(context: vscode.ExtensionContext, workspace: OptitrustWorkspace, memory: OptiNlpSessionMemory): Promise<void> {
-  const outcome = await runModeFromInput(context, workspace, memory, "code_to_candidate_script");
+export async function generateOptiNlpFullTransformation(context: vscode.ExtensionContext, workspace: OptitrustWorkspace, memory: OptiNlpSessionMemory): Promise<void> {
+  const outcome = await runModeFromInput(context, workspace, memory, "code_to_full_script");
   if (outcome) {
     await applyDefaultEditorAction(outcome);
   }
@@ -120,7 +126,7 @@ export async function runOptiNlpGeneration(
   memory: OptiNlpSessionMemory,
   mode: OptiNlpMode,
   userRequest: string,
-  options: { readonly renderToOutput?: boolean; readonly editor?: vscode.TextEditor } = { renderToOutput: true }
+  options: OptiNlpGenerationOptions = { renderToOutput: true }
 ): Promise<OptiNlpGenerationOutcome | undefined> {
   const resolvedMode = resolveRequestedMode(mode, userRequest);
   const editorContext = getActiveEditorContext(workspace.root, options.editor);
@@ -156,6 +162,9 @@ export async function runOptiNlpGeneration(
     );
   } catch (error) {
     if (error instanceof OptiNlpProviderError) {
+      if (options.throwProviderErrors) {
+        throw error;
+      }
       appendHeader("OptiNLP Error");
       appendLine(error.userMessage);
       if (error.technicalDetail) {

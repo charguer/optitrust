@@ -6,6 +6,7 @@ import { clearOptiNlpSession, insertTextAtCursor, openOcamlDocument, runOptiNlpG
 import { inferLanguage } from "../optinlp/assets";
 import { modeDefinition, OPTINLP_MODE_DEFINITIONS, OptiNlpUiMode, resolveAutoMode } from "../optinlp/modes";
 import { OptiNlpMode } from "../optinlp/providerTypes";
+import { OptiNlpProviderError } from "../optinlp/providerErrors";
 import { editorActionForResult } from "../optinlp/resultActions";
 import { OptiNlpStructuredResult } from "../optinlp/resultSchemas";
 import { OptiNlpSessionMemory } from "../optinlp/sessionMemory";
@@ -104,7 +105,8 @@ export class OptiNlpPanel {
     try {
       const outcome = await runOptiNlpGeneration(this.context, this.workspace, this.memory, resolvedMode, trimmed, {
         renderToOutput: false,
-        editor: this.getSourceEditor()
+        editor: this.getSourceEditor(),
+        throwProviderErrors: true
       });
       if (!outcome) {
         this.post({ type: "busy", busy: false });
@@ -124,7 +126,12 @@ export class OptiNlpPanel {
       });
       await this.refreshContext();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message =
+        error instanceof OptiNlpProviderError && error.technicalDetail
+          ? `${error.userMessage}\n\n${error.technicalDetail}`
+          : error instanceof Error
+            ? error.message
+            : String(error);
       this.post({ type: "error", message });
     } finally {
       this.post({ type: "busy", busy: false });
@@ -238,15 +245,20 @@ function renderPanelHtml(): string {
       grid-template-rows: auto 1fr auto;
       height: 100vh;
       min-width: 0;
+      gap: 10px;
     }
     .toolbar {
       display: grid;
       grid-template-columns: 1fr auto auto;
       gap: 8px;
       align-items: center;
-      padding: 10px;
-      border-bottom: 1px solid var(--vscode-panel-border);
+      padding: 12px;
+      margin: 10px 10px 0;
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 20px;
       background: var(--vscode-sideBar-background);
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
     }
     .context {
       min-width: 0;
@@ -257,40 +269,84 @@ function renderPanelHtml(): string {
     }
     .messages {
       overflow-y: auto;
-      padding: 10px;
+      padding: 18px 14px 22px;
     }
-    .message {
+    .turn {
+      display: flex;
+      margin: 0 0 16px;
+    }
+    .turn.user {
+      justify-content: flex-end;
+    }
+    .turn.assistant,
+    .turn.error {
+      justify-content: flex-start;
+    }
+    .bubble {
+      max-width: min(760px, 88%);
       border: 1px solid var(--vscode-panel-border);
-      border-radius: 6px;
-      margin-bottom: 10px;
+      border-radius: 14px;
       overflow: hidden;
       background: var(--vscode-editorWidget-background);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
+    }
+    .turn.user .bubble {
+      color: var(--vscode-button-foreground);
+      background: var(--vscode-button-background);
+      border-color: var(--vscode-button-background);
+      border-bottom-right-radius: 5px;
+    }
+    .turn.assistant .bubble,
+    .turn.error .bubble {
+      border-bottom-left-radius: 5px;
+    }
+    .turn.error .bubble {
+      border-color: var(--vscode-inputValidation-errorBorder);
+      background: var(--vscode-inputValidation-errorBackground, var(--vscode-editorWidget-background));
     }
     .message-header {
       display: grid;
       grid-template-columns: 1fr auto;
       gap: 8px;
       align-items: center;
-      padding: 8px 10px;
+      padding: 9px 12px;
       border-bottom: 1px solid var(--vscode-panel-border);
       color: var(--vscode-descriptionForeground);
     }
-    .message pre {
+    .turn.user .message-header {
+      color: var(--vscode-button-foreground);
+      border-bottom-color: color-mix(in srgb, var(--vscode-button-foreground) 25%, transparent);
+    }
+    .meta {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .message-body {
       margin: 0;
-      padding: 10px;
+      padding: 12px;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
       font-family: var(--vscode-editor-font-family);
       font-size: var(--vscode-editor-font-size);
       line-height: 1.45;
     }
+    .turn.user .message-body {
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+    }
     .composer {
       display: grid;
-      grid-template-columns: minmax(110px, 150px) 1fr auto;
+      grid-template-columns: minmax(104px, 142px) 1fr auto;
       gap: 8px;
-      padding: 10px;
-      border-top: 1px solid var(--vscode-panel-border);
+      padding: 12px;
+      margin: 0 10px 10px;
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 20px;
       background: var(--vscode-sideBar-background);
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
     }
     select,
     textarea,
@@ -302,20 +358,27 @@ function renderPanelHtml(): string {
       color: var(--vscode-input-foreground);
       background: var(--vscode-input-background);
       border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-      border-radius: 4px;
+      border-radius: 10px;
+    }
+    select {
+      border-radius: 999px;
+      padding: 0 10px;
+      min-height: 32px;
     }
     textarea {
-      min-height: 34px;
+      min-height: 32px;
       max-height: 110px;
       resize: vertical;
-      padding: 7px;
+      padding: 9px 10px;
+      line-height: 1.35;
+      border-radius: 14px;
     }
     button {
       color: var(--vscode-button-foreground);
       background: var(--vscode-button-background);
       border: 0;
-      border-radius: 4px;
-      padding: 6px 10px;
+      border-radius: 999px;
+      padding: 7px 12px;
       min-height: 32px;
       cursor: pointer;
     }
@@ -325,6 +388,7 @@ function renderPanelHtml(): string {
     button.secondary {
       color: var(--vscode-button-secondaryForeground);
       background: var(--vscode-button-secondaryBackground);
+      border: 1px solid transparent;
     }
     button.secondary:hover {
       background: var(--vscode-button-secondaryHoverBackground);
@@ -332,6 +396,21 @@ function renderPanelHtml(): string {
     button:disabled {
       opacity: 0.6;
       cursor: default;
+    }
+    button.icon {
+      min-width: 32px;
+      padding: 5px 9px;
+    }
+    #set-key,
+    #clear {
+      min-width: 48px;
+      padding-inline: 12px;
+    }
+    #send {
+      min-width: 52px;
+      padding: 5px 11px;
+      min-height: 30px;
+      align-self: end;
     }
     .actions {
       display: flex;
@@ -384,15 +463,35 @@ function renderPanelHtml(): string {
     const context = document.getElementById('context');
     const setKey = document.getElementById('set-key');
     const clear = document.getElementById('clear');
+    const modeLabels = ${JSON.stringify(Object.fromEntries(OPTINLP_MODE_DEFINITIONS.map(definition => [definition.id, definition.shortLabel])))};
+    let history = restoreHistory();
+    let pendingUserId = undefined;
+
+    renderHistory();
 
     form.addEventListener('submit', event => {
       event.preventDefault();
-      vscode.postMessage({ type: 'generate', mode: mode.value, request: request.value });
+      const text = request.value.trim();
+      if (!text) return;
+      const userMessage = {
+        id: createMessageId(),
+        role: 'user',
+        mode: mode.value,
+        text,
+        meta: modeTitle(mode.value)
+      };
+      pendingUserId = userMessage.id;
+      history.push(userMessage);
+      request.value = '';
+      saveAndRender();
+      vscode.postMessage({ type: 'generate', mode: mode.value, request: text });
     });
 
     setKey.addEventListener('click', () => vscode.postMessage({ type: 'setApiKey' }));
     clear.addEventListener('click', () => {
-      messages.replaceChildren();
+      history = [];
+      pendingUserId = undefined;
+      saveAndRender();
       vscode.postMessage({ type: 'clearSession' });
     });
 
@@ -404,9 +503,9 @@ function renderPanelHtml(): string {
         send.disabled = Boolean(message.busy);
         status.textContent = message.busy ? 'Running...' : '';
       } else if (message.type === 'result') {
-        appendResult(message);
+        appendAssistantResult(message);
       } else if (message.type === 'error') {
-        appendTextCard('Error', message.message || 'Unknown error');
+        appendError(message.message || 'Unknown error');
       } else if (message.type === 'copied') {
         status.textContent = 'Copied';
         setTimeout(() => { status.textContent = ''; }, 1200);
@@ -419,57 +518,115 @@ function renderPanelHtml(): string {
       }
     });
 
-    function appendResult(message) {
-      const title = modeTitle(message.mode) + ' · ' + message.sourceLabel + ' · ' + message.provider;
-      appendTextCard(title, message.markdown || '', message.request || '', message.resultId, message.structured && message.structured.kind);
-      request.value = '';
+    function appendAssistantResult(message) {
+      history.push({
+        id: createMessageId(),
+        role: 'assistant',
+        text: message.markdown || '',
+        meta: modeTitle(message.mode) + ' · ' + message.sourceLabel + ' · ' + message.provider + ' · ' + message.model,
+        resultId: message.resultId,
+        kind: message.structured && message.structured.kind,
+        replyTo: pendingUserId
+      });
+      pendingUserId = undefined;
+      saveAndRender();
     }
 
-    function appendTextCard(title, text, requestText = '', resultId = undefined, kind = undefined) {
-      const card = document.createElement('article');
-      card.className = 'message';
+    function appendError(text) {
+      history.push({
+        id: createMessageId(),
+        role: 'error',
+        text,
+        meta: 'Error',
+        replyTo: pendingUserId
+      });
+      pendingUserId = undefined;
+      saveAndRender();
+    }
+
+    function renderHistory() {
+      messages.replaceChildren();
+      for (const item of history) {
+        appendMessage(item);
+      }
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function appendMessage(item) {
+      const turn = document.createElement('article');
+      turn.className = 'turn ' + item.role;
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
       const header = document.createElement('div');
       header.className = 'message-header';
       const label = document.createElement('div');
-      label.textContent = requestText ? title + ' · ' + requestText : title;
+      label.className = 'meta';
+      label.textContent = item.meta || roleTitle(item.role);
       const actions = document.createElement('div');
       actions.className = 'actions';
-      const copy = document.createElement('button');
-      copy.className = 'secondary';
-      copy.type = 'button';
-      copy.textContent = 'Copy';
-      copy.addEventListener('click', () => vscode.postMessage({ type: 'copy', text }));
-      actions.appendChild(copy);
-      if (resultId && kind === 'target') {
+
+      if (item.role !== 'user') {
+        const copy = document.createElement('button');
+        copy.className = 'secondary icon';
+        copy.type = 'button';
+        copy.title = 'Copy';
+        copy.textContent = 'Copy';
+        copy.addEventListener('click', () => vscode.postMessage({ type: 'copy', text: item.text }));
+        actions.appendChild(copy);
+      }
+      if (item.resultId && item.kind === 'target') {
         const insert = document.createElement('button');
-        insert.className = 'secondary';
+        insert.className = 'secondary icon';
         insert.type = 'button';
+        insert.title = 'Insert target';
         insert.textContent = 'Insert';
-        insert.addEventListener('click', () => vscode.postMessage({ type: 'insertTarget', resultId }));
+        insert.addEventListener('click', () => vscode.postMessage({ type: 'insertTarget', resultId: item.resultId }));
         actions.appendChild(insert);
       }
-      if (resultId && (kind === 'command_to_script' || kind === 'code_to_candidate_script')) {
+      if (item.resultId && (item.kind === 'command_to_script' || item.kind === 'code_to_full_script')) {
         const open = document.createElement('button');
-        open.className = 'secondary';
+        open.className = 'secondary icon';
         open.type = 'button';
+        open.title = 'Open script';
         open.textContent = 'Open';
-        open.addEventListener('click', () => vscode.postMessage({ type: 'openScript', resultId }));
+        open.addEventListener('click', () => vscode.postMessage({ type: 'openScript', resultId: item.resultId }));
         actions.appendChild(open);
       }
       header.appendChild(label);
       header.appendChild(actions);
-      const pre = document.createElement('pre');
-      pre.textContent = text;
-      card.appendChild(header);
-      card.appendChild(pre);
-      messages.appendChild(card);
-      messages.scrollTop = messages.scrollHeight;
+      const body = document.createElement('pre');
+      body.className = 'message-body';
+      body.textContent = item.text;
+      bubble.appendChild(header);
+      bubble.appendChild(body);
+      turn.appendChild(bubble);
+      messages.appendChild(turn);
     }
 
     function modeTitle(value) {
-      const labels = ${JSON.stringify(Object.fromEntries(OPTINLP_MODE_DEFINITIONS.map(definition => [definition.id, definition.shortLabel])))};
-      if (labels[value]) return labels[value];
+      if (value === 'auto') return 'Auto';
+      if (modeLabels[value]) return modeLabels[value];
       return 'OptiNLP';
+    }
+
+    function roleTitle(role) {
+      if (role === 'user') return 'You';
+      if (role === 'error') return 'Error';
+      return 'OptiNLP';
+    }
+
+    function createMessageId() {
+      return String(Date.now()) + '-' + String(Math.random()).slice(2);
+    }
+
+    function restoreHistory() {
+      const state = vscode.getState();
+      return Array.isArray(state && state.history) ? state.history : [];
+    }
+
+    function saveAndRender() {
+      vscode.setState({ history });
+      renderHistory();
     }
 
     vscode.postMessage({ type: 'ready' });

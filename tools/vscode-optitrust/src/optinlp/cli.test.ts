@@ -41,8 +41,8 @@ async function testAssetLoading(): Promise<void> {
 }
 
 async function testWholeFileScriptRouting(): Promise<void> {
-  assert.strictEqual(resolveRequestedMode("command_to_script", "generate a complete transformation script for the whole file"), "code_to_candidate_script");
-  assert.strictEqual(resolveRequestedMode("auto", "write matmul.ml for this source"), "code_to_candidate_script");
+  assert.strictEqual(resolveRequestedMode("command_to_script", "generate a complete transformation script for the whole file"), "code_to_full_script");
+  assert.strictEqual(resolveRequestedMode("auto", "write matmul.ml for this source"), "code_to_full_script");
 }
 
 async function testCliTargetMarkdown(): Promise<void> {
@@ -80,19 +80,19 @@ async function testCliScriptJson(): Promise<void> {
   });
 }
 
-async function testCliCandidatesGoal(): Promise<void> {
+async function testCliFullRequest(): Promise<void> {
   await withTempSource(async filePath => {
     const stdout = new MemoryWritable();
     const stderr = new MemoryWritable();
     const exitCode = await runOptiNlpCli(
-      ["candidates", "--file", filePath, "--goal", "suggest a first transformation", "--provider", "mock", "--json"],
+      ["full", "--file", filePath, "--request", "generate a full transformation script", "--provider", "mock", "--json"],
       stdout,
       stderr
     );
 
     assert.strictEqual(exitCode, 0);
     const parsed = JSON.parse(stdout.text()) as { structured: { kind: string; candidateTransformations: unknown[] } };
-    assert.strictEqual(parsed.structured.kind, "code_to_candidate_script");
+    assert.strictEqual(parsed.structured.kind, "code_to_full_script");
     assert.strictEqual(parsed.structured.candidateTransformations.length, 1);
     assert.strictEqual(stderr.text(), "");
   });
@@ -113,7 +113,7 @@ async function main(): Promise<void> {
   await testWholeFileScriptRouting();
   await testCliTargetMarkdown();
   await testCliScriptJson();
-  await testCliCandidatesGoal();
+  await testCliFullRequest();
   await testCliMissingRequest();
   console.log("OptiNLP CLI tests passed.");
 }

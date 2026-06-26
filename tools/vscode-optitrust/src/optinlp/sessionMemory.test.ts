@@ -45,13 +45,13 @@ function scriptResult(): OptiNlpProviderResult {
   };
 }
 
-function candidateResult(): OptiNlpProviderResult {
+function fullScriptResult(): OptiNlpProviderResult {
   return {
     provider: "mock",
     model: "mock-model",
     markdownOutput: "markdown",
     structured: {
-      kind: "code_to_candidate_script",
+      kind: "code_to_full_script",
       codeSummary: "A loop.",
       candidateTransformations: [
         {
@@ -63,7 +63,7 @@ function candidateResult(): OptiNlpProviderResult {
         }
       ],
       recommendedFirstCandidate: "Try unrolling.",
-      candidateScript: "open Optitrust\nopen Target\nlet _ = Run.script_cpp (fun _ ->\n  !! Loop.unroll [cFor \"i\"];\n)",
+      fullScript: "open Optitrust\nopen Target\nlet _ = Run.script_cpp (fun _ ->\n  !! Loop.unroll [cFor \"i\"];\n)",
       validation: "dune exec -- ./mock.exe",
       missingInformation: "None."
     }
@@ -113,8 +113,8 @@ function testKeepsOnlyMaxTurns(): void {
 
 function testCandidateSummaryAndClear(): void {
   const memory = new OptiNlpSessionMemory();
-  memory.recordGeneration({ ...baseRequest, mode: "code_to_candidate_script", userRequest: "suggest candidates" }, candidateResult());
-  assert.match(memory.summary() ?? "", /Previous candidate script:/u);
+  memory.recordGeneration({ ...baseRequest, mode: "code_to_full_script", userRequest: "generate full transformation" }, fullScriptResult());
+  assert.match(memory.summary() ?? "", /Previous full script:/u);
 
   memory.clear();
   assert.strictEqual(memory.summary(), undefined);

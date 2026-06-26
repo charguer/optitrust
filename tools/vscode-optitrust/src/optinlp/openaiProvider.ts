@@ -2,7 +2,7 @@
 // Responses API wire format and keeps OpenAI-specific fields out of callers.
 import { OptiNlpProviderError, technicalDetailFrom } from "./providerErrors";
 import { OptiNlpProvider, OptiNlpProviderRequest, OptiNlpProviderResult, requestWithMode } from "./providerTypes";
-import { OptiNlpSchemaError, parseOptiNlpMarkdownResult } from "./resultSchemas";
+import { parseOptiNlpMarkdownResultSafely } from "./resultSchemas";
 
 export const DEFAULT_OPENAI_MODEL = "gpt-5.5";
 
@@ -56,8 +56,8 @@ export class OpenAiProvider implements OptiNlpProvider {
     return this.generate(requestWithMode(request, "command_to_script"));
   }
 
-  async generateCandidateScript(request: OptiNlpProviderRequest): Promise<OptiNlpProviderResult> {
-    return this.generate(requestWithMode(request, "code_to_candidate_script"));
+  async generateFullScript(request: OptiNlpProviderRequest): Promise<OptiNlpProviderResult> {
+    return this.generate(requestWithMode(request, "code_to_full_script"));
   }
 
   buildPromptForTest(request: OptiNlpProviderRequest): string {
@@ -113,15 +113,7 @@ export class OpenAiProvider implements OptiNlpProvider {
       throw new OptiNlpProviderError(this.name, "OpenAI returned an empty OptiNLP response.", "No output text found.");
     }
 
-    let structured;
-    try {
-      structured = parseOptiNlpMarkdownResult(request.mode, markdownOutput);
-    } catch (error) {
-      if (error instanceof OptiNlpSchemaError) {
-        throw new OptiNlpProviderError(this.name, "OpenAI returned an invalid OptiNLP response.", error.message, error);
-      }
-      throw error;
-    }
+    const structured = parseOptiNlpMarkdownResultSafely(request.mode, markdownOutput);
 
     return {
       provider: this.name,

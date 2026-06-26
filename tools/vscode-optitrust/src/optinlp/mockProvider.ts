@@ -26,8 +26,8 @@ export class MockProvider implements OptiNlpProvider {
     return this.generate(requestWithMode(request, "command_to_script"));
   }
 
-  async generateCandidateScript(request: OptiNlpProviderRequest): Promise<OptiNlpProviderResult> {
-    return this.generate(requestWithMode(request, "code_to_candidate_script"));
+  async generateFullScript(request: OptiNlpProviderRequest): Promise<OptiNlpProviderResult> {
+    return this.generate(requestWithMode(request, "code_to_full_script"));
   }
 
   private async generate(request: OptiNlpProviderRequest): Promise<OptiNlpProviderResult> {
@@ -106,7 +106,7 @@ function mockOutputForMode(mode: OptiNlpProviderRequest["mode"]): string {
         "dune exec -- ./mock.exe",
         "```"
       ].join("\n");
-    case "code_to_candidate_script":
+    case "code_to_full_script":
       return [
         "## Code Summary",
         "Mock code summary.",
@@ -119,7 +119,7 @@ function mockOutputForMode(mode: OptiNlpProviderRequest["mode"]): string {
         "## Recommended First Candidate",
         "Try the high-confidence mock candidate first.",
         "",
-        "## Candidate Script",
+        "## Full Transformation Script",
         "```ocaml",
         "open Optitrust",
         "open Target",

@@ -8,7 +8,7 @@ export async function generateOptiNlp(provider: OptiNlpProvider, request: OptiNl
       return provider.generateTarget(request);
     case "command_to_script":
       return provider.generateScript(request);
-    case "code_to_candidate_script":
-      return provider.generateCandidateScript(request);
+    case "code_to_full_script":
+      return provider.generateFullScript(request);
   }
 }
