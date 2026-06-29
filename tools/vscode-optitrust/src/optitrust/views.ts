@@ -349,8 +349,12 @@ export async function openHtmlView(root: string, htmlFile: string, viewKind: str
   const key = webviewKey(htmlFile, viewKind, metadata);
   const existing = panels.get(key);
   if (existing) {
-    existing.reveal(vscode.ViewColumn.Beside);
     existing.webview.html = await htmlWithBase(existing.webview, htmlFile);
+    // Reopening an existing view should refresh it in place. Passing
+    // ViewColumn.Beside here moves the tab back next to the active editor,
+    // which is disruptive when users place diff/trace panels on another group
+    // or screen.
+    existing.reveal(existing.viewColumn, true);
     return;
   }
 

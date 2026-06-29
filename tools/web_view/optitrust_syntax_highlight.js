@@ -3206,7 +3206,7 @@ var Registry = class {
 };
 var INITIAL = StateStackImpl.NULL;
 
-// node_modules/@shikijs/primitive/dist/index.mjs
+// node_modules/@shikijs/core/node_modules/@shikijs/primitive/dist/index.mjs
 function resolveColorReplacements(theme, options) {
   const replacements = typeof theme === "string" ? {} : { ...theme.colorReplacements };
   const themeName2 = typeof theme === "string" ? theme : theme.name;
@@ -3910,7 +3910,7 @@ function alignThemesTokenization(...themes) {
   return outThemes;
 }
 
-// node_modules/html-void-elements/index.js
+// node_modules/@shikijs/core/node_modules/html-void-elements/index.js
 var htmlVoidElements = [
   "area",
   "base",
@@ -3934,7 +3934,7 @@ var htmlVoidElements = [
   "wbr"
 ];
 
-// node_modules/property-information/lib/util/schema.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/schema.js
 var Schema = class {
   /**
    * @param {SchemaType['property']} property
@@ -3958,7 +3958,7 @@ Schema.prototype.normal = {};
 Schema.prototype.property = {};
 Schema.prototype.space = void 0;
 
-// node_modules/property-information/lib/util/merge.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/merge.js
 function merge(definitions, space) {
   const property = {};
   const normal = {};
@@ -3969,12 +3969,12 @@ function merge(definitions, space) {
   return new Schema(property, normal, space);
 }
 
-// node_modules/property-information/lib/normalize.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/normalize.js
 function normalize(value) {
   return value.toLowerCase();
 }
 
-// node_modules/property-information/lib/util/info.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/info.js
 var Info = class {
   /**
    * @param {string} property
@@ -4002,7 +4002,7 @@ Info.prototype.property = "";
 Info.prototype.spaceSeparated = false;
 Info.prototype.space = void 0;
 
-// node_modules/property-information/lib/util/types.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/types.js
 var types_exports = {};
 __export(types_exports, {
   boolean: () => boolean,
@@ -4025,7 +4025,7 @@ function increment() {
   return 2 ** ++powers;
 }
 
-// node_modules/property-information/lib/util/defined-info.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/defined-info.js
 var checks = (
   /** @type {ReadonlyArray<keyof typeof types>} */
   Object.keys(types_exports)
@@ -4063,7 +4063,7 @@ function mark(values, key2, value) {
   }
 }
 
-// node_modules/property-information/lib/util/create.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/create.js
 function create(definition) {
   const properties = {};
   const normals = {};
@@ -4084,7 +4084,7 @@ function create(definition) {
   return new Schema(properties, normals, definition.space);
 }
 
-// node_modules/property-information/lib/aria.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/aria.js
 var aria = create({
   properties: {
     ariaActiveDescendant: null,
@@ -4142,17 +4142,17 @@ var aria = create({
   }
 });
 
-// node_modules/property-information/lib/util/case-sensitive-transform.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/case-sensitive-transform.js
 function caseSensitiveTransform(attributes, attribute) {
   return attribute in attributes ? attributes[attribute] : attribute;
 }
 
-// node_modules/property-information/lib/util/case-insensitive-transform.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/case-insensitive-transform.js
 function caseInsensitiveTransform(attributes, property) {
   return caseSensitiveTransform(attributes, property.toLowerCase());
 }
 
-// node_modules/property-information/lib/html.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/html.js
 var html = create({
   attributes: {
     acceptcharset: "accept-charset",
@@ -4526,7 +4526,7 @@ var html = create({
   transform: caseInsensitiveTransform
 });
 
-// node_modules/property-information/lib/svg.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/svg.js
 var svg = create({
   attributes: {
     accentHeight: "accent-height",
@@ -5090,7 +5090,7 @@ var svg = create({
   transform: caseSensitiveTransform
 });
 
-// node_modules/property-information/lib/xlink.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/xlink.js
 var xlink = create({
   properties: {
     xLinkActuate: null,
@@ -5107,7 +5107,7 @@ var xlink = create({
   }
 });
 
-// node_modules/property-information/lib/xmlns.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/xmlns.js
 var xmlns = create({
   attributes: { xmlnsxlink: "xmlns:xlink" },
   properties: { xmlnsXLink: null, xmlns: null },
@@ -5115,7 +5115,7 @@ var xmlns = create({
   transform: caseInsensitiveTransform
 });
 
-// node_modules/property-information/lib/xml.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/xml.js
 var xml = create({
   properties: { xmlBase: null, xmlLang: null, xmlSpace: null },
   space: "xml",
@@ -5124,7 +5124,7 @@ var xml = create({
   }
 });
 
-// node_modules/property-information/lib/find.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/find.js
 var cap = /[A-Z]/g;
 var dash = /-[a-z]/g;
 var valid = /^data[-\w.:]+$/i;
@@ -5160,11 +5160,11 @@ function camelcase($0) {
   return $0.charAt(1).toUpperCase();
 }
 
-// node_modules/property-information/index.js
+// node_modules/@shikijs/core/node_modules/property-information/index.js
 var html2 = merge([aria, html, xlink, xmlns, xml], "html");
 var svg2 = merge([aria, svg, xlink, xmlns, xml], "svg");
 
-// node_modules/zwitch/index.js
+// node_modules/@shikijs/core/node_modules/zwitch/index.js
 var own = {}.hasOwnProperty;
 function zwitch(key2, options) {
   const settings = options || {};
@@ -5185,7 +5185,7 @@ function zwitch(key2, options) {
   return one2;
 }
 
-// node_modules/stringify-entities/lib/core.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/core.js
 var defaultSubsetRegex = /["&'<>`]/g;
 var surrogatePairsRegex = /[\uD800-\uDBFF][\uDC00-\uDFFF]/g;
 var controlCharactersRegex = (
@@ -5235,21 +5235,21 @@ function charactersToExpression(subset) {
   return new RegExp("(?:" + groups.join("|") + ")", "g");
 }
 
-// node_modules/stringify-entities/lib/util/to-hexadecimal.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/util/to-hexadecimal.js
 var hexadecimalRegex = /[\dA-Fa-f]/;
 function toHexadecimal(code, next, omit) {
   const value = "&#x" + code.toString(16).toUpperCase();
   return omit && next && !hexadecimalRegex.test(String.fromCharCode(next)) ? value : value + ";";
 }
 
-// node_modules/stringify-entities/lib/util/to-decimal.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/util/to-decimal.js
 var decimalRegex = /\d/;
 function toDecimal(code, next, omit) {
   const value = "&#" + String(code);
   return omit && next && !decimalRegex.test(String.fromCharCode(next)) ? value : value + ";";
 }
 
-// node_modules/character-entities-legacy/index.js
+// node_modules/@shikijs/core/node_modules/character-entities-legacy/index.js
 var characterEntitiesLegacy = [
   "AElig",
   "AMP",
@@ -5359,7 +5359,7 @@ var characterEntitiesLegacy = [
   "yuml"
 ];
 
-// node_modules/character-entities-html4/index.js
+// node_modules/@shikijs/core/node_modules/character-entities-html4/index.js
 var characterEntitiesHtml4 = {
   nbsp: "\xA0",
   iexcl: "\xA1",
@@ -5615,7 +5615,7 @@ var characterEntitiesHtml4 = {
   euro: "\u20AC"
 };
 
-// node_modules/stringify-entities/lib/constant/dangerous.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/constant/dangerous.js
 var dangerous = [
   "cent",
   "copy",
@@ -5627,7 +5627,7 @@ var dangerous = [
   "times"
 ];
 
-// node_modules/stringify-entities/lib/util/to-named.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/util/to-named.js
 var own2 = {}.hasOwnProperty;
 var characters = {};
 var key;
@@ -5650,7 +5650,7 @@ function toNamed(code, next, omit, attribute) {
   return "";
 }
 
-// node_modules/stringify-entities/lib/util/format-smart.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/util/format-smart.js
 function formatSmart(code, next, options) {
   let numeric = toHexadecimal(code, next, options.omitOptionalSemicolons);
   let named;
@@ -5671,12 +5671,12 @@ function formatSmart(code, next, options) {
   return named && (!options.useShortestReferences || named.length < numeric.length) ? named : numeric;
 }
 
-// node_modules/stringify-entities/lib/index.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/index.js
 function stringifyEntities(value, options) {
   return core(value, Object.assign({ format: formatSmart }, options));
 }
 
-// node_modules/hast-util-to-html/lib/handle/comment.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/comment.js
 var htmlCommentRegex = /^>|^->|<!--|-->|--!>|<!-$/g;
 var bogusCommentEntitySubset = [">"];
 var commentEntitySubset = ["<", ">"];
@@ -5697,12 +5697,12 @@ function comment(node, _1, _2, state) {
   }
 }
 
-// node_modules/hast-util-to-html/lib/handle/doctype.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/doctype.js
 function doctype(_1, _2, _3, state) {
   return "<!" + (state.settings.upperDoctype ? "DOCTYPE" : "doctype") + (state.settings.tightDoctype ? "" : " ") + "html>";
 }
 
-// node_modules/ccount/index.js
+// node_modules/@shikijs/core/node_modules/ccount/index.js
 function ccount(value, character) {
   const source = String(value);
   if (typeof character !== "string") {
@@ -5717,7 +5717,7 @@ function ccount(value, character) {
   return count;
 }
 
-// node_modules/comma-separated-tokens/index.js
+// node_modules/@shikijs/core/node_modules/comma-separated-tokens/index.js
 function stringify(values, options) {
   const settings = options || {};
   const input = values[values.length - 1] === "" ? [...values, ""] : values;
@@ -5726,12 +5726,12 @@ function stringify(values, options) {
   ).trim();
 }
 
-// node_modules/space-separated-tokens/index.js
+// node_modules/@shikijs/core/node_modules/space-separated-tokens/index.js
 function stringify2(values) {
   return values.join(" ").trim();
 }
 
-// node_modules/hast-util-whitespace/lib/index.js
+// node_modules/@shikijs/core/node_modules/hast-util-whitespace/lib/index.js
 var re = /[ \t\n\f\r]/g;
 function whitespace(thing) {
   return typeof thing === "object" ? thing.type === "text" ? empty(thing.value) : false : empty(thing);
@@ -5740,7 +5740,7 @@ function empty(value) {
   return value.replace(re, "") === "";
 }
 
-// node_modules/hast-util-to-html/lib/omission/util/siblings.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/omission/util/siblings.js
 var siblingAfter = siblings(1);
 var siblingBefore = siblings(-1);
 var emptyChildren = [];
@@ -5760,7 +5760,7 @@ function siblings(increment2) {
   }
 }
 
-// node_modules/hast-util-to-html/lib/omission/omission.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/omission/omission.js
 var own3 = {}.hasOwnProperty;
 function omission(handlers) {
   return omit;
@@ -5769,7 +5769,7 @@ function omission(handlers) {
   }
 }
 
-// node_modules/hast-util-to-html/lib/omission/closing.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/omission/closing.js
 var closing = omission({
   body,
   caption: headOrColgroupOrCaption,
@@ -5856,7 +5856,7 @@ function cells(_, index, parent) {
   return !next || next.type === "element" && (next.tagName === "td" || next.tagName === "th");
 }
 
-// node_modules/hast-util-to-html/lib/omission/opening.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/omission/opening.js
 var opening = omission({
   body: body2,
   colgroup,
@@ -5900,7 +5900,7 @@ function tbody2(node, index, parent) {
   return Boolean(head2 && head2.type === "element" && head2.tagName === "tr");
 }
 
-// node_modules/hast-util-to-html/lib/handle/element.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/element.js
 var constants = {
   // See: <https://html.spec.whatwg.org/#attribute-name-state>.
   name: [
@@ -6027,7 +6027,7 @@ function serializeAttribute(state, key2, value) {
   return name + (result ? "=" + result : result);
 }
 
-// node_modules/hast-util-to-html/lib/handle/text.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/text.js
 var textEntitySubset = ["<", "&"];
 function text(node, _, parent, state) {
   return parent && parent.type === "element" && (parent.tagName === "script" || parent.tagName === "style") ? node.value : stringifyEntities(
@@ -6038,17 +6038,17 @@ function text(node, _, parent, state) {
   );
 }
 
-// node_modules/hast-util-to-html/lib/handle/raw.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/raw.js
 function raw(node, index, parent, state) {
   return state.settings.allowDangerousHtml ? node.value : text(node, index, parent, state);
 }
 
-// node_modules/hast-util-to-html/lib/handle/root.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/root.js
 function root(node, _1, _2, state) {
   return state.all(node);
 }
 
-// node_modules/hast-util-to-html/lib/handle/index.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/index.js
 var handle = zwitch("type", {
   invalid,
   unknown,
@@ -6065,7 +6065,7 @@ function unknown(node_) {
   throw new Error("Cannot compile unknown node `" + node.type + "`");
 }
 
-// node_modules/hast-util-to-html/lib/index.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/index.js
 var emptyOptions = {};
 var emptyCharacterReferences = {};
 var emptyChildren2 = [];
