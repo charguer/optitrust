@@ -61,6 +61,7 @@ From `tools/vscode-optitrust`:
 
 ```bash
 npm install
+npm run compile
 npm run package
 ```
 
