@@ -9,8 +9,10 @@ _doc
 *_out.c
 *_before.cpp
 *_before.c
+*_before*.opti
 *_after.cpp
 *_after.c
+*_after*.opti
 *_before_enc.cpp
 *_after_enc.cpp
 *_after_enc.c
