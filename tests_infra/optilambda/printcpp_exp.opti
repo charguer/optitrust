@@ -1142,9 +1142,9 @@
                M: pure_fun(fun(#280: int): T),
                f: _Fraction,
                bound_check: in_range(i, range(0, n, 1));
-      consumes #279: _RO(f, ~>(matrix, Matrix1Of(n, MT, M)));
-      produces #278: Wand(_RO(f, ~>(matrix[MINDEX1(n, i)], CellOf(MT))), _RO(f, ~>(matrix, Matrix1Of(n, MT, M)))),
-               #277: _RO(f, ~>(matrix[MINDEX1(n, i)], CellOf(MT)));
+      consumes #279: _RO(f, (matrix ~> Matrix1Of(n, MT, M)));
+      produces #278: Wand(_RO(f, (matrix[MINDEX1(n, i)] ~> CellOf(MT))), _RO(f, (matrix ~> Matrix1Of(n, MT, M)))),
+               #277: _RO(f, (matrix[MINDEX1(n, i)] ~> CellOf(MT)));
       __admitted();
       ghost(ro_group_focus()[f := f, i := i, bound_check := bound_check]);
     };
@@ -1165,9 +1165,9 @@
                f: _Fraction,
                bound_check_i: in_range(i, range(0, m, 1)),
                bound_check_j: in_range(j, range(0, n, 1));
-      consumes #283: _RO(f, ~>(matrix, Matrix2Of(m, n, MT, M)));
-      produces #282: Wand(_RO(f, ~>(matrix[MINDEX2(m, n, i, j)], CellOf(MT))), _RO(f, ~>(matrix, Matrix2Of(m, n, MT, M)))),
-               #281: _RO(f, ~>(matrix[MINDEX2(m, n, i, j)], CellOf(MT)));
+      consumes #283: _RO(f, (matrix ~> Matrix2Of(m, n, MT, M)));
+      produces #282: Wand(_RO(f, (matrix[MINDEX2(m, n, i, j)] ~> CellOf(MT))), _RO(f, (matrix ~> Matrix2Of(m, n, MT, M)))),
+               #281: _RO(f, (matrix[MINDEX2(m, n, i, j)] ~> CellOf(MT)));
       __admitted();
       ghost(ro_group_focus()[f := f, i := i, bound_check := bound_check_i]);
       ghost(ro_group_focus()[f := f, i := j, bound_check := bound_check_j]);
@@ -1180,64 +1180,64 @@
     };
     fun MATRIX1_COPY_int(dest: ptr(int), src: ptr(int), length: int): unit [model, #288, #287, #286, #287, #286] {
       requires model: pure_fun(fun(#289: int): int);
-      reads #287: ~>(src, Matrix1(length, model));
-      writes #286: ~>(dest, Matrix1(length, model));
+      reads #287: (src ~> Matrix1(length, model));
+      writes #286: (dest ~> Matrix1(length, model));
       __admitted();
       __ignore(memcpy(dest, src, length * sizeof(int)));
     };
     fun MATRIX2_COPY_int(dest: ptr(int), src: ptr(int), n1: int, n2: int): unit [model, #292, #291, #290, #291, #290] {
       requires model: pure_fun(fun(#293: int, #294: int): int);
-      reads #291: ~>(src, Matrix2(n1, n2, model));
-      writes #290: ~>(dest, Matrix2(n1, n2, model));
+      reads #291: (src ~> Matrix2(n1, n2, model));
+      writes #290: (dest ~> Matrix2(n1, n2, model));
       __admitted();
       __ignore(memcpy(dest, src, n1 * n2 * sizeof(int)));
     };
     fun MATRIX3_COPY_int(dest: ptr(int), src: ptr(int), n1: int, n2: int, n3: int): unit [model, #297, #296, #295, #296, #295] {
       requires model: pure_fun(fun(#298: int, #299: int, #300: int): int);
-      reads #296: ~>(src, Matrix3(n1, n2, n3, model));
-      writes #295: ~>(dest, Matrix3(n1, n2, n3, model));
+      reads #296: (src ~> Matrix3(n1, n2, n3, model));
+      writes #295: (dest ~> Matrix3(n1, n2, n3, model));
       __admitted();
       __ignore(memcpy(dest, src, n1 * n2 * n3 * sizeof(int)));
     };
     fun MATRIX1_COPY_float(dest: ptr(f32), src: ptr(f32), length: int): unit [model, #303, #302, #301, #302, #301] {
       requires model: pure_fun(fun(#304: int): f32);
-      reads #302: ~>(src, Matrix1(length, model));
-      writes #301: ~>(dest, Matrix1(length, model));
+      reads #302: (src ~> Matrix1(length, model));
+      writes #301: (dest ~> Matrix1(length, model));
       __admitted();
       __ignore(memcpy(dest, src, length * sizeof(f32)));
     };
     fun MATRIX2_COPY_float(dest: ptr(f32), src: ptr(f32), n1: int, n2: int): unit [model, #307, #306, #305, #306, #305] {
       requires model: pure_fun(fun(#308: int, #309: int): f32);
-      reads #306: ~>(src, Matrix2(n1, n2, model));
-      writes #305: ~>(dest, Matrix2(n1, n2, model));
+      reads #306: (src ~> Matrix2(n1, n2, model));
+      writes #305: (dest ~> Matrix2(n1, n2, model));
       __admitted();
       __ignore(memcpy(dest, src, n1 * n2 * sizeof(f32)));
     };
     fun MATRIX3_COPY_float(dest: ptr(f32), src: ptr(f32), n1: int, n2: int, n3: int): unit [model, #312, #311, #310, #311, #310] {
       requires model: pure_fun(fun(#313: int, #314: int, #315: int): f32);
-      reads #311: ~>(src, Matrix3(n1, n2, n3, model));
-      writes #310: ~>(dest, Matrix3(n1, n2, n3, model));
+      reads #311: (src ~> Matrix3(n1, n2, n3, model));
+      writes #310: (dest ~> Matrix3(n1, n2, n3, model));
       __admitted();
       __ignore(memcpy(dest, src, n1 * n2 * n3 * sizeof(f32)));
     };
     fun MATRIX1_COPY_double(dest: ptr(f64), src: ptr(f64), length: int): unit [model, #318, #317, #316, #317, #316] {
       requires model: pure_fun(fun(#319: int): f64);
-      reads #317: ~>(src, Matrix1(length, model));
-      writes #316: ~>(dest, Matrix1(length, model));
+      reads #317: (src ~> Matrix1(length, model));
+      writes #316: (dest ~> Matrix1(length, model));
       __admitted();
       __ignore(memcpy(dest, src, length * sizeof(f64)));
     };
     fun MATRIX2_COPY_double(dest: ptr(f64), src: ptr(f64), n1: int, n2: int): unit [model, #322, #321, #320, #321, #320] {
       requires model: pure_fun(fun(#323: int, #324: int): f64);
-      reads #321: ~>(src, Matrix2(n1, n2, model));
-      writes #320: ~>(dest, Matrix2(n1, n2, model));
+      reads #321: (src ~> Matrix2(n1, n2, model));
+      writes #320: (dest ~> Matrix2(n1, n2, model));
       __admitted();
       __ignore(memcpy(dest, src, n1 * n2 * sizeof(f64)));
     };
     fun MATRIX3_COPY_double(dest: ptr(f64), src: ptr(f64), n1: int, n2: int, n3: int): unit [model, #327, #326, #325, #326, #325] {
       requires model: pure_fun(fun(#328: int, #329: int, #330: int): f64);
-      reads #326: ~>(src, Matrix3(n1, n2, n3, model));
-      writes #325: ~>(dest, Matrix3(n1, n2, n3, model));
+      reads #326: (src ~> Matrix3(n1, n2, n3, model));
+      writes #325: (dest ~> Matrix3(n1, n2, n3, model));
       __admitted();
       __ignore(memcpy(dest, src, n1 * n2 * n3 * sizeof(f64)));
     };
@@ -1249,9 +1249,9 @@
                b: int,
                MT: MemType,
                M: pure_fun(fun(#333: int): T);
-      consumes #332: for i in a..b { ~>(matrix[MINDEX1(n1, i)], CellOf(MT)) };
+      consumes #332: for i in a..b { (matrix[MINDEX1(n1, i)] ~> CellOf(MT)) };
       produces #331: for i in 0..b - a {
-        ~>(matrix[a][MINDEX1(b - a, i)], CellOf(MT))
+        (matrix[a][MINDEX1(b - a, i)] ~> CellOf(MT))
       };
       __admitted();
     };
@@ -1269,11 +1269,11 @@
                MT: MemType,
                M: pure_fun(fun(#336: int, #337: int): T);
       consumes #335: for i in a..b {
-        for j in 0..n2 { ~>(matrix[MINDEX2(n1, n2, i, j)], CellOf(MT)) }
+        for j in 0..n2 { (matrix[MINDEX2(n1, n2, i, j)] ~> CellOf(MT)) }
       };
       produces #334: for i in 0..b - a {
         for j in 0..n2 {
-          ~>(matrix[a * n2][MINDEX2(b - a, n2, i, j)], CellOf(MT))
+          (matrix[a * n2][MINDEX2(b - a, n2, i, j)] ~> CellOf(MT))
         }
       };
       __admitted();
@@ -1295,14 +1295,14 @@
       consumes #339: for i1 in a..b {
         for i2 in 0..n2 {
           for i3 in 0..n3 {
-            ~>(matrix[MINDEX3(n1, n2, n3, i1, i2, i3)], CellOf(MT))
+            (matrix[MINDEX3(n1, n2, n3, i1, i2, i3)] ~> CellOf(MT))
           }
         }
       };
       produces #338: for i1 in 0..b - a {
         for i2 in 0..n2 {
           for i3 in 0..n3 {
-            ~>(matrix[a * n2 * n3][MINDEX3(b - a, n2, n3, i1, i2, i3)], CellOf(MT))
+            (matrix[a * n2 * n3][MINDEX3(b - a, n2, n3, i1, i2, i3)] ~> CellOf(MT))
           }
         }
       };
@@ -1320,73 +1320,73 @@
   };
   fun one_fork(): unit {
     letmut x = 0;
-    let fork_out: __ghost_fn = __ghost_begin(ghost(ro_fork_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]));
+    let fork_out: __ghost_fn = __ghost_begin(ghost(ro_fork_group()[H := (x ~> CellOf(Any)), r := range(0, 5, 1)]));
     for<seq> i in 0..5 [#344, #343, #343] {
       strict;
       requires #344: _Fraction;
-      xconsumes #343: _RO(#344, ~>(x, CellOf(Any)));
-      xproduces #343: _RO(#344, ~>(x, CellOf(Any)));
-      ghost(ro_split2()[f := #_1, H := ~>(x, CellOf(Any))]);
-      ghost(ro_fork_group()[f := #_1 / 2, H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
-      ghost(ro_allow_join2()[f := #_1, H := ~>(x, CellOf(Any))]);
+      xconsumes #343: _RO(#344, (x ~> CellOf(Any)));
+      xproduces #343: _RO(#344, (x ~> CellOf(Any)));
+      ghost(ro_split2()[f := #_1, H := (x ~> CellOf(Any))]);
+      ghost(ro_fork_group()[f := #_1 / 2, H := (x ~> CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_allow_join2()[f := #_1, H := (x ~> CellOf(Any))]);
       for<seq> j in 0..5 [#346, #345, #345] {
         strict;
         requires #346: _Fraction;
-        xconsumes #345: _RO(#346, ~>(x, CellOf(Any)));
-        xproduces #345: _RO(#346, ~>(x, CellOf(Any)));
+        xconsumes #345: _RO(#346, (x ~> CellOf(Any)));
+        xproduces #345: _RO(#346, (x ~> CellOf(Any)));
         __ignore(x + 1);
       };
-      ghost(ro_join_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_join_group()[H := (x ~> CellOf(Any)), r := range(0, 5, 1)]);
     };
     __ghost_end(fork_out);
   };
   fun two_forks(): unit {
     letmut x = 0;
-    let fork_out: __ghost_fn = __ghost_begin(ghost(ro_fork_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]));
+    let fork_out: __ghost_fn = __ghost_begin(ghost(ro_fork_group()[H := (x ~> CellOf(Any)), r := range(0, 5, 1)]));
     for<seq> i in 0..5 [#348, #347, #347] {
       strict;
       requires #348: _Fraction;
-      xconsumes #347: _RO(#348, ~>(x, CellOf(Any)));
-      xproduces #347: _RO(#348, ~>(x, CellOf(Any)));
-      ghost(ro_split3()[f := #_1, H := ~>(x, CellOf(Any))]);
-      ghost(ro_fork_group()[f := #_1 / 3, H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
-      ghost(ro_fork_group()[f := #_1 / 3, H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
-      ghost(ro_allow_join3()[f := #_1, H := ~>(x, CellOf(Any))]);
+      xconsumes #347: _RO(#348, (x ~> CellOf(Any)));
+      xproduces #347: _RO(#348, (x ~> CellOf(Any)));
+      ghost(ro_split3()[f := #_1, H := (x ~> CellOf(Any))]);
+      ghost(ro_fork_group()[f := #_1 / 3, H := (x ~> CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_fork_group()[f := #_1 / 3, H := (x ~> CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_allow_join3()[f := #_1, H := (x ~> CellOf(Any))]);
       for<seq> j in 0..5 [#350, #349, #349] {
         strict;
         requires #350: _Fraction;
-        xconsumes #349: _RO(#350, ~>(x, CellOf(Any)));
-        xproduces #349: _RO(#350, ~>(x, CellOf(Any)));
+        xconsumes #349: _RO(#350, (x ~> CellOf(Any)));
+        xproduces #349: _RO(#350, (x ~> CellOf(Any)));
         __ignore(x + 1);
       };
-      ghost(ro_join_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
-      ghost(ro_join_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_join_group()[H := (x ~> CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_join_group()[H := (x ~> CellOf(Any)), r := range(0, 5, 1)]);
     };
     __ghost_end(fork_out);
   };
   fun two_forks_spe_twice(): unit {
     letmut x = 0;
-    let fork_out: __ghost_fn = __ghost_begin(ghost(ro_fork_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]));
+    let fork_out: __ghost_fn = __ghost_begin(ghost(ro_fork_group()[H := (x ~> CellOf(Any)), r := range(0, 5, 1)]));
     for<seq> i in 0..5 [#352, #351, #351] {
       strict;
       requires #352: _Fraction;
-      xconsumes #351: _RO(#352, ~>(x, CellOf(Any)));
-      xproduces #351: _RO(#352, ~>(x, CellOf(Any)));
-      ghost(ro_split2()[f := #_1, H := ~>(x, CellOf(Any))]);
-      ghost(ro_split2()[f := #_1 / 2, H := ~>(x, CellOf(Any))]);
-      ghost(ro_fork_group()[f := #_1 / 2, H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
-      ghost(ro_fork_group()[f := #_1 / 2 / 2, H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
-      ghost(ro_allow_join2()[f := #_1 / 2, H := ~>(x, CellOf(Any))]);
+      xconsumes #351: _RO(#352, (x ~> CellOf(Any)));
+      xproduces #351: _RO(#352, (x ~> CellOf(Any)));
+      ghost(ro_split2()[f := #_1, H := (x ~> CellOf(Any))]);
+      ghost(ro_split2()[f := #_1 / 2, H := (x ~> CellOf(Any))]);
+      ghost(ro_fork_group()[f := #_1 / 2, H := (x ~> CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_fork_group()[f := #_1 / 2 / 2, H := (x ~> CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_allow_join2()[f := #_1 / 2, H := (x ~> CellOf(Any))]);
       for<seq> j in 0..5 [#354, #353, #353] {
         strict;
         requires #354: _Fraction;
-        xconsumes #353: _RO(#354, ~>(x, CellOf(Any)));
-        xproduces #353: _RO(#354, ~>(x, CellOf(Any)));
+        xconsumes #353: _RO(#354, (x ~> CellOf(Any)));
+        xproduces #353: _RO(#354, (x ~> CellOf(Any)));
         __ignore(x + 1);
       };
-      ghost(ro_join_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
-      ghost(ro_allow_join2()[f := #_1, H := ~>(x, CellOf(Any))]);
-      ghost(ro_join_group()[H := ~>(x, CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_join_group()[H := (x ~> CellOf(Any)), r := range(0, 5, 1)]);
+      ghost(ro_allow_join2()[f := #_1, H := (x ~> CellOf(Any))]);
+      ghost(ro_join_group()[H := (x ~> CellOf(Any)), r := range(0, 5, 1)]);
     };
     __ghost_end(fork_out);
   };

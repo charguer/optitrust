@@ -1,0 +1,333 @@
+{
+  "name": "optitrust",
+  "displayName": "OptiTrust",
+  "description": "VS Code support for the OptiTrust source-to-source transformation framework.",
+  "version": "0.0.1",
+  "publisher": "optitrust",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/charguer/optitrust.git",
+    "directory": "tools/vscode-optitrust"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:ocaml",
+    "onLanguage:optilambda",
+    "onCommand:optitrust.hello",
+    "onCommand:optitrust.viewDiff",
+    "onCommand:optitrust.viewDiffOnlyCode",
+    "onCommand:optitrust.viewDiffInternalSyntax",
+    "onCommand:optitrust.viewFullTrace",
+    "onCommand:optitrust.viewTraceSaveStepsScript",
+    "onCommand:optitrust.viewStepTrace",
+    "onCommand:optitrust.redoLastViewCommand",
+    "onCommand:optitrust.rerunLastTests",
+    "onCommand:optitrust.runCurrentTest",
+    "onCommand:optitrust.runCurrentTestAndOpenDiff",
+    "onCommand:optitrust.openGeneratedOutput",
+    "onCommand:optitrust.openExpectedOutput",
+    "onCommand:optitrust.compareOutputExpected",
+    "onCommand:optitrust.openAssociatedFiles",
+    "onCommand:optitrust.openUnitTestMlCppFiles",
+    "onCommand:optitrust.selectViewSyntax",
+    "onCommand:optitrust.healthCheck"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "optitrust.hello",
+        "title": "OptiTrust: Verify Extension Loaded"
+      },
+      {
+        "command": "optitrust.viewDiff",
+        "title": "OptiTrust: View Step Diff"
+      },
+      {
+        "command": "optitrust.viewDiffOnlyCode",
+        "title": "OptiTrust: View Diff Only Code"
+      },
+      {
+        "command": "optitrust.viewDiffInternalSyntax",
+        "title": "OptiTrust: View Diff Using Internal Syntax"
+      },
+      {
+        "command": "optitrust.viewFullTrace",
+        "title": "OptiTrust: View Full Trace"
+      },
+      {
+        "command": "optitrust.viewTraceSaveStepsScript",
+        "title": "OptiTrust: View Trace Save Steps Script"
+      },
+      {
+        "command": "optitrust.viewStepTrace",
+        "title": "OptiTrust: View Step Trace"
+      },
+      {
+        "command": "optitrust.redoLastViewCommand",
+        "title": "OptiTrust: Redo Last View Command"
+      },
+      {
+        "command": "optitrust.runCurrentTest",
+        "title": "OptiTrust: Run Current Test"
+      },
+      {
+        "command": "optitrust.rerunLastTests",
+        "title": "OptiTrust: Rerun Last-Tried Tests"
+      },
+      {
+        "command": "optitrust.runCurrentTestAndOpenDiff",
+        "title": "OptiTrust: Run Current Test And Open Diff"
+      },
+      {
+        "command": "optitrust.openGeneratedOutput",
+        "title": "OptiTrust: Open Generated Output"
+      },
+      {
+        "command": "optitrust.openExpectedOutput",
+        "title": "OptiTrust: Open Expected Output"
+      },
+      {
+        "command": "optitrust.compareOutputExpected",
+        "title": "OptiTrust: Compare Output With Expected"
+      },
+      {
+        "command": "optitrust.openAssociatedFiles",
+        "title": "OptiTrust: Open Associated Files",
+        "icon": "$(references)"
+      },
+      {
+        "command": "optitrust.openUnitTestMlCppFiles",
+        "title": "OptiTrust: Open Unit Test ML And CPP Files"
+      },
+      {
+        "command": "optitrust.selectViewSyntax",
+        "title": "OptiTrust: Select Diff/Trace Syntax"
+      },
+      {
+        "command": "optitrust.healthCheck",
+        "title": "OptiTrust: Health Check"
+      }
+    ],
+    "configuration": {
+      "title": "OptiTrust",
+      "properties": {
+        "optitrust.enableKeybindings": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the default OptiTrust keybindings contributed by this extension."
+        },
+        "optitrust.rootOverride": {
+          "type": "string",
+          "default": "",
+          "description": "Optional absolute path to the OptiTrust project root."
+        },
+        "optitrust.scriptFolders": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional workspace-relative folders where OptiTrust transformation scripts are allowed."
+        },
+        "optitrust.viewSyntax": {
+          "type": "string",
+          "default": "cpp",
+          "enum": [
+            "cpp",
+            "optilambda"
+          ],
+          "enumDescriptions": [
+            "Use the current C/C++ trace and diff output.",
+            "Request OptiLambda trace and diff output."
+          ],
+          "description": "Default syntax to request for OptiTrust diff and trace views."
+        },
+        "optitrust.optilambdaRepresentation": {
+          "type": "string",
+          "default": "surface",
+          "enum": [
+            "surface",
+            "internal",
+            "typed"
+          ],
+          "enumDescriptions": [
+            "Use readable OptiLambda syntax.",
+            "Use explicit internal OptiLambda operations.",
+            "Use explicit OptiLambda operations with type parameters."
+          ],
+          "description": "Default OptiLambda representation for backend-generated diff and trace views."
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "optitrust.viewDiff",
+        "key": "f6",
+        "when": "editorTextFocus && config.optitrust.enableKeybindings"
+      },
+      {
+        "command": "optitrust.viewDiffOnlyCode",
+        "key": "ctrl+f6",
+        "when": "editorTextFocus && config.optitrust.enableKeybindings"
+      },
+      {
+        "command": "optitrust.viewDiffInternalSyntax",
+        "key": "ctrl+shift+f6",
+        "when": "editorTextFocus && config.optitrust.enableKeybindings"
+      },
+      {
+        "command": "optitrust.viewFullTrace",
+        "key": "shift+f5",
+        "when": "editorTextFocus && config.optitrust.enableKeybindings"
+      },
+      {
+        "command": "optitrust.viewTraceSaveStepsScript",
+        "key": "ctrl+f5",
+        "when": "editorTextFocus && config.optitrust.enableKeybindings"
+      },
+      {
+        "command": "optitrust.viewStepTrace",
+        "key": "shift+f6",
+        "when": "editorTextFocus && config.optitrust.enableKeybindings"
+      },
+      {
+        "command": "optitrust.redoLastViewCommand",
+        "key": "f5",
+        "when": "editorTextFocus && config.optitrust.enableKeybindings"
+      },
+      {
+        "command": "optitrust.runCurrentTest",
+        "key": "ctrl+f10",
+        "mac": "cmd+f10",
+        "when": "editorTextFocus && config.optitrust.enableKeybindings"
+      },
+      {
+        "command": "optitrust.rerunLastTests",
+        "key": "f10",
+        "when": "config.optitrust.enableKeybindings"
+      },
+      {
+        "command": "optitrust.runCurrentTestAndOpenDiff",
+        "key": "ctrl+shift+f10",
+        "mac": "cmd+shift+f10",
+        "when": "editorTextFocus && config.optitrust.enableKeybindings"
+      },
+      {
+        "command": "optitrust.openUnitTestMlCppFiles",
+        "key": "alt+shift+f10",
+        "when": "editorTextFocus && config.optitrust.enableKeybindings"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "optitrust.openAssociatedFiles",
+          "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti || resourceExtname == .html || resourceExtname == .js || resourceExtname == .trace",
+          "group": "navigation@50"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "optitrust.hello"
+        },
+        {
+          "command": "optitrust.viewDiff"
+        },
+        {
+          "command": "optitrust.viewDiffOnlyCode"
+        },
+        {
+          "command": "optitrust.viewDiffInternalSyntax"
+        },
+        {
+          "command": "optitrust.viewFullTrace"
+        },
+        {
+          "command": "optitrust.viewTraceSaveStepsScript"
+        },
+        {
+          "command": "optitrust.viewStepTrace"
+        },
+        {
+          "command": "optitrust.redoLastViewCommand"
+        },
+        {
+          "command": "optitrust.runCurrentTest"
+        },
+        {
+          "command": "optitrust.rerunLastTests"
+        },
+        {
+          "command": "optitrust.runCurrentTestAndOpenDiff"
+        },
+        {
+          "command": "optitrust.openGeneratedOutput"
+        },
+        {
+          "command": "optitrust.openExpectedOutput"
+        },
+        {
+          "command": "optitrust.compareOutputExpected"
+        },
+        {
+          "command": "optitrust.openAssociatedFiles"
+        },
+        {
+          "command": "optitrust.openUnitTestMlCppFiles"
+        },
+        {
+          "command": "optitrust.selectViewSyntax"
+        },
+        {
+          "command": "optitrust.healthCheck"
+        }
+      ]
+    },
+    "languages": [
+      {
+        "id": "optilambda",
+        "aliases": [
+          "OptiLambda",
+          "optilambda"
+        ],
+        "extensions": [
+          ".opti"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "optilambda",
+        "scopeName": "source.optilambda",
+        "path": "./syntaxes/optilambda.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "build:webview": "esbuild ../web_view/optitrust_syntax_highlight.mjs --bundle --format=esm --target=es2020 --outfile=../web_view/optitrust_syntax_highlight.js",
+    "compile": "npm run build:webview && tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "shiki": "^4.2.0"
+  }
+}

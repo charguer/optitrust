@@ -2,8 +2,10 @@ body {
   height: 100vh;
   margin: 0;
   overflow: hidden;
-  font-family: sans-serif;
-  font-size: 10pt;
+  background: var(--vscode-editor-background, #ffffff);
+  color: var(--vscode-editor-foreground, #222222);
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  font-size: var(--vscode-font-size, 10pt);
   line-height: 1.4;
 }
 
@@ -18,9 +20,29 @@ pre {
 }
 
 .CodeMirror {
-  border: 1px solid #eee;
+  border: 1px solid var(--vscode-panel-border, #eeeeee);
   height: auto;
-  font-size: 9pt;
+  background: var(--vscode-editor-background, #ffffff);
+  color: var(--vscode-editor-foreground, #222222);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: var(--vscode-editor-font-size, 9pt);
+}
+
+.CodeMirror-scroll,
+.CodeMirror-sizer,
+.CodeMirror-lines,
+.CodeMirror pre {
+  background: var(--vscode-editor-background, #ffffff);
+  color: var(--vscode-editor-foreground, #222222);
+}
+
+.CodeMirror-gutters {
+  background: var(--vscode-editorGutter-background, var(--vscode-editor-background, #ffffff));
+  border-right: 1px solid var(--vscode-panel-border, #eeeeee);
+}
+
+.CodeMirror-linenumber {
+  color: var(--vscode-editorLineNumber-foreground, #999999);
 }
 
 .tree-step {
@@ -32,8 +54,8 @@ pre {
 }
 
 .step-big {
-  background: #cfb;
-  border-top: 2px solid black;
+  background: var(--vscode-editor-selectionHighlightBackground, #ccffbb);
+  border-top: 2px solid var(--vscode-panel-border, #000000);
   font-weight: bold;
 }
 
@@ -50,35 +72,41 @@ pre {
   text-overflow: ellipsis;
 }
 .step-title:hover {
-  box-shadow: inset 0 0 1em #fff;
+  box-shadow: inset 0 0 1em var(--vscode-list-hoverBackground, #ffffff);
 }
 .step-selected .step-title {
-  box-shadow: inset 0 0 0.5em #666;
+  outline: 1px solid var(--vscode-focusBorder, #666666);
+  box-shadow: inset 0 0 0.5em var(--vscode-list-activeSelectionBackground, #666666);
 }
 
 .step-small.step-valid .step-title {
-  background: #9fc;
+  background: var(--vscode-gitDecoration-addedResourceForeground, #009944);
+  color: var(--vscode-editor-background, #ffffff);
 }
 .step-invalid .step-title {
-  background: #fcc;
+  background: var(--vscode-inputValidation-warningBackground, #fff4ce);
+  color: var(--vscode-inputValidation-warningForeground, #222222);
 }
 .step-error .step-title {
-  background: #f33;
+  background: var(--vscode-inputValidation-errorBackground, #ff3333);
+  color: var(--vscode-inputValidation-errorForeground, #ffffff);
   font-weight: bold;
 }
 .step-show .step-title {
-  background: #5cf;
+  background: var(--vscode-inputOption-activeBackground, #55ccff);
+  color: var(--vscode-inputOption-activeForeground, var(--vscode-editor-foreground, #222222));
 }
 .step-io-target .step-title {
-  background: #d0bffd;
+  background: var(--vscode-editorBracketHighlight-foreground3, #d0bffd);
+  color: var(--vscode-editor-background, #ffffff);
 }
 
 .step-nodiff {
-  color: #555555;
+  color: var(--vscode-disabledForeground, #555555);
 }
 
 .step-expand {
-  --bullet-color: black;
+  --bullet-color: var(--vscode-icon-foreground, #000000);
   display: inline-block;
   /* See https://css-tricks.com/snippets/css/css-triangle/ to know why this draws a triangle */
   border: 0.3em solid transparent;
@@ -87,7 +115,7 @@ pre {
   cursor:pointer;
 }
 .step-expand:hover {
-  --bullet-color: #000a;
+  --bullet-color: var(--vscode-focusBorder, #000a);
 }
 .step-expand::after {
   content: "";
@@ -112,7 +140,7 @@ pre {
 }
 .step-fully-expanded {
   border: 0.3em solid transparent;
-  border-top-color: #60f;
+  border-top-color: var(--vscode-focusBorder, #6600ff);
   border-radius: 0;
   margin: 0.6em 0.2em 0;
   align-self: stretch;
@@ -120,7 +148,7 @@ pre {
 
 .step-expanded::after, .step-fully-expanded::after {
   content: "";
-  border-left: 1px solid #ccc;
+  border-left: 1px solid var(--vscode-tree-indentGuidesStroke, #cccccc);
   display: block;
   height: calc(100% - .2em);
   margin-top: .5em;
@@ -130,14 +158,16 @@ pre {
 
 .step-justif-text {
   margin-left: 3em;
-  background: #dfe;
+  background: var(--vscode-textBlockQuote-background, #ddffee);
+  color: var(--vscode-editor-foreground, #222222);
   font-style: italic;
 }
 
 .step-tag {
   display: inline-block;
   margin-left: 2px;
-  background: #eeb;
+  background: var(--vscode-badge-background, #eeeebb);
+  color: var(--vscode-badge-foreground, #222222);
   padding: 0 4px;
   border-radius: 5px;
   font-size: 0.8em;
@@ -148,7 +178,7 @@ pre {
   text-decoration: none;
 }
 .step-valid .step-validity {
-  color: green;
+  color: var(--vscode-testing-iconPassed, green);
 }
 
 .checkbox-label {
@@ -156,13 +186,13 @@ pre {
 }
 
 .exectime-heavy {
-  background: #f66;
+  background: var(--vscode-inputValidation-errorBackground, #ff6666);
 }
 .exectime-mid {
-  background: #fd8;
+  background: var(--vscode-inputValidation-warningBackground, #ffdd88);
 }
 .exectime-small {
-  background: #fff;
+  background: var(--vscode-editorWidget-background, #ffffff);
 }
 .exectime-heavy, .exectime-mid, .exectime-small {
   margin-right: 5px;
@@ -176,7 +206,8 @@ pre {
 .has-debug-msg {
   padding-left: 5px;
   padding-right: 5px;
-  background: #ff9d60;
+  background: var(--vscode-editorWarning-background, #ff9d60);
+  color: var(--vscode-editor-foreground, #222222);
   border-radius: 5px;
   font-size: 0.8em;
 }
@@ -184,13 +215,16 @@ pre {
 #stepMsgDiv {
   padding-left: 10px;
   padding-right: 10px;
-  font-family: monospace;
-  background: #ff9d60;
+  font-family: var(--vscode-editor-font-family, monospace);
+  background: var(--vscode-editorWarning-background, #ff9d60);
+  color: var(--vscode-editor-foreground, #222222);
 }
 
 #debugMsgDiv {
   padding: 0 5px;
-  font-family: monospace;
+  font-family: var(--vscode-editor-font-family, monospace);
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #ffffff));
+  color: var(--vscode-editor-foreground, #222222);
   overflow: auto;
 }
 
@@ -227,7 +261,7 @@ pre {
 }
 
 .resizing-handle {
-  background: #888;
+  background: var(--vscode-panel-border, #888888);
   width: 4px;
   cursor: col-resize;
   z-index: 999;
@@ -237,11 +271,12 @@ pre {
   margin: 0 -2px;
 }
 .resizing-handle:active {
-  background: #999;
+  background: var(--vscode-focusBorder, #999999);
 }
 
 #treeDiv {
-  background: #EEE;
+  background: var(--vscode-sideBar-background, #eeeeee);
+  color: var(--vscode-sideBar-foreground, var(--vscode-editor-foreground, #222222));
   overflow-y: auto;
   flex-grow: 1;
 }
@@ -249,7 +284,9 @@ pre {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  border-top: 1px solid #888;
+  border-top: 1px solid var(--vscode-panel-border, #888888);
+  background: var(--vscode-sideBar-background, #eeeeee);
+  color: var(--vscode-sideBar-foreground, var(--vscode-editor-foreground, #222222));
   padding: 8px;
   gap: 0 4px;
 }
@@ -265,7 +302,7 @@ ol {
 }
 ol ol {
   padding-left: 0.5em;
-  border-left: 1px solid #ccc;
+  border-left: 1px solid var(--vscode-tree-indentGuidesStroke, #cccccc);
   margin-left: 0.5em;
 }
 li {

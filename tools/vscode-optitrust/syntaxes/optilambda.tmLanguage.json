@@ -1,0 +1,128 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "OptiLambda",
+  "scopeName": "source.optilambda",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#contracts"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#functionNames"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.optilambda",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.optilambda",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.optilambda",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.optilambda",
+          "match": "\\b-?(?:0x[0-9A-Fa-f]+|[0-9]+(?:\\.[0-9]+)?)\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.flow.optilambda",
+          "match": "\\b(?:if|else|for|while|do|switch|case|default|break|continue|return|goto|in)\\b"
+        },
+        {
+          "name": "storage.type.function.optilambda",
+          "match": "\\bfun\\b"
+        },
+        {
+          "name": "storage.modifier.ghost.optilambda",
+          "match": "\\bghost\\b"
+        },
+        {
+          "name": "storage.modifier.mutable.optilambda",
+          "match": "\\bletmut\\b"
+        },
+        {
+          "name": "storage.type.variable.optilambda",
+          "match": "\\blet\\b"
+        },
+        {
+          "name": "storage.type.declaration.optilambda",
+          "match": "\\b(?:record|enum|type|namespace|extern|template|using)\\b"
+        },
+        {
+          "name": "constant.language.optilambda",
+          "match": "\\b(?:true|false|null|unit)\\b"
+        }
+      ]
+    },
+    "contracts": {
+      "patterns": [
+        {
+          "name": "entity.other.attribute-name.contract.optilambda",
+          "match": "\\b(?:requires|consumes|ensures|produces|reads|writes|pure|modifies|preserves|xrequires|xconsumes|xensures|xproduces|xreads|xwrites|xmodifies|xpreserves|strict|reverts)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.optilambda",
+          "match": "\\b(?:Type|Prop|HProp|int|usize|f32|f64|bool|ptr|array|pure_fun|MemType|_Fraction)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.optilambda",
+          "match": "(?:==|!=|<=|>=|->|~>|:=|\\+=|-=|\\*=|/=|%=|&&|\\|\\||\\.\\.|[+\\-*/%=<>:&|^~!])"
+        }
+      ]
+    },
+    "functionNames": {
+      "patterns": [
+        {
+          "name": "entity.name.function.optilambda",
+          "match": "\\b([A-Za-z_][A-Za-z0-9_']*)\\s*(?=\\()"
+        }
+      ]
+    }
+  }
+}

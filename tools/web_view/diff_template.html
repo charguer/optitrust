@@ -17,6 +17,7 @@
    <link rel="stylesheet" type="text/css" href="{WEB_VIEW_FOLDER}/lib/diff2html.min.css" />
    <link rel="stylesheet" type="text/css" href="{WEB_VIEW_FOLDER}/optitrust_diff.css" />
    <script type="text/javascript" src="{WEB_VIEW_FOLDER}/lib/diff2html-ui.min.js"></script>
+   <script type="module" src="{WEB_VIEW_FOLDER}/optitrust_syntax_highlight.js"></script>
 
 <script>
    var diffStrings = { cpp: "" };
@@ -51,7 +52,7 @@
          matching: 'lines',
          outputFormat: 'side-by-side',
          synchronisedScroll: true,
-         highlight: true,
+         highlight: false,
          renderNothingWhenEmpty: false,
          // LATER tune?
          // matchWordsThreshold : similarity threshold for word matching, default is 0.25
@@ -61,7 +62,20 @@
          };
      var diff2htmlUi = new Diff2HtmlUI(targetElement, diffStrings[representation] || "", configuration);
      diff2htmlUi.draw();
-     diff2htmlUi.highlightCode();
+     highlightRenderedDiff(targetElement, function () {
+       diff2htmlUi.highlightCode();
+     });
+   }
+
+   function highlightRenderedDiff(targetElement, fallback) {
+     if (!window.OptitrustSyntaxHighlight) {
+       fallback();
+       return;
+     }
+     window.OptitrustSyntaxHighlight.highlightDiff(targetElement).catch(function (error) {
+       console.warn("OptiTrust syntax highlighting failed; using Diff2Html fallback.", error);
+       fallback();
+     });
    }
 
    function initDiffRepresentationSelector() {

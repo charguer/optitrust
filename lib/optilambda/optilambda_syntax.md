@@ -335,6 +335,27 @@ requires h1: x = y,
 produces h2: y = x;
 ```
 
+Resource points-to formulas use infix notation in all three representations:
+
+```optilambda
+(src ~> Matrix1(length, model))
+```
+
+Function contracts recover compact `reads` and `writes` clauses in all three
+representations when the desugared resources match the safe user-facing
+patterns:
+
+```optilambda
+reads h: H
+writes h: H
+```
+
+`reads` means that the same fractional read-only permission `_RO(f, H)` is
+present in both the precondition and the postcondition. `writes` means that an
+uninitialized resource is consumed and the initialized resource is produced.
+Read-only transformations that change the resource shape, split or join
+fractions, or produce a `Wand(...)` stay explicit as `consumes` / `produces`.
+
 Logical terms follow the existing resource formula syntax used by
 `resource_cparser.mly`.
 

@@ -1,5 +1,8 @@
 body {
   margin: 0;
+  background: var(--vscode-editor-background, #ffffff);
+  color: var(--vscode-editor-foreground, #24292f);
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
 }
 
 .diff-representation-controls {
@@ -26,17 +29,41 @@ body {
   display: none;
 }
 
+.diff-controls {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border, #dddddd);
+  background: var(--vscode-editor-background, #ffffff);
+  color: var(--vscode-editor-foreground, #24292f);
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+}
+
+.diff-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diff-controls input {
+  accent-color: var(--vscode-button-background, #0e639c);
+}
+
 .d2h-file-wrapper {
   border: none;
   margin-bottom: 0;
   overflow: hidden;
+  background: var(--vscode-editor-background, #ffffff);
 }
 
 .d2h-diff-table {
   border-collapse: separate;
   border-spacing: 0;
-  font-family: monospace;
-  font-size: 9pt;
+  background: var(--vscode-editor-background, #ffffff);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: var(--vscode-editor-font-size, 9pt);
   line-height: 1.4;
 }
 
@@ -58,6 +85,17 @@ body {
   display: none;
 }
 
+.d2h-wrapper,
+.d2h-file-diff,
+.d2h-files-diff,
+.d2h-file-side-diff,
+.d2h-code-wrapper,
+.d2h-diff-tbody,
+.d2h-code-line,
+.d2h-code-side-line {
+  background: var(--vscode-editor-background, #ffffff);
+}
+
 .d2h-code-side-linenumber {
   display: table-cell;
   position: sticky;
@@ -66,8 +104,10 @@ body {
   direction: ltr;
   padding: 0 4px;
   border: none;
-  border-right: 1px solid #eee;
+  border-right: 1px solid var(--vscode-panel-border, #eeeeee);
   width: fit-content;
+  background: var(--vscode-editorGutter-background, var(--vscode-editor-background, #ffffff));
+  color: var(--vscode-editorLineNumber-foreground, #6e7781);
 }
 .d2h-code-side-linenumber::after {
   content: none;
@@ -88,5 +128,134 @@ body {
   margin-right: 0;
 }
 .d2h-file-side-diff + .d2h-file-side-diff {
-  border-left: 1px solid #888;
+  border-left: 1px solid var(--vscode-panel-border, #888888);
+}
+
+.d2h-ins,
+.d2h-code-side-line.d2h-ins,
+.d2h-code-side-linenumber.d2h-ins {
+  background: var(--vscode-diffEditor-insertedTextBackground, rgba(46, 160, 67, 0.18));
+}
+
+.d2h-del,
+.d2h-code-side-line.d2h-del,
+.d2h-code-side-linenumber.d2h-del {
+  background: var(--vscode-diffEditor-removedTextBackground, rgba(248, 81, 73, 0.18));
+}
+
+.d2h-info {
+  background: var(--vscode-editorWidget-background, var(--vscode-sideBar-background, #f6f8fa));
+  color: var(--vscode-descriptionForeground, #6e7781);
+}
+
+/* Highlight.js ships with a fixed GitHub light theme, but VS Code webviews may
+   be dark or light. Webviews expose the current theme kind through body classes,
+   so keep the diff panel theme-aware without changing the diff renderer. */
+.hljs {
+  background: transparent;
+  color: var(--vscode-editor-foreground, #24292f);
+}
+
+.vscode-dark .hljs-keyword,
+.vscode-dark .hljs-selector-tag,
+.vscode-dark .hljs-subst {
+  color: #569cd6;
+  font-weight: normal;
+}
+
+.vscode-dark .hljs-type,
+.vscode-dark .hljs-class .hljs-title {
+  color: #4ec9b0;
+  font-weight: normal;
+}
+
+.vscode-dark .hljs-title,
+.vscode-dark .hljs-section,
+.vscode-dark .hljs-selector-id {
+  color: #dcdcaa;
+  font-weight: normal;
+}
+
+.vscode-dark .hljs-string,
+.vscode-dark .hljs-doctag {
+  color: #ce9178;
+}
+
+.vscode-dark .hljs-number,
+.vscode-dark .hljs-literal,
+.vscode-dark .hljs-variable,
+.vscode-dark .hljs-template-variable {
+  color: #b5cea8;
+}
+
+.vscode-dark .hljs-comment,
+.vscode-dark .hljs-quote {
+  color: #6a9955;
+  font-style: italic;
+}
+
+.vscode-dark .hljs-built_in,
+.vscode-dark .hljs-builtin-name,
+.vscode-dark .hljs-name,
+.vscode-dark .hljs-attribute {
+  color: #9cdcfe;
+}
+
+.vscode-dark .hljs-meta {
+  color: #c586c0;
+  font-weight: normal;
+}
+
+.vscode-light .hljs-keyword,
+.vscode-light .hljs-selector-tag,
+.vscode-light .hljs-subst {
+  color: #0000ff;
+  font-weight: normal;
+}
+
+.vscode-light .hljs-type,
+.vscode-light .hljs-class .hljs-title {
+  color: #267f99;
+  font-weight: normal;
+}
+
+.vscode-light .hljs-title,
+.vscode-light .hljs-section,
+.vscode-light .hljs-selector-id {
+  color: #795e26;
+  font-weight: normal;
+}
+
+.vscode-light .hljs-string,
+.vscode-light .hljs-doctag {
+  color: #a31515;
+}
+
+.vscode-light .hljs-number,
+.vscode-light .hljs-literal,
+.vscode-light .hljs-variable,
+.vscode-light .hljs-template-variable {
+  color: #098658;
+}
+
+.vscode-light .hljs-comment,
+.vscode-light .hljs-quote {
+  color: #008000;
+  font-style: italic;
+}
+
+.vscode-light .hljs-built_in,
+.vscode-light .hljs-builtin-name,
+.vscode-light .hljs-name,
+.vscode-light .hljs-attribute {
+  color: #001080;
+}
+
+.vscode-light .hljs-meta {
+  color: #af00db;
+  font-weight: normal;
+}
+
+.vscode-high-contrast .hljs {
+  color: var(--vscode-editor-foreground, CanvasText);
 }

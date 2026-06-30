@@ -38,6 +38,10 @@ let read_only_formula frac body = app "_RO" [ frac; body ]
 
 let uninit_formula body = app "Uninit" [ body ]
 
+let points_to_formula addr resource = app "~>" [ addr; resource ]
+
+let wand_formula required produced = app "Wand" [ required; produced ]
+
 let surface_reads_contract =
   let frac = term "f" in
   let body = term "H" in
@@ -51,6 +55,22 @@ let surface_writes_contract =
   {
     pre = resource_set ~linear:[ (v "x", uninit_formula body) ] ();
     post = resource_set ~linear:[ (v "x", body) ] ();
+  }
+
+let read_only_focus_contract =
+  let frac = term "f" in
+  let whole = term "Whole" in
+  let focused = term "Focused" in
+  {
+    pre = resource_set ~pure:[ (v "f", term "_Fraction") ] ~linear:[ (v "whole", read_only_formula frac whole) ] ();
+    post =
+      resource_set
+        ~linear:
+          [
+            (v "wand", wand_formula (read_only_formula frac focused) (read_only_formula frac whole));
+            (v "focused", read_only_formula frac focused);
+          ]
+        ();
   }
 
 let simple_loop_contract =
@@ -280,6 +300,12 @@ let () =
     (group_formula "i" (range (Trm.trm_int 0) (term "n") (Trm.trm_int 2)) (app "items" [ term "i" ]))
     "for i in range(0, n, 2) { items(i) }";
 
+  check "surface points-to formula" (points_to_formula (term "src") (term "H")) "(src ~> H)";
+
+  check_with_style "internal points-to formula" internal_style (points_to_formula (term "src") (term "H")) "(src ~> H)";
+
+  check_with_style "typed points-to formula" typed_style (points_to_formula (term "src") (term "H")) "(src ~> H)";
+
   check "surface reads contract"
     (Trm.trm_let_fun ~contract:(FunSpecContract surface_reads_contract) (v "read_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
@@ -289,6 +315,55 @@ let () =
     (Trm.trm_let_fun ~contract:(FunSpecContract surface_writes_contract) (v "write_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
     "fun write_example(): unit [x, x] { writes x: H; }";
+
+  check_with_style "internal reads contract"
+    internal_style
+    (Trm.trm_let_fun ~contract:(FunSpecContract surface_reads_contract) (v "read_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    "fun read_example(): unit [f, x, x] { reads x: H; }";
+
+  check_with_style "typed reads contract"
+    typed_style
+    (Trm.trm_let_fun ~contract:(FunSpecContract surface_reads_contract) (v "read_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    "fun read_example(): unit [f, x, x] { reads x: H; }";
+
+  check_with_style "internal writes contract"
+    internal_style
+    (Trm.trm_let_fun ~contract:(FunSpecContract surface_writes_contract) (v "write_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    "fun write_example(): unit [x, x] { writes x: H; }";
+
+  check_with_style "typed writes contract"
+    typed_style
+    (Trm.trm_let_fun ~contract:(FunSpecContract surface_writes_contract) (v "write_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    "fun write_example(): unit [x, x] { writes x: H; }";
+
+  let focus_expected =
+    "fun focus_example(): unit [f, whole, wand, focused] {\n\
+    \  requires f: _Fraction;\n\
+    \  consumes whole: _RO(f, Whole);\n\
+    \  produces wand: Wand(_RO(f, Focused), _RO(f, Whole)),\n\
+    \           focused: _RO(f, Focused);\n\
+     }"
+  in
+  check "read-only focus contract stays explicit"
+    (Trm.trm_let_fun ~contract:(FunSpecContract read_only_focus_contract) (v "focus_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    focus_expected;
+
+  check_with_style "internal read-only focus contract stays explicit"
+    internal_style
+    (Trm.trm_let_fun ~contract:(FunSpecContract read_only_focus_contract) (v "focus_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    focus_expected;
+
+  check_with_style "typed read-only focus contract stays explicit"
+    typed_style
+    (Trm.trm_let_fun ~contract:(FunSpecContract read_only_focus_contract) (v "focus_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    focus_expected;
 
   check "loop contract"
     (Trm.trm_for ~contract:simple_loop_contract

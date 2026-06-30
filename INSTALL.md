@@ -90,7 +90,7 @@ Installation of the opam switch with relevant packages (it seems that it must be
    opam pin add -y pprint 20220103
    opam pin add -y conf-libclang 15 --no-depexts
    opam pin add -y clangml 4.8.0 --no-depexts --yes --no-action
-   opam install dune refl pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving
+   opam install dune refl pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving graphics
 ```
 
 For clangml in particular, use the `--verbose` flag to double check that clangml is using the right version (15.0.0):

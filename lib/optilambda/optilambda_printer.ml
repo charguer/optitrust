@@ -371,8 +371,9 @@ and resource_item_to_doc (style : Optilambda_style.style) ((hyp, formula) : reso
 and contract_clauses (keyword : string) (items : resource_item list) : contract_clause list =
   List.map (fun item -> ContractClause (keyword, item)) items
 
-(** [simplify_surface_linear_contract pre post] recovers surface [reads] and [writes] clauses from desugared linear resources. *)
-and simplify_surface_linear_contract (pre : resource_item list) (post : resource_item list) :
+(** [simplify_linear_contract pre post] recovers user-facing [reads] and [writes] clauses from desugared linear resources.
+    It only recovers preserved [_RO] resources and [Uninit] writes; transformations that reshape resources remain explicit. *)
+and simplify_linear_contract (pre : resource_item list) (post : resource_item list) :
     resource_item list * resource_item list * resource_item list * resource_item list * var list =
   let rec find_remove pred before = function
     | [] -> None
@@ -460,8 +461,8 @@ and contract_clauses_to_docs (style : Optilambda_style.style) (clauses : contrac
 (** [fun_contract_clause_docs style contract] prints the direct internal function contract. *)
 and fun_contract_clauses (style : Optilambda_style.style) (contract : fun_contract) : contract_clause list =
   if not style.print_contracts then []
-  else if style.representation = Surface then
-    let consumes, produces, reads, writes, used_fracs = simplify_surface_linear_contract contract.pre.linear contract.post.linear in
+  else
+    let consumes, produces, reads, writes, used_fracs = simplify_linear_contract contract.pre.linear contract.post.linear in
     let pure = remove_used_fraction_requirements used_fracs contract.pre.pure in
     contract_clauses "requires" pure
     @ contract_clauses "reads" reads
@@ -469,11 +470,6 @@ and fun_contract_clauses (style : Optilambda_style.style) (contract : fun_contra
     @ contract_clauses "consumes" consumes
     @ contract_clauses "ensures" contract.post.pure
     @ contract_clauses "produces" produces
-  else
-    contract_clauses "requires" contract.pre.pure
-    @ contract_clauses "consumes" contract.pre.linear
-    @ contract_clauses "ensures" contract.post.pure
-    @ contract_clauses "produces" contract.post.linear
 
 (** [fun_spec_clause_docs style spec] prints clauses carried by a function spec. *)
 and fun_spec_clauses (style : Optilambda_style.style) (spec : fun_spec) : contract_clause list =
@@ -610,6 +606,8 @@ and app_to_doc (style : Optilambda_style.style) ~(result_typ : typ) (f : trm) (a
           ^^ parens_doc (comma_sep [ trm_to_doc_at style 0 start; trm_to_doc_at style 0 stop; trm_to_doc_at style 0 step ])
       in
       string "for" ^^ blank 1 ^^ range_doc ^^ blank 1 ^^ trm_to_block_doc style body
+  | Trm_var points_to_var, [ addr; resource ] when points_to_var.name = "~>" && points_to_var.namespaces = [] ->
+      parens_doc (trm_to_doc_at style 0 addr ^^ blank 1 ^^ string "~>" ^^ blank 1 ^^ trm_to_doc_at style 0 resource)
   | Trm_prim (_, Prim_binop Binop_array_access), [ base; index ] when is_internal style ->
       trm_to_doc_at style 10 base ^^ blank 1 ^^ string "[+]" ^^ blank 1 ^^ trm_to_doc_at style 0 index
   | Trm_prim (_, Prim_binop Binop_array_get), [ base; index ] when is_internal style ->

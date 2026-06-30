@@ -322,7 +322,7 @@ var configuration = {
    outputFormat: 'side-by-side',
    // outputFormat: 'line-by-line',
    synchronisedScroll: true,
-   highlight: true,
+   highlight: false,
    renderNothingWhenEmpty: false,
    // LATER tune?
    // matchWordsThreshold : similarity threshold for word matching, default is 0.25
@@ -405,26 +405,56 @@ function extractShowStep(step) {
 
 function loadDiffFromString(diffString) {
   // this function should be called only after DOM contents is loaded
- var targetElement = document.getElementById("diffDiv");
- targetElement.innerHTML = "";
- var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
- diff2htmlUi.draw();
- diff2htmlUi.highlightCode();
+  var targetElement = document.getElementById("diffDiv");
+  targetElement.innerHTML = "";
+  var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
+  diff2htmlUi.draw();
 
- const reg1 = /<del>([\s\n]*)/g
- $('.d2h-code-line-ctn').each(function() {
-  $(this).html( $(this).html().replace(reg1, "$1<del>") );
-});
-
-const reg2 = /<ins>([\s\n]*)/g
-$('.d2h-code-line-ctn').each(function() {
- $(this).html( $(this).html().replace(reg2, "$1<ins>") );
-});
-
-if (options.compact) {
-  const reg3 = /  /g
+  const reg1 = /<del>([\s\n]*)/g;
   $('.d2h-code-line-ctn').each(function() {
-    $(this).html( $(this).html().replace(reg3, " ") );
+    $(this).html($(this).html().replace(reg1, "$1<del>"));
+  });
+
+  const reg2 = /<ins>([\s\n]*)/g;
+  $('.d2h-code-line-ctn').each(function() {
+    $(this).html($(this).html().replace(reg2, "$1<ins>"));
+  });
+
+  if (options.compact) {
+    const reg3 = /  /g;
+    $('.d2h-code-line-ctn').each(function() {
+      $(this).html($(this).html().replace(reg3, " "));
+    });
+  }
+
+  highlightRenderedDiff(targetElement, function () {
+    diff2htmlUi.highlightCode();
+  });
+
+ /* Currently, this is a buggy feature: there is no code to jump to the relevant line, reactivate if there is a workaround
+ // identify the two sides of the diff, and register handlers for click on the line numbers;
+ $('.d2h-file-side-diff').first().addClass('diffBefore');
+ $('.d2h-file-side-diff').last().addClass('diffAfter');
+ $('.diffBefore .d2h-code-side-linenumber').click(function(e) {
+     var line = e.target.outerText; loadSourceAtLine(selectedStep.code_before, line); });
+ $('.diffAfter .d2h-code-side-linenumber').click(function(e) {
+     var line = e.target.outerText; loadSourceAtLine(selectedStep.code_after, line); });
+  */
+
+  // if hideLines() has been called once, call it again
+  if (hiddenLines) {
+    hideLines();
+  }
+}
+
+function highlightRenderedDiff(targetElement, fallback) {
+  if (!window.OptitrustSyntaxHighlight) {
+    fallback();
+    return;
+  }
+  window.OptitrustSyntaxHighlight.highlightDiff(targetElement).catch(function (error) {
+    console.warn("OptiTrust syntax highlighting failed; using Diff2Html fallback.", error);
+    fallback();
   });
 }
 
@@ -474,22 +504,6 @@ function syntaxQueryString() {
     return `syntax=cpp&decode=${options.decode}&print_types=${options.print_types}&typing_style=${typing_style}`;
   }
   return `syntax=optilambda&repr=${optilambdaRepresentationSuffix(representation)}`;
-}
-
- /* Currently, this is a buggy feature: there is no code to jump to the relevant line, reactivate if there is a workaround
- // identify the two sides of the diff, and register handlers for click on the line numbers;
- $('.d2h-file-side-diff').first().addClass('diffBefore');
- $('.d2h-file-side-diff').last().addClass('diffAfter');
- $('.diffBefore .d2h-code-side-linenumber').click(function(e) {
-     var line = e.target.outerText; loadSourceAtLine(selectedStep.code_before, line); });
- $('.diffAfter .d2h-code-side-linenumber').click(function(e) {
-     var line = e.target.outerText; loadSourceAtLine(selectedStep.code_after, line); });
-  */
-
-  // if hideLines() has been called once, call it again
-  if (hiddenLines) {
-    hideLines();
-  }
 }
 
 function resetView() {
