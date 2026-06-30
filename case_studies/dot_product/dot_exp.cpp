@@ -8,7 +8,7 @@ float dot(float* a, float* b, int n) {
 #pragma omp parallel for
   for (int bi = 0; bi < exact_div(n, 32); bi++) {
     t[bi] = ({
-      float arith_res = 0;
+      float arith_res = 0.f;
       const float arith_res1 = arith_res;
       arith_res1;
     });

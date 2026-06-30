@@ -18,11 +18,9 @@ void rowSum(const int w, const int* s, int* d, const int n, const int cn) {
   __writes("d ~> Matrix2(n, cn, fun (i c: int) -> reduce_int_sum(i, i+w, fun k -> S(k,c)))");
 
   for (int i = 0; i < n; i++) { // for each pixel
-    __sreads("s ~> Matrix2(n+w-1, cn, S)");
     __xwrites("for c in 0..cn -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i+w, fun k -> S(k,c))");
 
     for (int c = 0; c < cn; c++) { // foreach channel
-      __sreads("s ~> Matrix2(n+w-1, cn, S)");
       __xwrites("&d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i+w, fun k -> S(k,c))");
 
       int sum = 0;

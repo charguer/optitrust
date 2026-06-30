@@ -25,10 +25,6 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_effectful
 let int = trm_int
 module Reduce = Reduce_models
 
-let custom_specialize_simpl tg = Arith.do_nothing tg
-
-let no_simpl = Arith.do_nothing
-
 (*
   Trace.without_resource_computation_between_steps (fun () ->
     Arith.default_simpl tg;
@@ -39,7 +35,7 @@ let no_simpl = Arith.do_nothing
 let _ = Run.script_cpp (fun () ->
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anyw"
     ["w", int 3; "w", int 5] [cFunBody "rowSum"; cFor "i"];
-  !! Loop.unroll ~simpl:no_simpl [nbMulti; cMark "w"; cFor "k"];
+  !! Loop.unroll ~simpl:Arith.no_simpl [nbMulti; cMark "w"; cFor "k"];
   (* TODO: Reduce.unroll [nbMulti; cMark "w"; cFor "k"]
      + Loop.unroll
      + Instr.gather_targets
@@ -50,10 +46,10 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.swap [nbMulti; cMark "anyw"; cFor "i"];
   !! Reduce.first_then_slide ~mark_alloc:"acc" [nbMulti; cMark "anyw"; cFor "i"];
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
-  !! Loop.shift_range (StartAtZero) ~simpl:no_simpl [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
-  !! Loop.scale_range ~factor:(trm_find_var "cn" []) ~simpl:no_simpl [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
+  !! Loop.shift_range (StartAtZero) ~simpl:Arith.no_simpl [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
+  !! Loop.scale_range ~factor:(trm_find_var "cn" []) ~simpl:Arith.no_simpl [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
 
-  !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anycn" ~simpl:custom_specialize_simpl
+  !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anycn" ~simpl:Arith.no_simpl
     ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "anyw"; cFor "c"];
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
 
@@ -64,7 +60,7 @@ let _ = Run.script_cpp (fun () ->
     Instr.gather_targets [c; cFor "i"; cArrayWrite "d"];
   );
 
-  !! Loop.shift_range ~simpl:no_simpl (ShiftBy (trm_find_var "c" [cMark "anycn"])) [cMark "anycn"; cFor "i"];
+  !! Loop.shift_range ~simpl:Arith.no_simpl (ShiftBy (trm_find_var "c" [cMark "anycn"])) [cMark "anycn"; cFor "i"];
 
   !! Cleanup.std ();
 )

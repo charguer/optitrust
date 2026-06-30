@@ -2,10 +2,10 @@ open Optitrust
 open Prelude
 
 let _ = Flags.check_validity := true
-let _ = Flags.pretty_matrix_notation := true
-let _ = Flags.recompute_resources_between_steps := true
+let _ = Flags.pretty_matrix_notation := false
+let _ = Flags.recompute_resources_between_steps := false
 let _ = Flags.disable_stringreprs := true
-let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
+let _ = Flags.save_ast_for_steps := Some Flags.Steps_script
 
 
 (* let _ = Flags.report_exectime := true *)
@@ -30,5 +30,5 @@ let _ = Run.script_cpp (fun () ->
     [cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "k"];
   !! Loop.simd [nbMulti; cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "j"];
   !! Loop.parallel [nbMulti; cFunBody ""; cStrict; cFor ""];
-  !! Loop.unroll ~simpl:Arith.do_nothing [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
+  !! Loop.unroll ~simpl:Arith.no_simpl [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
 )
