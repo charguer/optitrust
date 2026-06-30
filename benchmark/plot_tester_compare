@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -lt 3 ]; then
+  echo "Usage: $0 <comparison-run-id> <old-per_test_timing.csv> <new-per_test_timing.csv> [more.csv ...]" >&2
+  exit 2
+fi
+
+RUN_ID="$1"
+shift
+
+BENCHMARK_DIR="${BENCHMARK_DIR:-benchmark}"
+PLOTS_DIR="$BENCHMARK_DIR/runs/$RUN_ID/plots"
+SUMMARY_DIR="$BENCHMARK_DIR/runs/$RUN_ID/summary"
+
+echo "[plot-tester-compare] comparison_run_id=$RUN_ID"
+echo "[plot-tester-compare] csvs: $*"
+
+dune exec tools/tester/tester_plot.exe -- "$@" \
+  -plots-dir "$PLOTS_DIR" \
+  -summary-dir "$SUMMARY_DIR"
+
+echo "[plot-tester-compare] plots: $PLOTS_DIR"
+echo "[plot-tester-compare] summary: $SUMMARY_DIR"

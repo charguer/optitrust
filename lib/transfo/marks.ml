@@ -67,7 +67,7 @@ let%transfo add_fake_instr (m : mark) (tg : target) : unit =
   Marks_basic.justif ();
   if m = "" then ()
   else
-    Sequence_basic.insert (trm_add_mark m (trm_seq Mlist.empty)) tg
+    Sequence_basic.insert (trm_add_mark m (trm_seq (Mlist.empty ()))) tg
 
 (** [remove_fake_instr m tg]: remove a fake sequence item mark. *)
 let%transfo remove_fake_instr (tg : target) : unit =

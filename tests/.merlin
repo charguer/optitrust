@@ -1,3 +1,4 @@
+S ./**
 S ../lib/**
 B ../_build/default/lib/**
 B ../_build/default/lib/.optitrust.objs/byte

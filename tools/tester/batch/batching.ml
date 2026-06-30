@@ -39,6 +39,52 @@ let report_progress script_name =
     then (Printf.eprintf "%s\n" msg; flush stderr)
     else (Printf.printf "%s\n" msg; flush stdout)
 
+let report_test_time_enabled () : bool =
+  Benchmark_logger.feature_is_enabled Benchmark_logger.report_test_time
+
+let log_test_execution_timing
+  ~(script_name : string)
+  ~(elapsed_ms : float)
+  ~(before : Gc.stat)
+  ~(after : Gc.stat)
+  ~(exec_success : bool)
+  ~(error : string option) : unit =
+  if report_test_time_enabled () then begin
+    let minor_words, major_words, promoted_words, minor_collections, major_collections =
+      Benchmark_logger.gc_stats_fields before after
+    in
+    let notes =
+      String.concat ";"
+        [ "output_match=unknown_until_tester_summary";
+          "error=" ^ Option.value ~default:"" error;
+          Benchmark_logger.gc_stats_notes before after ]
+    in
+    Benchmark_logger.write_csv_row
+      ~subdir:"tester"
+      ~filename:"per_test_exec_timing.csv"
+      { Benchmark_logger.category = "tester";
+        test_name = script_name;
+        phase = "test-exec";
+        operation = "run_test";
+        size = "";
+        pattern = "";
+        iteration = Benchmark_logger.get_iteration ();
+        elapsed_ms = string_of_float elapsed_ms;
+        minor_words;
+        major_words;
+        promoted_words;
+        minor_collections;
+        major_collections;
+        status = if exec_success then "exec-pass" else "exec-fail";
+        notes };
+    Benchmark_logger.log
+      ~subdir:"tester"
+      ~filename:"tester.log"
+      (Printf.sprintf "test-exec script=%s status=%s elapsed_ms=%.6f"
+        script_name
+        (if exec_success then "exec-pass" else "exec-fail")
+        elapsed_ms)
+  end
 
 (******************************************************************************)
 (*                               Batch execution                              *)
@@ -55,10 +101,16 @@ let run_test ~(script_name:string) (test: unit -> (module TEST)) =
   Flags.program_name := program_path ^ "/" ^ script_name;
   Tools.reset_all_refs ();
   report_progress script_name;
+  let before = Gc.stat () in
+  let t0 = Unix.gettimeofday () in
+  let exec_success = ref true in
+  let error = ref None in
   begin try
     let _ = test () in
     ()
   with e ->
+    exec_success := false;
+    error := Some (Printexc.to_string e);
     Printf.eprintf "===> Script failed: %s\n" script_name;
     if !Flags.print_backtrace_on_error then begin
       (* LATER: flip backtrace *)
@@ -70,6 +122,15 @@ let run_test ~(script_name:string) (test: unit -> (module TEST)) =
     end;
     Printf.eprintf "%s\n" (Printexc.to_string e)
   end;
+  let t1 = Unix.gettimeofday () in
+  let after = Gc.stat () in
+  log_test_execution_timing
+    ~script_name
+    ~elapsed_ms:(1000. *. (t1 -. t0))
+    ~before
+    ~after
+    ~exec_success:!exec_success
+    ~error:!error;
   Flags.program_name := program_name
 
 

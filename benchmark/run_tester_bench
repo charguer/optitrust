@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+RUN_ID="${1:-$(date +"%Y-%m-%dT%H-%M-%S")}"
+if [ "$#" -gt 0 ]; then
+  shift
+fi
+
+BENCHMARK_DIR="${BENCHMARK_DIR:-benchmark}"
+IMPLEMENTATION="${IMPLEMENTATION:-new-alist-mlist}"
+REPETITIONS="${REPETITIONS:-10}"
+WARMUPS="${WARMUPS:-1}"
+CSV_PATH="$BENCHMARK_DIR/runs/$RUN_ID/tester/per_test_timing.csv"
+TESTER_ARGS=("$@")
+
+if [ -e "$BENCHMARK_DIR/runs/$RUN_ID" ] && [ "${ALLOW_EXISTING_RUN:-0}" != "1" ]; then
+  echo "[run-tester-bench] refusing to append to existing run: $BENCHMARK_DIR/runs/$RUN_ID" >&2
+  echo "[run-tester-bench] choose a new run id, run benchmark/cleanup, or set ALLOW_EXISTING_RUN=1" >&2
+  exit 2
+fi
+
+echo "[run-tester-bench] run_id=$RUN_ID"
+echo "[run-tester-bench] implementation=$IMPLEMENTATION"
+echo "[run-tester-bench] benchmark_dir=$BENCHMARK_DIR"
+echo "[run-tester-bench] warmups=$WARMUPS"
+echo "[run-tester-bench] measured_repetitions=$REPETITIONS"
+if [ "${#TESTER_ARGS[@]}" -eq 0 ]; then
+  echo "[run-tester-bench] tester target: full default test selection"
+else
+  echo "[run-tester-bench] tester target(s): ${TESTER_ARGS[*]}"
+fi
+
+echo "[run-tester-bench] pre-building tester and plotter"
+dune build tools/tester/tester.exe tools/tester/tester_plot.exe
+
+for warmup in $(seq 1 "$WARMUPS"); do
+  echo "[run-tester-bench] warmup $warmup/$WARMUPS"
+  set +e
+  dune exec optitrust_tester -- . run \
+    -benchmark-run-id "$RUN_ID" \
+    -benchmark-dir "$BENCHMARK_DIR" \
+    -benchmark-implementation "$IMPLEMENTATION" \
+    "${TESTER_ARGS[@]}"
+  WARMUP_EXIT=$?
+  set -e
+  echo "[run-tester-bench] warmup_exit=$WARMUP_EXIT"
+done
+
+TESTER_EXIT=0
+for iteration in $(seq 1 "$REPETITIONS"); do
+  echo "[run-tester-bench] measured iteration $iteration/$REPETITIONS"
+  set +e
+  dune exec optitrust_tester -- . run \
+    -report-test-time \
+    -benchmark-run-id "$RUN_ID" \
+    -benchmark-dir "$BENCHMARK_DIR" \
+    -benchmark-implementation "$IMPLEMENTATION" \
+    -benchmark-iteration "$iteration" \
+    "${TESTER_ARGS[@]}"
+  ITER_EXIT=$?
+  set -e
+  echo "[run-tester-bench] iteration_exit=$ITER_EXIT"
+  if [ "$TESTER_EXIT" -eq 0 ] && [ "$ITER_EXIT" -ne 0 ]; then
+    TESTER_EXIT="$ITER_EXIT"
+  fi
+done
+
+if [ -f "$CSV_PATH" ]; then
+  echo "[run-tester-bench] generating plots"
+  dune exec tools/tester/tester_plot.exe -- "$CSV_PATH"
+else
+  echo "[run-tester-bench] timing CSV not found: $CSV_PATH" >&2
+fi
+
+echo "[run-tester-bench] done"
+echo "[run-tester-bench] tester_exit=$TESTER_EXIT"
+echo "[run-tester-bench] csv: $CSV_PATH"
+echo "[run-tester-bench] plots: $BENCHMARK_DIR/runs/$RUN_ID/plots"
+
+exit "$TESTER_EXIT"

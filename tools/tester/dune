@@ -6,3 +6,9 @@
   (link_deps (file ../c_parser/c_parser.exe))
   (public_name optitrust_tester)
  )
+
+(executable
+  (name tester_plot)
+  (modules tester_plot)
+  (libraries optitrust)
+  (flags (:standard -w A-4-44-70-60 -g)))

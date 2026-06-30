@@ -618,6 +618,299 @@ let get_tests_to_process_for_run_and_compile (action : string) (tests : string l
   if nb_tests_to_process = 0 then printf "Empty set of tests considered.\n";
   result
 
+type tester_timing = {
+  timing_elapsed_ms : float;
+  timing_exec_status : string;
+}
+
+let tester_benchmark_enabled () : bool =
+  Benchmark_logger.feature_is_enabled Benchmark_logger.report_test_time
+
+let csv_escape (s : string) : string =
+  if String.exists (fun c -> c = ',' || c = '"' || c = '\n' || c = '\r') s then
+    "\"" ^ Str.global_replace (Str.regexp_string "\"") "\"\"" s ^ "\""
+  else
+    s
+
+let csv_line (fields : string list) : string =
+  String.concat "," (List.map csv_escape fields)
+
+let split_on_char (sep : char) (s : string) : string list =
+  let rec aux start i acc =
+    if i = String.length s then
+      List.rev (String.sub s start (i - start) :: acc)
+    else if s.[i] = sep then
+      aux (i + 1) (i + 1) (String.sub s start (i - start) :: acc)
+    else
+      aux start (i + 1) acc
+  in
+  aux 0 0 []
+
+let mean_float (values : float list) : float =
+  match values with
+  | [] -> 0.
+  | _ -> List.fold_left ( +. ) 0. values /. float_of_int (List.length values)
+
+let median_float (values : float list) : float =
+  match List.sort compare values with
+  | [] -> 0.
+  | sorted ->
+    let n = List.length sorted in
+    if n mod 2 = 1 then List.nth sorted (n / 2)
+    else
+      let a = List.nth sorted ((n / 2) - 1) in
+      let b = List.nth sorted (n / 2) in
+      (a +. b) /. 2.
+
+let rec take n xs =
+  if n <= 0 then []
+  else
+    match xs with
+    | [] -> []
+    | x :: xs -> x :: take (n - 1) xs
+
+let read_tester_exec_timings () : (string, tester_timing) Hashtbl.t =
+  let path = Benchmark_logger.path_in_run ["tester"; "per_test_exec_timing.csv"] in
+  let timings = Hashtbl.create 257 in
+  let current_iteration = Benchmark_logger.get_iteration () in
+  if Sys.file_exists path then begin
+    match File.get_lines path with
+    | [] -> ()
+    | header :: lines ->
+      let headers = Array.of_list (split_on_char ',' header) in
+      let index_of name =
+        let rec aux i =
+          if i >= Array.length headers then
+            failwith ("Tester timing CSV missing column: " ^ name)
+          else if headers.(i) = name then i
+          else aux (i + 1)
+        in
+        aux 0
+      in
+      let test_name_i = index_of "test_name" in
+      let elapsed_i = index_of "elapsed_ms" in
+      let iteration_i = index_of "iteration" in
+      let status_i = index_of "status" in
+      List.iter (fun line ->
+        match split_on_char ',' line with
+        | fields when List.length fields > status_i ->
+          let field i = List.nth fields i in
+          if field iteration_i = current_iteration then begin
+            let test_name = field test_name_i in
+            Hashtbl.replace timings test_name
+              { timing_elapsed_ms = float_of_string (field elapsed_i);
+                timing_exec_status = field status_i }
+          end
+        | _ -> ())
+        lines
+  end;
+  timings
+
+let append_benchmark_file ~(subdir : string) ~(filename : string) ~(header : string) (lines : string list) : unit =
+  if lines <> [] then begin
+    Benchmark_logger.write_metadata ();
+    let dir = Benchmark_logger.ensure_subdir subdir in
+    let path = Filename.concat dir filename in
+    if not (Sys.file_exists path) then
+      File.append_contents path (header ^ "\n");
+    List.iter (fun line -> File.append_contents path (line ^ "\n")) lines
+  end
+
+let write_tester_timing_summary
+  ~(tests_to_process : string list)
+  ~(tests_success : string list)
+  ~(tests_wrong : string list)
+  ~(tests_failed : string list)
+  ~(tests_noexp : string list)
+  ~(tests_ignored : string list) : unit =
+  if tester_benchmark_enabled () then begin
+    let final_status = Hashtbl.create 257 in
+    let add_status status output_match tests =
+      List.iter (fun test -> Hashtbl.replace final_status test (status, output_match)) tests
+    in
+    add_status "success" "true" tests_success;
+    add_status "wrong" "false" tests_wrong;
+    add_status "failed" "false" tests_failed;
+    add_status "missing_exp" "missing_expected" tests_noexp;
+    add_status "ignored" "not_run" tests_ignored;
+    let timings = read_tester_exec_timings () in
+    let timed_rows =
+      List.filter_map (fun test ->
+        match Hashtbl.find_opt timings test with
+        | None -> None
+        | Some timing ->
+          let status, output_match =
+            Option.value ~default:("unknown", "unknown") (Hashtbl.find_opt final_status test)
+          in
+          Some (test, timing, status, output_match))
+        tests_to_process
+    in
+    let elapsed_values =
+      List.map (fun (_test, timing, _status, _output_match) -> timing.timing_elapsed_ms) timed_rows
+    in
+    let total_ms = List.fold_left ( +. ) 0. elapsed_values in
+    let min_ms = match elapsed_values with [] -> 0. | _ -> List.fold_left min max_float elapsed_values in
+    let max_ms = match elapsed_values with [] -> 0. | _ -> List.fold_left max min_float elapsed_values in
+    let avg_ms = mean_float elapsed_values in
+    let median_ms = median_float elapsed_values in
+    let iteration = Benchmark_logger.get_iteration () in
+    let per_test_header =
+      csv_line
+        [ "timestamp";
+          "run_id";
+          "implementation";
+          "iteration";
+          "test_name";
+          "elapsed_ms";
+          "exec_status";
+          "final_status";
+          "output_match";
+          "notes" ]
+    in
+    let per_test_rows =
+      List.map (fun (test, timing, status, output_match) ->
+        csv_line
+          [ Benchmark_logger.timestamp ();
+            Benchmark_logger.get_run_id ();
+            !(Benchmark_logger.implementation);
+            iteration;
+            test;
+            Printf.sprintf "%.9g" timing.timing_elapsed_ms;
+            timing.timing_exec_status;
+            status;
+            output_match;
+            "source=per_test_exec_timing.csv" ])
+        timed_rows
+    in
+    append_benchmark_file
+      ~subdir:"tester"
+      ~filename:"per_test_timing.csv"
+      ~header:per_test_header
+      per_test_rows;
+    let summary_header =
+      csv_line
+        [ "timestamp";
+          "run_id";
+          "implementation";
+          "iteration";
+          "total_tests";
+          "timed_tests";
+          "success";
+          "wrong";
+          "failed";
+          "missing_exp";
+          "ignored";
+          "total_elapsed_ms";
+          "average_elapsed_ms";
+          "median_elapsed_ms";
+          "min_elapsed_ms";
+          "max_elapsed_ms" ]
+    in
+    let summary_row =
+      csv_line
+        [ Benchmark_logger.timestamp ();
+          Benchmark_logger.get_run_id ();
+          !(Benchmark_logger.implementation);
+          iteration;
+          string_of_int (List.length tests_to_process);
+          string_of_int (List.length timed_rows);
+          string_of_int (List.length tests_success);
+          string_of_int (List.length tests_wrong);
+          string_of_int (List.length tests_failed);
+          string_of_int (List.length tests_noexp);
+          string_of_int (List.length tests_ignored);
+          Printf.sprintf "%.9g" total_ms;
+          Printf.sprintf "%.9g" avg_ms;
+          Printf.sprintf "%.9g" median_ms;
+          Printf.sprintf "%.9g" min_ms;
+          Printf.sprintf "%.9g" max_ms ]
+    in
+    append_benchmark_file
+      ~subdir:"tester"
+      ~filename:"tester_summary.csv"
+      ~header:summary_header
+      [summary_row];
+    let slowest =
+      timed_rows
+      |> List.sort (fun (_ta, a, _sa, _oa) (_tb, b, _sb, _ob) ->
+        compare b.timing_elapsed_ms a.timing_elapsed_ms)
+      |> take 10
+    in
+    let slowest_json =
+      slowest
+      |> List.map (fun (test, timing, status, output_match) ->
+        Printf.sprintf
+          "{ \"test_name\": %s, \"elapsed_ms\": %.9g, \"exec_status\": %s, \"final_status\": %s, \"output_match\": %s }"
+          (Benchmark_logger.json_string test)
+          timing.timing_elapsed_ms
+          (Benchmark_logger.json_string timing.timing_exec_status)
+          (Benchmark_logger.json_string status)
+          (Benchmark_logger.json_string output_match))
+      |> String.concat ",\n    "
+    in
+    let summary_json =
+      Printf.sprintf
+        "{\n\
+         \  \"run_id\": %s,\n\
+         \  \"implementation\": %s,\n\
+         \  \"iteration\": %s,\n\
+         \  \"total_tests\": %d,\n\
+         \  \"timed_tests\": %d,\n\
+         \  \"success\": %d,\n\
+         \  \"wrong\": %d,\n\
+         \  \"failed\": %d,\n\
+         \  \"missing_exp\": %d,\n\
+         \  \"ignored\": %d,\n\
+         \  \"total_elapsed_ms\": %.9g,\n\
+         \  \"average_elapsed_ms\": %.9g,\n\
+         \  \"median_elapsed_ms\": %.9g,\n\
+         \  \"min_elapsed_ms\": %.9g,\n\
+         \  \"max_elapsed_ms\": %.9g,\n\
+         \  \"slowest_tests\": [\n    %s\n  ]\n\
+         }\n"
+        (Benchmark_logger.json_string (Benchmark_logger.get_run_id ()))
+        (Benchmark_logger.json_string !(Benchmark_logger.implementation))
+        (Benchmark_logger.json_string iteration)
+        (List.length tests_to_process)
+        (List.length timed_rows)
+        (List.length tests_success)
+        (List.length tests_wrong)
+        (List.length tests_failed)
+        (List.length tests_noexp)
+        (List.length tests_ignored)
+        total_ms
+        avg_ms
+        median_ms
+        min_ms
+        max_ms
+        slowest_json
+    in
+    Benchmark_logger.write_text
+      ~subdir:"tester"
+      ~filename:"tester_summary.json"
+      summary_json;
+    Benchmark_logger.write_text
+      ~subdir:"tester"
+      ~filename:(Printf.sprintf "tester_summary_iteration_%s.json" iteration)
+      summary_json;
+    Benchmark_logger.log
+      ~subdir:"tester"
+      ~filename:"tester.log"
+      (Printf.sprintf
+        "tester-summary iteration=%s total=%d timed=%d success=%d wrong=%d failed=%d missing_exp=%d ignored=%d total_elapsed_ms=%.6f average_elapsed_ms=%.6f median_elapsed_ms=%.6f"
+        iteration
+        (List.length tests_to_process)
+        (List.length timed_rows)
+        (List.length tests_success)
+        (List.length tests_wrong)
+        (List.length tests_failed)
+        (List.length tests_noexp)
+        (List.length tests_ignored)
+        total_ms
+        avg_ms
+        median_ms)
+  end
+
 let action_run ?(exit_on_error = true) (tests : string list) : unit =
   let tests_to_process, tests_ignored = get_tests_to_process_for_run_and_compile "run" tests in
   let nb_tests_to_process = List.length tests_to_process in
@@ -757,6 +1050,13 @@ let action_run ?(exit_on_error = true) (tests : string list) : unit =
   File.put_lines "missing_exp.tests" !tests_noexp;
   File.put_lines "errors.tests" (!tests_wrong @ !tests_failed @ !tests_noexp);
   update_tofix_tests_list();
+  write_tester_timing_summary
+    ~tests_to_process
+    ~tests_success:!tests_success
+    ~tests_wrong:!tests_wrong
+    ~tests_failed:!tests_failed
+    ~tests_noexp:!tests_noexp
+    ~tests_ignored;
 
   (* Produce general summary *)
   let isfirst = ref true in
