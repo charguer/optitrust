@@ -213,6 +213,10 @@ make -C tests_infra/alist test
 Useful AFL follow-up commands:
 
 ```sh
+sudo apt install parallel
+```
+
+```sh
 make -C tests_infra/alist summary
 make -C tests_infra/alist show
 make -C tests_infra/alist min
