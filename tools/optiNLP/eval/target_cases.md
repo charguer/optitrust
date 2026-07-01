@@ -358,3 +358,74 @@ Expected note:
 
 - The `.opti` text is used only for target reasoning.
 - Do not generate `Run.script_opti`.
+
+## Case 15: Prefer Call Argument Constraint Over Instruction Text
+
+Source:
+
+```c
+void f() {
+  swap(a, b);
+  swap(c, d);
+}
+```
+
+Request:
+
+```text
+target the call to swap with arguments a and b
+```
+
+Expected target:
+
+```ocaml
+[cCall "swap" ~args:[[cVar "a"]; [cVar "b"]]]
+```
+
+Rejected fragile target:
+
+```ocaml
+[sInstr "swap(a, b);"]
+```
+
+Expected note:
+
+- Do not use exact instruction text because the call name and arguments provide
+  a stable semantic target.
+
+## Case 16: Prefer Array Write Body Constraint Over Expression Text
+
+Source:
+
+```c
+void f(int n, int* out, int* tmp) {
+  for (int y = 0; y < n; y++) {
+    tmp[y] = y;
+  }
+  for (int y = 0; y < n; y++) {
+    out[y] = tmp[y];
+  }
+}
+```
+
+Request:
+
+```text
+target the loop y whose body contains out[y]
+```
+
+Expected target:
+
+```ocaml
+[cFor "y" ~body:[cArrayWrite "out"]]
+```
+
+Rejected fragile target:
+
+```ocaml
+[cFor "y" ~body:[sExpr "out[y]"]]
+```
+
+Expected note:
+
+- Do not use `sExpr` because `cArrayWrite "out"` captures the semantic write.

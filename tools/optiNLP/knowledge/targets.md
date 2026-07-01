@@ -28,6 +28,10 @@ unstated files or examples.
   interstitial position such as before or after an instruction.
 - Transformations often expect either one target or explicitly multiple targets.
   Use occurrence constraints when multiplicity matters.
+- Robust targets should describe semantic AST structure rather than exact source
+  text. Prefer named functions, loops, calls, variables, array accesses, fields,
+  marks, enclosing context, body constraints, argument constraints, and
+  occurrence selectors before string or expression matching.
 
 ## Occurrence Constraints
 
@@ -156,7 +160,6 @@ Nested constraints narrow the match by context:
 [cTopFunDef "main"; cCall "foo"]
 [cFunBody "main"; cFor "i"]
 [cFor "i"; cArrayWrite "A"]
-[cIf ~cond:[sExpr "x < n"] (); dThen]
 [cFor "i" ~body:[cArrayWrite "out"]]
 [cCall "foo" ~args:[[cVar "x"]]]
 ```
@@ -188,6 +191,10 @@ Use empty names only when the user clearly wants a broad match, for example
   and `cVar "x"` only when either use is acceptable.
 - Exact instruction fallback: use `sInstr "..."` only when semantic selectors
   are not enough or the user explicitly references source text.
+- Expression fallback: use `sExpr "..."` only when the requested expression has
+  no stable semantic selector, such as a specific anonymous condition that
+  cannot be identified by function, loop, call, variable, array, field, mark,
+  argument, body, or occurrence context.
 
 ## Ambiguity And Safety Rules
 
@@ -212,10 +219,15 @@ sInstr "x++;"
 sExpr "i + 1"
 sInstrRegexp "A\\[.*\\]"
 sExprRegexp "MINDEX.*"
+[cIf ~cond:[sExpr "x < n"] (); dThen]
 ```
 
 Prefer semantic constructors such as `cFor`, `cCall`, `cVarDef`, `cArrayRead`,
-and `cArrayWrite` before falling back to string matching.
+`cArrayWrite`, `cReadVar`, `cWriteVar`, body constraints, argument constraints,
+and occurrence selectors before falling back to string or expression matching.
+String and expression selectors are more fragile because they can break after
+formatting changes, equivalent expression rewrites, added temporaries, or small
+source edits.
 
 ## Prompt Policy
 
@@ -223,8 +235,10 @@ The target generator should:
 
 - quote exact identifiers as OCaml strings;
 - use current OptiTrust target constructors only;
-- prefer semantic targets over line-number-only targets;
+- prefer semantic targets over line-number-only, text-only, or expression-only
+  targets;
 - turn line references into structural targets when source code is available;
+- avoid `sExpr` unless no stable semantic selector is available;
 - ask for clarification when two plausible targets remain;
 - mention why a target may match multiple nodes;
 - avoid inventing selectors not present in `Target`.
