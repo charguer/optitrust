@@ -233,6 +233,7 @@ The QuickPick menu can:
 | `Ctrl+F5` | View trace with `-save-steps script` |
 | `Shift+F6` | View step trace |
 | `F5` | Redo last view command |
+| `F7` | OptiNLP suggest target at cursor |
 | `F10` | Rerun last-tried tests |
 | `Ctrl+F10` | Run current test |
 | `Ctrl+Shift+F10` | Run current test and open diff |

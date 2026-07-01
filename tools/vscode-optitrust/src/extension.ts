@@ -16,7 +16,9 @@ import {
   generateOptiNlpFullTransformation
 } from "./commands/optinlpCommands";
 import { OptiNlpPanel } from "./commands/optinlpPanel";
+import { suggestOptiNlpTargetAtCursor } from "./commands/optinlpTargetAtCursor";
 import { rerunLastTests, runCurrentTest, runCurrentTestAndOpenDiff } from "./commands/runTests";
+import { showShortcuts } from "./commands/shortcuts";
 import {
   redoLastViewCommand,
   runViewCommand,
@@ -214,6 +216,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   });
 
+  registerCommand(context, "optitrust.showShortcuts", showShortcuts);
+
   registerCommand(context, "optitrust.optinlpChat", async () => {
     const workspace = await requireWorkspace();
     if (workspace && optiNlpSession) {
@@ -239,6 +243,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const workspace = await requireWorkspace();
     if (workspace && optiNlpSession) {
       await generateOptiNlpFullTransformation(context, workspace, optiNlpSession);
+    }
+  });
+
+  registerCommand(context, "optitrust.optinlpSuggestTargetAtCursor", async () => {
+    const workspace = await requireWorkspace();
+    if (workspace && optiNlpSession) {
+      await suggestOptiNlpTargetAtCursor(context, workspace, optiNlpSession);
     }
   });
 

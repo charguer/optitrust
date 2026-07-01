@@ -39,13 +39,16 @@
     "onCommand:optitrust.openUnitTestMlCppFiles",
     "onCommand:optitrust.selectViewSyntax",
     "onCommand:optitrust.healthCheck",
+    "onCommand:optitrust.showShortcuts",
     "onCommand:optitrust.optinlpChat",
     "onCommand:optitrust.optinlpGenerateTarget",
     "onCommand:optitrust.optinlpGenerateScript",
     "onCommand:optitrust.optinlpGenerateFullTransformation",
+    "onCommand:optitrust.optinlpSuggestTargetAtCursor",
     "onCommand:optitrust.optinlpSetGeminiApiKey",
     "onCommand:optitrust.optinlpSetOpenAiApiKey",
-    "onCommand:optitrust.optinlpClearSession"
+    "onCommand:optitrust.optinlpClearSession",
+    "onChatParticipant:optitrust.optinlp"
   ],
   "main": "./out/extension.js",
   "bin": {
@@ -127,8 +130,14 @@
         "title": "OptiTrust: Health Check"
       },
       {
+        "command": "optitrust.showShortcuts",
+        "title": "OptiTrust: Show Shortcuts",
+        "icon": "$(keyboard)"
+      },
+      {
         "command": "optitrust.optinlpChat",
-        "title": "OptiTrust: OptiNLP Chat"
+        "title": "OptiTrust: OptiNLP Chat",
+        "icon": "$(comment-discussion)"
       },
       {
         "command": "optitrust.optinlpGenerateTarget",
@@ -141,6 +150,11 @@
       {
         "command": "optitrust.optinlpGenerateFullTransformation",
         "title": "OptiTrust: OptiNLP Generate Full Transformation"
+      },
+      {
+        "command": "optitrust.optinlpSuggestTargetAtCursor",
+        "title": "OptiTrust: OptiNLP Suggest Target At Cursor",
+        "icon": "$(target)"
       },
       {
         "command": "optitrust.optinlpSetGeminiApiKey",
@@ -263,6 +277,11 @@
         "when": "editorTextFocus && config.optitrust.enableKeybindings"
       },
       {
+        "command": "optitrust.optinlpSuggestTargetAtCursor",
+        "key": "f7",
+        "when": "editorTextFocus && resourceExtname == .ml && config.optitrust.enableKeybindings"
+      },
+      {
         "command": "optitrust.runCurrentTest",
         "key": "ctrl+f10",
         "mac": "cmd+f10",
@@ -291,9 +310,29 @@
           "command": "optitrust.openAssociatedFiles",
           "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti || resourceExtname == .html || resourceExtname == .js || resourceExtname == .trace",
           "group": "navigation@50"
+        },
+        {
+          "command": "optitrust.optinlpChat",
+          "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti",
+          "group": "navigation@55"
+        },
+        {
+          "command": "optitrust.optinlpSuggestTargetAtCursor",
+          "when": "resourceExtname == .ml",
+          "group": "navigation@60"
+        },
+        {
+          "command": "optitrust.showShortcuts",
+          "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti || resourceExtname == .html || resourceExtname == .js || resourceExtname == .trace",
+          "group": "navigation@70"
         }
       ],
       "editor/context": [
+        {
+          "command": "optitrust.optinlpSuggestTargetAtCursor",
+          "when": "resourceExtname == .ml",
+          "group": "optinlp@0"
+        },
         {
           "command": "optitrust.optinlpGenerateTarget",
           "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti",
@@ -366,6 +405,9 @@
           "command": "optitrust.healthCheck"
         },
         {
+          "command": "optitrust.showShortcuts"
+        },
+        {
           "command": "optitrust.optinlpChat"
         },
         {
@@ -376,6 +418,9 @@
         },
         {
           "command": "optitrust.optinlpGenerateFullTransformation"
+        },
+        {
+          "command": "optitrust.optinlpSuggestTargetAtCursor"
         },
         {
           "command": "optitrust.optinlpSetGeminiApiKey"
