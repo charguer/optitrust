@@ -2,7 +2,14 @@
 // generation, provider selection, and editor actions live in shared modules.
 import * as path from "path";
 import * as vscode from "vscode";
-import { clearOptiNlpSession, insertTextAtCursor, openOcamlDocument, runOptiNlpGeneration, setOptiNlpConfiguredProviderApiKey } from "./optinlpCommands";
+import {
+  clearOptiNlpSession,
+  insertTargetAtCursor,
+  openOcamlDocument,
+  OptiNlpGenerationOutcome,
+  runOptiNlpGeneration,
+  setOptiNlpConfiguredProviderApiKey
+} from "./optinlpCommands";
 import { inferLanguage } from "../optinlp/assets";
 import { modeDefinition, OPTINLP_MODE_DEFINITIONS, OptiNlpUiMode, resolveAutoMode } from "../optinlp/modes";
 import { OptiNlpMode } from "../optinlp/providerTypes";
@@ -18,6 +25,12 @@ interface WebviewMessage {
   readonly request?: string;
   readonly text?: string;
   readonly resultId?: string;
+  readonly target?: string;
+}
+
+interface TargetSuggestion {
+  readonly label: string;
+  readonly target: string;
 }
 
 export class OptiNlpPanel {
@@ -26,6 +39,7 @@ export class OptiNlpPanel {
   private resultSeq = 0;
   private readonly results = new Map<string, OptiNlpStructuredResult>();
   private sourceEditor: vscode.TextEditor | undefined;
+  private sourceEditorLocked = false;
   private disposables: vscode.Disposable[] = [];
 
   private constructor(
@@ -41,18 +55,18 @@ export class OptiNlpPanel {
     this.panel.webview.onDidReceiveMessage(message => this.handleMessage(message as WebviewMessage), undefined, this.disposables);
     vscode.window.onDidChangeActiveTextEditor(editor => {
       const fileEditor = asFileTextEditor(editor);
-      if (fileEditor) {
+      if (fileEditor && !this.sourceEditorLocked) {
         this.sourceEditor = fileEditor;
       }
       void this.refreshContext();
     }, undefined, this.disposables);
   }
 
-  static show(context: vscode.ExtensionContext, workspace: OptitrustWorkspace, memory: OptiNlpSessionMemory): void {
+  static show(context: vscode.ExtensionContext, workspace: OptitrustWorkspace, memory: OptiNlpSessionMemory): OptiNlpPanel {
     if (OptiNlpPanel.current) {
       OptiNlpPanel.current.panel.reveal(vscode.ViewColumn.Beside);
       void OptiNlpPanel.current.refreshContext();
-      return;
+      return OptiNlpPanel.current;
     }
 
     const panel = vscode.window.createWebviewPanel("optitrustOptiNlp", "OptiNLP", vscode.ViewColumn.Beside, {
@@ -61,6 +75,26 @@ export class OptiNlpPanel {
     });
     OptiNlpPanel.current = new OptiNlpPanel(context, workspace, memory, panel);
     void OptiNlpPanel.current.refreshContext();
+    return OptiNlpPanel.current;
+  }
+
+  setSourceEditor(editor: vscode.TextEditor, locked = false): void {
+    this.sourceEditor = editor;
+    this.sourceEditorLocked = locked;
+    void this.refreshContext();
+  }
+
+  postGenerationOutcome(outcome: OptiNlpGenerationOutcome): void {
+    this.postOutcome(outcome);
+  }
+
+  postUserRequest(mode: OptiNlpUiMode, request: string, meta?: string): void {
+    this.post({
+      type: "externalRequest",
+      mode,
+      request,
+      meta
+    });
   }
 
   private async handleMessage(message: WebviewMessage): Promise<void> {
@@ -85,7 +119,7 @@ export class OptiNlpPanel {
         }
         return;
       case "insertTarget":
-        await this.insertTarget(message.resultId);
+        await this.insertTarget(message.resultId, message.target);
         return;
       case "openScript":
         await this.openScript(message.resultId);
@@ -100,6 +134,7 @@ export class OptiNlpPanel {
       return;
     }
 
+    this.sourceEditorLocked = false;
     const resolvedMode = resolveAutoMode(mode, trimmed);
     this.post({ type: "busy", busy: true });
     try {
@@ -112,18 +147,7 @@ export class OptiNlpPanel {
         this.post({ type: "busy", busy: false });
         return;
       }
-      const resultId = this.storeStructuredResult(outcome.result.structured);
-      this.post({
-        type: "result",
-        resultId,
-        mode: outcome.mode,
-        request: outcome.userRequest,
-        sourceLabel: outcome.sourceLabel,
-        provider: outcome.result.provider,
-        model: outcome.result.model,
-        markdown: outcome.result.markdownOutput,
-        structured: outcome.result.structured
-      });
+      this.postOutcome(outcome);
       await this.refreshContext();
     } catch (error) {
       const message =
@@ -138,13 +162,19 @@ export class OptiNlpPanel {
     }
   }
 
-  private async insertTarget(resultId: string | undefined): Promise<void> {
+  private async insertTarget(resultId: string | undefined, target: string | undefined): Promise<void> {
+    if (target && target.trim().length > 0) {
+      await insertTargetAtCursor(target, this.getSourceEditor());
+      this.post({ type: "inserted" });
+      return;
+    }
+
     const result = resultId ? this.results.get(resultId) : undefined;
     if (!result || result.kind !== "target" || !result.recommendedTarget) {
       this.post({ type: "error", message: "No target expression is available for insertion." });
       return;
     }
-    await insertTextAtCursor(result.recommendedTarget, this.getSourceEditor());
+    await insertTargetAtCursor(result.recommendedTarget, this.getSourceEditor());
     this.post({ type: "inserted" });
   }
 
@@ -171,6 +201,22 @@ export class OptiNlpPanel {
     return id;
   }
 
+  private postOutcome(outcome: OptiNlpGenerationOutcome): void {
+    const resultId = this.storeStructuredResult(outcome.result.structured);
+    this.post({
+      type: "result",
+      resultId,
+      mode: outcome.mode,
+      request: outcome.userRequest,
+      sourceLabel: outcome.sourceLabel,
+      provider: outcome.result.provider,
+      model: outcome.result.model,
+      markdown: outcome.result.markdownOutput,
+      structured: outcome.result.structured,
+      targetSuggestions: targetSuggestions(outcome.result.structured)
+    });
+  }
+
   private async refreshContext(): Promise<void> {
     const editor = this.getSourceEditor();
     if (!editor) {
@@ -190,6 +236,9 @@ export class OptiNlpPanel {
   }
 
   private getSourceEditor(): vscode.TextEditor | undefined {
+    if (this.sourceEditorLocked && this.sourceEditor) {
+      return this.sourceEditor;
+    }
     const activeEditor = asFileTextEditor(vscode.window.activeTextEditor);
     if (activeEditor) {
       this.sourceEditor = activeEditor;
@@ -209,6 +258,27 @@ export class OptiNlpPanel {
     }
     this.disposables = [];
   }
+}
+
+function targetSuggestions(result: OptiNlpStructuredResult | undefined): TargetSuggestion[] {
+  if (!result || result.kind !== "target") {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const suggestions: TargetSuggestion[] = [];
+  const add = (label: string, target: string | undefined): void => {
+    const trimmed = target?.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      return;
+    }
+    seen.add(trimmed);
+    suggestions.push({ label, target: trimmed });
+  };
+
+  add("Recommended", result.recommendedTarget);
+  result.alternatives.forEach((target, index) => add(`Alternative ${index + 1}`, target));
+  return suggestions;
 }
 
 function asFileTextEditor(editor: vscode.TextEditor | undefined): vscode.TextEditor | undefined {
@@ -417,6 +487,19 @@ function renderPanelHtml(): string {
       gap: 6px;
       align-items: center;
     }
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0 12px 12px;
+    }
+    .suggestion {
+      max-width: 100%;
+      text-align: left;
+      font-family: var(--vscode-editor-font-family);
+      font-size: var(--vscode-editor-font-size);
+      overflow-wrap: anywhere;
+    }
     .status {
       min-height: 18px;
       color: var(--vscode-descriptionForeground);
@@ -471,7 +554,10 @@ function renderPanelHtml(): string {
 
     form.addEventListener('submit', event => {
       event.preventDefault();
-      const text = request.value.trim();
+      sendRequest(request.value.trim());
+    });
+
+    function sendRequest(text) {
       if (!text) return;
       const userMessage = {
         id: createMessageId(),
@@ -485,7 +571,7 @@ function renderPanelHtml(): string {
       request.value = '';
       saveAndRender();
       vscode.postMessage({ type: 'generate', mode: mode.value, request: text });
-    });
+    }
 
     setKey.addEventListener('click', () => vscode.postMessage({ type: 'setApiKey' }));
     clear.addEventListener('click', () => {
@@ -504,6 +590,8 @@ function renderPanelHtml(): string {
         status.textContent = message.busy ? 'Running...' : '';
       } else if (message.type === 'result') {
         appendAssistantResult(message);
+      } else if (message.type === 'externalRequest') {
+        appendExternalRequest(message);
       } else if (message.type === 'error') {
         appendError(message.message || 'Unknown error');
       } else if (message.type === 'copied') {
@@ -526,9 +614,23 @@ function renderPanelHtml(): string {
         meta: modeTitle(message.mode) + ' · ' + message.sourceLabel + ' · ' + message.provider + ' · ' + message.model,
         resultId: message.resultId,
         kind: message.structured && message.structured.kind,
+        targetSuggestions: Array.isArray(message.targetSuggestions) ? message.targetSuggestions : [],
         replyTo: pendingUserId
       });
       pendingUserId = undefined;
+      saveAndRender();
+    }
+
+    function appendExternalRequest(message) {
+      const userMessage = {
+        id: createMessageId(),
+        role: 'user',
+        mode: message.mode || 'target',
+        text: message.request || '',
+        meta: message.meta || modeTitle(message.mode || 'target')
+      };
+      pendingUserId = userMessage.id;
+      history.push(userMessage);
       saveAndRender();
     }
 
@@ -574,15 +676,6 @@ function renderPanelHtml(): string {
         copy.addEventListener('click', () => vscode.postMessage({ type: 'copy', text: item.text }));
         actions.appendChild(copy);
       }
-      if (item.resultId && item.kind === 'target') {
-        const insert = document.createElement('button');
-        insert.className = 'secondary icon';
-        insert.type = 'button';
-        insert.title = 'Insert target';
-        insert.textContent = 'Insert';
-        insert.addEventListener('click', () => vscode.postMessage({ type: 'insertTarget', resultId: item.resultId }));
-        actions.appendChild(insert);
-      }
       if (item.resultId && (item.kind === 'command_to_script' || item.kind === 'code_to_full_script')) {
         const open = document.createElement('button');
         open.className = 'secondary icon';
@@ -599,6 +692,25 @@ function renderPanelHtml(): string {
       body.textContent = item.text;
       bubble.appendChild(header);
       bubble.appendChild(body);
+      if (item.targetSuggestions && item.targetSuggestions.length > 0) {
+        const suggestions = document.createElement('div');
+        suggestions.className = 'suggestions';
+        for (const suggestion of item.targetSuggestions) {
+          if (!suggestion || !suggestion.target) continue;
+          const button = document.createElement('button');
+          button.className = 'secondary suggestion';
+          button.type = 'button';
+          button.title = suggestion.label ? suggestion.label + ': insert target' : 'Insert target';
+          button.textContent = suggestion.target;
+          button.addEventListener('click', () => vscode.postMessage({
+            type: 'insertTarget',
+            resultId: item.resultId,
+            target: suggestion.target
+          }));
+          suggestions.appendChild(button);
+        }
+        bubble.appendChild(suggestions);
+      }
       turn.appendChild(bubble);
       messages.appendChild(turn);
     }
