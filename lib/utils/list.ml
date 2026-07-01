@@ -25,6 +25,10 @@ let iteri2 (f : int -> 'a -> 'b -> unit) (al : 'a list) (bl : 'b list) : unit =
 let all_true (bl : bool list) : bool =
   for_all (fun b -> b = true) bl
 
+(** [list_any_true bl]: returns [true] if any boolean in the list [bl] is [true]. *)
+let any_true (bl : bool list) : bool =
+  exists (fun b -> b = true) bl
+
 (** [split_at n l]: splits the list [l] just before the element at index [n],
    and return the two sublists (which could be empty). *)
 let split_at (i : int) (l : 'a list) : ('a list) * ('a list) =

@@ -277,7 +277,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
   let tl, _ = trm_inv trm_seq_inv t_seq in
   let tl1, _, tl2 = Mlist.split_on_marks index tl in
   let fst_contract, snd_contract =
-    if not !Flags.check_validity then
+    if not (!Flags.check_validity || !Flags.use_resources_with_models) then
       empty_loop_contract, empty_loop_contract
     else
       let open Resource_formula in
@@ -342,6 +342,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
           | None -> acc
         ) Var_set.empty tl1
       in
+      (* DEBUG Printf.printf "bound_in_tl1: %s\n" (vars_to_string (Var_set.elements bound_in_tl1)); *)
       let split_res_comm = List.filter (fun (h, formula) ->
           Var_set.disjoint (trm_free_vars formula) bound_in_tl1
         ) split_res_comm
@@ -359,12 +360,17 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
             failwith "The resources at split point depend on the variable %s created before in the sequence" (var_to_string x)
         | Some Ensured when
           Var_map.mem x usage_after_tl1 &&
+          (* (not (Var_set.mem x bound_in_tl1)) && *)
           Var_set.disjoint (trm_free_vars f) bound_in_tl1 ->
+            (* DEBUG Printf.printf "%s\n" (Resource_computation.named_formula_to_string (x, f)); *)
             true
         | _ -> false
         ) split_res.pure
       in
       let middle_iter_contract = Resource_set.copy (Resource_set.make ~pure:tl1_ensured ~linear:split_res_comm ()) in
+
+      (* DEBUG
+      Printf.printf "middle_iter_contract: %s\n" (Resource_computation.resource_set_to_string middle_iter_contract); *)
 
       let fst_contract = {
         loop_ghosts = contract.loop_ghosts;
@@ -421,7 +427,8 @@ let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : 
       (* DEBUG: let debug_p = Path.parent p_loop in
       Show.res ~msg:"res1" ~ast:(get_trm_at_exn (target_of_path debug_p))
       ); *)
-      Resources.required_for_check ();
+      if !Flags.check_validity || !Flags.use_resources_with_models
+        then Resources.ensure_computed ();
       apply_at_path (fission_on mark_loops mark_between_loops split_i) p_loop;
     ) tg
   );

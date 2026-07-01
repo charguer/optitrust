@@ -1,4 +1,12 @@
 #include <optitrust_models.h>
+#include <optitrust_gpu.h>
+
+// TODO: probably shouldn't be here
+__ghost(to_prove, "MSIZE2(exact_div(32, 8), exact_div(32, 4)) = MSIZE2(4, 8)");
+__ghost(to_prove, "MSIZE2(4, 8) = MSIZE2(8, 4)");
+__ghost(to_prove, "MSIZE2(8, 4) = MSIZE2(4, 8)");
+__ghost(to_prove, "MSIZE2(4, 8) = MSIZE2(exact_div(32, 8), exact_div(32, 4))");
+// ----
 
 __DECL(reduce_sum, "int * (int -> float) -> float");
 __AXIOM(reduce_sum_empty, "forall (f: int -> float) -> 0.f =. reduce_sum(0, f)");
@@ -13,6 +21,7 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
   __requires("A: int * int -> float, B: int * int -> float");
   __reads("a ~> Matrix2(m, p, A), b ~> Matrix2(p, n, B)");
   __writes("c ~> Matrix2(m, n, matmul(A, B, p))");
+  __preserves("HostCtx");
 
   for (int i = 0; i < m; i++) {
     __xwrites("for j in 0..n -> &c[MINDEX2(m, n, i, j)] ~~> matmul(A, B, p)(i, j)");

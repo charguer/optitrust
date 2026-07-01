@@ -294,6 +294,11 @@ let sExprRegexp ?(substr : bool = true) (s : string) : constr =
 let cPred (p : trm -> bool) : constr =
   Constr_pred p
 
+let cKind (k : trm_kind) (tg : target) : constr =
+  Constr_kind (k, tg)
+
+let cInstr : target -> constr = cKind TrmKind_Instr
+
 (** [cInclude s]: matches include directives. *)
 let cInclude (s : string) : constr =
     Constr_include s
@@ -666,6 +671,9 @@ let cEnum ?(name : string = "") ?(substr : bool = false) ?(constants : (string *
     [instrs_pred] - match based on instructions that satisfy [instrs_pred]. *)
 let cSeq ?(instrs : targets = []) ?(instrs_pred:target_list_pred = target_list_pred_default) () : constr =
   Constr_seq (combine_args instrs instrs_pred)
+
+let cSeqContaining (inner_tg : target) : constr =
+  Constr_seq (target_list_one_st inner_tg)
 
 (** [cVar ~regexp ~substr ~trmkind ~typ ~typ_pred name]: matches variable occurrences
     [regepx] - match based on regexp

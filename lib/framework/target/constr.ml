@@ -181,6 +181,8 @@ and constr =
   | Constr_namespace of constr_name
   (* Constraint to match a term when a predicate is true *)
   | Constr_pred of (trm -> bool)
+  (* Constraint to match inside a term of a given kind *)
+  | Constr_kind of trm_kind * target
 
 (* LATER: optimize constr_of_path; should be recognized by resolution,
    and processed more efficiently; checking that the start of the path
@@ -384,6 +386,9 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_omp _ -> c
   | Constr_namespace _ -> c
   | Constr_pred _ -> c
+  | Constr_kind (k, tg) ->
+    let s_tg = aux tg in
+    Constr_kind (k, s_tg)
 
 (** [get_target_regexp_kinds tgs]: gets the list of trm_kinds of the terms
    for which we would potentially need to use the string representation,
@@ -844,6 +849,8 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
   | Constr_omp (pred, _), _ -> trm_has_pragma pred t
   | Constr_namespace cn, Trm_namespace (name, _, _) -> check_name cn name
   | Constr_pred pred, _ -> pred t
+  | Constr_kind (k, tg), _ ->
+    match_regexp_trm_kind k t && check_target tg t
   | _ -> false
 
 (** [check_list ~incontracts ~depth lpred tl]: checks if [tl] satisfy the predicate [lpred] *)

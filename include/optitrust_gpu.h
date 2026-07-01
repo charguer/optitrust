@@ -9,6 +9,12 @@ extern const int __magic_threadfor;
 extern const int __device_call;
 extern const int __barrier_sequence;
 
+/*
+  before lowering : arithmetic operations +/-
+  after lowering : arithmetic operations MxN cycles, N PUs cycle 1 + @ PU1; cycle 2 - @ PU2
+  + top-level for loop, unroll inner for loop
+*/
+
 __DECL(GMem, "MemType");
 __DECL(SMem, "MemType");
 __DECL(TReg, "MemType");
@@ -256,6 +262,19 @@ template <typename T> T* __smem_malloc2(int N1, int N2) {
   return __alloc_sig_generic<T>();
 }
 #define SMEM_MALLOC2(T, N1, N2) __call_with(__smem_malloc2<T>(N1, N2), "T := "#T)
+
+template <typename T> T* __smem_malloc3(int N1, int N2, int N3) {
+  __requires("tpb: int, bpg: int, smem_sz: int, smem_sz_rem: int");
+  __preserves("KernelSetupCtx");
+  __reads("KernelParams(bpg,tpb,smem_sz)");
+  __produces("desync_for i in ..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> for j3 in 0..N3 -> &_Res[MINDEX4(bpg, N1, N2, N3, DMINDEX1(bpg, i), j1, j2, j3)] ~> UninitCellOf(SMem)");
+  __produces("Free(_Res, for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> for j3 in 0..N3 -> &_Res[MINDEX4(bpg, N1, N2, N3, DMINDEX1(bpg, i), j1, j2, j3)] ~> UninitCellOf(SMem))");
+  __consumes("SMemToken(sizeof(T)*(N1*N2*N3))");
+  __ensures("__spec_override_ret_implicit(ptr(T))");
+  __admitted();
+  return __alloc_sig_generic<T>();
+}
+#define SMEM_MALLOC3(T, N1, N2, N3) __call_with(__smem_malloc3<T>(N1, N2, N3), "T := "#T)
 
 // LATER: should be able to get away with just one smem_free, but since the Free token
 // doesn't store size, we can't.

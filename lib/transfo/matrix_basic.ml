@@ -259,7 +259,7 @@ let%transfo local_name_tile
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun p -> Marks.with_fresh_mark_on p (fun m ->
       let tile_dims_typ_model = ref None in
-      if !Flags.check_validity then begin
+      if !Flags.check_validity || !Flags.use_resources_with_models then begin
         (* find groups of mindex resource over !ret_var in context *)
         Resources.ensure_computed ();
         let var = !ret_var in

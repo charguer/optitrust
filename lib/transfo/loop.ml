@@ -38,7 +38,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     else if i = Mlist.length loop_body_instrs then
       Marks.add m_between [cPath p_loop; tAfter]
     else begin
-      let m_interstice = if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
+      let m_interstice = if !Flags.check_validity || !Flags.use_resources_with_models then begin (* FIXME: hide condition between better API? *)
         let m = next_mark () in
         Ghost_pair.fission ~mark_between:m (target_of_path p_interstice);
         Ghost_pure.fission ~mark_clears:m_clears [cPath p_loop_body; cMark m];
@@ -53,7 +53,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
       (* TODO: this is required if other transformations like Variable_basic.inline don't eagerly do it. *)
       Resources.make_strict_loop_contracts [cPath p_loop];
       fission_basic ~mark_loops:m_loops ~mark_between_loops:m_between [cPath p_loop_body; cMark m_interstice];
-      if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
+      if !Flags.check_validity || !Flags.use_resources_with_models then begin (* FIXME: hide condition between better API? *)
         Ghost_pair.minimize_all_in_seq [nbExact 2; cPath p_outer_seq; cMark m_loops; dBody];
         Resources.loop_minimize [nbExact 2; cPath p_outer_seq; cMark m_loops];
         Ghost_pure.remove_clears m_clears [occFirst; cPath p_outer_seq; cMark m_loops; dBody];

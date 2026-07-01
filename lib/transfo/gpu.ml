@@ -10,8 +10,7 @@ include Gpu_basic
   The list [loops] is a list containing either 0 or 1: 0 means skip conversion (leave it as sequential for), 1 means convert.
   It is always assumed that the leaf will be converted. *)
 let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
-  let fission_helper tg =
-    Flags.with_flag Flags.check_validity true (fun () -> Loop.fission tg) in
+  let fission_helper tg = Loop.fission tg in
   let rec aux barrier_mark loops_incl_leaf leaf_p: unit =
     let convert,loops = match loops_incl_leaf with
     | 0 :: tl -> false, tl
