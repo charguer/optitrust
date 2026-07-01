@@ -6,7 +6,7 @@ import { loadOptiNlpAssets, inferLanguage } from "../optinlp/assets";
 import { generateOptiNlp } from "../optinlp/generation";
 import { modeDefinition, resolveRequestedMode } from "../optinlp/modes";
 import { OptiNlpProviderError } from "../optinlp/providerErrors";
-import { createOptiNlpProvider, DEFAULT_OPTINLP_PROVIDER, OptiNlpProviderId, parseOptiNlpProviderId } from "../optinlp/providerFactory";
+import { createOptiNlpProvider, DEFAULT_OPTINLP_PROVIDER, parseOptiNlpProviderId } from "../optinlp/providerFactory";
 import { OptiNlpMode, OptiNlpProviderRequest, OptiNlpProviderResult } from "../optinlp/providerTypes";
 import { editorActionForResult } from "../optinlp/resultActions";
 import { OptiNlpSessionMemory } from "../optinlp/sessionMemory";
@@ -17,9 +17,9 @@ import { OptitrustWorkspace } from "../optitrust/workspace";
 const GEMINI_API_KEY_SECRET = "optinlp.geminiApiKey";
 const OPENAI_API_KEY_SECRET = "optinlp.openaiApiKey";
 
-interface SourceContext {
+export interface SourceContext {
   readonly text: string;
-  readonly label: "selection" | "full file";
+  readonly label: "selection" | "full file" | "associated source" | "target-at-cursor context";
 }
 
 export interface OptiNlpGenerationOutcome {
@@ -29,10 +29,13 @@ export interface OptiNlpGenerationOutcome {
   readonly result: OptiNlpProviderResult;
 }
 
-interface OptiNlpGenerationOptions {
+export interface OptiNlpGenerationOptions {
   readonly renderToOutput?: boolean;
   readonly editor?: vscode.TextEditor;
   readonly throwProviderErrors?: boolean;
+  readonly sourceContext?: SourceContext;
+  readonly filePath?: string;
+  readonly language?: string;
 }
 
 export async function setOptiNlpGeminiApiKey(context: vscode.ExtensionContext): Promise<void> {
@@ -130,7 +133,7 @@ export async function runOptiNlpGeneration(
 ): Promise<OptiNlpGenerationOutcome | undefined> {
   const resolvedMode = resolveRequestedMode(mode, userRequest);
   const editorContext = getActiveEditorContext(workspace.root, options.editor);
-  const sourceContext = await getSourceContext(editorContext.editor);
+  const sourceContext = options.sourceContext ?? (await getSourceContext(editorContext.editor));
   if (!sourceContext) {
     return undefined;
   }
@@ -140,8 +143,8 @@ export async function runOptiNlpGeneration(
     mode: resolvedMode,
     userRequest,
     sourceText: sourceContext.text,
-    filePath: editorContext.relativePath,
-    language: inferLanguage(editorContext.filePath),
+    filePath: options.filePath ?? editorContext.relativePath,
+    language: options.language ?? inferLanguage(editorContext.filePath),
     promptText: assets.promptText,
     knowledgeText: assets.knowledgeText,
     sessionSummary: memory.summary()
@@ -191,9 +194,9 @@ export async function runOptiNlpGeneration(
 }
 
 async function getSourceContext(editor: vscode.TextEditor): Promise<SourceContext | undefined> {
-  const selectedText = editor.document.getText(editor.selection);
-  if (selectedText.trim().length > 0) {
-    return { text: selectedText, label: "selection" };
+  const selectedContext = selectedSourceContextFromEditor(editor);
+  if (selectedContext) {
+    return selectedContext;
   }
 
   const sendFullFile = await vscode.window.showWarningMessage(
@@ -204,7 +207,20 @@ async function getSourceContext(editor: vscode.TextEditor): Promise<SourceContex
   if (sendFullFile !== "Send Full File") {
     return undefined;
   }
+  return fullFileSourceContextFromEditor(editor);
+}
+
+function selectedSourceContextFromEditor(editor: vscode.TextEditor): SourceContext | undefined {
+  const selectedText = editor.document.getText(editor.selection);
+  return selectedText.trim().length > 0 ? { text: selectedText, label: "selection" } : undefined;
+}
+
+function fullFileSourceContextFromEditor(editor: vscode.TextEditor): SourceContext {
   return { text: editor.document.getText(), label: "full file" };
+}
+
+export function sourceContextFromEditor(editor: vscode.TextEditor): SourceContext {
+  return selectedSourceContextFromEditor(editor) ?? fullFileSourceContextFromEditor(editor);
 }
 
 async function promptForRequest(mode: OptiNlpMode, title: string): Promise<string | undefined> {
@@ -273,6 +289,37 @@ export async function insertTextAtCursor(text: string, sourceEditor?: vscode.Tex
   }
   await editor.edit(edit => {
     edit.insert(editor.selection.active, text);
+  });
+}
+
+export async function insertTargetAtCursor(text: string, sourceEditor?: vscode.TextEditor): Promise<void> {
+  const editor = sourceEditor ?? vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showWarningMessage("OptiNLP: No active editor for insertion.");
+    return;
+  }
+
+  const selection = editor.selection;
+  await editor.edit(edit => {
+    if (!selection.isEmpty) {
+      edit.replace(selection, text);
+      return;
+    }
+
+    const line = editor.document.lineAt(selection.active.line);
+    const emptyTargetMatch = /\[\s*\]/u.exec(line.text);
+    if (emptyTargetMatch?.index !== undefined) {
+      edit.replace(
+        new vscode.Range(
+          new vscode.Position(line.lineNumber, emptyTargetMatch.index),
+          new vscode.Position(line.lineNumber, emptyTargetMatch.index + emptyTargetMatch[0].length)
+        ),
+        text
+      );
+      return;
+    }
+
+    edit.insert(selection.active, text);
   });
 }
 

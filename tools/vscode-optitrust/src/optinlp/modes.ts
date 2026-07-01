@@ -23,7 +23,7 @@ export const OPTINLP_MODE_DEFINITIONS: readonly OptiNlpModeDefinition[] = [
     shortLabel: "Target",
     placeholder: "target the second loop named i",
     promptFile: "01_target_generator.md",
-    knowledgeFiles: ["targets.md"]
+    knowledgeFiles: ["target_description.md", "targets.md"]
   },
   {
     id: "command_to_script",
@@ -32,7 +32,7 @@ export const OPTINLP_MODE_DEFINITIONS: readonly OptiNlpModeDefinition[] = [
     shortLabel: "Script",
     placeholder: "unroll the loop i",
     promptFile: "02_command_to_script.md",
-    knowledgeFiles: ["targets.md", "script_patterns.md", "transformations.md", "optilambda.md"]
+    knowledgeFiles: ["target_description.md", "targets.md", "script_patterns.md", "transformations.md", "optilambda.md"]
   },
   {
     id: "code_to_full_script",
@@ -41,7 +41,7 @@ export const OPTINLP_MODE_DEFINITIONS: readonly OptiNlpModeDefinition[] = [
     shortLabel: "Full Transformation",
     placeholder: "generate a complete transformation script for the whole file",
     promptFile: "03_code_to_full_script.md",
-    knowledgeFiles: ["targets.md", "script_patterns.md", "transformations.md", "optilambda.md"]
+    knowledgeFiles: ["target_description.md", "targets.md", "script_patterns.md", "transformations.md", "optilambda.md"]
   }
 ] as const;
 
@@ -69,6 +69,9 @@ export function resolveAutoMode(mode: OptiNlpUiMode, request: string): OptiNlpMo
 }
 
 export function resolveRequestedMode(mode: OptiNlpUiMode, request: string): OptiNlpMode {
+  if (mode === "target") {
+    return "target";
+  }
   if (isFullFileScriptRequest(request)) {
     return "code_to_full_script";
   }

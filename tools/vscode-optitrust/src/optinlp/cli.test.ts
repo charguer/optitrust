@@ -37,12 +37,24 @@ async function testLanguageInference(): Promise<void> {
 async function testAssetLoading(): Promise<void> {
   const assets = await loadOptiNlpAssets(path.resolve(__dirname, "../../../.."), "target");
   assert.match(assets.promptText, /OptiTrust Target Generator/u);
+  assert.match(assets.promptText, /Robustness Priority/u);
+  assert.match(assets.promptText, /Do not skip directly to priority 6/u);
+  assert.match(assets.knowledgeText, /OptiTrust Target Description/u);
+  assert.match(assets.knowledgeText, /cFor "i"` targets the loop instruction itself/u);
   assert.match(assets.knowledgeText, /OptiTrust Target Knowledge/u);
+  assert.match(assets.knowledgeText, /Use `sExpr` only when no available semantic selector/u);
 }
 
 async function testWholeFileScriptRouting(): Promise<void> {
   assert.strictEqual(resolveRequestedMode("command_to_script", "generate a complete transformation script for the whole file"), "code_to_full_script");
   assert.strictEqual(resolveRequestedMode("auto", "write matmul.ml for this source"), "code_to_full_script");
+  assert.strictEqual(
+    resolveRequestedMode(
+      "target",
+      "Generate robust OptiTrust target suggestions for tests/loop/unroll/loop_unroll.ml:11.\nCurrent transformation line:\n!! Loop.unroll"
+    ),
+    "target"
+  );
 }
 
 async function testCliTargetMarkdown(): Promise<void> {
