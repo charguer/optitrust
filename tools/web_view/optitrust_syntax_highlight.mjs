@@ -90,10 +90,11 @@ function normalizeTheme(theme) {
 }
 
 function fallbackTheme() {
-  if (document.body.classList.contains("vscode-light")) {
-    return lightPlus;
+  if (document.body.classList.contains("vscode-dark") ||
+      document.body.classList.contains("vscode-high-contrast")) {
+    return darkPlus;
   }
-  return darkPlus;
+  return lightPlus;
 }
 
 function languageForWrapper(wrapper) {
