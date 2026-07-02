@@ -1,5 +1,6 @@
 open PPrint
 open Ast
+open Trm
 open Typ
 open Optilambda_style
 
@@ -36,6 +37,38 @@ type block_item = Regular of document | FinalExpr of document
 type contract_clause = ContractClause of string * resource_item | ContractRaw of document
 
 type read_only_formula = { read_frac : trm; read_body : trm }
+
+(** [header_include_to_doc line] converts a C/C++ header include into an OptiLambda include directive. *)
+let header_include_to_doc (line : string) : document option =
+  let line = String.trim line in
+  if String.starts_with ~prefix:"#include" line then
+    let include_target = String.trim (String.sub line 8 (String.length line - 8)) in
+    if include_target = "" then None else Some (string "include" ^^ blank 1 ^^ string include_target)
+  else
+    None
+
+(** [header_to_docs header] extracts OptiLambda include directives from the parser header. *)
+let header_to_docs (header : string) : document list =
+  header
+  |> String.split_on_char '\n'
+  |> List.filter_map header_include_to_doc
+
+(** [main_source_file t] returns the source file attached to the root program, when known. *)
+let main_source_file (t : trm) : string option =
+  match t.loc with
+  | Some { loc_file; _ } -> Some loc_file
+  | None -> None
+
+(** [is_from_included_file main_file t] detects top-level declarations whose source location comes from an included file.
+
+    Include annotations are the primary signal, but some C encoding passes may flatten included sequences while preserving source locations
+    on their declarations. Location-based filtering keeps generated OptiLambda output from expanding included file contents. *)
+let is_from_included_file (main_file : string option) (t : trm) : bool =
+  trm_is_include t
+  ||
+  match main_file, t.loc with
+  | Some main_file, Some { loc_file; _ } -> loc_file <> main_file
+  | _ -> false
 
 (** [code_block_doc items] prints executable block items.
 
@@ -854,8 +887,30 @@ and trm_to_doc_at (style : Optilambda_style.style) (ctx_prec : int) (t : trm) : 
 (** [trm_to_doc style t] is the main entry point for printing terms. *)
 and trm_to_doc (style : Optilambda_style.style) (t : trm) : document = trm_to_doc_at style 0 t
 
+(** [program_to_doc style ~header t] prints a complete program.
+
+    C/C++ parsing stores textual header includes separately from the AST, while declarations from included files remain in the AST as
+    [Included_file] sequences. Program printing keeps the visible include directives and drops those included-file sequences, so OptiLambda
+    output describes the source program without expanding every included declaration. *)
+let program_to_doc (style : Optilambda_style.style) ~(header : string) (t : trm) : document =
+  let include_docs = header_to_docs header in
+  let program =
+    match t.desc with
+    | Trm_seq (instrs, result) ->
+        let main_file = main_source_file t in
+        trm_to_doc style { t with desc = Trm_seq (Mlist.filter (fun instr -> not (is_from_included_file main_file instr)) instrs, result) }
+    | _ -> trm_to_doc style t
+  in
+  match include_docs with
+  | [] -> program
+  | _ -> separate (semi ^^ hardline) include_docs ^^ semi ^^ twice hardline ^^ program
+
 (** [typ_to_string ?style ty] prints a type directly to a string. *)
 let typ_to_string ?(style = Optilambda_style.default) (ty : typ) : string = Tools.document_to_string (typ_to_doc style ty)
 
 (** [trm_to_string ?style t] prints a term directly to a string. *)
 let trm_to_string ?(style = Optilambda_style.default) (t : trm) : string = Tools.document_to_string (trm_to_doc style t)
+
+(** [program_to_string ?style ~header t] prints a complete program directly to a string. *)
+let program_to_string ?(style = Optilambda_style.default) ~(header : string) (t : trm) : string =
+  Tools.document_to_string (program_to_doc style ~header t)

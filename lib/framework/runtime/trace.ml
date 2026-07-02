@@ -557,7 +557,7 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
   begin try
     begin match style.print with
     | Lang_OptiLambda optilambda_style ->
-      output_string out_prog (Optitrust_optilambda.Optilambda.trm_to_string ~style:optilambda_style ast)
+      output_string out_prog (Optitrust_optilambda.Optilambda.program_to_string ~style:optilambda_style ~header:ctx.header ast)
     | Lang_AST _ -> raise (TraceFailure "output_prog requires a Lang_C or Lang_OptiLambda printing mode, not a Lang_AST")
     | Lang_C cstyle ->
       (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
@@ -1342,7 +1342,7 @@ let get_initial_ast (filename : string) : (string * trm) =
    [~prefix:"foo"] allows to use a custom prefix for all output files,
    instead of the basename of [f].
    style is computed based on the global flags.   *)
-let init ~(prefix : string) ~(program : string) (filename : string) : unit =
+let init ?(header : string option) ~(prefix : string) ~(program : string) (filename : string) : unit =
   ast_just_before_first_call_to_restore_original := None; (* TEMPORARY HACK *)
   invalidate ();
   let basename = Filename.basename filename in
@@ -1374,7 +1374,8 @@ let init ~(prefix : string) ~(program : string) (filename : string) : unit =
 
   init_logs prefix;
 
-  let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast filename) in
+  let ((parsed_header, cur_ast), stats_parse) = Stats.measure_stats (fun () -> get_initial_ast filename) in
+  let header = Option.value ~default:parsed_header header in
 
   let context = { extension; prefix; header } in
   the_trace.next_step_id <- 0;
