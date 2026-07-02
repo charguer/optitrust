@@ -19,6 +19,7 @@ __DEF(matmul, "fun (A B: int * int -> float) (p: int) -> fun (i j: int) -> reduc
  */
 void mm(float* c, float* a, float* b, int m, int n, int p) {
   __requires("A: int * int -> float, B: int * int -> float");
+  __requires("m >= 0, n >= 0, p >= 0"); // <-- should be derived from matrix dimension constraint ?
   __reads("a ~> Matrix2(m, p, A), b ~> Matrix2(p, n, B)");
   __writes("c ~> Matrix2(m, n, matmul(A, B, p))");
   __preserves("HostCtx");

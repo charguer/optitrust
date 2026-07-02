@@ -86,3 +86,22 @@ let%transfo convert_to_shared_mem ~(chop_dims: int) (tg: target): unit =
             Gpu_basic.convert_memory (Gpu_basic.smem_alias_spec alias) tg;
           ) !aliases;
   ))) tg
+
+(** [convert_to_register_mem ~chop_dims tg] convert the targeted declaration to register memory, replacing all operations on that variable with the appropriate ones.
+  [chop_dims]: number of dimensions that will become distributed, that should be chopped off. *)
+let%transfo convert_to_register_mem ~(chop_dims: int) (tg: target): unit =
+  Target.iter (fun p ->
+    let _,tg_seq_p = Path.index_in_seq p in
+    let tg = [cPath p] in
+    Marks.with_marks (fun next_m ->
+        Resources.with_non_strict_loop_contracts [cPath tg_seq_p] (fun () ->
+          let alloc_mark = next_m () in
+          let free_mark = next_m () in
+          Gpu_basic.convert_memory (Gpu_basic.treg_mem_spec ~alloc_mark ~free_mark chop_dims) tg;
+          let aliases = ref Var_set.empty in
+          let kernel_seq = [tSpan [cMark alloc_mark] [cMark free_mark]] in
+          Gpu_basic.fix_distrib_accesses ~aliases chop_dims kernel_seq tg;
+          Var_set.iter (fun alias ->
+            Gpu_basic.convert_memory (Gpu_basic.treg_mem_alias_spec alias) tg;
+          ) !aliases;
+  ))) tg

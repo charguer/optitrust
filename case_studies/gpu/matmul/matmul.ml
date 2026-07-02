@@ -70,6 +70,8 @@ let _ =  Run.script_cpp_stage stage_ok (fun () ->
   *)
 )
 
+let _ = Flags.check_validity := false
+
 let _ = Run.script_cpp_stage stage_ok (fun () ->
   (* Construct terms to pass to kernel_launch *)
   (* LATER: cleaner frontend for building terms *)
@@ -84,18 +86,15 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   (* sizeof(float) * 32 * 32 *)
   let smem_szs = [
     trm_mul_int (trm_sizeof typ_f32)
-      (trm_mul_int t_bk (trm_mul_int (trm_int (bm/tm)) t_tm));
+      (trm_mul_int (trm_mul_int t_bk (trm_int (bm/tm))) t_tm);
     trm_mul_int (trm_sizeof typ_f32)
-      (trm_mul_int t_bk (trm_mul_int (trm_int (bn/tn)) t_tn))
+      (trm_mul_int (trm_mul_int (trm_int (bn/tn)) t_bk) t_tn)
   ] in
 
   (* Wrap kernel body in launch and kill calls *)
   !! Gpu.create_kernel_launch bpg tpb smem_szs
     ~setup_end:[tBefore; cFor "bi"] ~teardown_begin:[tAfter; cFor "bi"]
     [tBefore; cVarDef "a_smem"] [tAfter; cPrimCall Prim_delete ~args:[[cVar "a_smem"]]];
-
-  (* !! Gpu.convert_tail_thread_for [1] [occFirst; cFor "bi"; cFor "ti"];
-  !! Gpu.convert_tail_thread_for [1;1] [occFirst; cFor "bi"; cFor "bj"; cFor "ti"]; *)
 
   !! Gpu.convert_tail_thread_for [1] [occFirst; cFor "ti"; cFor ~body:[cWrite ~lhs:[cVar "sum"] ()] "tj"];
   !! Gpu.convert_tail_thread_for [0;1] [cFor "ti"; cFor "k"; cFor ~body:[cWrite ~lhs:[cVar "a_smem"] ()] "i"];
@@ -114,7 +113,9 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
       (Matrix_trm.msize [(trm_exact_div_int (trm_int 32) (trm_int 8));
         (trm_exact_div_int (trm_int 32) (trm_int 4))])
       (Matrix_trm.msize [(trm_int 4); (trm_int 8)])
-      [tBefore; occFirst; cFor ~body:[cWrite ~lhs:[cVar "sum"] ()] "ti"];
+      [tBefore; cVarDef "sum"];
+      (* NOTE: need to be before the sum alloc for later conversion
+      [tBefore; occFirst; cFor ~body:[cWrite ~lhs:[cVar "sum"] ()] "ti"]; *)
     Gpu.insert_threadsctx_rewrite
       (Matrix_trm.msize [(trm_int 4); (trm_int 8)])
       (Matrix_trm.msize [(trm_int 8); (trm_int 4)])
@@ -132,11 +133,19 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
 
   !! Gpu.convert_to_global_mem [nbMulti; cVarDefs ["a_gmem"; "b_gmem"; "c_gmem"]];
   !! Gpu.convert_to_shared_mem ~chop_dims:2 [nbMulti; cVarDefs ["a_smem"; "b_smem"]];
+  !! Gpu.convert_to_register_mem ~chop_dims:2 [cVarDef "sum"];
+  !! Gpu.convert_to_register_mem ~chop_dims:0 [nbMulti; cVarDefs ["a_regs"; "b_regs"]];
 
   let kernel_mark = "kernel_body" in
   !! Marks.add_fake_instr kernel_mark [tAfter; cCall "kernel_launch"];
 
-  !! Instr.delete [occFirst; cFor "bkIdx"; cCall "magic_barrier"];
-  !! Gpu.insert_barrier [tFirst; cForBody "bkIdx"];
-  !! Gpu.magic_barrier_to_blocksync [cMark kernel_mark] [occFirst; cFor "bkIdx"; cCall "magic_barrier"];
+  !! Instr.delete [occFirst; cCall "magic_barrier"];
+  !! Instr.delete [occFirst; cCall "magic_barrier"];
+  (* FIXME: !! Instr.delete [occIndex 1; cCall "magic_barrier"]; *)
+  !! Gpu.magic_barrier_to_blocksync [cMark kernel_mark] [nbMulti; cFor "bkIdx"; cCall "magic_barrier"];
+  (* TODO: barrier option 2
+   !! Gpu.insert_barrier [tFirst; cForBody "bkIdx"]; *)
+
+  !! Instr.move ~dest:[tAfter; cCall "kernel_teardown_begin"] [cCall "magic_barrier"];
+  !! Gpu.magic_barrier_to_teardown_sync [cCall "magic_barrier"];
 )

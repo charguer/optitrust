@@ -300,12 +300,24 @@ template <typename T> void __smem_free2(T* p, int N1, int N2) {
   __admitted();
 }
 
+template <typename T> void __smem_free3(T* p, int N1, int N2, int N3) {
+  __requires("tpb: int, bpg: int, smem_sz: int");
+  __preserves("KernelTeardownCtx");
+  __reads("KernelParams(bpg,tpb,smem_sz)");
+  __consumes("for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> for j3 in 0..N3 -> &p[MINDEX4(bpg, N1, N2, N3, DMINDEX1(bpg, i), j1, j2, j3)] ~> UninitCellOf(SMem)");
+  __consumes("Free(p, for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> for j3 in 0..N3 -> &p[MINDEX4(bpg, N1, N2, N3, DMINDEX1(bpg, i), j1, j2, j3)] ~> UninitCellOf(SMem))");
+  __produces("SMemToken(sizeof(T)*(N1*N2*N3))");
+  __ensures("__spec_override_noret()");
+  __admitted();
+}
+
 // Thread registers
 
 template <typename T> T* __treg_ref(T v) {
   __requires("t: int, sz: int");
   __preserves("ThreadsCtx(t..+sz)");
   __produces("desync_for i in ..sz -> &_Res[MINDEX1(sz, DMINDEX1(sz, i))] ~~>[TReg] v");
+  __produces("AutoFree(_Res, desync_for i in ..sz -> &_Res[MINDEX1(sz, DMINDEX1(sz, i))] ~> UninitCellOf(TReg))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
   return __alloc_sig_generic<T>();
@@ -332,25 +344,21 @@ template <typename T> T* __treg_ref_uninit0() {
   __requires("t: int, sz: int");
   __preserves("ThreadsCtx(t..+sz)");
   __produces("desync_for i in ..sz -> &_Res[MINDEX1(sz, DMINDEX1(sz, i))] ~> UninitCellOf(TReg)");
+  __produces("AutoFree(_Res, desync_for i in ..sz -> &_Res[MINDEX1(sz, DMINDEX1(sz, i))] ~> UninitCellOf(TReg))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
   return __alloc_sig_generic<T>();
 }
 #define TREG_REF_UNINIT0(T) __call_with(__treg_ref_uninit0<T>(), "T := "#T)
 
-// specialized version of above with singleton ghost built in
 template <typename T> T* __treg_ref_uninit0_s() {
   __requires("t: int");
   __preserves("ThreadsCtx(t..+MSIZE0())");
   __produces("_Res ~> UninitCellOf(TReg)");
+  __produces("AutoFree(_Res, _Res ~> UninitCellOf(TReg))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
-  // admitted for now because proper autofree/typechecking for TReg is not implemented
   __admitted();
-  // but these steps should be correct
-  T* const p = TREG_REF_UNINIT0(T);
-  __ghost(unwrap_singleton_desyncgroup, "H := fun i -> &p[MINDEX1(MSIZE0(), DMINDEX1(MSIZE0(), i))] ~> UninitCellOf(TReg)");
-  __ghost(singleton_mindex_simplify, "H := fun p -> p ~> UninitCellOf(TReg), p := p");
-  return p;
+  return __alloc_sig_generic<T>();
 }
 #define TREG_REF_UNINIT0_S(T) __call_with(__treg_ref_uninit0_s<T>(), "T := "#T)
 
@@ -358,21 +366,45 @@ template <typename T> T* __treg_ref_uninit1(int N1) {
   __requires("t: int, sz: int");
   __preserves("ThreadsCtx(t..+sz)");
   __produces("desync_for i in ..sz -> for j1 in 0..N1 -> &_Res[MINDEX2(sz, N1, DMINDEX1(sz, i), j1)] ~> UninitCellOf(TReg)");
+  __produces("AutoFree(_Res, desync_for i in ..sz -> for j1 in 0..N1 -> &_Res[MINDEX2(sz, N1, DMINDEX1(sz, i), j1)] ~> UninitCellOf(TReg))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
   return __alloc_sig_generic<T>();
 }
 #define TREG_REF_UNINIT1(T, N1) __call_with(__treg_ref_uninit1<T>(N1), "T := "#T)
 
+template <typename T> T* __treg_ref_uninit1_s(int N1) {
+  __requires("t: int");
+  __preserves("ThreadsCtx(t..+MSIZE0())");
+  __produces("for j1 in 0..N1 -> &_Res[MINDEX1(N1, j1)] ~> UninitCellOf(TReg)");
+  __produces("AutoFree(_Res, for j1 in 0..N1 -> &_Res[MINDEX1(N1, j1)] ~> UninitCellOf(TReg))");
+  __ensures("__spec_override_ret_implicit(ptr(T))");
+  __admitted();
+  return __alloc_sig_generic<T>();
+}
+#define TREG_REF_UNINIT1_S(T) __call_with(__treg_ref_uninit1_s<T>(), "T := "#T)
+
 template <typename T> T* __treg_ref_uninit2(int N1, int N2) {
   __requires("t: int, sz: int");
   __preserves("ThreadsCtx(t..+sz)");
   __produces("desync_for i in ..sz -> for j1 in 0..N1 -> for j2 in 0..N2 -> &_Res[MINDEX3(sz, N1, N2, DMINDEX1(sz, i), j1, j2)] ~> UninitCellOf(TReg)");
+  __produces("AutoFree(_Res, desync_for i in ..sz -> for j1 in 0..N1 -> for j2 in 0..N2 -> &_Res[MINDEX3(sz, N1, N2, DMINDEX1(sz, i), j1, j2)] ~> UninitCellOf(TReg))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
   return __alloc_sig_generic<T>();
 }
 #define TREG_REF_UNINIT2(T, N1, N2) __call_with(__treg_ref_uninit2<T>(N1, N2), "T := "#T)
+
+template <typename T> T* __treg_ref_uninit2_s(int N1, int N2) {
+  __requires("t: int");
+  __preserves("ThreadsCtx(t..+MSIZE0())");
+  __produces("for j1 in 0..N1 -> for j2 in 0..N2 -> &_Res[MINDEX2(N1, N2, j1, j2)] ~> UninitCellOf(TReg)");
+  __produces("AutoFree(_Res, for j1 in 0..N1 -> for j2 in 0..N2 -> &_Res[MINDEX2(N1, N2, j1, j2)] ~> UninitCellOf(TReg))");
+  __ensures("__spec_override_ret_implicit(ptr(T))");
+  __admitted();
+  return __alloc_sig_generic<T>();
+}
+#define TREG_REF_UNINIT2_S(T) __call_with(__treg_ref_uninit2_s<T>(), "T := "#T)
 
 template <typename T> T __treg_get(T* p) {
   __requires("v: T, t: int");

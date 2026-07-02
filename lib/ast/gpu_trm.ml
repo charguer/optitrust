@@ -102,8 +102,13 @@ let var__smem_malloc nb_dims =
 (* NOTE: terms for thread registers have been added, as we attempted to add a
 quick hack to the typechecker for automatic freeing of TReg resources (c07b695), but it was
 unsound, so the typechecker support was removed, while the term definitions still remain. *)
+let var_treg = toplevel_var "TReg"
+let var__treg_get = toplevel_var "__treg_get"
+let var__treg_set = toplevel_var "__treg_set"
 let var__treg_ref = toplevel_var "__treg_ref"
 let var__treg_ref_s = toplevel_var "__treg_ref_s"
 let var__treg_ref_uninit0_s = toplevel_var "__treg_ref_uninit0_s"
 let var__treg_ref_uninit = Matrix_trm.toplevel_var_with_dim "__treg_ref_uninit%d"
 let var__treg_ref_uninit_inv = Matrix_trm.toplevel_var_with_dim_inv var__treg_ref_uninit
+let var__treg_ref_uninit_s = Matrix_trm.toplevel_var_with_dim "__treg_ref_uninit%d_s"
+let var__treg_ref_uninit_s_inv = Matrix_trm.toplevel_var_with_dim_inv var__treg_ref_uninit_s

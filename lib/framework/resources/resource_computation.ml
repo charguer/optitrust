@@ -333,7 +333,7 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
         Pattern.__ (fun () -> failwith "Unknown representation predicate '%s'" (Ast_to_c.ast_to_string repr))
       ];
       typ_hprop
-    | Trm_var xf, [ptr; alloc_cells] when var_eq xf var_free ->
+    | Trm_var xf, [ptr; alloc_cells] when var_eq xf var_free || var_eq xf var_auto_free ->
       let ptr_typ = compute_pure_typ env ptr in
       let alloc_cells_typ = compute_pure_typ env alloc_cells in
       assert (is_typ_ptr ptr_typ);
@@ -1191,22 +1191,33 @@ let handle_resource_errors (t: trm) (phase:resource_error_phase) (exn: exn) =
 let empty_usage_map = Var_map.empty
 
 let delete_stack_allocs instrs res =
-  let extract_let_mut ti =
+  let extract_let ti =
     match trm_let_inv ti with
-    | Some (x, _, t) ->
+    | Some (x, _, t) -> [x]
+      (* DEPRECATED:
       begin match trm_ref_any_inv t with
       (* TODO: Stack allocations (i.e. automatic free) for other types of cells (#26) *)
       | Some ty -> [formula_uninit_cells_var ~mem_typ:mem_typ_any ty x]
       | None -> []
-      end
+      end *)
     | None -> []
   in
-  let to_free = List.concat_map extract_let_mut instrs in
+  let may_be_freed = List.concat_map extract_let instrs in
+  let may_be_freed = Var_set.of_list may_be_freed in
   (*Tools.debug "Trying to free %s from %s\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
-  let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), f)) to_free) () in
+  let res_to_extract = List.concat_map
+    (fun (x, f) ->
+      begin match Resource_formula.formula_auto_free_inv f with
+      | Some (base_ptr, cells) when Var_set.mem base_ptr may_be_freed ->
+        [(new_anon_hyp (), cells); (new_anon_hyp (), f)]
+      | _ -> []
+      end
+    )
+    res.linear
+  in
+  let res_to_free = Resource_set.make ~linear:res_to_extract () in
   let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
   (removed_res, linear)
-
 
 let check_pure_resource_types ~(pure_ctx: pure_env) (pure_res: pure_resource_set): pure_env =
   List.fold_left (fun pure_ctx (pure_var, typ) ->
@@ -1241,8 +1252,9 @@ let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): uni
   If [magic] is true, fM is not checked (works on any kind of Cell). *)
 let sync_simplification ?(magic = false) (res: resource_set): resource_set =
   let find_mem_fn_proof (mem_fn: trm) (mem: trm) =
-    let proof_type = (trm_apps mem_fn [mem]) in
-    List.find_opt (fun (_,r) -> Trm_unify.are_same_trm proof_type r) res.pure in
+    let proof_type = trm_apps mem_fn [mem] in
+    List.find_opt (fun (_,r) -> Trm_unify.are_same_trm proof_type r) res.pure
+  in
   let rec simplify (mem_fn: trm) (t: trm) = Pattern.pattern_match t [
     Pattern.(formula_group !__ !__ !__) (fun idx range sub () ->
       formula_group idx range (simplify mem_fn sub));
@@ -1254,7 +1266,8 @@ let sync_simplification ?(magic = false) (res: resource_set): resource_set =
       | Some _ -> t
       | None -> formula_sync mem_fn t
       );
-    Pattern.__ (fun () -> t)
+    Pattern.__ (fun () ->
+      if magic then t else formula_sync mem_fn t)
   ] in
   let simplify_if_sync (t: trm) = match (formula_sync_inv t) with
   | Some (mem_fn, t) -> simplify mem_fn t
@@ -1437,7 +1450,7 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
         [init_var, typ], [typ], [init_var], formula_cells_var ~mem_typ:mem_typ_any typ var_result (trm_var init_var)
     in
     let post_linear = match prim with
-      | Prim_ref | Prim_ref_uninit -> [new_anon_hyp (), alloc_res]
+      | Prim_ref | Prim_ref_uninit -> [new_anon_hyp (), alloc_res; new_anon_hyp (), formula_auto_free var_result (formula_uninit alloc_res)]
       | _ -> [new_anon_hyp (), alloc_res; new_anon_hyp (), formula_free var_result (formula_uninit alloc_res)]
     in
     let contract = {

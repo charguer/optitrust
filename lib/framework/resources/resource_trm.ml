@@ -217,6 +217,11 @@ let ghost_in_range_extend x r1 r2 =
 
 (* let var_ghost_subrange_to_group_in_range = toplevel_var "subrange_to_group_in_range" *)
 
+let var_ghost_unwrap_singleton_desyncgroup = toplevel_var "unwrap_singleton_desyncgroup"
+
+let ghost_unwrap_singleton_desyncgroup ?(formula : formula option) () =
+  ghost (ghost_call_opt_args var_ghost_unwrap_singleton_desyncgroup ["H", formula])
+
 let var_arbitrary = toplevel_var "arbitrary"
 let var_admit = toplevel_var "admit"
 

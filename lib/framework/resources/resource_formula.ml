@@ -269,6 +269,19 @@ let var_free = toplevel_var "Free"
 let formula_free (base_ptr: var) (cells: formula) : formula =
   trm_apps ~annot:formula_annot (trm_var var_free) [trm_var base_ptr; cells]
 
+let var_auto_free = toplevel_var "AutoFree"
+let trm_auto_free = trm_var var_auto_free
+
+let formula_auto_free (base_ptr: var) (cells: formula) : formula =
+  trm_apps ~annot:formula_annot (trm_var var_auto_free) [trm_var base_ptr; cells]
+
+let formula_auto_free_inv (f: formula) : (var * formula) option =
+  Pattern.pattern_match_opt f [
+    Pattern.(trm_apps2 (trm_specific_var var_auto_free) (trm_var !__) !__) (fun base_ptr cells () ->
+      (base_ptr, cells)
+    );
+  ]
+
 let var_range = toplevel_var "range"
 let trm_range = trm_var var_range
 let formula_range (start: trm) (stop: trm) (step: trm) =
