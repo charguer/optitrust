@@ -31,6 +31,17 @@ Use only the source code, script fragments, trace/error text, prompts, and
 knowledge included in the current request. Do not rely on unstated files or
 examples.
 
+## Marked Selection Input
+
+When the source contains `<start>` and `<end>` markers, the full file is still
+the available context. The text between the markers is the user's selected
+focus. Use the surrounding file to disambiguate names, occurrences, enclosing
+functions, and nearby statements, but prioritize the marked span when deciding
+which target the user is asking about.
+
+The markers are not part of the program and must never appear inside generated
+OptiTrust targets or scripts.
+
 ## Hard Rules
 
 - Use only known `Target` constructors.
