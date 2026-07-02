@@ -11,7 +11,7 @@
     "directory": "tools/vscode-optitrust"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
     "Other",
@@ -45,8 +45,13 @@
     "onCommand:optitrust.optinlpGenerateScript",
     "onCommand:optitrust.optinlpGenerateFullTransformation",
     "onCommand:optitrust.optinlpSuggestTargetAtCursor",
+    "onCommand:optitrust.optinlpSelectProvider",
+    "onCommand:optitrust.optinlpSetModel",
+    "onCommand:optitrust.optinlpSetConfiguredApiKey",
     "onCommand:optitrust.optinlpSetGeminiApiKey",
     "onCommand:optitrust.optinlpSetOpenAiApiKey",
+    "onCommand:optitrust.optinlpInsertTarget",
+    "onCommand:optitrust.optinlpOpenScript",
     "onCommand:optitrust.optinlpClearSession",
     "onChatParticipant:optitrust.optinlp"
   ],
@@ -136,7 +141,7 @@
       },
       {
         "command": "optitrust.optinlpChat",
-        "title": "OptiTrust: OptiNLP Chat",
+        "title": "OptiTrust: Open OptiNLP Chat",
         "icon": "$(comment-discussion)"
       },
       {
@@ -163,6 +168,18 @@
       {
         "command": "optitrust.optinlpSetOpenAiApiKey",
         "title": "OptiTrust: OptiNLP Set OpenAI API Key"
+      },
+      {
+        "command": "optitrust.optinlpSetConfiguredApiKey",
+        "title": "OptiTrust: OptiNLP Set API Key"
+      },
+      {
+        "command": "optitrust.optinlpSelectProvider",
+        "title": "OptiTrust: OptiNLP Select Provider"
+      },
+      {
+        "command": "optitrust.optinlpSetModel",
+        "title": "OptiTrust: OptiNLP Set Model"
       },
       {
         "command": "optitrust.optinlpClearSession",
@@ -231,15 +248,66 @@
             "Use deterministic local mock responses for UI testing.",
             "Use OpenAI through the configured API key."
           ],
-          "description": "AI provider used by OptiNLP commands and the OptiNLP panel."
+          "description": "AI provider used by OptiNLP commands and native VS Code Chat."
         },
         "optitrust.optinlpModel": {
           "type": "string",
           "default": "",
           "description": "Optional model override for the configured OptiNLP provider. Leave empty to use the provider default."
+        },
+        "optitrust.optinlpUseProviderSession": {
+          "type": "boolean",
+          "default": true,
+          "description": "Let stateful OptiNLP providers reuse prior prompt/knowledge/eval context in the current in-memory session. Disable to send full context every request."
         }
       }
     },
+    "chatParticipants": [
+      {
+        "id": "optitrust.optinlp",
+        "name": "optinlp",
+        "fullName": "OptiNLP",
+        "description": "Generate OptiTrust targets and transformation scripts for the active file.",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "target",
+            "description": "Generate robust OptiTrust target suggestions for the active file."
+          },
+          {
+            "name": "script",
+            "description": "Generate an OptiTrust transformation script from a command."
+          },
+          {
+            "name": "full",
+            "description": "Generate a complete OptiTrust transformation script for the active file."
+          },
+          {
+            "name": "config",
+            "description": "Show and change OptiNLP provider, model, and API key configuration."
+          },
+          {
+            "name": "clear",
+            "description": "Clear OptiNLP session memory."
+          },
+          {
+            "name": "help",
+            "description": "Show OptiNLP chat usage examples."
+          }
+        ],
+        "disambiguation": [
+          {
+            "category": "optitrust_targets",
+            "description": "The user wants to generate an OptiTrust target, transformation script, or full transformation script for C, C++, OptiLambda, or OCaml OptiTrust code.",
+            "examples": [
+              "target the second loop named i",
+              "generate an OptiTrust script that unrolls loop i",
+              "create a full transformation script for this file"
+            ]
+          }
+        ]
+      }
+    ],
     "keybindings": [
       {
         "command": "optitrust.viewDiff",
@@ -427,6 +495,15 @@
         },
         {
           "command": "optitrust.optinlpSetOpenAiApiKey"
+        },
+        {
+          "command": "optitrust.optinlpSetConfiguredApiKey"
+        },
+        {
+          "command": "optitrust.optinlpSelectProvider"
+        },
+        {
+          "command": "optitrust.optinlpSetModel"
         },
         {
           "command": "optitrust.optinlpClearSession"

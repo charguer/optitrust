@@ -4,8 +4,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
-import { OptiNlpPanel } from "./optinlpPanel";
-import { runOptiNlpGeneration } from "./optinlpCommands";
+import { setPendingOptiNlpChatRequest } from "./optinlpChatContext";
 import { getActiveEditorContext } from "../optitrust/editor";
 import { markExecutedLine } from "../optitrust/decorations";
 import { runCommand } from "../optitrust/runner";
@@ -193,6 +192,10 @@ function targetSourceContext(context: TargetAtCursorContext): string {
   ].join("\n");
 }
 
+function targetChatPrompt(context: TargetAtCursorContext): string {
+  return `Use the prepared F7 target-at-cursor context for ${context.scriptRelativePath}:${context.transformationLine}.`;
+}
+
 async function collectTargetAtCursorContext(workspace: OptitrustWorkspace, editorContext: ReturnType<typeof getActiveEditorContext>): Promise<TargetAtCursorContext | undefined> {
   const source = await findAssociatedCSourceFile(editorContext.filePath);
   if (!source) {
@@ -245,9 +248,9 @@ async function collectTargetAtCursorContext(workspace: OptitrustWorkspace, edito
 }
 
 export async function suggestOptiNlpTargetAtCursor(
-  extensionContext: vscode.ExtensionContext,
+  _extensionContext: vscode.ExtensionContext,
   workspace: OptitrustWorkspace,
-  memory: OptiNlpSessionMemory
+  _memory: OptiNlpSessionMemory
 ): Promise<void> {
   const editorContext = getActiveEditorContext(workspace.root);
   const validation = validateTransformationScript(editorContext);
@@ -263,25 +266,23 @@ export async function suggestOptiNlpTargetAtCursor(
 
   await vscode.window.showTextDocument(editorContext.document, { viewColumn: vscode.ViewColumn.One, preserveFocus: false });
   await openFileOrHtml(workspace.root, collected.afterOptiPath, path.basename(collected.afterOptiPath));
-
-  const panel = OptiNlpPanel.show(extensionContext, workspace, memory);
-  panel.setSourceEditor(editorContext.editor, true);
-
+  const chatPrompt = targetChatPrompt(collected);
   const request = targetRequest(collected);
-  panel.postUserRequest("target", request, `Target · ${collected.scriptRelativePath}:${collected.transformationLine}`);
-
-  const outcome = await runOptiNlpGeneration(extensionContext, workspace, memory, "target", request, {
-    renderToOutput: false,
-    editor: editorContext.editor,
+  const pending = setPendingOptiNlpChatRequest({
+    mode: "target",
+    chatPrompt,
+    userRequest: request,
     sourceContext: {
       text: targetSourceContext(collected),
       label: "target-at-cursor context"
     },
     filePath: collected.sourceRelativePath,
-    language: "cpp+optilambda+ocaml"
+    language: "cpp+optilambda+ocaml",
+    targetInsertionFilePath: collected.scriptPath
   });
 
-  if (outcome) {
-    panel.postGenerationOutcome(outcome);
-  }
+  await vscode.commands.executeCommand("optitrust.optinlpChat", {
+    query: `@optinlp /target ${chatPrompt} [context:${pending.id}]`,
+    preserveExisting: true
+  });
 }

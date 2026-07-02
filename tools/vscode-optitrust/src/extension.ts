@@ -7,15 +7,20 @@ import {
   openUnitTestMlCppFiles
 } from "./commands/associatedFiles";
 import { runHealthCheck } from "./commands/healthCheck";
+import { registerOptiNlpChatParticipant } from "./commands/optinlpChatParticipant";
 import {
   clearOptiNlpSession,
   generateOptiNlpScript,
   generateOptiNlpTarget,
-  setOptiNlpOpenAiApiKey,
+  generateOptiNlpFullTransformation,
+  insertTargetAtCursorInFile,
+  openOcamlDocument,
+  selectOptiNlpProvider,
+  setOptiNlpConfiguredProviderApiKey,
   setOptiNlpGeminiApiKey,
-  generateOptiNlpFullTransformation
+  setOptiNlpModel,
+  setOptiNlpOpenAiApiKey
 } from "./commands/optinlpCommands";
-import { OptiNlpPanel } from "./commands/optinlpPanel";
 import { suggestOptiNlpTargetAtCursor } from "./commands/optinlpTargetAtCursor";
 import { rerunLastTests, runCurrentTest, runCurrentTestAndOpenDiff } from "./commands/runTests";
 import { showShortcuts } from "./commands/shortcuts";
@@ -63,11 +68,11 @@ async function requireWorkspace(): Promise<OptitrustWorkspace | undefined> {
   return workspace;
 }
 
-function registerCommand(context: vscode.ExtensionContext, command: string, callback: () => Promise<void> | void): void {
+function registerCommand(context: vscode.ExtensionContext, command: string, callback: (...args: unknown[]) => Promise<void> | void): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand(command, async () => {
+    vscode.commands.registerCommand(command, async (...args: unknown[]) => {
       try {
-        await callback();
+        await callback(...args);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         vscode.window.showErrorMessage(`OptiTrust: ${message}`);
@@ -79,6 +84,7 @@ function registerCommand(context: vscode.ExtensionContext, command: string, call
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   await refreshWorkspace(vscode.window.activeTextEditor?.document.uri.fsPath);
   optiNlpSession = new OptiNlpSessionMemory();
+  registerOptiNlpChatParticipant(context, requireWorkspace, optiNlpSession);
 
   registerCommand(context, "optitrust.hello", async () => {
     const workspace = await requireWorkspace();
@@ -218,11 +224,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   registerCommand(context, "optitrust.showShortcuts", showShortcuts);
 
-  registerCommand(context, "optitrust.optinlpChat", async () => {
-    const workspace = await requireWorkspace();
-    if (workspace && optiNlpSession) {
-      OptiNlpPanel.show(context, workspace, optiNlpSession);
-    }
+  registerCommand(context, "optitrust.optinlpChat", async (options: unknown) => {
+    await openOptiNlpChat(openChatOptions(options));
   });
 
   registerCommand(context, "optitrust.optinlpGenerateTarget", async () => {
@@ -261,6 +264,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await setOptiNlpOpenAiApiKey(context);
   });
 
+  registerCommand(context, "optitrust.optinlpSetConfiguredApiKey", async () => {
+    await setOptiNlpConfiguredProviderApiKey(context);
+  });
+
+  registerCommand(context, "optitrust.optinlpSelectProvider", selectOptiNlpProvider);
+
+  registerCommand(context, "optitrust.optinlpSetModel", setOptiNlpModel);
+
+  registerCommand(context, "optitrust.optinlpInsertTarget", async (target: unknown, filePath: unknown) => {
+    if (typeof target !== "string" || target.trim().length === 0) {
+      vscode.window.showWarningMessage("OptiNLP: no target was provided for insertion.");
+      return;
+    }
+    await insertTargetAtCursorInFile(target, typeof filePath === "string" && filePath.length > 0 ? filePath : undefined);
+  });
+
+  registerCommand(context, "optitrust.optinlpOpenScript", async (script: unknown) => {
+    if (typeof script !== "string" || script.trim().length === 0) {
+      vscode.window.showWarningMessage("OptiNLP: no generated script was provided.");
+      return;
+    }
+    await openOcamlDocument(script);
+  });
+
   registerCommand(context, "optitrust.optinlpClearSession", async () => {
     if (optiNlpSession) {
       await clearOptiNlpSession(optiNlpSession);
@@ -288,6 +315,58 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   updateDecorations();
+}
+
+interface OpenOptiNlpChatOptions {
+  readonly query: string;
+  readonly preserveExisting?: boolean;
+}
+
+function openChatOptions(value: unknown): OpenOptiNlpChatOptions {
+  if (typeof value === "string") {
+    return { query: value };
+  }
+  if (value && typeof value === "object") {
+    const maybeOptions = value as { readonly query?: unknown; readonly preserveExisting?: unknown };
+    return {
+      query: typeof maybeOptions.query === "string" ? maybeOptions.query : "@optinlp ",
+      preserveExisting: maybeOptions.preserveExisting === true
+    };
+  }
+  return { query: "@optinlp " };
+}
+
+async function openOptiNlpChat(options: OpenOptiNlpChatOptions): Promise<void> {
+  if (options.preserveExisting) {
+    await focusExistingChatAndCopyPrompt(options.query);
+    return;
+  }
+
+  try {
+    await vscode.commands.executeCommand("workbench.action.chat.open", { query: options.query });
+    return;
+  } catch {
+    // Older VS Code builds may not support opening chat with a prefilled query.
+  }
+
+  try {
+    await vscode.commands.executeCommand("workbench.action.chat.open");
+  } catch {
+    vscode.window.showInformationMessage("Open VS Code Chat and type @optinlp to use OptiNLP.");
+    return;
+  }
+  vscode.window.showInformationMessage(`Type ${options.query} in VS Code Chat to use OptiNLP.`);
+}
+
+async function focusExistingChatAndCopyPrompt(query: string): Promise<void> {
+  try {
+    await vscode.commands.executeCommand("workbench.action.chat.open");
+  } catch {
+    vscode.window.showInformationMessage("Open VS Code Chat and type @optinlp to use OptiNLP.");
+    return;
+  }
+  await vscode.env.clipboard.writeText(query);
+  vscode.window.showInformationMessage("OptiNLP target context is ready. The chat prompt was copied; paste it into the existing VS Code Chat and send it.");
 }
 
 export function deactivate(): void {

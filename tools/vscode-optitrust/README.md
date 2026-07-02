@@ -221,6 +221,55 @@ The QuickPick menu can:
 | `OptiTrust: Open Unit Test ML And CPP Files` | Opens the `.ml` and `.cpp` files for a unit test. |
 | `OptiTrust: Select Diff/Trace Syntax` | Selects the default server-backed view syntax. |
 | `OptiTrust: Health Check` | Runs installation and backend checks. |
+| `OptiTrust: Show Shortcuts` | Shows the extension shortcuts from inside VS Code. |
+| `OptiTrust: Open OptiNLP Chat` | Opens native VS Code Chat for `@optinlp`. |
+| `OptiTrust: OptiNLP Generate Target` | Generates a target for the active selection or file. |
+| `OptiTrust: OptiNLP Generate Script` | Generates a transformation script from a command. |
+| `OptiTrust: OptiNLP Generate Full Transformation` | Generates a complete transformation script for the active file. |
+| `OptiTrust: OptiNLP Suggest Target At Cursor` | Runs the F7 target-at-cursor workflow for `.ml` scripts. |
+
+## OptiNLP Native Chat
+
+The extension contributes a native VS Code Chat participant named `@optinlp`.
+This is the only OptiNLP chat UI; voice input belongs to VS Code Chat through
+VS Code Speech.
+
+Examples:
+
+```text
+@optinlp target the second loop named i
+@optinlp /target target the y loop that writes to out
+@optinlp /script unroll the loop i
+@optinlp /full generate a full transformation script for this file
+@optinlp /config
+@optinlp /clear
+@optinlp /help
+```
+
+When `/target` or auto mode resolves to target generation from an active `.ml`
+script, OptiNLP sends the matching same-basename `.cpp` or `.c` source file as
+the model context.
+
+`F7` prepares richer target-at-cursor context by executing the current `.ml`
+script through the line before the cursor, opening the generated `_after.opti`
+state, and focusing native VS Code Chat. To avoid creating a new chat session,
+the prepared `@optinlp /target ...` prompt is copied to the clipboard; paste it
+into the existing Chat input and send it. The pending context is short-lived and
+is consumed by that request.
+
+OptiNLP source context such as `.ml`, `.cpp`, and `.opti` files is refreshed on
+each request because those files may change while you work. Stable OptiNLP
+prompt, knowledge, and eval files under `tools/optiNLP/` are tracked by session
+hash. With a stateful provider such as OpenAI, stable prompt-kit context is sent
+once per session and later requests continue from the previous provider
+response. Stateless providers such as Gemini keep receiving stable context on
+each request so the model has the necessary context. Disable
+`optitrust.optinlpUseProviderSession` to force every request to send full
+context.
+
+For voice input, install Microsoft's `VS Code Speech` extension, open VS Code
+Chat, focus the chat input, choose `@optinlp`, and use the microphone button
+provided by VS Code Chat.
 
 ## Default Keybindings
 
