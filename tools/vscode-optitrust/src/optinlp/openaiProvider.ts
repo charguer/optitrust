@@ -25,6 +25,7 @@ interface OpenAiOutputItem {
 }
 
 interface OpenAiResponse {
+  readonly id?: string;
   readonly output?: readonly OpenAiOutputItem[];
   readonly output_text?: string;
   readonly error?: {
@@ -34,6 +35,7 @@ interface OpenAiResponse {
 
 export class OpenAiProvider implements OptiNlpProvider {
   readonly name = "openai";
+  readonly supportsProviderSession = true;
   readonly model: string;
   private readonly apiKey?: string;
   private readonly apiKeyProvider?: OpenAiProviderOptions["apiKeyProvider"];
@@ -70,7 +72,14 @@ export class OpenAiProvider implements OptiNlpProvider {
       throw new OptiNlpProviderError(this.name, "Set OpenAI API key before using OptiNLP.", "Missing OpenAI API key.");
     }
 
-    const body = {
+    const providerSessionEnabled = request.providerSessionEnabled === true;
+    const body: {
+      readonly model: string;
+      readonly instructions: string;
+      readonly input: string;
+      readonly store: boolean;
+      readonly previous_response_id?: string;
+    } = {
       model: this.model,
       instructions: [
         "You are an OptiNLP provider.",
@@ -79,7 +88,8 @@ export class OpenAiProvider implements OptiNlpProvider {
         "Do not add provider notes, apologies, or extra sections."
       ].join("\n"),
       input: buildOpenAiPrompt(request),
-      store: false
+      store: providerSessionEnabled,
+      previous_response_id: providerSessionEnabled ? request.previousProviderResponseId : undefined
     };
 
     let response: Response;
@@ -90,7 +100,8 @@ export class OpenAiProvider implements OptiNlpProvider {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: request.abortSignal
       });
     } catch (error) {
       throw new OptiNlpProviderError(this.name, "OpenAI request failed. Check your network connection and API key.", technicalDetailFrom(error), error);
@@ -119,6 +130,7 @@ export class OpenAiProvider implements OptiNlpProvider {
       provider: this.name,
       model: this.model,
       markdownOutput,
+      providerResponseId: rawResponse.id,
       structured,
       rawResponse
     };

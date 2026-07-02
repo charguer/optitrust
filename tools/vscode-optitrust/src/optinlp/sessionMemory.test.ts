@@ -121,11 +121,34 @@ function testCandidateSummaryAndClear(): void {
   assert.strictEqual(memory.snapshot().turns.length, 0);
 }
 
+function testStableContextSessionState(): void {
+  const memory = new OptiNlpSessionMemory();
+  memory.recordGeneration(
+    {
+      ...baseRequest,
+      stableContextKey: "stable-target-context",
+      stableContextLabel: "01_target_generator.md, targets.md",
+      stableSourceContextKey: "stable-eval-file",
+      stableSourceContextLabel: "tools/optiNLP/eval/target_cases.md"
+    },
+    { ...targetResult("[cFor \"i\"]"), provider: "openai", model: "gpt-test", providerResponseId: "resp_1" }
+  );
+
+  assert.strictEqual(memory.snapshot().stableContextCount, 2);
+  assert.strictEqual(memory.stableContextState("openai", "gpt-test", "stable-target-context")?.providerResponseId, "resp_1");
+  assert.strictEqual(memory.stableContextState("openai", "gpt-test", "stable-eval-file")?.providerResponseId, "resp_1");
+  assert.strictEqual(memory.stableContextState("openai", "other-model", "stable-target-context"), undefined);
+
+  memory.clear();
+  assert.strictEqual(memory.snapshot().stableContextCount, 0);
+}
+
 function main(): void {
   testRecordsCompactGenerationState();
   testSummaryIncludesLatestScriptAssumptionsAndValidation();
   testKeepsOnlyMaxTurns();
   testCandidateSummaryAndClear();
+  testStableContextSessionState();
   console.log("OptiNLP session memory tests passed.");
 }
 

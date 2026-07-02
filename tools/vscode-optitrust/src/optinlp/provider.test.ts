@@ -200,10 +200,10 @@ async function testOpenAiProviderException(): Promise<void> {
 }
 
 async function testOpenAiSuccessfulResponse(): Promise<void> {
-  let requestBody: { model?: string; store?: boolean; input?: string } | undefined;
+  let requestBody: { model?: string; store?: boolean; input?: string; previous_response_id?: string } | undefined;
   const fetchImpl: typeof fetch = async (_url, init) => {
     requestBody = JSON.parse(String(init?.body)) as typeof requestBody;
-    return new Response(JSON.stringify({ output: [{ content: [{ type: "output_text", text: validScriptMarkdown }] }] }), {
+    return new Response(JSON.stringify({ id: "resp_test", output: [{ content: [{ type: "output_text", text: validScriptMarkdown }] }] }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
@@ -215,10 +215,29 @@ async function testOpenAiSuccessfulResponse(): Promise<void> {
   assert.strictEqual(result.provider, "openai");
   assert.strictEqual(result.model, "openai-test");
   assert.strictEqual(result.markdownOutput, validScriptMarkdown);
+  assert.strictEqual(result.providerResponseId, "resp_test");
   assert.strictEqual(result.structured?.kind, "command_to_script");
   assert.strictEqual(requestBody?.model, "openai-test");
   assert.strictEqual(requestBody?.store, false);
   assert.match(requestBody?.input ?? "", /# User Request/);
+}
+
+async function testOpenAiPreviousResponseId(): Promise<void> {
+  let requestBody: { store?: boolean; previous_response_id?: string } | undefined;
+  const fetchImpl: typeof fetch = async (_url, init) => {
+    requestBody = JSON.parse(String(init?.body)) as typeof requestBody;
+    return new Response(JSON.stringify({ id: "resp_next", output_text: validTargetMarkdown }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  const provider = new OpenAiProvider({ apiKey: "test-key", fetchImpl });
+  const result = await provider.generateTarget({ ...sampleRequest, providerSessionEnabled: true, previousProviderResponseId: "resp_previous" });
+
+  assert.strictEqual(requestBody?.store, true);
+  assert.strictEqual(requestBody?.previous_response_id, "resp_previous");
+  assert.strictEqual(result.providerResponseId, "resp_next");
 }
 
 async function testOpenAiUnstructuredResponseStillDisplays(): Promise<void> {
@@ -355,6 +374,7 @@ async function main(): Promise<void> {
   await testOpenAiEmptyResponse();
   await testOpenAiProviderException();
   await testOpenAiSuccessfulResponse();
+  await testOpenAiPreviousResponseId();
   await testOpenAiUnstructuredResponseStillDisplays();
   await testMarkdownSchemaParsing();
   console.log("OptiNLP provider tests passed.");

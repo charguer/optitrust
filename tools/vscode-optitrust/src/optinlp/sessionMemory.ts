@@ -27,6 +27,7 @@ export interface OptiNlpSessionSnapshot {
   readonly turns: readonly OptiNlpSessionTurn[];
   readonly acceptedAssumptions: readonly string[];
   readonly lastValidation?: OptiNlpValidationRecord;
+  readonly stableContextCount: number;
 }
 
 export interface OptiNlpSessionMemoryOptions {
@@ -38,6 +39,7 @@ export class OptiNlpSessionMemory {
   private turns: OptiNlpSessionTurn[] = [];
   private acceptedAssumptions: string[] = [];
   private lastValidation: OptiNlpValidationRecord | undefined;
+  private stableContexts = new Map<string, { readonly providerResponseId?: string }>();
 
   constructor(options: OptiNlpSessionMemoryOptions = {}) {
     this.maxTurns = Math.max(1, options.maxTurns ?? 8);
@@ -46,6 +48,12 @@ export class OptiNlpSessionMemory {
   recordGeneration(request: OptiNlpProviderRequest, result: OptiNlpProviderResult): void {
     const turn = turnFromResult(request, result);
     this.turns = [...this.turns, turn].slice(-this.maxTurns);
+    if (request.stableContextKey && !request.stableContextOmitted) {
+      this.recordStableContext(result.provider, result.model, request.stableContextKey, result.providerResponseId);
+    }
+    if (request.stableSourceContextKey && !request.stableSourceContextOmitted) {
+      this.recordStableContext(result.provider, result.model, request.stableSourceContextKey, result.providerResponseId);
+    }
   }
 
   recordValidation(record: OptiNlpValidationRecord): void {
@@ -66,7 +74,8 @@ export class OptiNlpSessionMemory {
     return {
       turns: [...this.turns],
       acceptedAssumptions: [...this.acceptedAssumptions],
-      lastValidation: this.lastValidation
+      lastValidation: this.lastValidation,
+      stableContextCount: this.stableContexts.size
     };
   }
 
@@ -74,6 +83,15 @@ export class OptiNlpSessionMemory {
     this.turns = [];
     this.acceptedAssumptions = [];
     this.lastValidation = undefined;
+    this.stableContexts.clear();
+  }
+
+  stableContextState(provider: string, model: string, stableContextKey: string): { readonly providerResponseId?: string } | undefined {
+    return this.stableContexts.get(stableContextSessionKey(provider, model, stableContextKey));
+  }
+
+  private recordStableContext(provider: string, model: string, stableContextKey: string, providerResponseId?: string): void {
+    this.stableContexts.set(stableContextSessionKey(provider, model, stableContextKey), { providerResponseId });
   }
 
   summary(maxChars = 2000): string | undefined {
@@ -115,6 +133,10 @@ export class OptiNlpSessionMemory {
     }
     return truncateMultiline(lines.join("\n"), maxChars);
   }
+}
+
+function stableContextSessionKey(provider: string, model: string, stableContextKey: string): string {
+  return `${provider}\0${model}\0${stableContextKey}`;
 }
 
 function turnFromResult(request: OptiNlpProviderRequest, result: OptiNlpProviderResult): OptiNlpSessionTurn {

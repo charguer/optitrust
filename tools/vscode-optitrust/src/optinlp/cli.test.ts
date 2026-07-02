@@ -6,6 +6,7 @@ import { Writable } from "stream";
 import { inferLanguage, loadOptiNlpAssets } from "./assets";
 import { runOptiNlpCli } from "./cli";
 import { resolveRequestedMode } from "./modes";
+import { markSelectedRangeInText } from "./sourceContext";
 
 class MemoryWritable extends Writable {
   chunks: string[] = [];
@@ -54,6 +55,16 @@ async function testWholeFileScriptRouting(): Promise<void> {
       "Generate robust OptiTrust target suggestions for tests/loop/unroll/loop_unroll.ml:11.\nCurrent transformation line:\n!! Loop.unroll"
     ),
     "target"
+  );
+}
+
+async function testMarkedSelectionContext(): Promise<void> {
+  const source = "void f() {\n  a();\n  b();\n}\n";
+  const selected = "  b();";
+  const start = source.indexOf(selected);
+  assert.strictEqual(
+    markSelectedRangeInText(source, start, start + selected.length),
+    "void f() {\n  a();\n<start>  b();<end>\n}\n"
   );
 }
 
@@ -123,6 +134,7 @@ async function main(): Promise<void> {
   await testLanguageInference();
   await testAssetLoading();
   await testWholeFileScriptRouting();
+  await testMarkedSelectionContext();
   await testCliTargetMarkdown();
   await testCliScriptJson();
   await testCliFullRequest();
