@@ -1,5 +1,6 @@
 // Loads OptiNLP prompt-kit markdown from the repository and builds provider
 // requests. Prompt/knowledge filenames come from the central mode registry.
+import { createHash } from "crypto";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { modeDefinition } from "./modes";
@@ -8,6 +9,8 @@ import { OptiNlpMode, OptiNlpProviderRequest } from "./providerTypes";
 export interface OptiNlpAssets {
   readonly promptText: string;
   readonly knowledgeText: string;
+  readonly stableContextKey: string;
+  readonly stableContextLabel: string;
 }
 
 export interface BuildOptiNlpRequestOptions {
@@ -31,6 +34,8 @@ export async function buildOptiNlpProviderRequest(options: BuildOptiNlpRequestOp
     language: inferLanguage(absoluteFilePath),
     promptText: assets.promptText,
     knowledgeText: assets.knowledgeText,
+    stableContextKey: assets.stableContextKey,
+    stableContextLabel: assets.stableContextLabel,
     sessionSummary: options.sessionSummary
   };
 }
@@ -46,12 +51,28 @@ export async function loadOptiNlpAssets(root: string, mode: OptiNlpMode): Promis
     ...knowledgePaths.map(filePath => fs.readFile(filePath, "utf8"))
   ]);
 
+  const knowledgeText = knowledgeParts
+    .map((text, index) => `# Knowledge: ${definition.knowledgeFiles[index]}\n\n${text.trim()}`)
+    .join("\n\n");
+  const stableContextLabel = [definition.promptFile, ...definition.knowledgeFiles].join(", ");
   return {
     promptText,
-    knowledgeText: knowledgeParts
-      .map((text, index) => `# Knowledge: ${definition.knowledgeFiles[index]}\n\n${text.trim()}`)
-      .join("\n\n")
+    knowledgeText,
+    stableContextKey: stableContextKey(definition.promptFile, promptText, definition.knowledgeFiles, knowledgeText),
+    stableContextLabel
   };
+}
+
+function stableContextKey(promptFile: string, promptText: string, knowledgeFiles: readonly string[], knowledgeText: string): string {
+  return createHash("sha256")
+    .update(promptFile)
+    .update("\0")
+    .update(promptText)
+    .update("\0")
+    .update(knowledgeFiles.join("\0"))
+    .update("\0")
+    .update(knowledgeText)
+    .digest("hex");
 }
 
 export async function findOptiTrustRoot(startPath: string): Promise<string> {

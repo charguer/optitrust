@@ -1,25 +1,38 @@
 // VS Code command handlers for OptiNLP. This file owns editor interaction
 // (quick input, selection/full-file consent, insertion/opening documents), while
 // core prompt/provider behavior stays in src/optinlp.
+import { createHash } from "crypto";
+import * as path from "path";
 import * as vscode from "vscode";
 import { loadOptiNlpAssets, inferLanguage } from "../optinlp/assets";
 import { generateOptiNlp } from "../optinlp/generation";
 import { modeDefinition, resolveRequestedMode } from "../optinlp/modes";
 import { OptiNlpProviderError } from "../optinlp/providerErrors";
-import { createOptiNlpProvider, DEFAULT_OPTINLP_PROVIDER, parseOptiNlpProviderId } from "../optinlp/providerFactory";
+import {
+  createOptiNlpProvider,
+  DEFAULT_OPTINLP_PROVIDER,
+  IMPLEMENTED_OPTINLP_PROVIDER_IDS,
+  OptiNlpProviderId,
+  parseOptiNlpProviderId
+} from "../optinlp/providerFactory";
 import { OptiNlpMode, OptiNlpProviderRequest, OptiNlpProviderResult } from "../optinlp/providerTypes";
 import { editorActionForResult } from "../optinlp/resultActions";
 import { OptiNlpSessionMemory } from "../optinlp/sessionMemory";
+import { markSelectedRangeInText } from "../optinlp/sourceContext";
 import { getActiveEditorContext } from "../optitrust/editor";
 import { appendHeader, appendLine, showOutput } from "../optitrust/output";
 import { OptitrustWorkspace } from "../optitrust/workspace";
 
 const GEMINI_API_KEY_SECRET = "optinlp.geminiApiKey";
 const OPENAI_API_KEY_SECRET = "optinlp.openaiApiKey";
+const OPTINLP_PROVIDER_SETTING = "optinlpProvider";
+const OPTINLP_MODEL_SETTING = "optinlpModel";
+const OPTINLP_PROVIDER_SESSION_SETTING = "optinlpUseProviderSession";
+const STABLE_OPTINLP_FILE_PATTERN = /(^|\/)tools\/optiNLP\/(knowledge|eval|prompts)\//u;
 
 export interface SourceContext {
   readonly text: string;
-  readonly label: "selection" | "full file" | "associated source" | "target-at-cursor context";
+  readonly label: "marked selection" | "full file" | "associated source" | "target-at-cursor context";
 }
 
 export interface OptiNlpGenerationOutcome {
@@ -36,6 +49,7 @@ export interface OptiNlpGenerationOptions {
   readonly sourceContext?: SourceContext;
   readonly filePath?: string;
   readonly language?: string;
+  readonly cancellationToken?: vscode.CancellationToken;
 }
 
 export async function setOptiNlpGeminiApiKey(context: vscode.ExtensionContext): Promise<void> {
@@ -47,9 +61,7 @@ export async function setOptiNlpOpenAiApiKey(context: vscode.ExtensionContext): 
 }
 
 export async function setOptiNlpConfiguredProviderApiKey(context: vscode.ExtensionContext): Promise<void> {
-  const config = vscode.workspace.getConfiguration("optitrust");
-  const configuredProvider = config.get<string>("optinlpProvider", DEFAULT_OPTINLP_PROVIDER);
-  const provider = parseOptiNlpProviderId(configuredProvider) ?? DEFAULT_OPTINLP_PROVIDER;
+  const provider = configuredOptiNlpProvider();
   switch (provider) {
     case "openai":
       await setOptiNlpOpenAiApiKey(context);
@@ -64,6 +76,69 @@ export async function setOptiNlpConfiguredProviderApiKey(context: vscode.Extensi
       vscode.window.showWarningMessage("OptiNLP Ollama provider is not implemented yet.");
       return;
   }
+}
+
+export async function selectOptiNlpProvider(): Promise<void> {
+  const configured = configuredOptiNlpProvider();
+  const picked = await vscode.window.showQuickPick(
+    IMPLEMENTED_OPTINLP_PROVIDER_IDS.map(provider => ({
+      label: provider,
+      description: provider === configured ? "current" : undefined,
+      provider
+    })),
+    { placeHolder: "Select OptiNLP provider" }
+  );
+  if (!picked) {
+    return;
+  }
+  await updateOptiNlpSetting(OPTINLP_PROVIDER_SETTING, picked.provider);
+  vscode.window.showInformationMessage(`OptiNLP provider set to ${picked.provider}.`);
+}
+
+export async function setOptiNlpModel(): Promise<void> {
+  const current = configuredOptiNlpModel();
+  const value = await vscode.window.showInputBox({
+    title: "OptiNLP: Set Model",
+    prompt: "Enter a model override, or leave empty to use the provider default.",
+    value: current,
+    ignoreFocusOut: true
+  });
+  if (value === undefined) {
+    return;
+  }
+  const model = value.trim();
+  await updateOptiNlpSetting(OPTINLP_MODEL_SETTING, model);
+  vscode.window.showInformationMessage(model.length > 0 ? `OptiNLP model set to ${model}.` : "OptiNLP model reset to provider default.");
+}
+
+export function optiNlpConfigurationSummary(): { readonly provider: OptiNlpProviderId; readonly model: string; readonly useProviderSession: boolean } {
+  return {
+    provider: configuredOptiNlpProvider(),
+    model: configuredOptiNlpModel(),
+    useProviderSession: configuredOptiNlpUseProviderSession()
+  };
+}
+
+function configuredOptiNlpProvider(): OptiNlpProviderId {
+  const configuredProvider = vscode.workspace.getConfiguration("optitrust").get<string>(OPTINLP_PROVIDER_SETTING, DEFAULT_OPTINLP_PROVIDER);
+  return parseOptiNlpProviderId(configuredProvider) ?? DEFAULT_OPTINLP_PROVIDER;
+}
+
+function configuredOptiNlpModel(): string {
+  return vscode.workspace.getConfiguration("optitrust").get<string>(OPTINLP_MODEL_SETTING, "").trim();
+}
+
+function configuredOptiNlpUseProviderSession(): boolean {
+  return vscode.workspace.getConfiguration("optitrust").get<boolean>(OPTINLP_PROVIDER_SESSION_SETTING, true);
+}
+
+async function updateOptiNlpSetting(key: string, value: string): Promise<void> {
+  const config = vscode.workspace.getConfiguration("optitrust");
+  const inspected = config.inspect<string>(key);
+  const target = inspected?.workspaceFolderValue !== undefined || inspected?.workspaceValue !== undefined
+    ? vscode.ConfigurationTarget.Workspace
+    : vscode.ConfigurationTarget.Global;
+  await config.update(key, value, target);
 }
 
 async function setProviderApiKey(context: vscode.ExtensionContext, providerLabel: string, secretKey: string): Promise<void> {
@@ -138,19 +213,36 @@ export async function runOptiNlpGeneration(
     return undefined;
   }
 
+  const provider = createConfiguredProvider(context);
   const assets = await loadOptiNlpAssets(workspace.root, resolvedMode);
+  const stableContextState = memory.stableContextState(provider.name, provider.model, assets.stableContextKey);
+  const useProviderSession = configuredOptiNlpUseProviderSession();
+  const canOmitStableContext = useProviderSession && provider.supportsProviderSession === true && stableContextState?.providerResponseId !== undefined;
+  const filePath = options.filePath ?? editorContext.relativePath;
+  const stableSource = stableSourceContext(filePath, sourceContext);
+  const stableSourceState = stableSource ? memory.stableContextState(provider.name, provider.model, stableSource.key) : undefined;
+  const canOmitStableSource = useProviderSession && provider.supportsProviderSession === true && stableSourceState?.providerResponseId !== undefined;
+  const abortController = new AbortController();
+  const cancellationSubscription = options.cancellationToken?.onCancellationRequested(() => abortController.abort());
   const request: OptiNlpProviderRequest = {
     mode: resolvedMode,
     userRequest,
-    sourceText: sourceContext.text,
-    filePath: options.filePath ?? editorContext.relativePath,
+    sourceText: canOmitStableSource && stableSource ? stableSourceOmittedText(stableSource.label) : sourceContext.text,
+    filePath,
     language: options.language ?? inferLanguage(editorContext.filePath),
-    promptText: assets.promptText,
-    knowledgeText: assets.knowledgeText,
-    sessionSummary: memory.summary()
+    promptText: canOmitStableContext ? stableContextOmittedText("prompt", assets.stableContextLabel) : assets.promptText,
+    knowledgeText: canOmitStableContext ? stableContextOmittedText("knowledge", assets.stableContextLabel) : assets.knowledgeText,
+    stableContextKey: assets.stableContextKey,
+    stableContextLabel: assets.stableContextLabel,
+    stableContextOmitted: canOmitStableContext,
+    stableSourceContextKey: stableSource?.key,
+    stableSourceContextLabel: stableSource?.label,
+    stableSourceContextOmitted: canOmitStableSource,
+    providerSessionEnabled: useProviderSession,
+    previousProviderResponseId: stableSourceState?.providerResponseId ?? stableContextState?.providerResponseId,
+    sessionSummary: memory.summary(),
+    abortSignal: abortController.signal
   };
-
-  const provider = createConfiguredProvider(context);
 
   let result: OptiNlpProviderResult;
   const definition = modeDefinition(resolvedMode);
@@ -159,11 +251,17 @@ export async function runOptiNlpGeneration(
       {
         location: vscode.ProgressLocation.Notification,
         title: `OptiNLP: ${definition.label}`,
-        cancellable: false
+        cancellable: true
       },
-      () => generateOptiNlp(provider, request)
+      (_progress, token) => {
+        const progressCancellationSubscription = token.onCancellationRequested(() => abortController.abort());
+        return generateOptiNlp(provider, request).finally(() => progressCancellationSubscription.dispose());
+      }
     );
   } catch (error) {
+    if (abortController.signal.aborted || options.cancellationToken?.isCancellationRequested) {
+      return undefined;
+    }
     if (error instanceof OptiNlpProviderError) {
       if (options.throwProviderErrors) {
         throw error;
@@ -178,6 +276,8 @@ export async function runOptiNlpGeneration(
       return undefined;
     }
     throw error;
+  } finally {
+    cancellationSubscription?.dispose();
   }
 
   memory.recordGeneration(request, result);
@@ -191,6 +291,43 @@ export async function runOptiNlpGeneration(
     sourceLabel: sourceContext.label,
     result
   };
+}
+
+function stableSourceContext(filePath: string, sourceContext: SourceContext): { readonly key: string; readonly label: string } | undefined {
+  const isStablePayload = sourceContext.label === "full file" || sourceContext.label === "marked selection";
+  if (!isStablePayload || !STABLE_OPTINLP_FILE_PATTERN.test(filePath)) {
+    return undefined;
+  }
+  return {
+    key: stableSourceContextKey(filePath, sourceContext.text),
+    label: filePath
+  };
+}
+
+function stableSourceContextKey(filePath: string, sourceText: string): string {
+  return createHash("sha256")
+    .update("stable-source")
+    .update("\0")
+    .update(filePath)
+    .update("\0")
+    .update(sourceText)
+    .digest("hex");
+}
+
+function stableSourceOmittedText(label: string): string {
+  return [
+    "Stable OptiNLP source file was already provided earlier in this provider session.",
+    `File: ${label}.`,
+    "Continue using that prior source file content."
+  ].join("\n");
+}
+
+function stableContextOmittedText(kind: "prompt" | "knowledge", label: string): string {
+  return [
+    `Stable OptiNLP ${kind} files were already provided earlier in this provider session.`,
+    `Files: ${label}.`,
+    "Continue using that prior stable context. The current request still includes fresh source/context/user input."
+  ].join("\n");
 }
 
 async function getSourceContext(editor: vscode.TextEditor): Promise<SourceContext | undefined> {
@@ -211,8 +348,15 @@ async function getSourceContext(editor: vscode.TextEditor): Promise<SourceContex
 }
 
 function selectedSourceContextFromEditor(editor: vscode.TextEditor): SourceContext | undefined {
-  const selectedText = editor.document.getText(editor.selection);
-  return selectedText.trim().length > 0 ? { text: selectedText, label: "selection" } : undefined;
+  const selection = editor.selection;
+  const selectedText = editor.document.getText(selection);
+  if (selectedText.trim().length === 0) {
+    return undefined;
+  }
+  return {
+    text: markSelectedRangeInText(editor.document.getText(), editor.document.offsetAt(selection.start), editor.document.offsetAt(selection.end)),
+    label: "marked selection"
+  };
 }
 
 function fullFileSourceContextFromEditor(editor: vscode.TextEditor): SourceContext {
@@ -263,10 +407,8 @@ export async function applyDefaultEditorAction(outcome: OptiNlpGenerationOutcome
 }
 
 function createConfiguredProvider(context: vscode.ExtensionContext): ReturnType<typeof createOptiNlpProvider> {
-  const config = vscode.workspace.getConfiguration("optitrust");
-  const configuredProvider = config.get<string>("optinlpProvider", DEFAULT_OPTINLP_PROVIDER);
-  const provider = parseOptiNlpProviderId(configuredProvider) ?? DEFAULT_OPTINLP_PROVIDER;
-  const model = config.get<string>("optinlpModel", "").trim() || undefined;
+  const provider = configuredOptiNlpProvider();
+  const model = configuredOptiNlpModel() || undefined;
   return createOptiNlpProvider({
     provider,
     gemini: {
@@ -321,6 +463,31 @@ export async function insertTargetAtCursor(text: string, sourceEditor?: vscode.T
 
     edit.insert(selection.active, text);
   });
+}
+
+export async function insertTargetAtCursorInFile(text: string, filePath?: string): Promise<void> {
+  if (!filePath) {
+    await insertTargetAtCursor(text);
+    return;
+  }
+
+  const normalizedPath = path.resolve(filePath);
+  const visibleEditor = vscode.window.visibleTextEditors.find(editor =>
+    editor.document.uri.scheme === "file" && path.resolve(editor.document.uri.fsPath) === normalizedPath
+  );
+  if (visibleEditor) {
+    await vscode.window.showTextDocument(visibleEditor.document, visibleEditor.viewColumn, false);
+    await insertTargetAtCursor(text, visibleEditor);
+    return;
+  }
+
+  const document = await vscode.workspace.openTextDocument(normalizedPath);
+  const editor = await vscode.window.showTextDocument(document, {
+    preview: false,
+    preserveFocus: false,
+    viewColumn: vscode.ViewColumn.One
+  });
+  await insertTargetAtCursor(text, editor);
 }
 
 export async function openOcamlDocument(text: string): Promise<void> {

@@ -14,6 +14,16 @@ export interface OutputPair {
   readonly exp: string;
 }
 
+export const OPTITRUST_C_SOURCE_EXTENSIONS = [".cpp", ".cc", ".cxx", ".c"] as const;
+const OPTITRUST_PRIMARY_INPUT_EXTENSIONS = [...OPTITRUST_C_SOURCE_EXTENSIONS, ".opti"] as const;
+const C_SOURCE_EXTENSION_PRIORITY: ReadonlyMap<string, number> = new Map(OPTITRUST_C_SOURCE_EXTENSIONS.map((ext, index) => [ext, index]));
+const OUTPUT_EXTENSION_LABELS = new Map<string, string>([
+  [".cpp", "C++ output"],
+  [".cc", "C++ output"],
+  [".cxx", "C++ output"],
+  [".c", "C output"],
+  [".opti", "OptiLambda output"]
+]);
 const KIND_ORDER: AssociatedFile["kind"][] = ["script", "input", "generated", "expected", "diff", "trace", "other"];
 const OPTILAMBDA_REPRESENTATIONS = ["surface", "internal", "typed"] as const;
 
@@ -87,7 +97,7 @@ function classifyAssociatedFile(base: string, fileName: string): AssociatedFile[
   if (parsed.ext === ".ml" && parsed.name === base) {
     return "script";
   }
-  if ([".cpp", ".c", ".opti"].includes(parsed.ext) && parsed.name === base) {
+  if (isPrimaryInputExtension(parsed.ext) && parsed.name === base) {
     return "input";
   }
   if (parsed.ext === ".opti" && representation && semanticName === base) {
@@ -103,13 +113,21 @@ function classifyAssociatedFile(base: string, fileName: string): AssociatedFile[
   ) {
     return "trace";
   }
-  if (/_(out|before|after)$/u.test(semanticName) && [".cpp", ".c", ".opti"].includes(parsed.ext)) {
+  if (/_(out|before|after)$/u.test(semanticName) && isPrimaryInputExtension(parsed.ext)) {
     return "generated";
   }
-  if (/_exp$/u.test(semanticName) && [".cpp", ".c", ".opti"].includes(parsed.ext)) {
+  if (/_exp$/u.test(semanticName) && isPrimaryInputExtension(parsed.ext)) {
     return "expected";
   }
   return "other";
+}
+
+function isPrimaryInputExtension(ext: string): boolean {
+  return (OPTITRUST_PRIMARY_INPUT_EXTENSIONS as readonly string[]).includes(ext);
+}
+
+function isCSourceExtension(ext: string): boolean {
+  return (OPTITRUST_C_SOURCE_EXTENSIONS as readonly string[]).includes(ext);
 }
 
 function compareAssociatedFiles(a: AssociatedFile, b: AssociatedFile): number {
@@ -142,6 +160,20 @@ export async function findAssociatedFiles(filePath: string): Promise<AssociatedF
   return files.sort(compareAssociatedFiles);
 }
 
+export async function findAssociatedCSourceFile(filePath: string): Promise<AssociatedFile | undefined> {
+  const files = await findAssociatedFiles(filePath);
+  const sources = files.filter(file => file.kind === "input" && isCSourceExtension(path.extname(file.path)));
+  return sources.sort(compareCSourcePriority)[0];
+}
+
+function compareCSourcePriority(a: AssociatedFile, b: AssociatedFile): number {
+  return cSourcePriority(a) - cSourcePriority(b) || a.label.localeCompare(b.label);
+}
+
+function cSourcePriority(file: AssociatedFile): number {
+  return C_SOURCE_EXTENSION_PRIORITY.get(path.extname(file.path)) ?? Number.MAX_SAFE_INTEGER;
+}
+
 /**
  * Detect output/expected pairs generically. VS Code's native diff command can
  * then compare any supported output language without command-specific code.
@@ -149,15 +181,9 @@ export async function findAssociatedFiles(filePath: string): Promise<AssociatedF
 export async function outputPairs(filePath: string): Promise<OutputPair[]> {
   const { dir, base } = baseNameForAssociatedFiles(filePath);
   const pairs: OutputPair[] = [];
-  const labels = new Map([
-    [".cpp", "C/C++ output"],
-    [".c", "C output"],
-    [".opti", "OptiLambda output"]
-  ]);
-
-  for (const ext of [".cpp", ".c", ".opti"]) {
+  for (const [ext, label] of OUTPUT_EXTENSION_LABELS) {
     const pair = {
-      label: labels.get(ext) ?? `${ext.slice(1).toUpperCase()} output`,
+      label,
       out: path.join(dir, `${base}_out${ext}`),
       exp: path.join(dir, `${base}_exp${ext}`)
     };

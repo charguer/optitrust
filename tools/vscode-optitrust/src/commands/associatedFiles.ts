@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs/promises";
 import * as vscode from "vscode";
 import { getActiveEditorContext } from "../optitrust/editor";
-import { AssociatedFile, findAssociatedFiles, outputPairs, pickAssociatedFile } from "../optitrust/files";
+import { AssociatedFile, findAssociatedFiles, OPTITRUST_C_SOURCE_EXTENSIONS, outputPairs, pickAssociatedFile } from "../optitrust/files";
 import { openFileOrHtml } from "../optitrust/views";
 import { OptitrustWorkspace } from "../optitrust/workspace";
 
@@ -47,7 +47,7 @@ function isFrequentAssociatedFile(file: AssociatedFile): boolean {
   const name = stripOptilambdaRepresentationSuffix(parsed.name);
   return (
     parsed.ext === ".ml" ||
-    [".cpp", ".c"].includes(parsed.ext) ||
+    (OPTITRUST_C_SOURCE_EXTENSIONS as readonly string[]).includes(parsed.ext) ||
     /_(out|exp|after)$/u.test(name)
   );
 }
