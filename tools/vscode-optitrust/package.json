@@ -25,6 +25,7 @@
     "onCommand:optitrust.viewDiff",
     "onCommand:optitrust.viewDiffOnlyCode",
     "onCommand:optitrust.viewDiffInternalSyntax",
+    "onCommand:optitrust.switchDiffSyntax",
     "onCommand:optitrust.viewFullTrace",
     "onCommand:optitrust.viewTraceSaveStepsScript",
     "onCommand:optitrust.viewStepTrace",
@@ -76,6 +77,11 @@
       {
         "command": "optitrust.viewDiffInternalSyntax",
         "title": "OptiTrust: View Diff Using Internal Syntax"
+      },
+      {
+        "command": "optitrust.switchDiffSyntax",
+        "title": "OptiTrust: Switch Diff Syntax",
+        "icon": "$(replace)"
       },
       {
         "command": "optitrust.viewFullTrace",
@@ -262,6 +268,9 @@
         }
       }
     },
+    "configurationDefaults": {
+      "diffEditor.renderSideBySide": true
+    },
     "chatParticipants": [
       {
         "id": "optitrust.optinlp",
@@ -380,6 +389,11 @@
           "group": "navigation@50"
         },
         {
+          "command": "optitrust.switchDiffSyntax",
+          "when": "resourceScheme == optitrust-diff",
+          "group": "navigation@52"
+        },
+        {
           "command": "optitrust.optinlpChat",
           "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti",
           "group": "navigation@55"
@@ -429,6 +443,9 @@
         },
         {
           "command": "optitrust.viewDiffInternalSyntax"
+        },
+        {
+          "command": "optitrust.switchDiffSyntax"
         },
         {
           "command": "optitrust.viewFullTrace"

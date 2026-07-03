@@ -32,6 +32,7 @@ import {
   runViewTraceSaveStepsScript
 } from "./commands/viewCommands";
 import { disposeDecorations, updateDecorations } from "./optitrust/decorations";
+import { registerNativeDiffProvider, switchNativeDiffSyntax } from "./optitrust/nativeDiff";
 import { appendLine, disposeOutput } from "./optitrust/output";
 import { getSelectedViewMode, updateSelectedViewMode, VIEW_MODES } from "./optitrust/viewMode";
 import { findOptitrustRoot, OptitrustWorkspace } from "./optitrust/workspace";
@@ -84,6 +85,7 @@ function registerCommand(context: vscode.ExtensionContext, command: string, call
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   await refreshWorkspace(vscode.window.activeTextEditor?.document.uri.fsPath);
   optiNlpSession = new OptiNlpSessionMemory();
+  registerNativeDiffProvider(context);
   registerOptiNlpChatParticipant(context, requireWorkspace, optiNlpSession);
 
   registerCommand(context, "optitrust.hello", async () => {
@@ -137,6 +139,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       return;
     }
     await runViewDiffInternalSyntax(workspace);
+  });
+
+  registerCommand(context, "optitrust.switchDiffSyntax", async () => {
+    await switchNativeDiffSyntax();
   });
 
   registerCommand(context, "optitrust.redoLastViewCommand", async () => {

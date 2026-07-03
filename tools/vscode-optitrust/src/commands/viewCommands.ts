@@ -6,7 +6,8 @@ import { markExecutedLine } from "../optitrust/decorations";
 import { appendLine } from "../optitrust/output";
 import { runCommand } from "../optitrust/runner";
 import { validateTransformationScript } from "../optitrust/scripts";
-import { backendFlagsForViewMode, getSelectedViewMode, ViewModeDefinition } from "../optitrust/viewMode";
+import { backendFlagsForViewMode, getSelectedViewMode, VIEW_MODES, ViewModeDefinition } from "../optitrust/viewMode";
+import { openNativeStepDiff } from "../optitrust/nativeDiff";
 import { openHtmlView } from "../optitrust/views";
 import { OptitrustWorkspace } from "../optitrust/workspace";
 
@@ -66,7 +67,9 @@ export async function runViewCommand(workspace: OptitrustWorkspace, mode: ViewMo
   markExecutedLine(context.editor, context.line);
 
   const selectedViewMode = getSelectedViewMode();
-  const extraArgs = viewArgs(spec.mode, selectedViewMode, option);
+  const initialDiffViewMode = option === undefined ? DEFAULT_STEP_DIFF_VIEW_MODE : selectedViewMode;
+  const commandViewMode = mode === "step_diff" ? initialDiffViewMode : selectedViewMode;
+  const extraArgs = viewArgs(spec.mode, commandViewMode, option);
   const args = [spec.scriptMode, context.relativePath, String(context.line), ...extraArgs];
 
   try {
@@ -80,6 +83,21 @@ export async function runViewCommand(workspace: OptitrustWorkspace, mode: ViewMo
       }
     });
   } catch {
+    return;
+  }
+
+  if (mode === "step_diff") {
+    await openNativeStepDiff(
+      {
+        root: workspace.root,
+        scriptRelativePath: context.relativePath,
+        line: context.line,
+        fileDir: context.fileDir,
+        fileBase: context.fileBase
+      },
+      commandViewMode,
+      { markGenerated: true }
+    );
     return;
   }
 
