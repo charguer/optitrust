@@ -46,6 +46,8 @@ const VIEW_COMMANDS: Record<ViewMode, ViewCommandSpec> = {
   }
 };
 
+const DEFAULT_STEP_DIFF_VIEW_MODE = VIEW_MODES.find(mode => mode.id === "optilambda.surface") ?? VIEW_MODES[1];
+
 async function exists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath);

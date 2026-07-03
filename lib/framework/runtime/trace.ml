@@ -1816,19 +1816,24 @@ let produce_diff_output_internal (step:step_tree) : unit =
     output_prog style ctx filename_prefix ast;
     Flags.verbose_info "Generated: %s" (output_filename style ctx filename_prefix);
     in
-  let output_optilambda_pair suffix representation =
-    let style = optilambda_style representation in
-    output_ast style (prefix ^ "_before" ^ suffix) ast_before;
-    output_ast style (prefix ^ "_after" ^ suffix) ast_after;
+  let diff_filename_prefix style side =
+    let suffix =
+      match style.Style.print with
+      | Lang_OptiLambda optilambda_style ->
+        begin match optilambda_style.representation with
+        | Optitrust_optilambda.Optilambda.Style.Surface -> ""
+        | Optitrust_optilambda.Optilambda.Style.Internal -> "_internal"
+        | Optitrust_optilambda.Optilambda.Style.FullyTypedInternal -> "_typed"
+        end
+      | Lang_AST _
+      | Lang_C _ -> ""
+      in
+    prefix ^ "_" ^ side ^ suffix
     in
   (* Generate files. *)
-  output_ast style_before (prefix ^ "_before") ast_before;
-  output_ast style_after (prefix ^ "_after") ast_after;
-  output_optilambda_pair "" Optitrust_optilambda.Optilambda.Style.Surface;
-  List.iter
-    (fun (suffix, representation) -> output_optilambda_pair ("_" ^ suffix) representation)
-    optilambda_representations;
-  Flags.verbose_info "Writing ast and code into %s.js" prefix
+  output_ast style_before (diff_filename_prefix style_before "before") ast_before;
+  output_ast style_after (diff_filename_prefix style_after "after") ast_after;
+  Flags.verbose_info "Generated diff files for %s" prefix
 
 (** [produce_trace_output step] is an auxiliary function for [produce_output_and_exit] *)
 let produce_trace_output (step:step_tree) : unit =
