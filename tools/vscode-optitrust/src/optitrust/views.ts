@@ -14,13 +14,29 @@ function webviewKey(filePath: string, viewKind: string, metadata: string): strin
  * webviews run with a stricter resource model, so local assets must be inlined
  * or rewritten before the HTML can be displayed reliably inside the editor.
  */
-async function htmlWithBase(webview: vscode.Webview, htmlFile: string): Promise<string> {
+async function htmlWithBase(webview: vscode.Webview, root: string, htmlFile: string): Promise<string> {
   const html = await fs.readFile(htmlFile, "utf8");
   const htmlDir = path.dirname(htmlFile);
   const inlined = await inlineLocalScriptsAndStyles(htmlDir, html);
   const rewritten = rewriteLocalResourceUris(webview, htmlDir, inlined);
-  const withHighlightingConfig = await injectSyntaxHighlightingConfig(rewritten);
+  const withTraceServerBase = injectTraceServerBase(root, htmlFile, rewritten);
+  const withHighlightingConfig = await injectSyntaxHighlightingConfig(withTraceServerBase);
   return injectDiffFallback(injectDiffWebviewStyle(withHighlightingConfig));
+}
+
+function injectTraceServerBase(root: string, htmlFile: string, html: string): string {
+  if (!html.includes("serialized_trace") || html.includes('id="optitrustTraceServerBaseUrl"')) {
+    return html;
+  }
+
+  const relativeDir = path.dirname(path.relative(root, htmlFile));
+  const urlPath = relativeDir === "." ? "" : `${relativeDir.split(path.sep).map(encodeURIComponent).join("/")}/`;
+  const baseUrl = `http://localhost:6775/${urlPath}`;
+  const script = `<script id="optitrustTraceServerBaseUrl">window.optitrustTraceServerBaseUrl = ${JSON.stringify(baseUrl)};</script>`;
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${script}\n</head>`);
+  }
+  return `${script}\n${html}`;
 }
 
 /**
@@ -349,8 +365,8 @@ export async function openHtmlView(root: string, htmlFile: string, viewKind: str
   const key = webviewKey(htmlFile, viewKind, metadata);
   const existing = panels.get(key);
   if (existing) {
-    existing.reveal(vscode.ViewColumn.Beside);
-    existing.webview.html = await htmlWithBase(existing.webview, htmlFile);
+    existing.reveal(existing.viewColumn, true);
+    existing.webview.html = await htmlWithBase(existing.webview, root, htmlFile);
     return;
   }
 
@@ -360,7 +376,7 @@ export async function openHtmlView(root: string, htmlFile: string, viewKind: str
   });
 
   panel.onDidDispose(() => panels.delete(key));
-  panel.webview.html = await htmlWithBase(panel.webview, htmlFile);
+  panel.webview.html = await htmlWithBase(panel.webview, root, htmlFile);
   panels.set(key, panel);
 }
 
