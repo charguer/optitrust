@@ -16,10 +16,10 @@ type ViewOption = "diff-only-code" | "diff-internal-syntax" | "trace-save-steps-
 
 interface ViewCommandSpec {
   readonly mode: ViewMode;
-  readonly scriptMode: "step_diff" | "full_trace" | "step_trace" | "standalone_full_trace";
+  readonly scriptMode: "step_diff" | "full_trace" | "step_trace";
   readonly title: string;
   readonly viewKind: "diff" | "trace" | "step-trace";
-  readonly htmlSuffix: "_diff.html" | "_trace.html" | "_standalone_trace.html";
+  readonly htmlSuffix: "_diff.html" | "_trace.html";
 }
 
 const VIEW_COMMANDS: Record<ViewMode, ViewCommandSpec> = {
@@ -32,10 +32,10 @@ const VIEW_COMMANDS: Record<ViewMode, ViewCommandSpec> = {
   },
   full_trace: {
     mode: "full_trace",
-    scriptMode: "standalone_full_trace",
+    scriptMode: "full_trace",
     title: "OptiTrust: View Full Trace",
     viewKind: "trace",
-    htmlSuffix: "_standalone_trace.html"
+    htmlSuffix: "_trace.html"
   },
   step_trace: {
     mode: "step_trace",
@@ -123,11 +123,9 @@ function viewArgs(mode: ViewMode, selectedViewMode: ViewModeDefinition, option?:
     return ["-save-steps", "script"];
   }
 
-  // Full standalone traces and step diffs generate both C/C++ and OptiLambda
-  // payloads when supported, then switch syntax inside the webview. Passing the
-  // global syntax flag here would collapse that dual-view behavior into a single
-  // backend output.
-  if (mode === "full_trace" || mode === "step_diff") {
+  // Full traces use serialized, server-backed data for in-window switching.
+  // Step diffs are generated lazily by the native VS Code diff integration.
+  if (mode === "full_trace") {
     return [];
   }
   return backendFlagsForViewMode(selectedViewMode);
