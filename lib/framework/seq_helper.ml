@@ -5,7 +5,7 @@ include Trm
 include Typ
 include Contextualized_error
 include Mark
-include Target
+(* include Target *)
 include Trm_pattern
 
 module Trm = struct

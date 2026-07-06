@@ -56,9 +56,10 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
       | Dir_before _, _ ->
         (* trm_fail t *)
         path_fail dl "apply_on_path: Dir_before should not remain at this stage; probably the transformation was not expecting a target-between (tBefore, tAfter, ...)"
-      | Dir_span _, _ ->
-        (* trm_fail t *)
-        path_fail dl "apply_on_path: Dir_span should not remain at this stage; probably the transformation was not expecting a target-span (tSpan)"
+      | Dir_span span, Trm_seq _ ->
+        Seq_helper.update_span_helper span t (fun tl -> [Trm (aux (trm_seq tl))])
+        (* (* trm_fail t *)
+        path_fail dl "apply_on_path: Dir_span should not remain at this stage; probably the transformation was not expecting a target-span (tSpan)" *)
       | Dir_seq_nth n, Trm_seq (tl, result) ->
         { t with desc = Trm_seq (Mlist.update_nth n aux tl, result) }
       | Dir_cond, Trm_if (cond, then_t, else_t) ->
@@ -241,7 +242,13 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
       let loc = t.loc in
       begin match d, t.desc with
       | Dir_before _, _ -> trm_fail t "aux_on_path_rec: Dir_before should not remain at this stage"
-      | Dir_span _, _ -> trm_fail t "aux_on_path_rec: Dir_span should not remain at this stage"
+      | Dir_span {start; stop}, Trm_seq (instrs, result) ->
+        if start >= stop then aux t else begin
+          let (span_instrs, _instrs_after) = Mlist.split ~left_bias:false stop instrs in
+          let (_instrs_before, span_instrs) = Mlist.split ~left_bias:true start span_instrs in
+          let t_seq = trm_seq ?result span_instrs in
+          aux t_seq
+        end
       | Dir_seq_nth n, Trm_seq (tl, result) ->
         let tl = Mlist.to_list tl in
         (* DEPRECATED:
