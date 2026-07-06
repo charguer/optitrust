@@ -75,10 +75,12 @@ let flatten_thread_loops (ctx_size: var) (tid: var) (t: trm): trm =
 let is_gpu_get_operation (v: var): bool =
   (var_has_name var__gmem_get.name v)
   || (var_has_name var__smem_get.name v)
+  || (var_has_name var__treg_get.name v)
 
 let is_gpu_set_operation (v: var): bool =
   (var_has_name var__gmem_set.name v)
   || (var_has_name var__smem_set.name v)
+  || (var_has_name var__treg_set.name v)
 
 let is_any_mem_operation (p: prim): bool =
   match p with
@@ -135,6 +137,8 @@ let lower_smem_alloc (t: trm): trm option =
       (trm_let (v, typ_ptr typ) (trm_cast (typ_ptr typ) smem_ptr_call))
     )
   ]
+
+(* TODO: lower __treg_ref_uninitN __treg_ref_uninitN_s *)
 
 let lower_host_fn (bound_vars_typs: typ varmap ref) (k_id: int ref) (t: trm): trm =
   let rec scan_bound_vars t = (

@@ -8,7 +8,7 @@ let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Steps_important (* Flags.Steps_script *)
 
 (* let _ = Flags.report_exectime := true *)
-let stage_ok = fun i -> i >= 7
+let stage_ok = fun i -> i = 7
 
 let bm = 32
 let bn  = 32
