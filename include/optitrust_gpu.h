@@ -126,6 +126,17 @@ __GHOST(kernel_teardown_sync) {
   __admitted();
 }
 
+__DECL(treg_sync_mem, "MemType -> Prop");
+__AXIOM(treg_treg_sync_mem, "treg_sync_mem(TReg)");
+
+__GHOST(treg_sync) {
+  __requires("t: int, H: HProp");
+  __reads("ThreadsCtx(t ..+ MSIZE0())");
+  __consumes("H");
+  __produces("Sync(treg_sync_mem, H)");
+  __admitted();
+}
+
 /* --- Memory management ---- */
 
 // To appease C++ typechecker
@@ -242,7 +253,7 @@ template <typename T> T* __smem_malloc1(int N1) {
   // LATER: matrix sugar for this
   __produces("desync_for i in ..bpg -> for j1 in 0..N1 -> &_Res[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem)");
   // expect a permission of groups, not desyncgroups. Should sync (end kernel) first before freeing.
-  __produces("Free(_Res, for i in 0..bpg -> for j1 in 0..N1 -> &_Res[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem))");
+  __produces("Free(_Res, desync_for i in ..bpg -> for j1 in 0..N1 -> &_Res[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem))");
   __consumes("SMemToken(sizeof(T)*N1)");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
@@ -255,7 +266,7 @@ template <typename T> T* __smem_malloc2(int N1, int N2) {
   __preserves("KernelSetupCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
   __produces("desync_for i in ..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &_Res[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem)");
-  __produces("Free(_Res, for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &_Res[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem))");
+  __produces("Free(_Res, desync_for i in ..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &_Res[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem))");
   __consumes("SMemToken(sizeof(T)*(N1*N2))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
@@ -268,7 +279,7 @@ template <typename T> T* __smem_malloc3(int N1, int N2, int N3) {
   __preserves("KernelSetupCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
   __produces("desync_for i in ..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> for j3 in 0..N3 -> &_Res[MINDEX4(bpg, N1, N2, N3, DMINDEX1(bpg, i), j1, j2, j3)] ~> UninitCellOf(SMem)");
-  __produces("Free(_Res, for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> for j3 in 0..N3 -> &_Res[MINDEX4(bpg, N1, N2, N3, DMINDEX1(bpg, i), j1, j2, j3)] ~> UninitCellOf(SMem))");
+  __produces("Free(_Res, desync_for i in ..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> for j3 in 0..N3 -> &_Res[MINDEX4(bpg, N1, N2, N3, DMINDEX1(bpg, i), j1, j2, j3)] ~> UninitCellOf(SMem))");
   __consumes("SMemToken(sizeof(T)*(N1*N2*N3))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   __admitted();
@@ -282,8 +293,8 @@ template <typename T> void __smem_free1(T* p, int N1) {
   __requires("tpb: int, bpg: int, smem_sz: int");
   __preserves("KernelTeardownCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
-  __consumes("for i in 0..bpg -> for j1 in 0..N1 -> &p[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem)");
-  __consumes("Free(p, for i in 0..bpg -> for j1 in 0..N1 -> &p[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem))");
+  __consumes("desync_for i in ..bpg -> for j1 in 0..N1 -> &p[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem)");
+  __consumes("Free(p, desync_for i in ..bpg -> for j1 in 0..N1 -> &p[MINDEX2(bpg, N1, DMINDEX1(bpg, i), j1)] ~> UninitCellOf(SMem))");
   __produces("SMemToken(sizeof(T)*N1)");
   __ensures("__spec_override_noret()");
   __admitted();
@@ -293,8 +304,8 @@ template <typename T> void __smem_free2(T* p, int N1, int N2) {
   __requires("tpb: int, bpg: int, smem_sz: int");
   __preserves("KernelTeardownCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
-  __consumes("for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &p[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem)");
-  __consumes("Free(p, for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &p[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem))");
+  __consumes("desync_for i in ..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &p[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem)");
+  __consumes("Free(p, desync_for i in ..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> &p[MINDEX3(bpg, N1, N2, DMINDEX1(bpg, i), j1, j2)] ~> UninitCellOf(SMem))");
   __produces("SMemToken(sizeof(T)*(N1*N2))");
   __ensures("__spec_override_noret()");
   __admitted();
@@ -304,8 +315,8 @@ template <typename T> void __smem_free3(T* p, int N1, int N2, int N3) {
   __requires("tpb: int, bpg: int, smem_sz: int");
   __preserves("KernelTeardownCtx");
   __reads("KernelParams(bpg,tpb,smem_sz)");
-  __consumes("for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> for j3 in 0..N3 -> &p[MINDEX4(bpg, N1, N2, N3, DMINDEX1(bpg, i), j1, j2, j3)] ~> UninitCellOf(SMem)");
-  __consumes("Free(p, for i in 0..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> for j3 in 0..N3 -> &p[MINDEX4(bpg, N1, N2, N3, DMINDEX1(bpg, i), j1, j2, j3)] ~> UninitCellOf(SMem))");
+  __consumes("desync_for i in ..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> for j3 in 0..N3 -> &p[MINDEX4(bpg, N1, N2, N3, DMINDEX1(bpg, i), j1, j2, j3)] ~> UninitCellOf(SMem)");
+  __consumes("Free(p, desync_for i in ..bpg -> for j1 in 0..N1 -> for j2 in 0..N2 -> for j3 in 0..N3 -> &p[MINDEX4(bpg, N1, N2, N3, DMINDEX1(bpg, i), j1, j2, j3)] ~> UninitCellOf(SMem))");
   __produces("SMemToken(sizeof(T)*(N1*N2*N3))");
   __ensures("__spec_override_noret()");
   __admitted();
@@ -329,6 +340,7 @@ template <typename T> T* __treg_ref_s(T v) {
   __requires("t: int");
   __preserves("ThreadsCtx(t..+MSIZE0())");
   __produces("_Res ~~>[TReg] v");
+  __produces("AutoFree(_Res, _Res ~> UninitCellOf(TReg))");
   __ensures("__spec_override_ret_implicit(ptr(T))");
   // admitted for now because proper autofree/typechecking for TReg is not implemented
   __admitted();

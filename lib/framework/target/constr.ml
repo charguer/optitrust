@@ -461,7 +461,7 @@ let target_to_target_struct ?(default_occ = ExpectNb 1) (tr : target) : target_s
     in
   List.iter process_constr tr;
   let tgs = {
-    target_path = List.filter (function | Constr_relative _ | Constr_occurrences _ -> false | _ -> true) tr;
+    target_path = List.filter (function | Constr_relative _ | Constr_occurrences _ | Constr_incontracts -> false | _ -> true) tr;
     target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
     target_occurrences = begin match !occurences with | None -> default_occ | Some oc -> oc end;
     target_incontracts = !incontracts;
@@ -737,7 +737,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
     check_target p_cond cond &&
     check_target p_step step &&
     check_target p_body body
-  | Constr_for (p_index, p_mode, p_start, p_direction, p_stop, p_step, p_body), Trm_for(range, mode, body, _) ->
+  | Constr_for (p_index, p_mode, p_start, p_direction, p_stop, p_step, p_body), Trm_for(range, mode, body, contract) ->
     let direction_match = match p_direction with
     | None -> true
     | Some d -> d = range.direction in
@@ -792,7 +792,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
     check_name name x.name
   | Constr_lit pred_l, Trm_lit l ->
     pred_l l
-  | Constr_fun (cl_args, ty_pred, p_body), Trm_fun (args, tx, body, _) ->
+  | Constr_fun (cl_args, ty_pred, p_body), Trm_fun (args, tx, body, contract) ->
     ty_pred tx &&
     check_args cl_args args &&
     check_target p_body body

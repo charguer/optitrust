@@ -224,6 +224,22 @@ let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
      ) seq
   ) alloc_tg
 
+(** [to_desync_for] weakens a group into a desync group. *)
+let to_desync_for (tg: target): unit =
+  let open Resource_formula in
+  Target.iter (fun p ->
+    Target.apply_at_path (fun t ->
+      Pattern.pattern_match t [
+        Pattern.(formula_group !__ (formula_range __ !__ __) !__) (fun ind stop body () ->
+          formula_desyncgroup ind stop body
+        );
+        Pattern.(formula_desyncgroup __ __ __) (fun () ->
+          t (* no-op *)
+        );
+      ]
+    ) p
+  ) tg
+
 (** [fix_distrib_accesses] fixes distributed dimensions: e.g. if a 4D buffer declared at the kernel level is
   converted to shared memory, and there are 2 dimensions of blocks, then there are now 2 distributed dimensions.
   This function would convert all instances of MINDEX4(...) on that variable to MINDEX3(DMINDEX2(...), ...). *)
@@ -256,14 +272,15 @@ let fix_distrib_accesses ~(aliases: Var_set.t ref) (chop_dims: int) (body_span_t
           end in
           trm_map (aux threadfor_depth) t
         );
-        (* LATER: better heuristics to convert the desyncgroups if ghosts are being used on these dimensions *)
         Pattern.(formula_group !__ !(formula_range __ !__ __) !__) (fun ind range stop body () ->
           Pattern.when_ (is_free_var_in_trm var t);
           let body = aux (threadfor_depth + 1) body in
-          if (chop_dims - threadfor_depth <= 0) then
-            formula_group ind range body
-          else
+          (* LATER: better heuristics to convert the desyncgroups if ghosts are being used on these dimensions *)
+          let probably_distributed = chop_dims - threadfor_depth > 0 in
+          if probably_distributed then
             formula_desyncgroup ind stop body
+          else
+            formula_group ind range body
         );
         Pattern.(formula_desyncgroup !__ !__ !__) (fun ind stop body () ->
           formula_desyncgroup ind stop (aux (threadfor_depth + 1) body)
@@ -287,15 +304,23 @@ let desync_alloc_ghosts (inverse: bool) (distrib_dims: trm list) (real_dims: trm
       Matrix_trm.access (trm_var matrix) (distrib_dim :: real_dims) (distrib_ind :: (List.map trm_var real_inds))
     ) in
     List.fold_right2 (fun idx dim formula ->
-    trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula])
+      (* NOTE: #group-free
+        would be weaker so may be easier to produce,
+        but should always be able to strengthen before deallocation (only for non-distributed / "real" indices).
+        For distributed indices, we don't want to force a sync.
+      if inverse
+      then formula_desyncgroup idx dim formula
+      else *)
+      trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula]
+    )
     real_inds real_dims inside_formula in
 
   let wrap_desyncgroups distrib_inds distrib_dims inside_formula =
     List.fold_right2 (fun idx dim formula ->
-    if (inverse) then
-      (* when free-ing, we expect things to already be synchronized (groups) *)
+    (* NOTE: #group-free
+    if inverse then
       trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula]
-    else
+    else *)
       trm_apps ~annot:formula_annot trm_desyncgroup [dim; formula_fun [idx, typ_int] formula])
     distrib_inds distrib_dims inside_formula in
 
@@ -323,7 +348,10 @@ let desync_alloc_ghosts (inverse: bool) (distrib_dims: trm list) (real_dims: trm
       formula)) in
     assume_msize_mult, msize_to_from_mult in
 
-  let desync_tile_ghost_f = if inverse then ghost_untile_divides_trivial else ghost_desync_tile_divides_trivial in
+  let desync_tile_ghost_f = if inverse
+    (* NOTE: #group-free *)
+    then ghost_desync_untile_divides_trivial
+    else ghost_desync_tile_divides_trivial in
   let dmindex_tile_ghost_f = if inverse then ghost_dmindex_tile else ghost_dmindex_untile in
   let rec make_ghosts ghosts seen_dims remain_dims =
     let ghosts = match remain_dims with
@@ -519,13 +547,13 @@ let is_smem_or_gmem (f: formula): bool =
   | _ -> false
 
 (* LATER: generic transfos for barrier conversion (take the barrier desired as argument )*)
-let%transfo magic_barrier_to_blocksync (kernel_body: target) (tg: target): unit =
+let%transfo magic_barrier_to_blocksync ?(mark : mark = no_mark) (kernel_body: target) (tg: target): unit =
   (* note: blocksync() breaks the strict loop contracts, because it wants a fraction of the KernelParams. Thus,
     we remove the strict annotations in the entire kernel body. *)
   Resources.with_non_strict_loop_contracts ([nbAny] @ kernel_body @ [cFor ""]) (fun () ->
     Target.iter (fun p ->
       Resources.ensure_computed_at p;
-      Target.apply_at_path (Gpu_trm.magic_barrier_to_seq block_sync is_smem_or_gmem) p) tg
+      Target.apply_at_path (fun t -> trm_add_mark mark (Gpu_trm.magic_barrier_to_seq block_sync is_smem_or_gmem t)) p) tg
   )
 
 let%transfo magic_barrier_to_teardown_sync (tg: target): unit =

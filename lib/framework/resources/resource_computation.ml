@@ -467,11 +467,15 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   (* DesyncGroup coercion *)
   (* TODO: does this need to change the formula instantiation? "Formula_inst.inst_forget_group?"
     how would it combine with Uninit? *)
-  let desyncgroup_coerce formula_candidate =
-    Pattern.pattern_match formula_candidate [
-      Pattern.(formula_group !__ (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) !__)
-      (fun idx dim inner_formula () ->
-        formula_desyncgroup idx dim inner_formula
+  let rec may_coerce_desyncgroup formula_candidate formula =
+    Pattern.pattern_match (formula, formula_candidate) [
+      Pattern.((formula_desyncgroup __ __ !__) ^* (formula_group !__ (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) !__))
+      (fun inner_formula idx dim inner_formula_candidate () ->
+        formula_desyncgroup idx dim (may_coerce_desyncgroup inner_formula_candidate inner_formula)
+      );
+      Pattern.((formula_desyncgroup __ __ !__) ^* (formula_desyncgroup !__ !__ !__))
+      (fun inner_formula idx dim inner_formula_candidate () ->
+        formula_desyncgroup idx dim (may_coerce_desyncgroup inner_formula_candidate inner_formula)
       );
       Pattern.__ (fun () -> formula_candidate)
     ] in
@@ -501,14 +505,12 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
     (* Used by {!subtract_linear_resource_item} in the case where [formula] is not a read-only resource. *)
     (* LATER: Improve the structure of the linear_resource_set to make this
       function faster on most frequent cases *)
-    let is_desyncgroup = Option.is_some (formula_desyncgroup_inv formula) in
     extract (fun (candidate_name, formula_candidate) ->
 (*      (try
         Printf.printf "ref: (%s) %s\ncandidate: (%s) %s \n\n" (if uninit then "UNINIT" else "INIT") (Ast_to_c.ast_to_string formula) (if (is_formula_uninit formula_candidate) then "UNINIT" else "INIT") (Ast_to_c.ast_to_string formula_candidate)
       with CannotTransformIntoUninit _ -> ());*)
       try
-
-        let formula_candidate = if is_desyncgroup then (desyncgroup_coerce formula_candidate) else formula_candidate in
+        let formula_candidate = may_coerce_desyncgroup formula_candidate formula in
         let inst_by, formula_to_unify =
           (* Check for possible Uninit coercion if formula_candidate is not already uninit *)
           if uninit && not (is_formula_uninit formula_candidate) then (
@@ -1261,6 +1263,12 @@ let sync_simplification ?(magic = false) (res: resource_set): resource_set =
     Pattern.(formula_desyncgroup !__ !__ !__) (fun idx bound sub () ->
       formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (simplify mem_fn sub));
     Pattern.(formula_points_to !__ !__ !__) (fun var model mem_typ () ->
+      if magic then t else
+      match (find_mem_fn_proof mem_fn mem_typ) with
+      | Some _ -> t
+      | None -> formula_sync mem_fn t
+      );
+    Pattern.(formula_uninit_cell !__ !__) (fun var mem_typ () ->
       if magic then t else
       match (find_mem_fn_proof mem_fn mem_typ) with
       | Some _ -> t

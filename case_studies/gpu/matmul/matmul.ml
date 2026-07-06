@@ -5,10 +5,10 @@ let _ = Flags.check_validity := true (* FIXME: this flag behaviour needs to be c
 let _ = Flags.pretty_matrix_notation := false
 let _ = Flags.recompute_resources_between_steps := false
 let _ = Flags.disable_stringreprs := true
-let _ = Flags.save_ast_for_steps := Some Flags.Steps_script
+let _ = Flags.save_ast_for_steps := Some Steps_important (* Flags.Steps_script *)
 
 (* let _ = Flags.report_exectime := true *)
-let stage_ok = fun i -> i = 6
+let stage_ok = fun i -> i >= 7
 
 let bm = 32
 let bn  = 32
@@ -70,6 +70,33 @@ let _ =  Run.script_cpp_stage stage_ok (fun () ->
   *)
 )
 
+let _ =  Run.script_cpp_stage stage_ok (fun () ->
+  (* move some annoying ghosts away for later transformations *)
+
+  (* TODO:
+    - enable hoist span and add unit test for it
+    - infer ~down:true from destination
+    - see if two-step hoists can be merged into a single one
+  *)
+  !! Sequence.intro ~mark:"s1"
+    ~start:[tFirst; occFirst; cForBody ~body:[cWrite ~lhs:[cVar "sum"] ()] "ti"]
+    ~stop:[tBefore; occFirst; cFor ~body:[cWrite ~lhs:[cVar "sum"] ()] "tj"] ();
+  !! Sequence.intro ~mark:"s2"
+    ~start:[tAfter; cFor ~body:[cWrite ~lhs:[cVar "c_gmem"] ()] "tj"]
+    ~stop:[tLast; cForBody ~body:[cWrite ~lhs:[cVar "c_gmem"] ()] "ti"] ();
+  !! Loop.hoist_instr ~dest:[tBefore; cFor ~body:[cWrite ~lhs:[cVar "c_gmem"] ()] "bj"] [cMark "s1"];
+  !! Loop.hoist_instr ~down:true ~dest:[tAfter; cFor ~body:[cWrite ~lhs:[cVar "c_gmem"] ()] "bj"] [cMark "s2"];
+
+  !! Sequence.intro ~mark:"s3"
+    ~start:[occFirst; cForBody ~body:[cWrite ~lhs:[cVar "sum"] ()] "bi"; dBefore 1]
+    ~stop:[tBefore; occFirst; cFor ~body:[cWrite ~lhs:[cVar "sum"] ()] "bj"] ();
+  !! Sequence.intro ~mark:"s4"
+    ~start:[tAfter; cFor ~body:[cWrite ~lhs:[cVar "c_gmem"] ()] "bj"]
+    ~stop:[tLast; cForBody ~body:[cWrite ~lhs:[cVar "c_gmem"] ()] "bi"] ();
+  !! Loop.hoist_instr ~dest:[tBefore; cFor ~body:[cWrite ~lhs:[cVar "c_gmem"] ()] "bi"] [cMark "s3"];
+  !! Loop.hoist_instr ~down:true ~dest:[tAfter; cFor ~body:[cWrite ~lhs:[cVar "c_gmem"] ()] "bi"] [cMark "s4"];
+)
+
 let _ = Flags.check_validity := false
 
 let _ = Run.script_cpp_stage stage_ok (fun () ->
@@ -93,7 +120,7 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
 
   (* Wrap kernel body in launch and kill calls *)
   !! Gpu.create_kernel_launch bpg tpb smem_szs
-    ~setup_end:[tBefore; cFor "bi"] ~teardown_begin:[tAfter; cFor "bi"]
+    ~setup_end:[tBefore; cFor ~body:[cWrite ~lhs:[cVar "sum"] ()] "bi"] ~teardown_begin:[tAfter; cFor ~body:[cWrite ~lhs:[cVar "sum"] ()] "bi"]
     [tBefore; cVarDef "a_smem"] [tAfter; cPrimCall Prim_delete ~args:[[cVar "a_smem"]]];
 
   !! Gpu.convert_tail_thread_for [1] [occFirst; cFor "ti"; cFor ~body:[cWrite ~lhs:[cVar "sum"] ()] "tj"];
@@ -104,7 +131,7 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
 let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Gpu.convert_tail_thread_for [1] [cFor "ti"; cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "tj"]; (* occLast; cWrite *)
   !! Gpu.convert_tail_thread_for [1] [cFor "ti"; cFor ~body:[cWrite ~lhs:[cVar "c_gmem"] ()] "tj"];
-  !! Gpu.convert_tail_thread_for [1] [cFor "bi"; cFor "bj"];
+  !! Gpu.convert_tail_thread_for [1] [cFor "bi"; cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "bj"];
 )
 
 let _ = Run.script_cpp_stage stage_ok (fun () ->
@@ -128,7 +155,7 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
       (Matrix_trm.msize [(trm_int 4); (trm_int 8)])
       (Matrix_trm.msize [(trm_exact_div_int (trm_int 32) (trm_int 8));
         (trm_exact_div_int (trm_int 32) (trm_int 4))])
-      [tLast; cForBody "bj"];
+      [tLast; cForBody ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "bj"];
   ) [nbAny; cFunBody "mm"; cFor ""];
 
   !! Gpu.convert_to_global_mem [nbMulti; cVarDefs ["a_gmem"; "b_gmem"; "c_gmem"]];
@@ -136,16 +163,42 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Gpu.convert_to_register_mem ~chop_dims:2 [cVarDef "sum"];
   !! Gpu.convert_to_register_mem ~chop_dims:0 [nbMulti; cVarDefs ["a_regs"; "b_regs"]];
 
+  (* NOTE: 3/5 first groups of c_gmem don't need to be sync during core computation : bj ti tj *)
+  !! Gpu.to_desync_for [nbMulti; cFor ~body:[cVarDef "sum"] "bi"; cCall ~args:[[cTrue]; [cFun ~body:[cFun ~body:[cFun ~body:[cVar "c_gmem"] ()] ()] ()]] "Group"];
+(* )
+
+WEIRD print/parse bug here
+
+Fatal error: exception Failure("File /home/thomas/code/optitrust/case_studies/gpu/matmul/matmul_stg6.cpp, line 264, columns 161-195: Arithmetic operand has a non standard type (Trm_var(float))")
+
+let _ = Run.script_cpp_stage stage_ok (fun () ->
+*)
   let kernel_mark = "kernel_body" in
   !! Marks.add_fake_instr kernel_mark [tAfter; cCall "kernel_launch"];
 
   !! Instr.delete [occFirst; cCall "magic_barrier"];
   !! Instr.delete [occFirst; cCall "magic_barrier"];
-  (* FIXME: !! Instr.delete [occIndex 1; cCall "magic_barrier"]; *)
-  !! Gpu.magic_barrier_to_blocksync [cMark kernel_mark] [nbMulti; cFor "bkIdx"; cCall "magic_barrier"];
-  (* TODO: barrier option 2
-   !! Gpu.insert_barrier [tFirst; cForBody "bkIdx"]; *)
 
-  !! Instr.move ~dest:[tAfter; cCall "kernel_teardown_begin"] [cCall "magic_barrier"];
+  !! Gpu.magic_barrier_to_blocksync ~mark:"sync1" [cMark kernel_mark] [occFirst; cFor "bkIdx"; cCall "magic_barrier"];
+  !! Gpu.insert_threadsctx_rewrite
+    (Matrix_trm.msize [(trm_int 8); (trm_int 4)])
+    (Matrix_trm.msize [(trm_exact_div_int (trm_int 32) (trm_int 8));
+      (trm_exact_div_int (trm_int 32) (trm_int 4))])
+    [tBefore; cMark "sync1"];
+  !! Gpu.insert_threadsctx_rewrite
+    (Matrix_trm.msize [(trm_exact_div_int (trm_int 32) (trm_int 8));
+      (trm_exact_div_int (trm_int 32) (trm_int 4))])
+    (Matrix_trm.msize [(trm_int 8); (trm_int 4)])
+    [tAfter; cMark "sync1"];
+
+  !! Instr.delete [occFirst; cFor "bkIdx"; cCall "magic_barrier"];
+  (* FIXME: shouldn't be possible to delete barrier above, should be blocksync as well, nbMulti *)
+  (* LATER: barrier option 2
+   !! Gpu.insert_barrier [tFirst; cForBody "bkIdx"]; *)
+  !! Instr.delete [occFirst; cCall "magic_barrier"];
+  !! Instr.move ~dest:[tBefore; cCall "magic_barrier"] [cCall "kernel_teardown_begin"];
   !! Gpu.magic_barrier_to_teardown_sync [cCall "magic_barrier"];
+
+  !! Resources.ensure_computed ();
+  !! Trace.generate_cuda ~check_expected:true ();
 )

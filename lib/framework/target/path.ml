@@ -505,6 +505,11 @@ let extract_last_dir_span (p: path) : path * span =
       if debug_path then Tools.debug "Path: %s" (path_to_string p);
       path_fail p "Path.extract_last_dir_span expects the last direction to be inside a sequence."
 
+let span_in_surrounding_loop (dl : path) : span * path =
+  let p, span = extract_last_dir_span dl in
+  match List.rev p with
+  | Dir_body :: p' -> (span, List.rev p')
+  | _ -> path_fail dl "Path.index_in_surrounding_loop: unexpected path"
 
 (** [split_common_prefix]: given paths [a] and [b], returns [(p, ra, rb)]
    such that [a = p @ ra] and [b = p @ rb] *)

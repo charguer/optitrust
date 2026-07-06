@@ -85,6 +85,12 @@ let (^::) (fh: 'a -> 't -> 'b) (ft: 'b -> 't list -> 'c) (k: 'a) (l: 't list): '
     k
   | _ -> raise Next
 
+let (^*) f_fst f_snd k t =
+  let (p, q) = t in
+  let k = f_fst k p in
+  let k = f_snd k q in
+  k
+
 let trm_apps0 fn = trm_apps fn nil __ __
 let trm_apps1 fn arg1 = trm_apps fn (arg1 ^:: nil) __ __
 let trm_apps2 fn arg1 arg2 = trm_apps fn (arg1 ^:: arg2 ^:: nil) __ __
