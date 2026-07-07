@@ -67,7 +67,13 @@ Mutable assignments:
 
 ```optilambda
 x = 3
+x += y
+s += a[MINDEX1(n, bi * 32 + i)] * b[MINDEX1(n, bi * 32 + i)]
 ```
+
+Supported compound assignments such as `+=`, `-=`, `*=`, and `/=` are printed
+as infix updates in Surface syntax. Unsupported primitive-call shapes keep the
+fallback call syntax.
 
 Mutable declarations:
 
@@ -142,7 +148,8 @@ without the `return` keyword and without a trailing semicolon.
 Loops:
 
 ```optilambda
-for<seq> i in 0..n [h1] {
+for<seq> i in 0..n {
+  requires h1: i < n;
   BODY
 }
 
@@ -168,20 +175,16 @@ for<seq> i in range(n, 0, -1)
 ```
 
 Resource groups are displayed with the same surface range notation when they
-wrap a `range(...)` iterator:
+wrap a `range(...)` iterator inside logical formulas:
 
 ```optilambda
-for i in 0..n {
-  items(i)
-}
-
-for i in range(0, n, step) {
-  items(i)
-}
+for i in 0..n -> items(i)
+for i in range(0, n, step) -> items(i)
 ```
 
 Desugared read-only and write contracts are recovered in Surface syntax when
-the consumed and produced resources clearly form the expected pair:
+the consumed and produced resources clearly form the expected pair, even if
+matching clauses are not adjacent:
 
 ```optilambda
 reads h: H
@@ -356,8 +359,17 @@ uninitialized resource is consumed and the initialized resource is produced.
 Read-only transformations that change the resource shape, split or join
 fractions, or produce a `Wand(...)` stay explicit as `consumes` / `produces`.
 
-Logical terms follow the existing resource formula syntax used by
-`resource_cparser.mly`.
+Clauses with the same keyword are grouped across a raw-clause-free contract
+region. Raw clauses such as `strict` and `reverts` remain barriers, so clauses
+are not moved across them.
+
+Surface logical terms are printed with the local resource formula style:
+
+```optilambda
+p ~> H
+_RO(f / 2, H)
+for i in 0..n -> items(i)
+```
 
 ## Diff And Trace Integration
 

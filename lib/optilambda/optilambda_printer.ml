@@ -307,12 +307,18 @@ and prim_to_doc (style : Optilambda_style.style) (ty : typ) (prim : prim) : docu
   | Prim_array -> string "array"
   | Prim_record -> string "record"
 
+(** [compound_assign_op_to_doc op] returns the surface compound-assignment token for supported operators. *)
+and compound_assign_op_to_doc (op : binary_op) : document option =
+  match binop_to_doc op with
+  | Some op_doc when op <> Binop_set -> Some (op_doc ^^ equals)
+  | _ -> None
+
 (** [ghost_args_to_doc style ghost_args] prints call contract arguments, e.g. [[h := g]]. *)
 and ghost_args_to_doc (style : Optilambda_style.style) (ghost_args : resource_item list) : document =
   brackets_doc
     (comma_sep
        (List.map
-          (fun (hyp, formula) -> var_to_doc style hyp ^^ blank 1 ^^ string ":=" ^^ blank 1 ^^ trm_to_doc_at style 0 formula)
+          (fun (hyp, formula) -> var_to_doc style hyp ^^ blank 1 ^^ string ":=" ^^ blank 1 ^^ formula_to_doc style formula)
           ghost_args))
 
 (** [ghost_bind_to_doc style ghost_bind] prints returned contract bindings, e.g. [[z : h]]. *)
@@ -368,6 +374,13 @@ and fraction_var_of_formula (formula : trm) : var option =
   | Trm_var v -> Some v
   | _ -> None
 
+(** [same_formula t1 t2] compares formulas structurally, accepting alpha-equivalent binders when variables are scoped. *)
+and same_formula (t1 : trm) (t2 : trm) : bool =
+  t1 = t2
+  ||
+  try Trm_unify.are_same_trm t1 t2 with
+  | _ -> false
+
 (** [is_fraction_type_formula formula] recognizes the pure type formula [_Fraction]. *)
 and is_fraction_type_formula (formula : trm) : bool = var_has_name "_Fraction" formula
 
@@ -396,9 +409,95 @@ and uninit_formula_body (formula : trm) : trm option =
   | Trm_apps (f, [ body ], [], []) when var_has_name "Uninit" f || var_has_name "_Uninit" f -> Some body
   | _ -> None
 
+(** [formula_to_doc_at style ctx_prec formula] prints logical/resource formulas in the surface style used by contracts.
+
+    This intentionally mirrors the important cases of the C resource-formula printer without depending on [optitrust.framework]. *)
+and formula_to_doc_at (style : Optilambda_style.style) (ctx_prec : int) (formula : trm) : document =
+  let formula_app_to_doc (f : trm) (args : trm list) : document =
+    trm_to_doc_at style 10 f ^^ parens_doc (comma_sep (List.map (formula_to_doc_at style 0) args))
+  in
+  let doc =
+    match formula.desc with
+    | Trm_var v -> var_to_doc style v
+    | Trm_lit lit -> lit_to_doc style lit
+    | Trm_prim (ty, prim) -> prim_to_doc style ty prim
+    | Trm_apps ({ desc = Trm_var v; _ }, [ start; stop; step ], [], [])
+      when v.name = "range" && v.namespaces = [] ->
+        if is_int_one step then
+          formula_to_doc_at style 10 start ^^ string ".." ^^ formula_to_doc_at style 10 stop
+        else
+          string "range"
+          ^^ parens_doc (comma_sep [ formula_to_doc_at style 0 start; formula_to_doc_at style 0 stop; formula_to_doc_at style 0 step ])
+    | Trm_apps ({ desc = Trm_var v; _ }, [ start; count ], [], [])
+      when v.name = "range_count" && v.namespaces = [] ->
+        formula_to_doc_at style 10 start ^^ string "..+" ^^ formula_to_doc_at style 10 count
+    | Trm_apps ({ desc = Trm_var v; _ }, [ addr; resource ], [], [])
+      when (v.name = "~>" || v.name = "_Repr") && v.namespaces = [] ->
+        formula_to_doc_at style 10 addr ^^ blank 1 ^^ string "~>" ^^ blank 1 ^^ formula_to_doc_at style 1 resource
+    | Trm_apps ({ desc = Trm_var v; _ }, [ addr; resource; mem_typ ], [], [])
+      when v.name = "__PointsTo" && v.namespaces = [] ->
+        begin match mem_typ.desc with
+        | Trm_var mem_var when mem_var.name = "Any" && mem_var.namespaces = [] ->
+            formula_to_doc_at style 10 addr ^^ blank 1 ^^ string "~~>" ^^ blank 1 ^^ formula_to_doc_at style 1 resource
+        | _ ->
+            formula_to_doc_at style 10 addr ^^ blank 1 ^^ string "~~>" ^^ brackets_doc (formula_to_doc_at style 0 mem_typ)
+            ^^ blank 1 ^^ formula_to_doc_at style 1 resource
+        end
+    | Trm_apps ({ desc = Trm_var v; _ }, [ range; { desc = Trm_fun ([ (index, _) ], _, body, _); _ } ], [], [])
+      when v.name = "Group" && v.namespaces = [] ->
+        string "for" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ formula_to_doc_at style 0 range
+        ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ formula_to_doc_at style 0 body
+    | Trm_apps ({ desc = Trm_var v; _ }, [ bound; { desc = Trm_fun ([ (index, _) ], _, body, _); _ } ], [], [])
+      when v.name = "DesyncGroup" && v.namespaces = [] ->
+        string "desync_for" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ string ".."
+        ^^ formula_to_doc_at style 0 bound ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ formula_to_doc_at style 0 body
+    | Trm_apps ({ desc = Trm_var v; _ }, [ base; divisor ], [], [])
+      when v.name = "__frac_div" && v.namespaces = [] ->
+        formula_to_doc_at style 7 base ^^ blank 1 ^^ string "/" ^^ blank 1 ^^ formula_to_doc_at style 8 divisor
+    | Trm_apps ({ desc = Trm_var v; _ }, [ base; carved ], [], [])
+      when v.name = "__frac_sub" && v.namespaces = [] ->
+        formula_to_doc_at style 6 base ^^ blank 1 ^^ string "-" ^^ blank 1 ^^ formula_to_doc_at style 7 carved
+    | Trm_apps ({ desc = Trm_prim (_, Prim_binop (Binop_array_access | Binop_array_get)); _ }, [ base; index ], [], []) ->
+        formula_to_doc_at style 10 base ^^ brackets_doc (formula_to_doc_at style 0 index)
+    | Trm_apps ({ desc = Trm_prim (_, Prim_binop op); _ }, [ lhs; rhs ], [], []) ->
+        begin match binop_to_doc op with
+        | Some op_doc ->
+            let prec = binop_precedence op in
+            formula_to_doc_at style prec lhs ^^ blank 1 ^^ op_doc ^^ blank 1 ^^ formula_to_doc_at style (prec + 1) rhs
+        | None -> formula_app_to_doc { formula with desc = Trm_prim (typ_auto, Prim_binop op) } [ lhs; rhs ]
+        end
+    | Trm_apps ({ desc = Trm_prim (_, Prim_unop (Unop_struct_get field | Unop_struct_access field)); _ }, [ base ], [], []) ->
+        formula_to_doc_at style 10 base ^^ string "." ^^ string field
+    | Trm_apps ({ desc = Trm_prim (_, Prim_unop Unop_get); _ }, [ arg ], [], []) -> string "*" ^^ formula_to_doc_at style 8 arg
+    | Trm_apps ({ desc = Trm_prim (_, Prim_unop Unop_address); _ }, [ arg ], [], []) -> string "&" ^^ formula_to_doc_at style 8 arg
+    | Trm_apps ({ desc = Trm_prim (_, Prim_unop Unop_minus); _ }, [ arg ], [], []) -> string "-" ^^ formula_to_doc_at style 8 arg
+    | Trm_apps ({ desc = Trm_prim (_, Prim_unop Unop_neg); _ }, [ arg ], [], []) -> string "!" ^^ formula_to_doc_at style 8 arg
+    | Trm_apps (f, args, [], []) -> formula_app_to_doc f args
+    | Trm_fun (args, ret_ty, body, _) ->
+        let args_doc = string "fun" ^^ parens_doc (comma_sep (List.map (typed_var_to_doc style) args)) in
+        if style.print_types && is_type_type ret_ty then
+          match type_result_body_to_doc style body with
+          | Some body_type_doc -> args_doc ^^ colon ^^ blank 1 ^^ body_type_doc
+          | None -> args_doc ^^ colon ^^ blank 1 ^^ typ_to_doc style ret_ty ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ formula_to_doc_at style 0 body
+        else
+          args_doc
+          ^^ (if style.print_types && not (is_auto_type ret_ty) then colon ^^ blank 1 ^^ typ_to_doc style ret_ty else empty)
+          ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ formula_to_doc_at style 0 body
+    | _ -> trm_to_doc_at style 0 formula
+  in
+  parenthesize_if (trm_precedence formula < ctx_prec) doc
+
+(** [formula_to_doc style formula] prints a formula using the local surface formula printer when appropriate. *)
+and formula_to_doc (style : Optilambda_style.style) (formula : trm) : document =
+  match style.representation with
+  | Surface -> formula_to_doc_at style 0 formula
+  | Internal
+  | FullyTypedInternal ->
+      trm_to_doc_at style 0 formula
+
 (** [resource_item_to_doc style item] prints a named logical/resource formula. *)
 and resource_item_to_doc (style : Optilambda_style.style) ((hyp, formula) : resource_item) : document =
-  var_to_doc style hyp ^^ colon ^^ blank 1 ^^ trm_to_doc_at style 0 formula
+  var_to_doc style hyp ^^ colon ^^ blank 1 ^^ formula_to_doc style formula
 
 (** [contract_clauses keyword items] builds a group of contract clauses. *)
 and contract_clauses (keyword : string) (items : resource_item list) : contract_clause list =
@@ -424,7 +523,7 @@ and simplify_linear_contract (pre : resource_item list) (post : resource_item li
             let pred (post_hyp, post_formula) =
               match read_only_formula_inv post_formula with
               | Some post_ro
-                when pre_hyp = post_hyp && pre_ro.read_frac = post_ro.read_frac && pre_ro.read_body = post_ro.read_body ->
+                when pre_hyp = post_hyp && same_formula pre_ro.read_frac post_ro.read_frac && same_formula pre_ro.read_body post_ro.read_body ->
                   Some post_ro
               | _ -> None
             in
@@ -442,7 +541,7 @@ and simplify_linear_contract (pre : resource_item list) (post : resource_item li
             let pred (post_hyp, post_formula) =
               if pre_hyp = post_hyp then
                 match uninit_formula_body pre_formula with
-                | Some body when body = post_formula -> Some post_formula
+                | Some body when same_formula body post_formula -> Some post_formula
                 | _ when is_uninit_formula pre_formula && not (is_uninit_formula post_formula) -> Some post_formula
                 | _ -> None
               else None
@@ -470,26 +569,33 @@ and contract_group_to_doc (style : Optilambda_style.style) (keyword : string) (i
       let rest_docs = List.map (fun item -> comma ^^ hardline ^^ align_doc ^^ resource_item_to_doc style item) rest in
       concat (first_doc :: rest_docs)
 
-(** [contract_clauses_to_docs style clauses] merges consecutive clauses with the same keyword. *)
+(** [contract_clauses_to_docs style clauses] merges clauses with the same keyword within each raw-clause-delimited group. *)
 and contract_clauses_to_docs (style : Optilambda_style.style) (clauses : contract_clause list) : document list =
-  let flush_group keyword items acc =
-    match (keyword, items) with
-    | None, _
-    | _, [] ->
-        acc
-    | Some keyword, items -> contract_group_to_doc style keyword (List.rev items) :: acc
+  let add_to_groups keyword item groups order =
+    if List.mem keyword order then
+      (List.map (fun (group_keyword, items) -> if group_keyword = keyword then (group_keyword, item :: items) else (group_keyword, items)) groups, order)
+    else ((keyword, [ item ]) :: groups, order @ [ keyword ])
   in
-  let rec aux cur_keyword cur_items acc clauses =
+  let flush_groups groups order acc =
+    let docs =
+      List.filter_map
+        (fun keyword ->
+          match List.assoc_opt keyword groups with
+          | None -> None
+          | Some items -> Some (contract_group_to_doc style keyword (List.rev items)))
+        order
+    in
+    List.rev_append docs acc
+  in
+  let rec aux groups order acc clauses =
     match clauses with
-    | [] -> List.rev (flush_group cur_keyword cur_items acc)
-    | ContractRaw doc :: rest -> aux None [] (doc :: flush_group cur_keyword cur_items acc) rest
+    | [] -> List.rev (flush_groups groups order acc)
+    | ContractRaw doc :: rest -> aux [] [] (doc :: flush_groups groups order acc) rest
     | ContractClause (keyword, item) :: rest ->
-        begin match cur_keyword with
-        | Some cur when cur = keyword -> aux cur_keyword (item :: cur_items) acc rest
-        | _ -> aux (Some keyword) [ item ] (flush_group cur_keyword cur_items acc) rest
-        end
+        let groups, order = add_to_groups keyword item groups order in
+        aux groups order acc rest
   in
-  aux None [] [] clauses
+  aux [] [] [] clauses
 
 (** [fun_contract_clause_docs style contract] prints the direct internal function contract. *)
 and fun_contract_clauses (style : Optilambda_style.style) (contract : fun_contract) : contract_clause list =
@@ -691,6 +797,11 @@ and app_to_doc (style : Optilambda_style.style) ~(result_typ : typ) (f : trm) (a
   | Trm_prim (_, Prim_unop (Unop_cast cast_ty)), [ arg ] ->
       string "cast" ^^ angles_doc (typ_to_doc style cast_ty) ^^ parens_doc (trm_to_doc_at style 0 arg)
   | Trm_prim (_, Prim_record), _ -> lbrace ^^ comma_sep (List.map (trm_to_doc_at style 0) args) ^^ rbrace
+  | Trm_prim (_, Prim_compound_assign_op op), [ lhs; rhs ] when style.representation = Surface ->
+      begin match compound_assign_op_to_doc op with
+      | Some op_doc -> trm_to_doc_at style 2 lhs ^^ blank 1 ^^ op_doc ^^ blank 1 ^^ trm_to_doc_at style 1 rhs
+      | None -> prim_to_doc style typ_auto (Prim_compound_assign_op op) ^^ parens_doc (comma_sep (List.map (trm_to_doc_at style 0) args))
+      end
   | Trm_prim (ty, prim), _ -> prim_to_doc style ty prim ^^ parens_doc (comma_sep (List.map (trm_to_doc_at style 0) args))
   | Trm_var v, first_arg :: _ when is_fully_typed_internal style && is_typed_resource_constructor_name v.name ->
       string v.name ^^ angles_doc (typ_to_doc style (typ_of_trm first_arg))
@@ -775,7 +886,6 @@ and for_to_doc (style : Optilambda_style.style) (range : loop_range) (mode : loo
   string "for"
   ^^ angles_doc (loop_mode_to_doc style mode)
   ^^ blank 1 ^^ range_doc
-  ^^ contract_summary_to_doc style (loop_contract_items contract)
   ^^ blank 1
   ^^ trm_to_block_doc_with_prefix style (contract_clauses_to_docs style (loop_contract_clauses style contract)) body
 
