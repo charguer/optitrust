@@ -56,8 +56,8 @@ let trm_seq_helper ?(annot : trm_annot option) ?(loc : location) ?(result: var o
 
 let update_span_helper (span : Dir.span) (t_seq : trm) (f : trm mlist -> seq_component list) : trm =
   let instrs, result = trm_inv ~error:"expected seq" trm_seq_inv t_seq in
-  if span.start >= span.stop then begin
-    t_seq
+  if span.start > span.stop then begin
+    failwith "update_span_helper: This span is impossible [%n; %n]" span.start span.stop
   end else begin
     let (span_instrs, instrs_after) = Mlist.split ~left_bias:false span.stop instrs in
     let (instrs_before, span_instrs) = Mlist.split ~left_bias:true span.start span_instrs in
