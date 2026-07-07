@@ -7,6 +7,7 @@ import * as vscode from "vscode";
 import { setPendingOptiNlpChatRequest } from "./optinlpChatContext";
 import { getActiveEditorContext } from "../optitrust/editor";
 import { markExecutedLine } from "../optitrust/decorations";
+import { fileExists } from "../optitrust/fileSystem";
 import { runCommand } from "../optitrust/runner";
 import { validateTransformationScript } from "../optitrust/scripts";
 import { findAssociatedCSourceFile } from "../optitrust/files";
@@ -34,15 +35,6 @@ interface PrefixScript {
   readonly noOpLine: number;
 }
 
-async function exists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function readText(filePath: string): Promise<string> {
   return fs.readFile(filePath, "utf8");
 }
@@ -60,7 +52,7 @@ async function findAfterOptiFile(scriptPath: string): Promise<string | undefined
     path.join(parsed.dir, `${parsed.name}_after_typed.opti`)
   ];
   for (const candidate of candidates) {
-    if (await exists(candidate)) {
+    if (await fileExists(candidate)) {
       return candidate;
     }
   }
