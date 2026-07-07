@@ -26,6 +26,7 @@
     "onCommand:optitrust.viewDiffOnlyCode",
     "onCommand:optitrust.viewDiffInternalSyntax",
     "onCommand:optitrust.switchDiffSyntax",
+    "onCommand:optitrust.detachView",
     "onCommand:optitrust.viewFullTrace",
     "onCommand:optitrust.viewTraceSaveStepsScript",
     "onCommand:optitrust.viewStepTrace",
@@ -82,6 +83,11 @@
         "command": "optitrust.switchDiffSyntax",
         "title": "OptiTrust: Switch Diff Syntax",
         "icon": "$(replace)"
+      },
+      {
+        "command": "optitrust.detachView",
+        "title": "OptiTrust: Detach View",
+        "icon": "$(debug-disconnect)"
       },
       {
         "command": "optitrust.viewFullTrace",
@@ -385,27 +391,32 @@
       "editor/title": [
         {
           "command": "optitrust.openAssociatedFiles",
-          "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti || resourceExtname == .html || resourceExtname == .js || resourceExtname == .trace",
+          "when": "resourceScheme == file && (resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti || resourceExtname == .html || resourceExtname == .js || resourceExtname == .trace)",
           "group": "navigation@50"
         },
         {
           "command": "optitrust.switchDiffSyntax",
           "when": "resourceScheme == optitrust-diff",
+          "group": "navigation@51"
+        },
+        {
+          "command": "optitrust.detachView",
+          "when": "resourceScheme == optitrust-diff",
           "group": "navigation@52"
         },
         {
           "command": "optitrust.optinlpChat",
-          "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti",
+          "when": "resourceScheme == file && (resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti)",
           "group": "navigation@55"
         },
         {
           "command": "optitrust.optinlpSuggestTargetAtCursor",
-          "when": "resourceExtname == .ml",
+          "when": "resourceScheme == file && resourceExtname == .ml",
           "group": "navigation@60"
         },
         {
           "command": "optitrust.showShortcuts",
-          "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti || resourceExtname == .html || resourceExtname == .js || resourceExtname == .trace",
+          "when": "resourceScheme == file && (resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti || resourceExtname == .html || resourceExtname == .js || resourceExtname == .trace)",
           "group": "navigation@70"
         }
       ],
@@ -446,6 +457,9 @@
         },
         {
           "command": "optitrust.switchDiffSyntax"
+        },
+        {
+          "command": "optitrust.detachView"
         },
         {
           "command": "optitrust.viewFullTrace"

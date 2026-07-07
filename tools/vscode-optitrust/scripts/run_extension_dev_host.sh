@@ -15,17 +15,42 @@ repo_root="$(cd "$extension_dir/../.." && pwd)"
 code_cmd="${CODE_CMD:-code}"
 vsix_path="$extension_dir/.optitrust-dev.vsix"
 
+run_code() {
+  local candidate
+  while IFS= read -r candidate; do
+    if [[ "$candidate" == *"/.vscode-server/"*"/remote-cli/code" ]]; then
+      if [[ -n "${VSCODE_IPC_HOOK_CLI:-}" && -S "${VSCODE_IPC_HOOK_CLI}" ]]; then
+        if "$candidate" "$@"; then
+          return 0
+        fi
+      fi
+      continue
+    fi
+
+    if env -u VSCODE_IPC_HOOK_CLI "$candidate" "$@"; then
+      return 0
+    fi
+  done < <(type -P -a "$code_cmd" 2>/dev/null || printf '%s\n' "$code_cmd")
+
+  return 1
+}
+
+install_dev_vsix() {
+  echo "Packaging and installing the OptiTrust extension..."
+  ./node_modules/.bin/vsce package --out "$vsix_path" --no-dependencies
+  run_code --install-extension "$vsix_path" --force
+}
+
 cd "$extension_dir"
 npm run compile
 
-if "$code_cmd" --help 2>&1 | grep -q -- "--extensionDevelopmentPath"; then
+if run_code --help 2>&1 | grep -q -- "--extensionDevelopmentPath"; then
   echo "Opening VS Code Extension Development Host..."
-  "$code_cmd" --new-window --extensionDevelopmentPath="$extension_dir" "$repo_root"
+  run_code --new-window --extensionDevelopmentPath="$extension_dir" "$repo_root"
+  install_dev_vsix
 else
   echo "The '$code_cmd' CLI does not support --extensionDevelopmentPath."
-  echo "Packaging and installing the OptiTrust extension instead..."
-  ./node_modules/.bin/vsce package --out "$vsix_path" --no-dependencies
-  "$code_cmd" --install-extension "$vsix_path" --force
+  install_dev_vsix
   echo "Opening OptiTrust with the installed extension..."
-  "$code_cmd" --new-window "$repo_root"
+  run_code --new-window "$repo_root"
 fi

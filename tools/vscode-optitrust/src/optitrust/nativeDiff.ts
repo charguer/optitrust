@@ -3,9 +3,12 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { appendLine } from "./output";
 import { runCommand } from "./runner";
+import { fileExists } from "./fileSystem";
+import { attachLiveView, currentLiveViewSlotId, isAttachedLiveViewUri, prepareAttachedLiveView } from "./liveView";
 import { backendFlagsForViewMode, ViewModeDefinition, VIEW_MODES } from "./viewMode";
 
 const OPTITRUST_DIFF_SCHEME = "optitrust-diff";
+const nativeDiffChanges = new vscode.EventEmitter<vscode.Uri>();
 
 interface DiffFilePair {
   readonly before: string;
@@ -35,18 +38,10 @@ interface OpenNativeStepDiffOptions {
   readonly viewColumn?: vscode.ViewColumn;
   readonly markGenerated?: boolean;
   readonly generateIfMissing?: boolean;
+  readonly useLiveView?: boolean;
 }
 
 const sessions = new Map<string, NativeDiffSession>();
-
-async function exists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function stepDiffCandidates(fileDir: string, fileBase: string, selectedViewMode: ViewModeDefinition): DiffFilePair[] {
   if (selectedViewMode.id === "optilambda.surface") {
@@ -84,26 +79,22 @@ function stepDiffCandidates(fileDir: string, fileBase: string, selectedViewMode:
 
 async function findExistingPair(candidates: DiffFilePair[]): Promise<DiffFilePair | undefined> {
   for (const candidate of candidates) {
-    if ((await exists(candidate.before)) && (await exists(candidate.after))) {
+    if ((await fileExists(candidate.before)) && (await fileExists(candidate.after))) {
       return candidate;
     }
   }
   return undefined;
 }
 
-function sessionId(fileDir: string, fileBase: string): string {
-  return path.resolve(fileDir, fileBase);
+function sessionId(fileDir: string, fileBase: string, liveSlotId?: number): string {
+  const baseId = path.resolve(fileDir, fileBase);
+  return liveSlotId === undefined ? baseId : `${baseId}::live-${liveSlotId}`;
 }
 
 function diffUri(filePath: string, session: NativeDiffSession): vscode.Uri {
   const query = new URLSearchParams({
     file: filePath,
-    session: session.id,
-    root: session.root,
-    scriptRelativePath: session.scriptRelativePath,
-    line: String(session.line),
-    fileDir: session.fileDir,
-    fileBase: session.fileBase
+    session: session.id
   });
   return vscode.Uri.from({
     scheme: OPTITRUST_DIFF_SCHEME,
@@ -155,6 +146,8 @@ function activeNativeDiffUri(): vscode.Uri | undefined {
 }
 
 class NativeDiffContentProvider implements vscode.TextDocumentContentProvider {
+  readonly onDidChange = nativeDiffChanges.event;
+
   async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
     return fs.readFile(filePathFromUri(uri), "utf8");
   }
@@ -194,7 +187,7 @@ export async function openNativeStepDiff(
   selectedViewMode: ViewModeDefinition,
   options: OpenNativeStepDiffOptions = {}
 ): Promise<void> {
-  const id = sessionId(context.fileDir, context.fileBase);
+  const id = sessionId(context.fileDir, context.fileBase, options.useLiveView ? currentLiveViewSlotId() : undefined);
   const existingSession = sessions.get(id);
   const session: NativeDiffSession =
     existingSession?.scriptRelativePath === context.scriptRelativePath && existingSession.line === context.line
@@ -221,13 +214,14 @@ export async function openNativeStepDiff(
     }
   }
 
-  await openExistingNativeStepDiff(session, selectedViewMode, options.viewColumn ?? vscode.ViewColumn.Beside);
+  await openExistingNativeStepDiff(session, selectedViewMode, options.viewColumn ?? vscode.ViewColumn.Beside, options.useLiveView ?? false);
 }
 
 async function openExistingNativeStepDiff(
   session: NativeDiffSession,
   selectedViewMode: ViewModeDefinition,
-  viewColumn: vscode.ViewColumn
+  viewColumn: vscode.ViewColumn,
+  useLiveView: boolean
 ): Promise<void> {
   const candidates = stepDiffCandidates(session.fileDir, session.fileBase, selectedViewMode);
   const pair = await findExistingPair(candidates);
@@ -240,12 +234,43 @@ async function openExistingNativeStepDiff(
     return;
   }
 
+  const beforeUri = diffUri(pair.before, session);
+  const afterUri = diffUri(pair.after, session);
+  const title = `OptiTrust Diff: ${session.fileBase} (${pair.label})`;
+  if (useLiveView && isAttachedLiveViewUri(beforeUri) && isAttachedLiveViewUri(afterUri)) {
+    const existingColumn = nativeDiffViewColumn(beforeUri, afterUri);
+    if (existingColumn !== undefined) {
+      nativeDiffChanges.fire(beforeUri);
+      nativeDiffChanges.fire(afterUri);
+      await vscode.commands.executeCommand(
+        "vscode.diff",
+        beforeUri,
+        afterUri,
+        title,
+        { preview: false, viewColumn: existingColumn }
+      );
+      return;
+    }
+  }
+
+  const targetColumn = useLiveView ? await prepareAttachedLiveView("native-diff", { replaceSameKind: true }) : viewColumn;
+
+  if (useLiveView) {
+    attachLiveView({
+      kind: "native-diff",
+      viewColumn: targetColumn,
+      getViewColumn: () => nativeDiffViewColumn(beforeUri, afterUri),
+      ownsUri: uri => uri.toString() === beforeUri.toString() || uri.toString() === afterUri.toString(),
+      dispose: () => closeNativeDiffTabs(beforeUri, afterUri)
+    });
+  }
+
   await vscode.commands.executeCommand(
     "vscode.diff",
-    diffUri(pair.before, session),
-    diffUri(pair.after, session),
-    `OptiTrust Diff: ${session.fileBase} (${pair.label})`,
-    { preview: false, viewColumn }
+    beforeUri,
+    afterUri,
+    title,
+    { preview: false, viewColumn: targetColumn }
   );
 }
 
@@ -280,6 +305,32 @@ export async function switchNativeDiffSyntax(): Promise<void> {
 
   await openNativeStepDiff(session, picked.mode, {
     viewColumn: vscode.ViewColumn.Active,
-    generateIfMissing: true
+    generateIfMissing: true,
+    useLiveView: isAttachedLiveViewUri(activeUri)
   });
+}
+
+function nativeDiffViewColumn(beforeUri: vscode.Uri, afterUri: vscode.Uri): vscode.ViewColumn | undefined {
+  for (const group of vscode.window.tabGroups.all) {
+    if (group.tabs.some(tab => isNativeDiffTab(tab, beforeUri, afterUri))) {
+      return group.viewColumn;
+    }
+  }
+  return undefined;
+}
+
+async function closeNativeDiffTabs(beforeUri: vscode.Uri, afterUri: vscode.Uri): Promise<void> {
+  const tabs = vscode.window.tabGroups.all.flatMap(group => group.tabs.filter(tab => isNativeDiffTab(tab, beforeUri, afterUri)));
+  if (tabs.length > 0) {
+    await vscode.window.tabGroups.close(tabs, true);
+  }
+}
+
+function isNativeDiffTab(tab: vscode.Tab, beforeUri: vscode.Uri, afterUri: vscode.Uri): boolean {
+  const input = tab.input;
+  return (
+    input instanceof vscode.TabInputTextDiff &&
+    input.original.toString() === beforeUri.toString() &&
+    input.modified.toString() === afterUri.toString()
+  );
 }

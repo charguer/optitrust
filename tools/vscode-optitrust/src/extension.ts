@@ -32,6 +32,7 @@ import {
   runViewTraceSaveStepsScript
 } from "./commands/viewCommands";
 import { disposeDecorations, updateDecorations } from "./optitrust/decorations";
+import { detachLiveView, initializeLiveViewContext, refreshLiveViewContexts } from "./optitrust/liveView";
 import { registerNativeDiffProvider, switchNativeDiffSyntax } from "./optitrust/nativeDiff";
 import { appendLine, disposeOutput } from "./optitrust/output";
 import { getSelectedViewMode, updateSelectedViewMode, VIEW_MODES } from "./optitrust/viewMode";
@@ -85,6 +86,7 @@ function registerCommand(context: vscode.ExtensionContext, command: string, call
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   await refreshWorkspace(vscode.window.activeTextEditor?.document.uri.fsPath);
   optiNlpSession = new OptiNlpSessionMemory();
+  initializeLiveViewContext();
   registerNativeDiffProvider(context);
   registerOptiNlpChatParticipant(context, requireWorkspace, optiNlpSession);
 
@@ -143,6 +145,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   registerCommand(context, "optitrust.switchDiffSyntax", async () => {
     await switchNativeDiffSyntax();
+  });
+
+  registerCommand(context, "optitrust.detachView", () => {
+    if (detachLiveView()) {
+      vscode.window.showInformationMessage("OptiTrust view detached. The next view command will open a new live view.");
+    } else {
+      vscode.window.showInformationMessage("No live OptiTrust view is currently attached.");
+    }
   });
 
   registerCommand(context, "optitrust.redoLastViewCommand", async () => {
@@ -301,7 +311,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   });
 
   context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor(editor => updateDecorations(editor)),
+    vscode.window.onDidChangeActiveTextEditor(editor => {
+      updateDecorations(editor);
+      refreshLiveViewContexts();
+    }),
+    vscode.window.tabGroups.onDidChangeTabs(() => refreshLiveViewContexts()),
     vscode.workspace.onDidChangeTextDocument(event => {
       if (event.document === vscode.window.activeTextEditor?.document) {
         updateDecorations(vscode.window.activeTextEditor);

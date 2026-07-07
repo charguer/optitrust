@@ -1,9 +1,27 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
+import {
+  attachLiveView,
+  clearLiveView,
+  detachLiveView,
+  isAttachedLiveView,
+  prepareAttachedLiveView,
+  setActiveLiveViewContext
+} from "./liveView";
 
 const panels = new Map<string, vscode.WebviewPanel>();
 const MAX_INLINE_ASSET_BYTES = 2 * 1024 * 1024;
+const LIVE_VIEW_KEY = "optitrust-live-view";
+export const OPTITRUST_WEBVIEW_TYPE = "optitrustView";
+
+interface OpenHtmlViewOptions {
+  readonly useLiveView?: boolean;
+}
+
+interface HtmlTransformOptions {
+  readonly includeDetachButton?: boolean;
+}
 
 function webviewKey(filePath: string, viewKind: string, metadata: string): string {
   return `${path.resolve(filePath)}::${viewKind}::${metadata}`;
@@ -14,14 +32,15 @@ function webviewKey(filePath: string, viewKind: string, metadata: string): strin
  * webviews run with a stricter resource model, so local assets must be inlined
  * or rewritten before the HTML can be displayed reliably inside the editor.
  */
-async function htmlWithBase(webview: vscode.Webview, root: string, htmlFile: string): Promise<string> {
+async function htmlWithBase(webview: vscode.Webview, root: string, htmlFile: string, options: HtmlTransformOptions = {}): Promise<string> {
   const html = await fs.readFile(htmlFile, "utf8");
   const htmlDir = path.dirname(htmlFile);
   const inlined = await inlineLocalScriptsAndStyles(htmlDir, html);
   const rewritten = rewriteLocalResourceUris(webview, htmlDir, inlined);
   const withTraceServerBase = injectTraceServerBase(root, htmlFile, rewritten);
   const withHighlightingConfig = await injectSyntaxHighlightingConfig(withTraceServerBase);
-  return injectDiffFallback(injectDiffWebviewStyle(withHighlightingConfig));
+  const withDiffSupport = injectDiffFallback(injectDiffWebviewStyle(withHighlightingConfig));
+  return options.includeDetachButton ? injectDetachButton(withDiffSupport) : withDiffSupport;
 }
 
 function injectTraceServerBase(root: string, htmlFile: string, html: string): string {
@@ -361,23 +380,124 @@ document.addEventListener('DOMContentLoaded', function () {
   return `${html}\n${fallbackScript}`;
 }
 
-export async function openHtmlView(root: string, htmlFile: string, viewKind: string, metadata: string, title: string): Promise<void> {
-  const key = webviewKey(htmlFile, viewKind, metadata);
+function injectDetachButton(html: string): string {
+  if (html.includes('id="optitrustDetachViewButton"')) {
+    return html;
+  }
+
+  const detachHtml = `
+<style>
+#optitrustDetachViewButton {
+  position: fixed;
+  top: 8px;
+  right: 10px;
+  z-index: 10000;
+  padding: 4px 10px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 3px;
+  color: var(--vscode-button-foreground, #fff);
+  background: var(--vscode-button-background, #0e639c);
+  font: 12px var(--vscode-font-family, sans-serif);
+  cursor: pointer;
+}
+
+#optitrustDetachViewButton:hover {
+  background: var(--vscode-button-hoverBackground, #1177bb);
+}
+</style>
+<button id="optitrustDetachViewButton" type="button" title="Detach this OptiTrust view">Detach</button>
+<script>
+(function () {
+  if (typeof acquireVsCodeApi !== 'function') {
+    return;
+  }
+  var vscode = acquireVsCodeApi();
+  function registerDetachButton() {
+    var button = document.getElementById('optitrustDetachViewButton');
+    if (!button) {
+      return;
+    }
+    button.addEventListener('click', function () {
+      vscode.postMessage({ type: 'optitrust.detachView' });
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', registerDetachButton);
+  } else {
+    registerDetachButton();
+  }
+}());
+</script>`;
+
+  if (html.includes("</body>")) {
+    return html.replace("</body>", `${detachHtml}\n</body>`);
+  }
+  return `${html}\n${detachHtml}`;
+}
+
+export async function openHtmlView(
+  root: string,
+  htmlFile: string,
+  viewKind: string,
+  metadata: string,
+  title: string,
+  options: OpenHtmlViewOptions = {}
+): Promise<void> {
+  const key = options.useLiveView ? LIVE_VIEW_KEY : webviewKey(htmlFile, viewKind, metadata);
   const existing = panels.get(key);
   if (existing) {
-    existing.reveal(existing.viewColumn, true);
-    existing.webview.html = await htmlWithBase(existing.webview, root, htmlFile);
+    existing.title = title;
+    if (!options.useLiveView) {
+      existing.reveal(existing.viewColumn, true);
+    }
+    existing.webview.html = await htmlWithBase(existing.webview, root, htmlFile, { includeDetachButton: options.useLiveView });
     return;
   }
 
-  const panel = vscode.window.createWebviewPanel("optitrustView", title, vscode.ViewColumn.Beside, {
+  const viewColumn = options.useLiveView ? await prepareAttachedLiveView("html") : vscode.ViewColumn.Beside;
+  const panel = vscode.window.createWebviewPanel(OPTITRUST_WEBVIEW_TYPE, title, viewColumn, {
     enableScripts: true,
     localResourceRoots: [vscode.Uri.file(root), vscode.Uri.file(path.dirname(htmlFile))]
   });
 
-  panel.onDidDispose(() => panels.delete(key));
-  panel.webview.html = await htmlWithBase(panel.webview, root, htmlFile);
+  const liveView = options.useLiveView
+    ? {
+        kind: "html" as const,
+        viewColumn,
+        getViewColumn: () => panel.viewColumn,
+        detach: () => panels.delete(key),
+        dispose: () => panel.dispose()
+      }
+    : undefined;
+
+  const messageSubscription = panel.webview.onDidReceiveMessage((message: unknown) => {
+    if (!isRecord(message) || message.type !== "optitrust.detachView") {
+      return;
+    }
+    if (liveView && isAttachedLiveView(liveView) && detachLiveView()) {
+      vscode.window.showInformationMessage("OptiTrust view detached. The next view command will open a new live view.");
+    } else {
+      vscode.window.showInformationMessage("This OptiTrust view is already detached.");
+    }
+  });
+
+  panel.onDidDispose(() => {
+    messageSubscription.dispose();
+    panels.delete(key);
+    if (liveView) {
+      clearLiveView(liveView);
+    }
+  });
+  panel.onDidChangeViewState(event => {
+    if (event.webviewPanel.active) {
+      setActiveLiveViewContext(liveView ? isAttachedLiveView(liveView) : false);
+    }
+  });
+  panel.webview.html = await htmlWithBase(panel.webview, root, htmlFile, { includeDetachButton: options.useLiveView });
   panels.set(key, panel);
+  if (liveView) {
+    attachLiveView(liveView);
+  }
 }
 
 export async function openFileOrHtml(root: string, filePath: string, title?: string): Promise<void> {
