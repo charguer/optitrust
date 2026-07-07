@@ -23,6 +23,8 @@ body {
    /*border: 1px solid black;*/
    padding: 3px 5px 3px 5px;
    background: #FFFFA0;
+   color: #1a1a1a; /* anchor text dark: odoc's theme flips text to light in dark mode,
+                      which would be unreadable on the light-yellow background */
    font-weight: bold;
 }
 
@@ -82,4 +84,32 @@ body {
 
 .d2h-code-line del, .d2h-code-side-line del {
     background-color: inherit;
+}
+
+/* Dark-mode support.
+   odoc's stylesheet flips page text to a light color under
+   `prefers-color-scheme: dark` (see _doc/odoc.support/odoc.css), but the injected
+   example/diff blocks pin light backgrounds. Without the rules below you get
+   light-on-light (unreadable). odoc_extra.css is loaded after odoc.css and these
+   selectors are at least as specific, so they win without !important. */
+@media (prefers-color-scheme: dark) {
+
+  /* Example OCaml block: turn it into a proper dark code card instead of the
+     light-yellow highlight, keeping a faint yellow tint for identity. */
+  .code-unit-test {
+    background: #3a3a26;
+    color: #f5f1c0;
+  }
+
+  /* Diff block: diff2html hardcodes light pastel backgrounds for added/removed
+     lines that can't be re-tinted cleanly. Rather than override each one, we
+     force the whole diff into a light "island": a white table background (which
+     fills the transparent context-line cells) and dark inherited text (which
+     cascades to every cell while the changed lines keep their own pastels). */
+  .diff-unit-test .d2h-wrapper,
+  .diff-unit-test .d2h-file-wrapper,
+  .diff-unit-test .d2h-diff-table {
+    background: #ffffff;
+    color: #1a1a1a;
+  }
 }
