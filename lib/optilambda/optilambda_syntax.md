@@ -108,13 +108,16 @@ v.x
 Function definitions:
 
 ```optilambda
-fun f[A](x: A, y: B): A [h1, h2] {
+fun f[A](x, y) [h1, h2] {
   requires h1: x = y;
   produces h2: y = x;
 
   BODY
 }
 ```
+
+Surface function headers omit argument and return types. Those details remain
+available in the Internal and Fully-Typed representations.
 
 Ghost functions hide the internal `__ghost_ret` return type in Surface syntax:
 
@@ -130,6 +133,24 @@ Function calls with contract arguments and returned contract bindings:
 
 ```optilambda
 f(x1, y1)[h1 := g1, h2 := g2][z : h2]
+```
+
+Surface contract clauses hide generated resource names when the name is only an
+implementation detail:
+
+```optilambda
+consumes for i in outer_range -> Group(big_range, items(i));
+```
+
+User-provided hypothesis names stay visible. Generated names remain visible only
+when another formula refers to them, for example a fraction name used by `_RO`.
+
+Type-only pure requirements such as `model: int * int -> f64` are omitted from
+Surface contracts. Pure function types that still need to be displayed use
+compact arrow notation, for example:
+
+```optilambda
+int * int -> f64
 ```
 
 Blocks:

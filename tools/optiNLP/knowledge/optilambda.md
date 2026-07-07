@@ -26,9 +26,12 @@ Prompt implications:
 
 Visible OptiLambda cues:
 
-- `fun name(args): type { ... }` describes a function.
+- In Surface OptiLambda, `fun name(args) { ... }` describes a function. The
+  `internal` and `typed` representations may show argument and return types.
 - `for<seq> i in 0..n { ... }` describes a sequential loop over `i`.
 - Assignments, reads, writes, marks, and contract-like annotations can be used
   for target reasoning.
+- Surface contracts hide generated resource names and type-only pure
+  requirements when those details are not useful for reading the trace.
 - Printed `.opti` text is inspection evidence only; runnable transformation
   scripts still target the C/C++ workflow.
