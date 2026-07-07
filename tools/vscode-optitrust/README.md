@@ -140,6 +140,16 @@ The trace opens in the standard OptiTrust trace viewer inside VS Code. The tree,
 step navigation, and controls are preserved. The representation selector switches
 the displayed code and diff content without replacing the trace UI.
 
+### Live View Reuse And Detach
+
+Diff and trace commands share one attached OptiTrust view slot. Re-running
+`F6`, `Shift+F5`, `Shift+F6`, or `F5` updates that attached slot instead of
+leaving many old views open.
+
+Use `OptiTrust: Detach View` to freeze the current view. Detached views stay
+open and are no longer updated by later diff/trace commands. Trace webviews also
+show a `Detach` button in the panel itself.
+
 ### View A Step Trace
 
 Run:
@@ -207,10 +217,11 @@ The QuickPick menu can:
 | `OptiTrust: View Step Diff` | Shows the diff for the transformation at the cursor line. |
 | `OptiTrust: View Diff Only Code` | Shows a reduced code-only diff. |
 | `OptiTrust: View Diff Using Internal Syntax` | Shows the legacy internal syntax diff mode. |
-| `OptiTrust: View Full Trace` | Generates and opens a full standalone trace. |
+| `OptiTrust: View Full Trace` | Generates and opens a full trace in the attached OptiTrust view. |
 | `OptiTrust: View Trace Save Steps Script` | Generates a full trace with `-save-steps script`. |
 | `OptiTrust: View Step Trace` | Generates and opens a trace for the current step. |
-| `OptiTrust: Redo Last View Command` | Runs `tools/_last_view_result.sh`. |
+| `OptiTrust: Redo Last View Command` | Re-runs the last extension view command and reopens it in the attached OptiTrust view. |
+| `OptiTrust: Detach View` | Keeps the current OptiTrust view open and removes it from future live updates. |
 | `OptiTrust: Run Current Test` | Runs the current OptiTrust test. |
 | `OptiTrust: Rerun Last-Tried Tests` | Re-runs the last test selection. |
 | `OptiTrust: Run Current Test And Open Diff` | Runs the current test, then opens the associated diff. |
