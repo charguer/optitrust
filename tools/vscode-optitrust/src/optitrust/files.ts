@@ -1,6 +1,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
+import { fileExists } from "./fileSystem";
 
 export interface AssociatedFile {
   readonly label: string;
@@ -34,15 +35,6 @@ const OPTILAMBDA_REPRESENTATION_LABELS: Record<OptilambdaRepresentation, string>
   internal: "Internal",
   typed: "Fully-Typed"
 };
-
-async function exists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export function baseNameForAssociatedFiles(filePath: string): { dir: string; base: string } {
   const parsed = path.parse(filePath);
@@ -187,7 +179,7 @@ export async function outputPairs(filePath: string): Promise<OutputPair[]> {
       out: path.join(dir, `${base}_out${ext}`),
       exp: path.join(dir, `${base}_exp${ext}`)
     };
-    if ((await exists(pair.out)) && (await exists(pair.exp))) {
+    if ((await fileExists(pair.out)) && (await fileExists(pair.exp))) {
       pairs.push(pair);
     }
   }
@@ -198,7 +190,7 @@ export async function outputPairs(filePath: string): Promise<OutputPair[]> {
       out: path.join(dir, `${base}_out_${representation}.opti`),
       exp: path.join(dir, `${base}_exp_${representation}.opti`)
     };
-    if ((await exists(pair.out)) && (await exists(pair.exp))) {
+    if ((await fileExists(pair.out)) && (await fileExists(pair.exp))) {
       pairs.push(pair);
     }
   }

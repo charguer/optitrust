@@ -1,8 +1,8 @@
 import * as path from "path";
-import * as fs from "fs/promises";
 import * as vscode from "vscode";
 import { getActiveEditorContext } from "../optitrust/editor";
 import { AssociatedFile, findAssociatedFiles, OPTITRUST_C_SOURCE_EXTENSIONS, outputPairs, pickAssociatedFile } from "../optitrust/files";
+import { fileExists } from "../optitrust/fileSystem";
 import { openFileOrHtml } from "../optitrust/views";
 import { OptitrustWorkspace } from "../optitrust/workspace";
 
@@ -18,15 +18,6 @@ function activePathOrThrow(): string {
     throw new Error("No local file is active.");
   }
   return editor.document.uri.fsPath;
-}
-
-async function exists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function openAssociated(workspace: OptitrustWorkspace, candidates: AssociatedFile[], message: string): Promise<void> {
@@ -183,13 +174,13 @@ export async function openUnitTestMlCppFiles(workspace: OptitrustWorkspace): Pro
   const mlFile = `${base}.ml`;
   const cppFile = `${base}.cpp`;
 
-  if (!(await exists(mlFile))) {
+  if (!(await fileExists(mlFile))) {
     vscode.window.showWarningMessage(`No unit test script found: ${path.basename(mlFile)}`);
     return;
   }
 
   await openFileOrHtml(workspace.root, mlFile, path.basename(mlFile));
-  if (await exists(cppFile)) {
+  if (await fileExists(cppFile)) {
     await openFileOrHtml(workspace.root, cppFile, path.basename(cppFile));
   }
 }
