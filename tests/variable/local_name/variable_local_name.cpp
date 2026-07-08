@@ -66,3 +66,11 @@ void ko_scope() {
     a++;
   }
 }
+
+void ok3() {
+  __pure();
+  int a = 0;
+  for (int i = 0; i < 10; i++) {
+    a++
+  }
+}

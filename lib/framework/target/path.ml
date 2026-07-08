@@ -249,7 +249,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         end else begin
           let (span_instrs, _instrs_after) = Mlist.split ~left_bias:false stop instrs in
           let (_instrs_before, span_instrs) = Mlist.split ~left_bias:true start span_instrs in
-          let t_seq = trm_seq_nobrace ?result span_instrs in
+          let t_seq = trm_seq ?result span_instrs in
           aux t_seq
         end
       | Dir_seq_nth n, Trm_seq (tl, result) ->

@@ -23,4 +23,6 @@ let _ = Run.script_cpp (fun _ ->
   (* TODO: this triggers a renaming, should it throw an error instead? *)
   !! Variable.local_name ~var:"a" ~local_var:"x"
     [cFunBody "ko_scope"; cLabel "l"];
+
+  !! Variable.local_name ~var:"a" ~local_var:"x" [cFunBody "ok3"; tSpanSeq [cForBody "i"]];
 )
