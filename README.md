@@ -18,6 +18,7 @@ If you are interested in a demo, please get in touch with @charguer.
 # Steps for using OptiTrust
 
 - See `INSTALL.md` for installation procedure, to set up the right version of OCaml/Clang/ClangML and configure VSCode/Codium, in particular.
+- See `tools/vscode-optitrust/README.md` to set up the new VSCode extension (still being refined).
 - See `INSTALL_EXTRA.md` for a list of additional useful tools for program optimization.
 - See `VSCODE_CUSTOMIZE.md` for useful tips for using VScode or VScodium.
 - Read the text below for high level comments on the organization of the repository.
