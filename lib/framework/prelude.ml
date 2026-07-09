@@ -35,7 +35,7 @@ let find_var_filter ?(target : target = []) (filter : var -> bool) : var * typ o
   then find_var_filter_on candidates filter (skip_includes (Trace.ast ()))
   else List.iter (fun p ->
     find_var_filter_on candidates filter (Target.resolve_path p)
-  ) (resolve_target target);
+  ) (resolve_target_with_stringreprs_available target (Trace.ast ()));
   (* let candidates = Var_set.filter filter vars in *)
   match Var_map.cardinal !candidates with
   | 0 -> failwith "could not find variable in current AST variables" (* ": %s" (vars_to_string (Var_set.elements vars)) *)
