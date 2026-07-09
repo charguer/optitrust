@@ -15,18 +15,6 @@ const SHORTCUTS: readonly ShortcutItem[] = [
     command: "optitrust.viewDiff"
   },
   {
-    label: "Ctrl+F6",
-    description: "View diff only code",
-    detail: "OptiTrust: View Diff Only Code",
-    command: "optitrust.viewDiffOnlyCode"
-  },
-  {
-    label: "Ctrl+Shift+F6",
-    description: "View diff using internal syntax",
-    detail: "OptiTrust: View Diff Using Internal Syntax",
-    command: "optitrust.viewDiffInternalSyntax"
-  },
-  {
     label: "Shift+F5",
     description: "View full trace",
     detail: "OptiTrust: View Full Trace",

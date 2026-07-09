@@ -8,12 +8,11 @@ import { appendLine } from "../optitrust/output";
 import { runCommand } from "../optitrust/runner";
 import { validateTransformationScript } from "../optitrust/scripts";
 import { backendFlagsForViewMode, getSelectedViewMode, VIEW_MODES, ViewModeDefinition } from "../optitrust/viewMode";
-import { openNativeStepDiff } from "../optitrust/nativeDiff";
 import { openHtmlView } from "../optitrust/views";
 import { OptitrustWorkspace } from "../optitrust/workspace";
 
 type ViewMode = "step_diff" | "full_trace" | "step_trace";
-type ViewOption = "diff-only-code" | "diff-internal-syntax" | "trace-save-steps-script";
+type ViewOption = "trace-save-steps-script";
 
 interface ViewCommandSpec {
   readonly scriptMode: "step_diff" | "full_trace" | "step_trace";
@@ -92,30 +91,17 @@ export async function runViewCommand(workspace: OptitrustWorkspace, mode: ViewMo
 }
 
 function viewArgs(mode: ViewMode, selectedViewMode: ViewModeDefinition, option?: ViewOption): string[] {
-  if (option === "diff-only-code") {
-    return ["-print-only-code"];
-  }
-  if (option === "diff-internal-syntax") {
-    return ["-print-optitrust-syntax"];
-  }
   if (option === "trace-save-steps-script") {
     return ["-save-steps", "script"];
   }
 
   // Full traces use serialized, server-backed data for in-window switching.
-  // Step diffs are generated lazily by the native VS Code diff integration.
+  // Step diffs generate the selected syntax first; the HTML diff view requests
+  // other syntaxes lazily when the user switches representation.
   if (mode === "full_trace") {
     return [];
   }
   return backendFlagsForViewMode(selectedViewMode);
-}
-
-export function runViewDiffOnlyCode(workspace: OptitrustWorkspace): Promise<void> {
-  return runViewCommand(workspace, "step_diff", "diff-only-code");
-}
-
-export function runViewDiffInternalSyntax(workspace: OptitrustWorkspace): Promise<void> {
-  return runViewCommand(workspace, "step_diff", "diff-internal-syntax");
 }
 
 export function runViewTraceSaveStepsScript(workspace: OptitrustWorkspace): Promise<void> {
@@ -174,21 +160,6 @@ async function executeViewRequest(workspace: OptitrustWorkspace, request: Stored
 
 async function openViewResult(request: StoredViewRequest): Promise<void> {
   const spec = VIEW_COMMANDS[request.mode];
-  if (request.mode === "step_diff") {
-    await openNativeStepDiff(
-      {
-        root: request.context.root,
-        scriptRelativePath: request.context.relativePath,
-        line: request.context.line,
-        fileDir: request.context.fileDir,
-        fileBase: request.context.fileBase
-      },
-      request.viewMode,
-      { markGenerated: true, useLiveView: true }
-    );
-    return;
-  }
-
   const htmlFile = path.join(request.context.fileDir, `${request.context.fileBase}${spec.htmlSuffix}`);
   if (await fileExists(htmlFile)) {
     await openHtmlView(
@@ -197,7 +168,20 @@ async function openViewResult(request: StoredViewRequest): Promise<void> {
       spec.viewKind,
       `${request.viewMode.id}:${request.option ?? "default"}:${request.context.relativePath}`,
       `${request.context.fileBase} ${spec.viewKind}`,
-      { useLiveView: true }
+      {
+        useLiveView: true,
+        lazyDiff:
+          request.mode === "step_diff"
+            ? {
+                relativePath: request.context.relativePath,
+                line: request.context.line
+              }
+            : undefined,
+        initialDiffRepresentation:
+          request.mode === "step_diff"
+            ? request.viewMode.optilambdaRepresentation ?? "cpp"
+            : undefined
+      }
     );
   } else {
     appendLine(`Generated view was not found: ${htmlFile}`);

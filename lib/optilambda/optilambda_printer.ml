@@ -33,7 +33,7 @@ let block_doc docs =
   | [] -> lbrace ^^ rbrace
   | _ -> surround 2 1 lbrace (semi_sep docs) rbrace
 
-type block_item = Regular of document | FinalExpr of document
+type block_item = Regular of document | FinalExpr of document | Blank
 type contract_clause = ContractClause of string * var list * resource_item | ContractRaw of document
 
 type read_only_formula = { read_frac : trm; read_body : trm }
@@ -78,6 +78,7 @@ let code_block_doc items =
   let item_to_doc = function
     | Regular d -> d ^^ semi
     | FinalExpr d -> d
+    | Blank -> empty
   in
   match items with
   | [] -> lbrace ^^ rbrace
@@ -156,9 +157,23 @@ let is_ghost_ret_type (ty : typ) : bool =
   | Trm_var v -> v.name = "__ghost_ret" && v.namespaces = []
   | _ -> false
 
+(** [is_ghost_fn_type ty] checks whether [ty] is the internal ghost-function marker. *)
+let is_ghost_fn_type (ty : typ) : bool =
+  match ty.desc with
+  | Trm_var v -> v.name = "__ghost_fn" && v.namespaces = []
+  | _ -> false
+
+(** [should_print_type_annotation style ty] keeps Surface output from exposing internal-only marker types. *)
+let should_print_type_annotation (style : Optilambda_style.style) (ty : typ) : bool =
+  style.print_types && not (is_auto_type ty) && not (is_surface style && is_ghost_fn_type ty)
+
 (** [typ_to_doc style ty] prints an OptiTrust type using OptiLambda syntax. *)
 let rec typ_to_doc (style : Optilambda_style.style) (ty : typ) : document =
   match ty.desc with
+  | Trm_apps ({ desc = Trm_var v; _ }, [ body ], [], []) when is_surface style && v.name = "__is_true" ->
+      formula_to_doc style body
+  | Trm_var v when is_surface style && v.name = "f32" -> string "float"
+  | Trm_var v when is_surface style && v.name = "f64" -> string "double"
   | Trm_var v -> var_to_doc style v
   | Trm_apps ({ desc = Trm_var v; _ }, args, [], []) ->
       begin match (v.name, args) with
@@ -167,12 +182,23 @@ let rec typ_to_doc (style : Optilambda_style.style) (ty : typ) : document =
             let doc = typ_to_doc style ty in
             match ty.desc with
             | Trm_apps ({ desc = Trm_var v; _ }, _, [], []) when v.name = "pure_fun" && v.namespaces = [] -> parens_doc doc
+            | Trm_apps ({ desc = Trm_var v; _ }, [ _ ], [], []) when is_surface style && v.name = "__is_true" -> parens_doc doc
             | _ -> doc
           in
           let args_doc = separate (blank 1 ^^ star ^^ blank 1) (List.map arg_to_doc args) in
           let ret_doc =
             if is_type_type ret_ty then
-              match type_result_body_to_doc style body with
+              match
+                match body.desc with
+                | Trm_seq _ -> type_result_body_to_doc style body
+                | Trm_var _
+                | Trm_arbitrary (Typ _) ->
+                    Some (typ_to_doc style body)
+                | Trm_apps ({ desc = Trm_var v; _ }, _, [], [])
+                  when List.mem v.name [ "pure_fun"; "ptr"; "const"; "array"; "fun" ] ->
+                    Some (typ_to_doc style body)
+                | _ -> Some (formula_to_doc style body)
+              with
               | Some doc -> doc
               | None -> typ_to_doc style ret_ty
             else typ_to_doc style ret_ty
@@ -202,7 +228,7 @@ and elem_typ_of_access_result (ty : typ) : typ =
 
 (** [typed_var_to_doc style (v, ty)] prints a variable declaration fragment. *)
 and typed_var_to_doc (style : Optilambda_style.style) ((v, ty) : typed_var) : document =
-  if style.print_types && not (is_auto_type ty) then var_to_doc style v ^^ colon ^^ blank 1 ^^ typ_to_doc style ty else var_to_doc style v
+  if should_print_type_annotation style ty then var_to_doc style v ^^ colon ^^ blank 1 ^^ typ_to_doc style ty else var_to_doc style v
 
 (** [surface_typed_var_to_doc style (v, ty)] hides type annotations in Surface snippets that are meant to stay C-like. *)
 and surface_typed_var_to_doc (style : Optilambda_style.style) ((v, ty) : typed_var) : document =
@@ -460,6 +486,7 @@ and uninit_formula_body (formula : trm) : trm option =
 and normalize_surface_formula_binders (formula : trm) : trm =
   let rec erase_hidden_fun_arg_types t =
     match t.desc with
+    | Trm_apps ({ desc = Trm_var v; _ }, [ { desc = Trm_fun _; _ } ], [], []) when v.name = "pure_fun" -> t
     | Trm_fun (args, ret_ty, body, contract) ->
         let ret_ty = erase_hidden_fun_arg_types ret_ty in
         let body = erase_hidden_fun_arg_types body in
@@ -504,6 +531,12 @@ and formula_to_doc_at (style : Optilambda_style.style) (ctx_prec : int) (formula
     | Trm_var v -> var_to_doc style v
     | Trm_lit lit -> lit_to_doc style lit
     | Trm_prim (ty, prim) -> prim_to_doc style ty prim
+    | Trm_apps ({ desc = Trm_var v; _ }, [ body ], [], [])
+      when is_surface style && v.name = "__is_true" && v.namespaces = [] ->
+        formula_to_doc_at style ctx_prec body
+    | Trm_apps ({ desc = Trm_var v; _ }, [ { desc = Trm_fun _; _ } ], [], [])
+      when is_surface style && v.name = "pure_fun" && v.namespaces = [] ->
+        typ_to_doc style formula
     | Trm_apps ({ desc = Trm_var v; _ }, [ start; stop; step ], [], [])
       when v.name = "range" && v.namespaces = [] ->
         if is_int_one step then
@@ -644,6 +677,23 @@ and simplify_linear_contract (pre : resource_item list) (post : resource_item li
 and remove_used_fraction_requirements (used_fracs : var list) (pure : resource_item list) : resource_item list =
   List.filter (fun (hyp, formula) -> not (List.exists (( = ) hyp) used_fracs && is_fraction_type_formula formula)) pure
 
+(** [surface_parallel_reads style reads] prints loop read-only resources in the same compact form as function [reads] clauses. *)
+and surface_parallel_reads (style : Optilambda_style.style) (reads : resource_item list) : resource_item list * var list =
+  if not (is_surface style) then (reads, [])
+  else
+    List.fold_right
+      (fun (hyp, formula) (reads, used_fracs) ->
+        match read_only_formula_inv formula with
+        | Some ro ->
+            let used_fracs =
+              match fraction_var_of_formula ro.read_frac with
+              | Some frac -> frac :: used_fracs
+              | None -> used_fracs
+            in
+            ((hyp, ro.read_body) :: reads, used_fracs)
+        | None -> ((hyp, formula) :: reads, used_fracs))
+      reads ([], [])
+
 (** [is_surface_type_only_formula formula] recognizes pure contract entries that only describe types. *)
 and is_surface_type_only_formula (formula : trm) : bool =
   match formula.desc with
@@ -727,12 +777,13 @@ and loop_contract_clauses (style : Optilambda_style.style) (contract : loop_cont
   if not style.print_contracts then []
   else
     let strict_doc = if contract.strict then [ ContractRaw (string "strict") ] else [] in
-    let loop_ghosts = filter_surface_type_only_requirements style contract.loop_ghosts in
-    let invariant_pure = filter_surface_type_only_requirements style contract.invariant.pure in
-    let iter_pre_pure = filter_surface_type_only_requirements style contract.iter_contract.pre.pure in
+    let parallel_reads, used_fracs = surface_parallel_reads style contract.parallel_reads in
+    let loop_ghosts = filter_surface_type_only_requirements style (remove_used_fraction_requirements used_fracs contract.loop_ghosts) in
+    let invariant_pure = filter_surface_type_only_requirements style (remove_used_fraction_requirements used_fracs contract.invariant.pure) in
+    let iter_pre_pure = filter_surface_type_only_requirements style (remove_used_fraction_requirements used_fracs contract.iter_contract.pre.pure) in
     let iter_post_pure = filter_surface_type_only_requirements style contract.iter_contract.post.pure in
     let items =
-      loop_ghosts @ invariant_pure @ contract.invariant.linear @ contract.parallel_reads @ iter_pre_pure
+      loop_ghosts @ invariant_pure @ contract.invariant.linear @ parallel_reads @ iter_pre_pure
       @ contract.iter_contract.pre.linear @ iter_post_pure @ contract.iter_contract.post.linear
     in
     let used_vars = resource_items_used_vars items in
@@ -740,7 +791,7 @@ and loop_contract_clauses (style : Optilambda_style.style) (contract : loop_cont
     @ contract_clauses ~used_vars "requires" loop_ghosts
     @ contract_clauses ~used_vars "requires" invariant_pure
     @ contract_clauses ~used_vars "preserves" contract.invariant.linear
-    @ contract_clauses ~used_vars "reads" contract.parallel_reads
+    @ contract_clauses ~used_vars "reads" parallel_reads
     @ contract_clauses ~used_vars "xrequires" iter_pre_pure
     @ contract_clauses ~used_vars "xconsumes" contract.iter_contract.pre.linear
     @ contract_clauses ~used_vars "xensures" iter_post_pure
@@ -841,7 +892,7 @@ and let_to_doc (style : Optilambda_style.style) ((v, ty) : typed_var) (body : tr
   | Trm_apps ({ desc = Trm_prim (_, Prim_ref_uninit); _ }, [], [], []) -> string "letmut" ^^ blank 1 ^^ var_to_doc style v
   | _ ->
       let typed_doc =
-        if style.print_types && not (is_auto_type ty) then var_to_doc style v ^^ colon ^^ blank 1 ^^ typ_to_doc style ty
+        if should_print_type_annotation style ty then var_to_doc style v ^^ colon ^^ blank 1 ^^ typ_to_doc style ty
         else var_to_doc style v
       in
       string "let" ^^ blank 1 ^^ typed_doc ^^ blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc_at style 0 body
@@ -865,6 +916,10 @@ and app_to_doc (style : Optilambda_style.style) ~(result_typ : typ) (f : trm) (a
       string "for" ^^ blank 1 ^^ range_doc ^^ blank 1 ^^ trm_to_block_doc style body
   | Trm_var points_to_var, [ addr; resource ] when points_to_var.name = "~>" && points_to_var.namespaces = [] ->
       parens_doc (trm_to_doc_at style 0 addr ^^ blank 1 ^^ string "~>" ^^ blank 1 ^^ trm_to_doc_at style 0 resource)
+  | Trm_var ghost_begin, [ ghost_call ] when is_surface style && ghost_begin.name = "__ghost_begin" ->
+      string "ghost_begin" ^^ parens_doc (trm_to_doc_at style 0 ghost_call)
+  | Trm_var ghost_end, [ pair ] when is_surface style && ghost_end.name = "__ghost_end" ->
+      string "ghost_end" ^^ parens_doc (trm_to_doc_at style 0 pair)
   | Trm_prim (_, Prim_binop Binop_array_access), [ base; index ] when is_internal style ->
       trm_to_doc_at style 10 base ^^ blank 1 ^^ string "[+]" ^^ blank 1 ^^ trm_to_doc_at style 0 index
   | Trm_prim (_, Prim_binop Binop_array_get), [ base; index ] when is_internal style ->
@@ -932,7 +987,25 @@ and app_to_doc (style : Optilambda_style.style) ~(result_typ : typ) (f : trm) (a
 (** [ghost_call_to_doc style f args ghost_args ghost_bind] prints the contents of a ghost call. *)
 and ghost_call_to_doc (style : Optilambda_style.style) (f : trm) (args : trm list) (ghost_args : resource_item list)
     (ghost_bind : (var option * var) list) : document =
-  app_to_doc style ~result_typ:typ_auto f args ghost_args ghost_bind
+  if is_surface style then (
+    let head_doc =
+      match (f.desc, args) with
+      | Trm_var v, [] -> var_to_doc style v
+      | _ -> app_to_doc style ~result_typ:typ_auto f args [] []
+    in
+    let ghost_arg_to_doc (hyp, formula) =
+      dquotes (var_to_doc style hyp ^^ blank 1 ^^ string ":=" ^^ blank 1 ^^ formula_to_doc style formula)
+    in
+    let ghost_bind_to_doc (bound_opt, contract_var) =
+      let bound_doc =
+        match bound_opt with
+        | Some bound -> var_to_doc style bound
+        | None -> string "_"
+      in
+      dquotes (bound_doc ^^ blank 1 ^^ string "<-" ^^ blank 1 ^^ var_to_doc style contract_var)
+    in
+    comma_sep (head_doc :: (List.map ghost_arg_to_doc ghost_args @ List.map ghost_bind_to_doc ghost_bind)))
+  else app_to_doc style ~result_typ:typ_auto f args ghost_args ghost_bind
 
 (** [ghost_to_doc style t] prints ghost instructions in OptiLambda syntax. *)
 and ghost_to_doc (style : Optilambda_style.style) (t : trm) : document option =
@@ -962,11 +1035,23 @@ and seq_to_doc (style : Optilambda_style.style) (instrs : trm mlist) (result : v
 
 (** [instrs_to_block_items style instrs] prints final [return x] as final expression [x]. *)
 and instrs_to_block_items (style : Optilambda_style.style) (instrs : trm list) : block_item list =
+  let is_function_definition instr =
+    match instr.desc with
+    | Trm_let (_, { desc = Trm_fun _; _ })
+    | Trm_fun _ ->
+        true
+    | _ -> false
+  in
   let rec aux acc instrs =
     match instrs with
     | [] -> List.rev acc
     | [ { desc = Trm_abort (Ret (Some ret)); _ } ] -> List.rev (FinalExpr (trm_to_doc_at style 0 ret) :: acc)
-    | instr :: rest -> aux (Regular (trm_to_doc_at style 0 instr) :: acc) rest
+    | instr :: rest ->
+        let is_fun = is_function_definition instr in
+        let acc = if is_fun && acc <> [] then Blank :: acc else acc in
+        let acc = Regular (trm_to_doc_at style 0 instr) :: acc in
+        let acc = if is_fun && rest <> [] then Blank :: acc else acc in
+        aux acc rest
   in
   aux [] instrs
 
@@ -1053,11 +1138,15 @@ and add_marks_to_doc (style : Optilambda_style.style) (t : trm) (doc : document)
 
 (** [trm_to_doc_at style ctx_prec t] prints [t] in an expression context. *)
 and trm_to_doc_at (style : Optilambda_style.style) (ctx_prec : int) (t : trm) : document =
-  let doc =
-    match ghost_to_doc style t with
-    | Some doc -> doc
-    | None -> (
-        match t.desc with
+  match t.desc with
+  | Trm_apps ({ desc = Trm_var v; _ }, [ body ], [], []) when is_surface style && v.name = "__is_true" && v.namespaces = [] ->
+      trm_to_doc_at style ctx_prec body
+  | _ ->
+      let doc =
+        match ghost_to_doc style t with
+        | Some doc -> doc
+        | None -> (
+            match t.desc with
         | Trm_var v -> var_to_doc style v
         | Trm_lit lit -> lit_to_doc style lit
         | Trm_prim (ty, prim) -> prim_to_doc style ty prim
@@ -1108,9 +1197,9 @@ and trm_to_doc_at (style : Optilambda_style.style) (ctx_prec : int) (t : trm) : 
                 ^^ brackets_doc (comma_sep (List.map (fun (v, _) -> var_to_doc style v) params))
                 ^^ blank 1 ^^ trm_to_doc_at style 0 body
             end
-        | Trm_using_directive name -> string "using" ^^ blank 1 ^^ string name)
-  in
-  parenthesize_if (trm_precedence t < ctx_prec) (add_marks_to_doc style t doc)
+            | Trm_using_directive name -> string "using" ^^ blank 1 ^^ string name)
+      in
+      parenthesize_if (trm_precedence t < ctx_prec) (add_marks_to_doc style t doc)
 
 (** [trm_to_doc style t] is the main entry point for printing terms. *)
 and trm_to_doc (style : Optilambda_style.style) (t : trm) : document = trm_to_doc_at style 0 t

@@ -72,7 +72,7 @@
         },
         {
           "name": "storage.modifier.ghost.optilambda",
-          "match": "\\bghost\\b"
+          "match": "\\b(?:ghost|ghost_begin|ghost_end)\\b"
         },
         {
           "name": "storage.modifier.mutable.optilambda",
@@ -104,7 +104,7 @@
       "patterns": [
         {
           "name": "support.type.optilambda",
-          "match": "\\b(?:Type|Prop|HProp|int|usize|f32|f64|bool|ptr|array|pure_fun|MemType|_Fraction)\\b"
+          "match": "\\b(?:Type|Prop|HProp|int|usize|f32|f64|float|double|bool|ptr|array|pure_fun|MemType|_Fraction)\\b"
         }
       ]
     },

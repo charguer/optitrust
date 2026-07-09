@@ -1830,7 +1830,8 @@ let produce_diff_output_internal (step:step_tree) : unit =
       in
     prefix ^ "_" ^ side ^ suffix
     in
-  (* Generate files. *)
+  (* Generate only the requested pair. Other OptiLambda representations are
+     generated lazily by the VS Code diff webview when the user switches syntax. *)
   output_ast style_before (diff_filename_prefix style_before "before") ast_before;
   output_ast style_after (diff_filename_prefix style_after "after") ast_after;
   Flags.verbose_info "Generated diff files for %s" prefix

@@ -140,6 +140,13 @@ let ghost_call_example =
   Trm.trm_ghost_force
     (Trm.ghost_call ~ghost_bind:[ (Some (v "z"), "h_out") ] (v "rewrite") [ ("h", Trm.trm_eq ~typ:Typ.typ_int (term "x") (term "y")) ])
 
+let arbitrary_pure_fun_ghost =
+  let inner_fun_ty = Typ.typ_pure_fun [ (v "i", Typ.typ_int) ] Typ.typ_f32 in
+  let fun_ty = Typ.typ_pure_fun [ (v "n", Typ.typ_int); (v "f", inner_fun_ty) ] Typ.typ_f32 in
+  Trm.trm_ghost_force
+    (Trm.ghost_call ~ghost_bind:[ (Some (v "reduce_sum"), "x") ] (v "assert_inhabited")
+       [ ("x", app "arbitrary" [ fun_ty ]) ])
+
 let check name trm expected =
   let actual = OL.trm_to_string trm in
   if actual <> expected then begin
@@ -311,6 +318,20 @@ let () =
     "ghost fun rewrite() {\n  requires from: int,\n           to: int;\n}";
 
   check_typ "compact Type result" (Typ.typ_pure_fun [ (v "x", Typ.typ_int) ] Typ.typ_prop) "int -> Prop";
+
+  check_typ "surface C-style pure_fun type"
+    (Typ.typ_pure_fun [ (v "n", Typ.typ_int); (v "f", Typ.typ_pure_fun [ (v "i", Typ.typ_int) ] Typ.typ_f32) ] Typ.typ_f32)
+    "int * (int -> float) -> float";
+
+  check_typ "surface pure_fun hides __is_true argument type"
+    (Typ.typ_pure_fun
+       [ (v "n", Typ.typ_int); (v "h", app "__is_true" [ Trm.trm_ge ~typ:Typ.typ_int (term "n") (Trm.trm_int 0) ]) ]
+       Typ.typ_prop)
+    "int * (n >= 0) -> Prop";
+
+  check "__is_true is hidden in surface"
+    (app "__is_true" [ Trm.trm_eq ~typ:Typ.typ_int (term "result") (term "x") ])
+    "result = x";
 
   check "if"
     (Trm.trm_if
@@ -499,7 +520,15 @@ let () =
 
   check_with_style "typed resource formula" typed_style (Trm.trm_apps (term "cell") [ typed_term "v" Typ.typ_int ]) "cell<int>(v)";
 
-  check "ghost call" ghost_call_example "ghost(rewrite()[h := x = y][z : h_out])";
+  check "ghost call" ghost_call_example "ghost(rewrite, \"h := x = y\", \"z <- h_out\")";
+
+  check "surface ghost call uses C-style arguments"
+    arbitrary_pure_fun_ghost
+    "ghost(assert_inhabited, \"x := arbitrary(int * (int -> float) -> float)\", \"reduce_sum <- x\")";
+
+  check "surface hides __ghost_fn type"
+    (Trm.trm_let (tv "focusA" (Typ.typ_var (Typ.name_to_typvar "__ghost_fn"))) (term "body"))
+    "let focusA = body";
 
   check_with_style "style hides types" { OL.default_style with print_types = false }
     (Trm.trm_let (tv "x" Typ.typ_int) (Trm.trm_int 3))

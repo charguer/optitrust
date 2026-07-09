@@ -90,12 +90,6 @@ var optionsDescr = [ // extended by initAllTags
     kind: "tree",
     default: false,
   },
-  /* always-true
-  { key: "simpl-show",
-    name: "simpl-show-steps",
-    kind: "standard",
-    default: true,
-  },*/
   { key: "exectime",
     name: "exectime",
     kind: "advanced",
@@ -111,17 +105,6 @@ var optionsDescr = [ // extended by initAllTags
     kind: "advanced",
     default: true,
   },
-  /* DEPRECATED
-   { key: "io_steps",
-    name: "io-steps",
-    kind: "standard",
-    default: false,
-  },
-  { key: "target_steps",
-    name: "target-steps",
-    kind: "standard",
-    default: false,
-  },*/
   { key: "atomic_substeps",
     name: "atomic-substeps",
     kind: "advanced",
@@ -154,13 +137,13 @@ var optionsDescr = [ // extended by initAllTags
     value: "cpp",
     name: "C/C++",
     kind: "ast",
-    default: true,
+    default: false,
   },
   { radio: "syntax",
     value: "surface",
     name: "Surface",
     kind: "optilambda",
-    default: false,
+    default: true,
   },
   { radio: "syntax",
     value: "internal",
@@ -241,17 +224,7 @@ function getRadioOption(radio) {
   }
   console.log("Error in getRadioOption, no matching entry");
 }
-/*
-// get the settings associated with a 'radio' entry. E.g. for 'view', can set it to 'code_before'
-function getRadioOption(radio) {
-  for (var i = 0; i < optionsDescr.length; i++) {
-    var descr = optionsDescr[i];
-    if (descr.radio && descr.radio == radio && options[descr.key]) {
-      return descr.value;
-    }
-  }
-}
-*/
+
 //---------------------------------------------------
 // Code Mirror editor
 // Documentation: https://codemirror.net/doc/manual.html
@@ -266,48 +239,16 @@ function initEditor() {
     lineWrapping: true,
     readOnly: true,
     tabSize: 2,
-    extraKeys: {
-      'N': function(cm) { console.log("pressed N in editor"); },
-    },
-    // no codemirrror scroll bars, display full code
+    // No CodeMirror scroll bars; display the full code block.
     scrollbarStyle: null,
     viewportMargin: Infinity,
   });
-
-  // DEPRECATED:
-  // Dimensions for codemirror window, if the code has more lines that the
-  // size of the window a scrollbar will appear
-  // editor.setSize(700, 600);
-
-  // CURRENTLY NOT USED
-  // Add a "getSelectedLoc" function
-  // Returns a value in the form:
-  // { start: { line: 1, col: 4 }, end: { line: 3, col: 8 } }
-  editor.getSelectedLoc = function() {
-    var from = editor.getCursor(true);
-    var to = editor.getCursor(false);
-    // Adding 1 because compilers counts from 1, and Codemirror from 0
-    return { start: { line: from.line + 1, col: from.ch + 1 },
-      end: { line: to.line + 1, col: to.ch + 1 } };
-  };
-}
-
-function scrollToLoc(loc) { // ({from: from, to: to});
-  editor.scrollIntoView(loc, 100);
 }
 
 function scrollToLine(line) { // ({from: from, to: to});
   var vMargin = 100; // pixels
   editor.scrollIntoView(line, vMargin);
 }
-
-// hook for codemirror
-/*
-$(document).on('mouseup', '.CodeMirror', function () {
-  // triggered on mouseup events in codemirror, eg to update selection
-  // editor.getSelectedLoc()
-});*/
-
 
 //---------------------------------------------------
 // Diff2html
@@ -403,12 +344,13 @@ function extractShowStep(step) {
   }
 }
 
-function loadDiffFromString(diffString) {
+function loadDiffFromString(diffString, typeSource) {
   // this function should be called only after DOM contents is loaded
   var targetElement = document.getElementById("diffDiv");
   targetElement.innerHTML = "";
   var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
   diff2htmlUi.draw();
+  applyDiffLanguage(targetElement, selectedSyntaxRepresentation());
 
   const reg1 = /<del>([\s\n]*)/g;
   $('.d2h-code-line-ctn').each(function() {
@@ -429,6 +371,10 @@ function loadDiffFromString(diffString) {
 
   highlightRenderedDiff(targetElement, function () {
     diff2htmlUi.highlightCode();
+  }).then(function () {
+    if (window.OptitrustInteractiveCode) {
+      window.OptitrustInteractiveCode.enhanceDiff(targetElement, selectedSyntaxRepresentation(), typeSource);
+    }
   });
 
  /* Currently, this is a buggy feature: there is no code to jump to the relevant line, reactivate if there is a workaround
@@ -447,13 +393,22 @@ function loadDiffFromString(diffString) {
   }
 }
 
+function applyDiffLanguage(targetElement, representation) {
+  var language = representation == "cpp" ? "cpp" : "opti";
+  targetElement.querySelectorAll(".d2h-file-wrapper").forEach(function (wrapper) {
+    wrapper.setAttribute("data-lang", language);
+  });
+}
+
 function highlightRenderedDiff(targetElement, fallback) {
   if (!window.OptitrustSyntaxHighlight) {
+    targetElement.dataset.optitrustHighlighter = "fallback";
     fallback();
-    return;
+    return Promise.resolve();
   }
-  window.OptitrustSyntaxHighlight.highlightDiff(targetElement).catch(function (error) {
+  return window.OptitrustSyntaxHighlight.highlightDiff(targetElement).catch(function (error) {
     console.warn("OptiTrust syntax highlighting failed; using Diff2Html fallback.", error);
+    targetElement.dataset.optitrustHighlighter = "fallback";
     fallback();
   });
 }
@@ -495,6 +450,14 @@ function fieldForView(step, view, typing_style) {
     return view + "_optilambda";
   }
   return field;
+}
+
+function typeSourceForView(step, view) {
+  if (selectedSyntaxRepresentation() != "surface") {
+    return undefined;
+  }
+  var field = view + "_optilambda_typed";
+  return step[field];
 }
 
 function syntaxQueryString() {
@@ -544,12 +507,30 @@ function displayInfo(descr) {
    delay);
 }*/
 
-function loadSource(sourceCode) {
+function loadSource(sourceCode, typeSource) {
   $("#sourceDiv").show();
-  editor.setValue(sourceCode);
+  const representation = selectedSyntaxRepresentation();
+  const richSource = document.getElementById("richSource");
+  const useRichSource = representation !== "cpp" && richSource && window.OptitrustInteractiveCode;
+  if (useRichSource) {
+    richSource.hidden = false;
+    if (editor && editor.getWrapperElement) {
+      editor.getWrapperElement().style.display = "none";
+    }
+    window.OptitrustInteractiveCode.enhanceCode(richSource, sourceCode, representation, typeSource);
+  } else {
+    if (richSource) {
+      richSource.hidden = true;
+      richSource.textContent = "";
+    }
+    if (editor && editor.getWrapperElement) {
+      editor.getWrapperElement().style.display = "";
+    }
+    editor.setValue(sourceCode);
+  }
   // Search for error lines
   const lineOfError = sourceCode.split('\n').findIndex(line => line.includes('ERROR:'));
-  if (lineOfError != -1) { // no
+  if (!useRichSource && lineOfError != -1) { // no
     var delay = 300; // milliseconds
     setTimeout(function() {
         console.log("autoscrolling to error on line " + (lineOfError + 1));
@@ -694,6 +675,7 @@ function queryStepDetails(step, view, hadEmptyDiff = false) {
   }
   stepCode
     .then((code) => {
+      const typeSource = typeSourceForView(step, view);
       if (view == "diff") {
         if (code == "") {
           queryStepDetails(step, "code_after", true);
@@ -702,7 +684,7 @@ function queryStepDetails(step, view, hadEmptyDiff = false) {
           $("#diffDiv").show();
           $("#statsDiv").hide();
           $("#sourceDiv").hide();
-          loadDiffFromString(code);
+          loadDiffFromString(code, typeSource);
         }
       } else {
         if (hadEmptyDiff) {
@@ -710,7 +692,7 @@ function queryStepDetails(step, view, hadEmptyDiff = false) {
         } else {
           $("#debugMsgDiv").html("");
         }
-        loadSource(code);
+        loadSource(code, typeSource);
         $("#diffDiv").hide();
         $("#statsDiv").hide();
         $("#sourceDiv").show();
@@ -1014,6 +996,12 @@ function initOptions() {
     }
     optionsDefault[descr.key] = descr.default;
     options[descr.key] = descr.default;
+  }
+  if (!traceHasOptiLambdaData()) {
+    options.syntax_cpp = true;
+    options.syntax_surface = false;
+    options.syntax_internal = false;
+    options.syntax_typed = false;
   }
 }
 

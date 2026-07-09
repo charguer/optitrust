@@ -3206,7 +3206,7 @@ var Registry = class {
 };
 var INITIAL = StateStackImpl.NULL;
 
-// node_modules/@shikijs/primitive/dist/index.mjs
+// node_modules/@shikijs/core/node_modules/@shikijs/primitive/dist/index.mjs
 function resolveColorReplacements(theme, options) {
   const replacements = typeof theme === "string" ? {} : { ...theme.colorReplacements };
   const themeName2 = typeof theme === "string" ? theme : theme.name;
@@ -3910,7 +3910,7 @@ function alignThemesTokenization(...themes) {
   return outThemes;
 }
 
-// node_modules/html-void-elements/index.js
+// node_modules/@shikijs/core/node_modules/html-void-elements/index.js
 var htmlVoidElements = [
   "area",
   "base",
@@ -3934,7 +3934,7 @@ var htmlVoidElements = [
   "wbr"
 ];
 
-// node_modules/property-information/lib/util/schema.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/schema.js
 var Schema = class {
   /**
    * @param {SchemaType['property']} property
@@ -3958,7 +3958,7 @@ Schema.prototype.normal = {};
 Schema.prototype.property = {};
 Schema.prototype.space = void 0;
 
-// node_modules/property-information/lib/util/merge.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/merge.js
 function merge(definitions, space) {
   const property = {};
   const normal = {};
@@ -3969,12 +3969,12 @@ function merge(definitions, space) {
   return new Schema(property, normal, space);
 }
 
-// node_modules/property-information/lib/normalize.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/normalize.js
 function normalize(value) {
   return value.toLowerCase();
 }
 
-// node_modules/property-information/lib/util/info.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/info.js
 var Info = class {
   /**
    * @param {string} property
@@ -4002,7 +4002,7 @@ Info.prototype.property = "";
 Info.prototype.spaceSeparated = false;
 Info.prototype.space = void 0;
 
-// node_modules/property-information/lib/util/types.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/types.js
 var types_exports = {};
 __export(types_exports, {
   boolean: () => boolean,
@@ -4025,7 +4025,7 @@ function increment() {
   return 2 ** ++powers;
 }
 
-// node_modules/property-information/lib/util/defined-info.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/defined-info.js
 var checks = (
   /** @type {ReadonlyArray<keyof typeof types>} */
   Object.keys(types_exports)
@@ -4063,7 +4063,7 @@ function mark(values, key2, value) {
   }
 }
 
-// node_modules/property-information/lib/util/create.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/create.js
 function create(definition) {
   const properties = {};
   const normals = {};
@@ -4084,7 +4084,7 @@ function create(definition) {
   return new Schema(properties, normals, definition.space);
 }
 
-// node_modules/property-information/lib/aria.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/aria.js
 var aria = create({
   properties: {
     ariaActiveDescendant: null,
@@ -4142,17 +4142,17 @@ var aria = create({
   }
 });
 
-// node_modules/property-information/lib/util/case-sensitive-transform.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/case-sensitive-transform.js
 function caseSensitiveTransform(attributes, attribute) {
   return attribute in attributes ? attributes[attribute] : attribute;
 }
 
-// node_modules/property-information/lib/util/case-insensitive-transform.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/util/case-insensitive-transform.js
 function caseInsensitiveTransform(attributes, property) {
   return caseSensitiveTransform(attributes, property.toLowerCase());
 }
 
-// node_modules/property-information/lib/html.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/html.js
 var html = create({
   attributes: {
     acceptcharset: "accept-charset",
@@ -4526,7 +4526,7 @@ var html = create({
   transform: caseInsensitiveTransform
 });
 
-// node_modules/property-information/lib/svg.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/svg.js
 var svg = create({
   attributes: {
     accentHeight: "accent-height",
@@ -5090,7 +5090,7 @@ var svg = create({
   transform: caseSensitiveTransform
 });
 
-// node_modules/property-information/lib/xlink.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/xlink.js
 var xlink = create({
   properties: {
     xLinkActuate: null,
@@ -5107,7 +5107,7 @@ var xlink = create({
   }
 });
 
-// node_modules/property-information/lib/xmlns.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/xmlns.js
 var xmlns = create({
   attributes: { xmlnsxlink: "xmlns:xlink" },
   properties: { xmlnsXLink: null, xmlns: null },
@@ -5115,7 +5115,7 @@ var xmlns = create({
   transform: caseInsensitiveTransform
 });
 
-// node_modules/property-information/lib/xml.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/xml.js
 var xml = create({
   properties: { xmlBase: null, xmlLang: null, xmlSpace: null },
   space: "xml",
@@ -5124,7 +5124,7 @@ var xml = create({
   }
 });
 
-// node_modules/property-information/lib/find.js
+// node_modules/@shikijs/core/node_modules/property-information/lib/find.js
 var cap = /[A-Z]/g;
 var dash = /-[a-z]/g;
 var valid = /^data[-\w.:]+$/i;
@@ -5160,11 +5160,11 @@ function camelcase($0) {
   return $0.charAt(1).toUpperCase();
 }
 
-// node_modules/property-information/index.js
+// node_modules/@shikijs/core/node_modules/property-information/index.js
 var html2 = merge([aria, html, xlink, xmlns, xml], "html");
 var svg2 = merge([aria, svg, xlink, xmlns, xml], "svg");
 
-// node_modules/zwitch/index.js
+// node_modules/@shikijs/core/node_modules/zwitch/index.js
 var own = {}.hasOwnProperty;
 function zwitch(key2, options) {
   const settings = options || {};
@@ -5185,7 +5185,7 @@ function zwitch(key2, options) {
   return one2;
 }
 
-// node_modules/stringify-entities/lib/core.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/core.js
 var defaultSubsetRegex = /["&'<>`]/g;
 var surrogatePairsRegex = /[\uD800-\uDBFF][\uDC00-\uDFFF]/g;
 var controlCharactersRegex = (
@@ -5235,21 +5235,21 @@ function charactersToExpression(subset) {
   return new RegExp("(?:" + groups.join("|") + ")", "g");
 }
 
-// node_modules/stringify-entities/lib/util/to-hexadecimal.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/util/to-hexadecimal.js
 var hexadecimalRegex = /[\dA-Fa-f]/;
 function toHexadecimal(code, next, omit) {
   const value = "&#x" + code.toString(16).toUpperCase();
   return omit && next && !hexadecimalRegex.test(String.fromCharCode(next)) ? value : value + ";";
 }
 
-// node_modules/stringify-entities/lib/util/to-decimal.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/util/to-decimal.js
 var decimalRegex = /\d/;
 function toDecimal(code, next, omit) {
   const value = "&#" + String(code);
   return omit && next && !decimalRegex.test(String.fromCharCode(next)) ? value : value + ";";
 }
 
-// node_modules/character-entities-legacy/index.js
+// node_modules/@shikijs/core/node_modules/character-entities-legacy/index.js
 var characterEntitiesLegacy = [
   "AElig",
   "AMP",
@@ -5359,7 +5359,7 @@ var characterEntitiesLegacy = [
   "yuml"
 ];
 
-// node_modules/character-entities-html4/index.js
+// node_modules/@shikijs/core/node_modules/character-entities-html4/index.js
 var characterEntitiesHtml4 = {
   nbsp: "\xA0",
   iexcl: "\xA1",
@@ -5615,7 +5615,7 @@ var characterEntitiesHtml4 = {
   euro: "\u20AC"
 };
 
-// node_modules/stringify-entities/lib/constant/dangerous.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/constant/dangerous.js
 var dangerous = [
   "cent",
   "copy",
@@ -5627,7 +5627,7 @@ var dangerous = [
   "times"
 ];
 
-// node_modules/stringify-entities/lib/util/to-named.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/util/to-named.js
 var own2 = {}.hasOwnProperty;
 var characters = {};
 var key;
@@ -5650,7 +5650,7 @@ function toNamed(code, next, omit, attribute) {
   return "";
 }
 
-// node_modules/stringify-entities/lib/util/format-smart.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/util/format-smart.js
 function formatSmart(code, next, options) {
   let numeric = toHexadecimal(code, next, options.omitOptionalSemicolons);
   let named;
@@ -5671,12 +5671,12 @@ function formatSmart(code, next, options) {
   return named && (!options.useShortestReferences || named.length < numeric.length) ? named : numeric;
 }
 
-// node_modules/stringify-entities/lib/index.js
+// node_modules/@shikijs/core/node_modules/stringify-entities/lib/index.js
 function stringifyEntities(value, options) {
   return core(value, Object.assign({ format: formatSmart }, options));
 }
 
-// node_modules/hast-util-to-html/lib/handle/comment.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/comment.js
 var htmlCommentRegex = /^>|^->|<!--|-->|--!>|<!-$/g;
 var bogusCommentEntitySubset = [">"];
 var commentEntitySubset = ["<", ">"];
@@ -5697,12 +5697,12 @@ function comment(node, _1, _2, state) {
   }
 }
 
-// node_modules/hast-util-to-html/lib/handle/doctype.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/doctype.js
 function doctype(_1, _2, _3, state) {
   return "<!" + (state.settings.upperDoctype ? "DOCTYPE" : "doctype") + (state.settings.tightDoctype ? "" : " ") + "html>";
 }
 
-// node_modules/ccount/index.js
+// node_modules/@shikijs/core/node_modules/ccount/index.js
 function ccount(value, character) {
   const source = String(value);
   if (typeof character !== "string") {
@@ -5717,7 +5717,7 @@ function ccount(value, character) {
   return count;
 }
 
-// node_modules/comma-separated-tokens/index.js
+// node_modules/@shikijs/core/node_modules/comma-separated-tokens/index.js
 function stringify(values, options) {
   const settings = options || {};
   const input = values[values.length - 1] === "" ? [...values, ""] : values;
@@ -5726,12 +5726,12 @@ function stringify(values, options) {
   ).trim();
 }
 
-// node_modules/space-separated-tokens/index.js
+// node_modules/@shikijs/core/node_modules/space-separated-tokens/index.js
 function stringify2(values) {
   return values.join(" ").trim();
 }
 
-// node_modules/hast-util-whitespace/lib/index.js
+// node_modules/@shikijs/core/node_modules/hast-util-whitespace/lib/index.js
 var re = /[ \t\n\f\r]/g;
 function whitespace(thing) {
   return typeof thing === "object" ? thing.type === "text" ? empty(thing.value) : false : empty(thing);
@@ -5740,7 +5740,7 @@ function empty(value) {
   return value.replace(re, "") === "";
 }
 
-// node_modules/hast-util-to-html/lib/omission/util/siblings.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/omission/util/siblings.js
 var siblingAfter = siblings(1);
 var siblingBefore = siblings(-1);
 var emptyChildren = [];
@@ -5760,7 +5760,7 @@ function siblings(increment2) {
   }
 }
 
-// node_modules/hast-util-to-html/lib/omission/omission.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/omission/omission.js
 var own3 = {}.hasOwnProperty;
 function omission(handlers) {
   return omit;
@@ -5769,7 +5769,7 @@ function omission(handlers) {
   }
 }
 
-// node_modules/hast-util-to-html/lib/omission/closing.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/omission/closing.js
 var closing = omission({
   body,
   caption: headOrColgroupOrCaption,
@@ -5856,7 +5856,7 @@ function cells(_, index, parent) {
   return !next || next.type === "element" && (next.tagName === "td" || next.tagName === "th");
 }
 
-// node_modules/hast-util-to-html/lib/omission/opening.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/omission/opening.js
 var opening = omission({
   body: body2,
   colgroup,
@@ -5900,7 +5900,7 @@ function tbody2(node, index, parent) {
   return Boolean(head2 && head2.type === "element" && head2.tagName === "tr");
 }
 
-// node_modules/hast-util-to-html/lib/handle/element.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/element.js
 var constants = {
   // See: <https://html.spec.whatwg.org/#attribute-name-state>.
   name: [
@@ -6027,7 +6027,7 @@ function serializeAttribute(state, key2, value) {
   return name + (result ? "=" + result : result);
 }
 
-// node_modules/hast-util-to-html/lib/handle/text.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/text.js
 var textEntitySubset = ["<", "&"];
 function text(node, _, parent, state) {
   return parent && parent.type === "element" && (parent.tagName === "script" || parent.tagName === "style") ? node.value : stringifyEntities(
@@ -6038,17 +6038,17 @@ function text(node, _, parent, state) {
   );
 }
 
-// node_modules/hast-util-to-html/lib/handle/raw.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/raw.js
 function raw(node, index, parent, state) {
   return state.settings.allowDangerousHtml ? node.value : text(node, index, parent, state);
 }
 
-// node_modules/hast-util-to-html/lib/handle/root.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/root.js
 function root(node, _1, _2, state) {
   return state.all(node);
 }
 
-// node_modules/hast-util-to-html/lib/handle/index.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/handle/index.js
 var handle = zwitch("type", {
   invalid,
   unknown,
@@ -6065,7 +6065,7 @@ function unknown(node_) {
   throw new Error("Cannot compile unknown node `" + node.type + "`");
 }
 
-// node_modules/hast-util-to-html/lib/index.js
+// node_modules/@shikijs/core/node_modules/hast-util-to-html/lib/index.js
 var emptyOptions = {};
 var emptyCharacterReferences = {};
 var emptyChildren2 = [];
@@ -7559,23 +7559,183 @@ var dark_plus_default = Object.freeze(JSON.parse('{"colors":{"actionBar.toggledB
 // node_modules/@shikijs/themes/dist/light-plus.mjs
 var light_plus_default = Object.freeze(JSON.parse('{"colors":{"actionBar.toggledBackground":"#dddddd","activityBarBadge.background":"#007ACC","checkbox.border":"#919191","diffEditor.unchangedRegionBackground":"#f8f8f8","editor.background":"#FFFFFF","editor.foreground":"#000000","editor.inactiveSelectionBackground":"#E5EBF1","editor.selectionHighlightBackground":"#ADD6FF80","editorIndentGuide.activeBackground1":"#939393","editorIndentGuide.background1":"#D3D3D3","editorSuggestWidget.background":"#F3F3F3","input.placeholderForeground":"#767676","list.activeSelectionIconForeground":"#FFF","list.focusAndSelectionOutline":"#90C2F9","list.hoverBackground":"#E8E8E8","menu.border":"#D4D4D4","notebook.cellBorderColor":"#E8E8E8","notebook.selectedCellBackground":"#c8ddf150","ports.iconRunningProcessForeground":"#369432","searchEditor.textInputBorder":"#CECECE","settings.numberInputBorder":"#CECECE","settings.textInputBorder":"#CECECE","sideBarSectionHeader.background":"#0000","sideBarSectionHeader.border":"#61616130","sideBarTitle.foreground":"#6F6F6F","statusBarItem.errorBackground":"#c72e0f","statusBarItem.remoteBackground":"#16825D","statusBarItem.remoteForeground":"#FFF","tab.lastPinnedBorder":"#61616130","tab.selectedBackground":"#ffffffa5","tab.selectedForeground":"#333333b3","terminal.inactiveSelectionBackground":"#E5EBF1","widget.border":"#d4d4d4"},"displayName":"Light Plus","name":"light-plus","semanticHighlighting":true,"semanticTokenColors":{"customLiteral":"#795E26","newOperator":"#AF00DB","numberLiteral":"#098658","stringLiteral":"#a31515"},"tokenColors":[{"scope":["meta.embedded","source.groovy.embedded","string meta.image.inline.markdown","variable.legacy.builtin.python"],"settings":{"foreground":"#000000ff"}},{"scope":"emphasis","settings":{"fontStyle":"italic"}},{"scope":"strong","settings":{"fontStyle":"bold"}},{"scope":"meta.diff.header","settings":{"foreground":"#000080"}},{"scope":"comment","settings":{"foreground":"#008000"}},{"scope":"constant.language","settings":{"foreground":"#0000ff"}},{"scope":["constant.numeric","variable.other.enummember","keyword.operator.plus.exponent","keyword.operator.minus.exponent"],"settings":{"foreground":"#098658"}},{"scope":"constant.regexp","settings":{"foreground":"#811f3f"}},{"scope":"entity.name.tag","settings":{"foreground":"#800000"}},{"scope":"entity.name.selector","settings":{"foreground":"#800000"}},{"scope":"entity.other.attribute-name","settings":{"foreground":"#e50000"}},{"scope":["entity.other.attribute-name.class.css","source.css entity.other.attribute-name.class","entity.other.attribute-name.id.css","entity.other.attribute-name.parent-selector.css","entity.other.attribute-name.parent.less","source.css entity.other.attribute-name.pseudo-class","entity.other.attribute-name.pseudo-element.css","source.css.less entity.other.attribute-name.id","entity.other.attribute-name.scss"],"settings":{"foreground":"#800000"}},{"scope":"invalid","settings":{"foreground":"#cd3131"}},{"scope":"markup.underline","settings":{"fontStyle":"underline"}},{"scope":"markup.bold","settings":{"fontStyle":"bold","foreground":"#000080"}},{"scope":"markup.heading","settings":{"fontStyle":"bold","foreground":"#800000"}},{"scope":"markup.italic","settings":{"fontStyle":"italic"}},{"scope":"markup.strikethrough","settings":{"fontStyle":"strikethrough"}},{"scope":"markup.inserted","settings":{"foreground":"#098658"}},{"scope":"markup.deleted","settings":{"foreground":"#a31515"}},{"scope":"markup.changed","settings":{"foreground":"#0451a5"}},{"scope":["punctuation.definition.quote.begin.markdown","punctuation.definition.list.begin.markdown"],"settings":{"foreground":"#0451a5"}},{"scope":"markup.inline.raw","settings":{"foreground":"#800000"}},{"scope":"punctuation.definition.tag","settings":{"foreground":"#800000"}},{"scope":["meta.preprocessor","entity.name.function.preprocessor"],"settings":{"foreground":"#0000ff"}},{"scope":"meta.preprocessor.string","settings":{"foreground":"#a31515"}},{"scope":"meta.preprocessor.numeric","settings":{"foreground":"#098658"}},{"scope":"meta.structure.dictionary.key.python","settings":{"foreground":"#0451a5"}},{"scope":"storage","settings":{"foreground":"#0000ff"}},{"scope":"storage.type","settings":{"foreground":"#0000ff"}},{"scope":["storage.modifier","keyword.operator.noexcept"],"settings":{"foreground":"#0000ff"}},{"scope":["string","meta.embedded.assembly"],"settings":{"foreground":"#a31515"}},{"scope":["string.comment.buffered.block.pug","string.quoted.pug","string.interpolated.pug","string.unquoted.plain.in.yaml","string.unquoted.plain.out.yaml","string.unquoted.block.yaml","string.quoted.single.yaml","string.quoted.double.xml","string.quoted.single.xml","string.unquoted.cdata.xml","string.quoted.double.html","string.quoted.single.html","string.unquoted.html","string.quoted.single.handlebars","string.quoted.double.handlebars"],"settings":{"foreground":"#0000ff"}},{"scope":"string.regexp","settings":{"foreground":"#811f3f"}},{"scope":["punctuation.definition.template-expression.begin","punctuation.definition.template-expression.end","punctuation.section.embedded"],"settings":{"foreground":"#0000ff"}},{"scope":["meta.template.expression"],"settings":{"foreground":"#000000"}},{"scope":["support.constant.property-value","support.constant.font-name","support.constant.media-type","support.constant.media","constant.other.color.rgb-value","constant.other.rgb-value","support.constant.color"],"settings":{"foreground":"#0451a5"}},{"scope":["support.type.vendored.property-name","support.type.property-name","source.css variable","source.coffee.embedded"],"settings":{"foreground":"#e50000"}},{"scope":["support.type.property-name.json"],"settings":{"foreground":"#0451a5"}},{"scope":"keyword","settings":{"foreground":"#0000ff"}},{"scope":"keyword.control","settings":{"foreground":"#0000ff"}},{"scope":"keyword.operator","settings":{"foreground":"#000000"}},{"scope":["keyword.operator.new","keyword.operator.expression","keyword.operator.cast","keyword.operator.sizeof","keyword.operator.alignof","keyword.operator.typeid","keyword.operator.alignas","keyword.operator.instanceof","keyword.operator.logical.python","keyword.operator.wordlike"],"settings":{"foreground":"#0000ff"}},{"scope":"keyword.other.unit","settings":{"foreground":"#098658"}},{"scope":["punctuation.section.embedded.begin.php","punctuation.section.embedded.end.php"],"settings":{"foreground":"#800000"}},{"scope":"support.function.git-rebase","settings":{"foreground":"#0451a5"}},{"scope":"constant.sha.git-rebase","settings":{"foreground":"#098658"}},{"scope":["storage.modifier.import.java","variable.language.wildcard.java","storage.modifier.package.java"],"settings":{"foreground":"#000000"}},{"scope":"variable.language","settings":{"foreground":"#0000ff"}},{"scope":["entity.name.function","support.function","support.constant.handlebars","source.powershell variable.other.member","entity.name.operator.custom-literal"],"settings":{"foreground":"#795E26"}},{"scope":["support.class","support.type","entity.name.type","entity.name.namespace","entity.other.attribute","entity.name.scope-resolution","entity.name.class","storage.type.numeric.go","storage.type.byte.go","storage.type.boolean.go","storage.type.string.go","storage.type.uintptr.go","storage.type.error.go","storage.type.rune.go","storage.type.cs","storage.type.generic.cs","storage.type.modifier.cs","storage.type.variable.cs","storage.type.annotation.java","storage.type.generic.java","storage.type.java","storage.type.object.array.java","storage.type.primitive.array.java","storage.type.primitive.java","storage.type.token.java","storage.type.groovy","storage.type.annotation.groovy","storage.type.parameters.groovy","storage.type.generic.groovy","storage.type.object.array.groovy","storage.type.primitive.array.groovy","storage.type.primitive.groovy"],"settings":{"foreground":"#267f99"}},{"scope":["meta.type.cast.expr","meta.type.new.expr","support.constant.math","support.constant.dom","support.constant.json","entity.other.inherited-class","punctuation.separator.namespace.ruby"],"settings":{"foreground":"#267f99"}},{"scope":["keyword.control","source.cpp keyword.operator.new","source.cpp keyword.operator.delete","keyword.other.using","keyword.other.directive.using","keyword.other.operator","entity.name.operator"],"settings":{"foreground":"#AF00DB"}},{"scope":["variable","meta.definition.variable.name","support.variable","entity.name.variable","constant.other.placeholder"],"settings":{"foreground":"#001080"}},{"scope":["variable.other.constant","variable.other.enummember"],"settings":{"foreground":"#0070C1"}},{"scope":["meta.object-literal.key"],"settings":{"foreground":"#001080"}},{"scope":["support.constant.property-value","support.constant.font-name","support.constant.media-type","support.constant.media","constant.other.color.rgb-value","constant.other.rgb-value","support.constant.color"],"settings":{"foreground":"#0451a5"}},{"scope":["punctuation.definition.group.regexp","punctuation.definition.group.assertion.regexp","punctuation.definition.character-class.regexp","punctuation.character.set.begin.regexp","punctuation.character.set.end.regexp","keyword.operator.negation.regexp","support.other.parenthesis.regexp"],"settings":{"foreground":"#d16969"}},{"scope":["constant.character.character-class.regexp","constant.other.character-class.set.regexp","constant.other.character-class.regexp","constant.character.set.regexp"],"settings":{"foreground":"#811f3f"}},{"scope":"keyword.operator.quantifier.regexp","settings":{"foreground":"#000000"}},{"scope":["keyword.operator.or.regexp","keyword.control.anchor.regexp"],"settings":{"foreground":"#EE0000"}},{"scope":["constant.character","constant.other.option"],"settings":{"foreground":"#0000ff"}},{"scope":"constant.character.escape","settings":{"foreground":"#EE0000"}},{"scope":"entity.name.label","settings":{"foreground":"#000000"}}],"type":"light"}'));
 
+// syntaxes/optilambda.tmLanguage.json
+var optilambda_tmLanguage_default = {
+  $schema: "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  name: "OptiLambda",
+  scopeName: "source.optilambda",
+  patterns: [
+    {
+      include: "#comments"
+    },
+    {
+      include: "#strings"
+    },
+    {
+      include: "#numbers"
+    },
+    {
+      include: "#keywords"
+    },
+    {
+      include: "#contracts"
+    },
+    {
+      include: "#types"
+    },
+    {
+      include: "#operators"
+    },
+    {
+      include: "#functionNames"
+    }
+  ],
+  repository: {
+    comments: {
+      patterns: [
+        {
+          name: "comment.line.double-slash.optilambda",
+          match: "//.*$"
+        }
+      ]
+    },
+    strings: {
+      patterns: [
+        {
+          name: "string.quoted.double.optilambda",
+          begin: '"',
+          end: '"',
+          patterns: [
+            {
+              name: "constant.character.escape.optilambda",
+              match: "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    numbers: {
+      patterns: [
+        {
+          name: "constant.numeric.optilambda",
+          match: "\\b-?(?:0x[0-9A-Fa-f]+|[0-9]+(?:\\.[0-9]+)?)\\b"
+        }
+      ]
+    },
+    keywords: {
+      patterns: [
+        {
+          name: "keyword.control.flow.optilambda",
+          match: "\\b(?:if|else|for|while|do|switch|case|default|break|continue|return|goto|in)\\b"
+        },
+        {
+          name: "storage.type.function.optilambda",
+          match: "\\bfun\\b"
+        },
+        {
+          name: "storage.modifier.ghost.optilambda",
+          match: "\\b(?:ghost|ghost_begin|ghost_end)\\b"
+        },
+        {
+          name: "storage.modifier.mutable.optilambda",
+          match: "\\bletmut\\b"
+        },
+        {
+          name: "storage.type.variable.optilambda",
+          match: "\\blet\\b"
+        },
+        {
+          name: "storage.type.declaration.optilambda",
+          match: "\\b(?:record|enum|type|namespace|extern|template|using)\\b"
+        },
+        {
+          name: "constant.language.optilambda",
+          match: "\\b(?:true|false|null|unit)\\b"
+        }
+      ]
+    },
+    contracts: {
+      patterns: [
+        {
+          name: "entity.other.attribute-name.contract.optilambda",
+          match: "\\b(?:requires|consumes|ensures|produces|reads|writes|pure|modifies|preserves|xrequires|xconsumes|xensures|xproduces|xreads|xwrites|xmodifies|xpreserves|strict|reverts)\\b"
+        }
+      ]
+    },
+    types: {
+      patterns: [
+        {
+          name: "support.type.optilambda",
+          match: "\\b(?:Type|Prop|HProp|int|usize|f32|f64|float|double|bool|ptr|array|pure_fun|MemType|_Fraction)\\b"
+        }
+      ]
+    },
+    operators: {
+      patterns: [
+        {
+          name: "keyword.operator.optilambda",
+          match: "(?:==|!=|<=|>=|->|~>|:=|\\+=|-=|\\*=|/=|%=|&&|\\|\\||\\.\\.|[+\\-*/%=<>:&|^~!])"
+        }
+      ]
+    },
+    functionNames: {
+      patterns: [
+        {
+          name: "entity.name.function.optilambda",
+          match: "\\b([A-Za-z_][A-Za-z0-9_']*)\\s*(?=\\()"
+        }
+      ]
+    }
+  }
+};
+
 // ../web_view/optitrust_syntax_highlight.mjs
 var ACTIVE_THEME = "optitrust-active-vscode-theme";
+var BUILTIN_THEMES = {
+  "dark-plus": dark_plus_default,
+  "light-plus": light_plus_default
+};
 var highlighterPromise;
 var cachedActiveTheme;
+var cachedHighlightConfig;
 var didReadActiveTheme = false;
 window.OptitrustSyntaxHighlight = {
-  highlightDiff
+  highlightDiff,
+  highlightCodeBlock
 };
 async function highlightDiff(container) {
   const highlighter = await getHighlighter();
   const wrappers = container.querySelectorAll(".d2h-file-wrapper");
+  markHighlightDiagnostics(container);
   for (const wrapper of wrappers) {
     const language = languageForWrapper(wrapper);
     if (!language) {
       continue;
     }
     highlightWrapper(highlighter, wrapper, language);
+  }
+}
+async function highlightCodeBlock(container, language) {
+  const highlighter = await getHighlighter();
+  const lang7 = language === "optilambda" || language === "opti" ? "optilambda" : language;
+  const lines = container.querySelectorAll(".opti-code-line-content");
+  markHighlightDiagnostics(container);
+  let grammarState;
+  for (const line of lines) {
+    const text2 = line.textContent ?? "";
+    if (text2.length === 0) {
+      line.innerHTML = "<br>";
+      continue;
+    }
+    const result = highlighter.codeToTokens(text2, {
+      lang: lang7,
+      theme: themeName(),
+      grammarState
+    });
+    grammarState = result.grammarState;
+    line.classList.add("optitrust-shiki");
+    line.style.color = result.fg ?? "";
+    line.innerHTML = tokensToHtml(result.tokens[0] ?? []);
   }
 }
 function getHighlighter() {
@@ -7594,15 +7754,9 @@ async function createHighlighter() {
     engine: createOnigurumaEngine(getWasmInstance)
   });
 }
-async function loadOptilambdaGrammar() {
-  const grammarUrl = new URL("../vscode-optitrust/syntaxes/optilambda.tmLanguage.json", import.meta.url);
-  const response = await fetch(grammarUrl);
-  if (!response.ok) {
-    throw new Error(`failed to load OptiLambda grammar: ${response.status}`);
-  }
-  const grammar = await response.json();
+function loadOptilambdaGrammar() {
   return {
-    ...grammar,
+    ...optilambda_tmLanguage_default,
     name: "optilambda",
     aliases: ["opti"]
   };
@@ -7612,15 +7766,25 @@ function activeTheme() {
     return cachedActiveTheme;
   }
   didReadActiveTheme = true;
+  const config = highlightConfig();
+  cachedActiveTheme = normalizeTheme2(config?.theme) ?? builtinTheme(config?.builtinTheme);
+  return cachedActiveTheme;
+}
+function highlightConfig() {
+  if (cachedHighlightConfig !== void 0) {
+    return cachedHighlightConfig;
+  }
   const element2 = document.getElementById("optitrustSyntaxHighlightConfig");
   if (!element2?.textContent) {
+    cachedHighlightConfig = void 0;
     return void 0;
   }
   try {
-    cachedActiveTheme = normalizeTheme2(JSON.parse(element2.textContent).theme);
-    return cachedActiveTheme;
+    cachedHighlightConfig = JSON.parse(element2.textContent);
+    return cachedHighlightConfig;
   } catch (error) {
     console.warn("OptiTrust: failed to parse syntax highlight theme config", error);
+    cachedHighlightConfig = void 0;
     return void 0;
   }
 }
@@ -7633,6 +7797,12 @@ function normalizeTheme2(theme) {
     name: ACTIVE_THEME,
     tokenColors: Array.isArray(theme.tokenColors) ? theme.tokenColors : []
   };
+}
+function builtinTheme(name) {
+  if (typeof name !== "string") {
+    return void 0;
+  }
+  return BUILTIN_THEMES[name];
 }
 function fallbackTheme() {
   if (document.body.classList.contains("vscode-light")) {
@@ -7691,7 +7861,23 @@ function highlightLineGroup(highlighter, group, language) {
   }
 }
 function themeName() {
-  return activeTheme() ? ACTIVE_THEME : fallbackTheme().name;
+  return activeTheme()?.name ?? fallbackTheme().name;
+}
+function requestedThemeName() {
+  const requestedTheme = highlightConfig()?.requestedTheme;
+  return typeof requestedTheme === "string" ? requestedTheme : "";
+}
+function markHighlightDiagnostics(container) {
+  container.dataset.optitrustHighlighter = "shiki";
+  container.dataset.optitrustTheme = themeName();
+  container.dataset.optitrustThemeSource = highlightConfig()?.resolutionStatus ?? (activeTheme() ? "vscode-theme" : "fallback");
+  container.dataset.optitrustRequestedTheme = requestedThemeName();
+  const config = highlightConfig();
+  container.dataset.optitrustBuiltinTheme = config?.builtinTheme ?? "";
+  container.dataset.optitrustResolvedThemePath = config?.themePath ?? "";
+  container.dataset.optitrustResolvedThemeExtension = config?.themeExtension ?? "";
+  container.dataset.optitrustThemeRuleCount = String(config?.themeRuleCount ?? 0);
+  container.dataset.optitrustCustomRuleCount = String(config?.customRuleCount ?? 0);
 }
 function tokensToHtml(tokens) {
   return tokens.map(tokenToHtml).join("");

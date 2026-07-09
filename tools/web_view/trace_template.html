@@ -21,6 +21,7 @@
    <script type="text/javascript" src="{WEB_VIEW_FOLDER}/lib/diff2html-ui.min.js"></script>
    <link rel="stylesheet" type="text/css" href="{WEB_VIEW_FOLDER}/optitrust_diff.css" />
    <script type="module" src="{WEB_VIEW_FOLDER}/optitrust_syntax_highlight.js"></script>
+   <script src="{WEB_VIEW_FOLDER}/optitrust_interactive_code.js"></script>
 
    <script src="{WEB_VIEW_FOLDER}/optitrust_trace.js"></script>
    <link rel="stylesheet" type="text/css" href="{WEB_VIEW_FOLDER}/optitrust_trace.css" />
@@ -54,6 +55,7 @@
       <div id="diffDiv"></div>
       <div id="sourceDiv">
         <textarea id='source_code' class="source col-sm-auto"></textarea>
+        <div id="richSource" hidden></div>
       </div>
       <div id="statsDiv"></div>
     </div>
