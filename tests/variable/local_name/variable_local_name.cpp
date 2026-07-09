@@ -74,3 +74,14 @@ void ok3() {
     a++
   }
 }
+
+void ko3() {
+  __pure();
+
+  int a = 0;
+  /*@ target__begin @*/
+  int b = 0;
+  a++;
+  /*@ target__end @*/
+  b++;
+}

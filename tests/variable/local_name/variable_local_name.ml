@@ -24,5 +24,12 @@ let _ = Run.script_cpp (fun _ ->
   !! Variable.local_name ~var:"a" ~local_var:"x"
     [cFunBody "ko_scope"; cLabel "l"];
 
-  !! Variable.local_name ~var:"a" ~local_var:"x" [cFunBody "ok3"; tSpanSeq [cForBody "i"]];
+  (*
+  !! Variable.local_name ~var:"a" ~local_var:"x" [cFunBody "ok3"; tSpanSeq [cForBody "i"]]; *)
+
+  (* !! Trace.failure_expected (fun _e -> true) (fun () ->
+    Variable.local_name ~var:"a" ~local_var:"x" [cFunBody "ko3"; tSpan (tAfter :: [cMark "begin"]) (tBefore :: [cMark "end"])]
+  ); *)
+
+  !! Trace.failure_expected (fun _e -> true) (fun () -> Variable.local_name ~var:"a" ~local_var:"x" [cFunBody "ko3"; tSpan [tBefore; cVarDef "b"] [tAfter; sInstr "a++"]]);
 )
