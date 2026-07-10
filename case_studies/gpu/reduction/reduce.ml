@@ -5,7 +5,7 @@ let _ = Flags.check_validity := true
 let _ = Flags.use_resources_with_models := true
 let _ = Flags.preserve_specs_only := true
 let _ = Flags.pretty_matrix_notation := false
-let _ = Flags.recompute_resources_between_steps := false
+let _ = Flags.recompute_resources_between_steps := true (* FIXME: should be false *)
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_script (* Some Flags.Steps_important *)
 let _ = Flags.only_big_steps := true
@@ -183,6 +183,7 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   But it's also not declared on the host level. Normally, having a variable as thread for loop
   bounds is illegal, but this is just a pure constant, so it can be inlined as a quick fix to the problem. *)
   !! Variable.inline [cVarDef ~regexp:true "N.+"];
+  !! Flags.recompute_resources_between_steps := false;
   !! Trace.without_substep_validity_checks (fun () ->
     Instr.move ~dest:[tFirst; cMark "kernel_sequence"] [cCall "kernel_launch"];
     Trace.generate_cuda ~check_expected:true ();
