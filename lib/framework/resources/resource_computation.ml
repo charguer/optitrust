@@ -477,6 +477,10 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       (fun inner_formula idx dim inner_formula_candidate () ->
         formula_desyncgroup idx dim (may_coerce_desyncgroup inner_formula_candidate inner_formula)
       );
+      Pattern.((formula_group __ __ !__) ^* (formula_group !__ !__ !__))
+      (fun inner_formula idx range inner_formula_candidate () ->
+        formula_group idx range (may_coerce_desyncgroup inner_formula_candidate inner_formula)
+      );
       Pattern.__ (fun () -> formula_candidate)
     ] in
 
@@ -1260,6 +1264,8 @@ let sync_simplification ?(magic = false) (res: resource_set): resource_set =
   let rec simplify (mem_fn: trm) (t: trm) = Pattern.pattern_match t [
     Pattern.(formula_group !__ !__ !__) (fun idx range sub () ->
       formula_group idx range (simplify mem_fn sub));
+    Pattern.(formula_If !__ !__) (fun cond h () ->
+      formula_If cond (simplify mem_fn h));
     Pattern.(formula_desyncgroup !__ !__ !__) (fun idx bound sub () ->
       formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (simplify mem_fn sub));
     Pattern.(formula_points_to !__ !__ !__) (fun var model mem_typ () ->

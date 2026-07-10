@@ -243,7 +243,7 @@ let to_desync_for (tg: target): unit =
 (** [fix_distrib_accesses] fixes distributed dimensions: e.g. if a 4D buffer declared at the kernel level is
   converted to shared memory, and there are 2 dimensions of blocks, then there are now 2 distributed dimensions.
   This function would convert all instances of MINDEX4(...) on that variable to MINDEX3(DMINDEX2(...), ...). *)
-let fix_distrib_accesses ~(aliases: Var_set.t ref) (chop_dims: int) (body_span_tg: target) (alloc_tg: target): unit =
+let fix_distrib_accesses ~(aliases: Var_set.t ref) ?(synced = false) (chop_dims: int) (body_span_tg: target) (alloc_tg: target): unit =
   if chop_dims = 0 then () else begin
 
   let body_seq_path,body_seq_span = Target.resolve_target_span_exactly_one body_span_tg in
@@ -277,7 +277,7 @@ let fix_distrib_accesses ~(aliases: Var_set.t ref) (chop_dims: int) (body_span_t
           let body = aux (threadfor_depth + 1) body in
           (* LATER: better heuristics to convert the desyncgroups if ghosts are being used on these dimensions *)
           let probably_distributed = chop_dims - threadfor_depth > 0 in
-          if probably_distributed then
+          if (not synced) && probably_distributed then
             formula_desyncgroup ind stop body
           else
             formula_group ind range body

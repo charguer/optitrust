@@ -328,6 +328,15 @@ let formula_desyncgroup_inv (t: trm): (var * trm * formula) option =
     end
   | _ -> None
 
+let var_formula_If = toplevel_var "If"
+let formula_If (cond: formula) (h: formula) = trm_apps ~annot:formula_annot ~typ:typ_hprop (trm_var var_formula_If) [cond; h]
+
+let formula_If_inv (t: trm): (formula * formula) option =
+  match trm_apps_inv t with
+  | Some ({ desc = Trm_var v }, [cond; h]) when var_eq v var_formula_If ->
+    Some (cond, h)
+  | _ -> None
+
 let var_threadsctx = toplevel_var "ThreadsCtx"
 
 let trm_threadsctx = trm_var var_threadsctx
@@ -481,6 +490,14 @@ module Pattern = struct
       let k = f_index k index in
       let k = f_bound k bound in
       let k = f_group_body k body in
+      k
+    | None -> raise Next
+
+  let formula_If f_cond f_h k t =
+    match formula_If_inv t with
+    | Some (cond, h) ->
+      let k = f_cond k cond in
+      let k = f_h k h in
       k
     | None -> raise Next
 

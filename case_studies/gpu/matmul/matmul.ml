@@ -5,10 +5,10 @@ let _ = Flags.check_validity := true (* FIXME: this flag behaviour needs to be c
 let _ = Flags.pretty_matrix_notation := false
 let _ = Flags.recompute_resources_between_steps := false
 let _ = Flags.disable_stringreprs := true
-let _ = Flags.save_ast_for_steps := Some Steps_important (* Flags.Steps_script *)
+let _ = Flags.save_ast_for_steps := Some Steps_effectful (* Flags.Steps_script *)
 
 (* let _ = Flags.report_exectime := true *)
-let stage_ok = fun i -> i = 7
+let stage_ok = fun i -> true (* i = 7 *)
 
 let bm = 32
 let bn  = 32

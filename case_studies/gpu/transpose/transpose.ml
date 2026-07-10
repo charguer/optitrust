@@ -2,12 +2,12 @@ open Optitrust
 open Prelude
 
 let _ = Flags.check_validity := true
-let _ = Flags.recompute_resources_between_steps := true
+let _ = Flags.recompute_resources_between_steps := false
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
 let _ = Flags.pretty_matrix_notation := false
 
-let stage_ok = fun i -> i = 5
+let stage_ok = fun i ->  true (* i = 5 *)
 
 let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   (* Hoist global memories *)
