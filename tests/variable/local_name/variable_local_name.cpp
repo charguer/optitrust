@@ -62,9 +62,7 @@ void ko_scope() {
   __pure();
   int x = 0;
   int a = 0;
-  l: {
-    a++;
-  }
+  l: { a++; }
 }
 
 void ok3() {

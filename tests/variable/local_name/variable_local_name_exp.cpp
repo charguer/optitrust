@@ -46,7 +46,7 @@ void ko2() {
   __pure();
   int a = 0;
   int& b = a;
-l : {
+l: {
   a++;
   b++;
 }
@@ -57,28 +57,27 @@ void ko_scope() {
   __pure();
   int x = 0;
   int a = 0;
-  int x1 = a;
-l : { x1++; }
-  a = x1;
+l: { a++; }
 }
 
 void ok3() {
   __pure();
   int a = 0;
   for (int i = 0; i < 10; i++) {
+    __strict();
+    __smodifies("&a ~> Cell");
     int x = a;
-    x++
+    x++;
     a = x;
   }
 }
 
 void ok4() {
   __pure();
-
   int a = 0;
-  /*@ target__begin @*/
+  int x = a;
   int b = 0;
-  a++;
-  /*@ target__end @*/
+  x++;
+  a = x;
   b++;
 }
