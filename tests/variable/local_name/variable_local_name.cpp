@@ -71,11 +71,11 @@ void ok3() {
   __pure();
   int a = 0;
   for (int i = 0; i < 10; i++) {
-    a++
+    a++;
   }
 }
 
-void ko3() {
+void ok4() {
   __pure();
 
   int a = 0;

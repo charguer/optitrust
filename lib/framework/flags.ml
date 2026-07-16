@@ -21,6 +21,7 @@ let analyse_stats_details : bool ref = ref false
 (** [dump_ast_details]: flag to dump OptiTrust AST, both in the form of a '.ast' and '_enc.cpp' files. *)
 let dump_ast_details : bool ref = ref false
 
+(* TODO : deprecate once optilambda surface display works *)
 (** [pretty_matrix_notation]: flag to display matrix macros with syntactic sugar:
   MALLOC2(n, m, sizeof(T)) --> malloc(sizeof(T[n][m]))
   x[MINDEX2(n, m, i, j)] --> x[i;j]
@@ -124,16 +125,20 @@ let set_optilambda_repr repr =
    This allows for the propagation of the backtrace. *)
 let stop_on_first_resource_error = ref true
 
+(* TODO Yanni : reevaluate *)
 (** [resource_typing_enabled]: if false, never attempt typing resources and never introduce ghosts. *)
 let resource_typing_enabled = ref true
 
+(* TODO Yanni : reevaluate *)
 (** [check_validity]: perform validation of transformations *)
 let check_validity = ref false
 
+(* TODO Yanni : reevaluate *)
 (** [preserve_specs_only]: allow code transformation that preserve the specification without necessarily preserving the semantics
     TODO: update code which was also using check_validity for this purpose *)
 let preserve_specs_only = ref false
 
+(* TODO Yanni : reevaluate *)
 (** [disable_resource_typing ()] should be called when using OptiTrust without resources. *)
 let disable_resource_typing () =
   resource_typing_enabled := false;
@@ -145,6 +150,7 @@ let reparse_between_steps = ref false
 (** [recompute_resources_between_steps]: always recompute resources between two steps *)
 let recompute_resources_between_steps = ref false
 
+(* TODO Yanni : depreciate - should always be true *)
 (** [use_resources_with_models]: use resources of the form "p ~~> v" instead of "p ~> Cell". In the long term, this flag should disappear as we should be able to unify those two modes into one, using clever syntactic sugar and unification features. *)
 let use_resources_with_models = ref false
 
@@ -265,6 +271,7 @@ let string_to_steps_selector (s:string) : steps_selector =
   | "all" -> Steps_all
   | _ -> failwith "invalid step selector, should be one of 'none', 'script', 'important', 'effectful', 'all'"
 
+(* TODO : the trace would be smaller once we share terms in the trace *)
 (* Options to control which steps are exported in the trace.
    Be careful that a step not exported cannot be viewed even in step diff mode. *)
 let save_steps : steps_selector option ref = ref None

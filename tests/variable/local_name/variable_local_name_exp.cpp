@@ -61,3 +61,24 @@ void ko_scope() {
 l : { x1++; }
   a = x1;
 }
+
+void ok3() {
+  __pure();
+  int a = 0;
+  for (int i = 0; i < 10; i++) {
+    int x = a;
+    x++
+    a = x;
+  }
+}
+
+void ok4() {
+  __pure();
+
+  int a = 0;
+  /*@ target__begin @*/
+  int b = 0;
+  a++;
+  /*@ target__end @*/
+  b++;
+}
