@@ -22,13 +22,13 @@ let%transfo unfold ?(mark : mark = no_mark) ~(at : target) (tg : target) : unit 
   Target.iter (fun p ->
     let t_decl = Target.resolve_path p in
     let x, _, init = trm_inv ~error:"Variable_core.unfold: expected a target to a variable definition" trm_let_inv t_decl in
-    if !Flags.check_validity then begin
+    (* if !Flags.check_validity then begin
       if Resources.trm_is_pure init then
         (* Case 1: pure expression *)
         Trace.justif "inlining a pure expression is always correct"
       else
         failwith "not yet implemented: factorize validity check with inlining"
-    end;
+    end; *)
     let init = trm_add_mark mark init in
     Target.apply_at_target_paths (trm_subst_var x init) at
   ) tg
@@ -49,39 +49,39 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
       let tl, result = trm_inv ~error trm_seq_inv t_seq in
       let dl = Mlist.nth tl index in
       let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
-      if !Flags.use_resources_with_models then begin
-        (* when using models, type-checking is sufficient to check for correctness *)
-        let init = trm_add_mark mark init in
-        let res = Resources.after_trm init in
-        let init_model = trm_add_mark mark (Var_map.find Resource_set.var_result res.aliases) in
-        (* Printf.printf "rs: %s\n" (Resource_computation.resource_set_to_string res);
-        let init_model = (Option.unsome ~error:"expected init result" Resource_set.(find_pure var_result res)) in *)
-        let rec perform_subst_formula (f: formula): formula =
-          Pattern.pattern_match f [
-            Pattern.(trm_specific_var x) (fun () -> trm_copy init_model);
-            Pattern.(__) (fun () -> trm_map perform_subst_formula f)
-          ] in
-        let rec perform_subst_trm (t: trm): trm =
-          let aux = trm_map ~f_formula:perform_subst_formula perform_subst_trm in
-          Pattern.pattern_match t [
-            Pattern.(trm_specific_var x) (fun () -> trm_copy init);
-            Pattern.(trm_for !__ !__ !__ !__) (fun range mode body spec () ->
-              (* NOTE: erase contracts on the way, the inline expression might require more resources. *)
-              let t2 = aux t in
-              Pattern.pattern_match t2 [
-                Pattern.(trm_for !__  !__ !__ !__) (fun range mode body spec () ->
-                  let contract = { spec with strict = false } in
-                  trm_for ~mode ~annot:t.annot ~contract range body
-                )
-              ]
-            );
-            Pattern.(__) (fun () -> aux t)
-          ] in
-        let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) perform_subst_trm tl in
-        trm_seq ~annot:t_seq.annot ?result new_tl
-      end else begin
+      let init = trm_add_mark mark init in
+      let res = Resources.after_trm init in
+      let init_model = trm_add_mark mark (Var_map.find Resource_set.var_result res.aliases) in
+      (* Printf.printf "rs: %s\n" (Resource_computation.resource_set_to_string res);
+      let init_model = (Option.unsome ~error:"expected init result" Resource_set.(find_pure var_result res)) in *)
+      let rec perform_subst_formula (f: formula): formula =
+        Pattern.pattern_match f [
+          Pattern.(trm_specific_var x) (fun () -> trm_copy init_model);
+          Pattern.(__) (fun () -> trm_map perform_subst_formula f)
+        ] in
+      let rec perform_subst_trm (t: trm): trm =
+        let aux = trm_map ~f_formula:perform_subst_formula perform_subst_trm in
+        Pattern.pattern_match t [
+          Pattern.(trm_specific_var x) (fun () -> trm_copy init);
+          Pattern.(trm_for !__ !__ !__ !__) (fun range mode body spec () ->
+            (* NOTE: erase contracts on the way, the inline expression might require more resources. *)
+            let t2 = aux t in
+            Pattern.pattern_match t2 [
+              Pattern.(trm_for !__  !__ !__ !__) (fun range mode body spec () ->
+                let contract = { spec with strict = false } in
+                trm_for ~mode ~annot:t.annot ~contract range body
+              )
+            ]
+          );
+          Pattern.(__) (fun () -> aux t)
+        ] in
+      let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) perform_subst_trm tl in
+      trm_seq ~annot:t_seq.annot ?result new_tl
       (* LEGACY: shapes *)
-      if !Flags.check_validity then begin
+      (* Deprecated, legacy code *)
+      (*
+            end else begin
+        if !Flags.check_validity then begin
         if Resources.trm_is_pure init then
           (* Case 1: pure expression *)
           Trace.justif "inlining a pure expression is always correct"
@@ -131,7 +131,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
       let init = trm_add_mark mark init in
       let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) (trm_subst_var x init) tl in
       trm_seq ~annot:t_seq.annot ?result new_tl
-      end
+      end *)
     ) p_seq
   ) tg
 
@@ -269,11 +269,11 @@ let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ~(name : st
   Target.reparse_after ~reparse (Target.iter (fun p ->
     let (p_seq, i) = Path.extract_last_dir_before p in
     Target.apply_at_path (Variable_core.insert_at i const name typ value) p_seq;
-    if !Flags.check_validity then begin (* NOTE: same as instruction insertion *)
+    (* if !Flags.check_validity then begin (* NOTE: same as instruction insertion *)
       Resources.ensure_computed ();
       Resources.assert_instr_effects_shadowed (p_seq @ [Dir_seq_nth i]);
       Trace.justif "nothing modified by the instruction is observed later"
-    end
+    end *)
   )) tg
 
 (** [subst ~subst ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the
@@ -281,7 +281,7 @@ let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ~(name : st
 let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : target) : unit =
   Target.reparse_after ~reparse (
     Target.iter (fun p ->
-      if !Flags.check_validity then begin
+      if (* !Flags.check_validity *) Flags.annotated () then begin
         let instr_p, expr_p = Path.path_in_instr p (Trace.ast ()) in
         Nobrace_transfo.remove_after (fun () -> (* FIXME: handle no brace in scope and typing to remove more lazily? *)
         Target.apply_at_path (fun instr_t ->
@@ -375,7 +375,7 @@ let%transfo elim_reuse (tg : target) : unit =
     let _ = Path.apply_on_path (elim_analyse xy) (Trace.ast ()) p in
     let (x, y) = Option.get !xy in
     let (i, p_seq) = Path.index_in_seq p in
-    if !Flags.check_validity then begin
+    if (* !Flags.check_validity *) Flags.annotated () then begin
       step_backtrack ~discard_after:true (fun () ->
         Target.apply_at_path (fun t_seq ->
           let error = "expected sequence" in

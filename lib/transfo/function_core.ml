@@ -75,13 +75,13 @@ let beta_reduce_on ?(body_mark : mark = no_mark) ?(subst_mark : mark = no_mark) 
       in
       let subst_map = List.fold_left2 (fun subst_map dv cv -> Var_map.add dv (trm_add_mark subst_mark cv) subst_map) subst_map fun_decl_arg_vars fun_call_args
       in
-      if !Flags.check_validity then begin
+      (* if !Flags.check_validity then begin
         Var_map.iter (fun _ arg_val ->
           if not (Resources.trm_is_pure arg_val) then
             trm_fail arg_val "basic function inlining does not support non-pure arguments, combine with variable binding and inline"
         ) subst_map;
         Trace.justif "inlining a function when all arguments are pure is always correct"
-      end;
+      end; *)
       let fun_decl_body = trm_subst subst_map (trm_copy body) in
       (* LATER: In presence of a goto, this generates an ugly varaible name (res) and label name (exit) while we should be able to handle user given names. *)
       let processed_body = replace_return_with_assign_goto fun_decl_body in
@@ -160,14 +160,14 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
               | Some (ti,_purity) ->
                   if is_get_of_ls ti then begin
                     (* found the [get(ls)], check duplicatability, then remove the item from the list *)
-                    if !Flags.check_validity && not !Flags.preserve_specs_only then begin
+                    (* if !Flags.check_validity && not !Flags.preserve_specs_only then begin
                       if not purity.redundant
                         then fail "Unable to introduce an infix op, because the LHS is not a duplicatable expressions.";
                       Trace.justif "the expression denoting the address is redundant.";
                       wes'
-                    end else begin
+                    end else begin *)
                       wes' (* validity not checked *)
-                    end
+                    (* end *)
                   end else begin
                     (* else search further *)
                     we::(remove_one_get_ls wes')
@@ -275,11 +275,11 @@ let uninline_on (fct_decl : trm)
   let ret_args = Trm.tmap_to_list (List.map fst ret_targs) inst in
   (* 4. check validity: instantiated arguments must be pure,
         and a separate resource must be owned on the eventual return variable  *)
-  if !Flags.check_validity then begin
+  (* if !Flags.check_validity then begin
     Var_map.iter (fun _ arg_val ->
       if not (Resources.trm_is_pure arg_val) then
         trm_fail arg_val "basic function uninlining does not support non-pure arguments, combine with variable binding and inline"
-    ) inst;
+    ) inst; *)
     (* DEPRECATED: is it really dangerous to alias an argument resource with the return address resource?
     match !ret_var with
     | None -> ()

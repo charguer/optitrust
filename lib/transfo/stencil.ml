@@ -4,6 +4,7 @@ open Prelude
 
 type nd_tile = Matrix_core.nd_tile
 
+(* TODO : depreciate transformation *)
 let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : target -> unit = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Target.iter (fun p ->
@@ -18,6 +19,7 @@ let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : 
     end
   ) tg
   (* TODO: remove following *)
+  (* TODO : depreciate transformation *)
   (* Trace.reparse ();
   simpl tg *)
 
@@ -113,6 +115,7 @@ let collect_writes (p : path) : Var_set.t =
   ) ((target_of_path p) @ [nbAny; cVarDef ""]);
   !writes
 
+(* TODO : depreciate transformation *)
 (*
  [tile]: allows fusing the stencils by chaining tiled computations, rather than chaining individual computations.
  [overlaps]: list of [var, overlap] pairs, where [var] is a variable being written to by a loop, that needs to be produced in tiles of [tile_size + overlap] due to following dependencies.

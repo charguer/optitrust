@@ -264,7 +264,7 @@ let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : 
 *)
 let%transfo move ~(dest : target) (tg : target) : unit =
   Trace.tag_atomic ();
-  if !Flags.check_validity then
+  (* if !Flags.check_validity then
     (* TODO: handle move out of loop, conditions, etc. *)
     Target.iter (fun p ->
       let seq_path, span = Path.extract_last_dir_span p in
@@ -273,7 +273,8 @@ let%transfo move ~(dest : target) (tg : target) : unit =
         path_fail dest_path "Instr.move: Unsupported move outside the sequence when checking validity";
       move_in_seq ~dest:[dBefore i] (target_of_path p)
     ) tg
-  else begin
+  else  *)
+  begin
     Target.iter (fun p ->
       let tg_trm = Target.resolve_path p in
       Marks.add "instr_move_out" (target_of_path p);

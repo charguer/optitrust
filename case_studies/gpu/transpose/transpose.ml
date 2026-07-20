@@ -1,7 +1,8 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true
+(* let _ = Flags.check_validity := true *)
+let _ = Flags.typechecking_mode := Flags.AnnotatedAndVerified
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_important

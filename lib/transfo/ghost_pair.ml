@@ -230,6 +230,7 @@ let intro_at ?(name: string option) ?(end_mark: mark = no_mark) (i: int) (t_seq:
     let seq = Mlist.merge_list [seq_before; Mlist.of_list [ghost_begin]; seq_after] in
     trm_replace (Trm_seq (seq, result)) t_seq
 
+(* TODO : depreciate transformation *)
 (** Introduce a ghost pair starting on the targeted ghost, and ending at the first closing candidate. *)
 let%transfo intro ?(name: string option) ?(end_mark: mark = no_mark) (tg: target) =
   Resources.ensure_computed ();
@@ -261,6 +262,7 @@ let elim_at ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (i: int) (
     let seq = Mlist.merge_list [seq_before; Mlist.of_list [trm_add_mark mark_begin (Resource_trm.ghost { ghost_fn = without_inverse ghost_fn; ghost_args; ghost_bind })]; seq_after] in
     trm_replace (Trm_seq (seq, result)) t_seq
 
+(* TODO : depreciate transformation *)
 (** Split a ghost pair into two independant ghost calls *)
 let%transfo elim ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (tg: target) =
   Resources.ensure_computed ();
@@ -344,6 +346,7 @@ let move_in_loop_on (i : int) (t : trm) : trm =
   trm_seq_helper
     [ TrmMlist (Mlist.pop_back lbefore); Trm (trm_for ~mode ~contract:new_contract range new_body); TrmMlist (Mlist.pop_front lafter) ]
 
+(* TODO : depreciate transformation *)
 (** [move_in_loop tg]: Expects the target to point at a loop
 Will try to ove the first ghost pairs inside the loop body :
   Transform :

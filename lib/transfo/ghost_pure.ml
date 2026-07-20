@@ -212,6 +212,7 @@ let copy_inside_from_seq (index: int) (seq: trm): trm =
 
   trm_like ~old:seq (trm_seq_helper ?result [TrmMlist tl_before; Trm new_t; TrmMlist tl_after])
 
+(* TODO : depreciate transformation *)
 (** Copies all the pure ghosts of the surrounding sequence at the begining of the body of the targetted instruction. *)
 let%transfo copy_surrounding_inside (tg: target): unit =
   Target.apply_at_target_paths_in_seq copy_inside_from_seq tg;

@@ -11,7 +11,7 @@ include Gpu_basic
   It is always assumed that the leaf will be converted. *)
 let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
   let fission_helper tg =
-    Flags.with_flag Flags.check_validity true (fun () -> Loop.fission tg) in
+    Flags.with_flag (* Flags.check_validity true *) Flags.typechecking_mode Flags.AnnotatedAndVerified (fun () -> Loop.fission tg) in
   let rec aux barrier_mark loops_incl_leaf leaf_p: unit =
     let convert,loops = match loops_incl_leaf with
     | 0 :: tl -> false, tl

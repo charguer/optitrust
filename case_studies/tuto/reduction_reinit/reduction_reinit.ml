@@ -1,6 +1,7 @@
+(* Deprecated *)
 open Optitrust
 open Prelude
-let _ = Flags.check_validity := false
+(* let _ = Flags.check_validity := false *)
 let delocalize_sum = Local_arith (Lit_float (typ_f64,0.)  , Binop_add)
 let _ = Run.script_cpp (fun _ ->
 

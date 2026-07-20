@@ -212,13 +212,13 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
   Marks.with_marks (fun next_mark -> Target.iter (fun p ->
     let (p_seq, span) = Path.extract_last_dir_span p in
     let (mark_to_prove, mark_preprocess, mark_postprocess, mark_handled_resources) =
-      if !Flags.check_validity && not !Flags.preserve_specs_only then begin
+      if (* !Flags.check_validity && not !Flags.preserve_specs_only *) Flags.annotated_and_verified () then begin
         (Mark.reuse_or_next next_mark mark_to_prove,
          Mark.reuse_or_next next_mark mark_preprocess,
          Mark.reuse_or_next next_mark mark_postprocess,
          next_mark ())
       end else
-        (mark_to_prove, mark_preprocess, mark_postprocess, no_mark)
+      (mark_to_prove, mark_preprocess, mark_postprocess, no_mark)
     in
     let ret = {
       typedvar = ref None;
@@ -230,7 +230,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
       pure_post = ref [];
     } in
     Target.apply_at_path (transform_on f_get f_set f_cancel to_prove address_pattern mark_to_prove mark_preprocess mark_postprocess mark_handled_resources ret span) p_seq;
-    if !Flags.check_validity && not !Flags.preserve_specs_only then begin
+    if (* !Flags.check_validity && not !Flags.preserve_specs_only *) Flags.annotated_and_verified () then begin
       (* TODO: factorize with local_name, should this be a Resource.assert_??? feature? may also be decomposed via elim_reuse? *)
       let error = "did not find on which inner pointer variable addresses where based" in
       let (v, ty_opt) = Option.unsome ~error !(ret.typedvar) in
@@ -339,9 +339,9 @@ let%transfo transform_arith ~(op:transform_arith_op) ?(inv:bool=false) ~(factor:
   ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
   (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->
-  if !Flags.check_validity && not !Flags.preserve_specs_only then
+  (* if !Flags.check_validity && not !Flags.preserve_specs_only then
     if not (Resources.trm_is_pure factor) then
-      trm_fail factor "basic variable scaling does not support non-pure arguments";
+      trm_fail factor "basic variable scaling does not support non-pure arguments"; *)
   let () =
     match op with
     | Transform_arith_add -> Trace.justif "factor is pure";
@@ -366,9 +366,9 @@ let%transfo transform_arith ~(op:transform_arith_op) ?(inv:bool=false) ~(factor:
   )
 
 let%transfo transform_arith_immut ~(op:transform_arith_op) ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
-  if !Flags.check_validity && not !Flags.preserve_specs_only then
+  (* if !Flags.check_validity && not !Flags.preserve_specs_only then
     if not (Resources.trm_is_pure factor) then
-      trm_fail factor "basic variable scaling does not support non-pure arguments";
+      trm_fail factor "basic variable scaling does not support non-pure arguments"; *)
   Trace.justif "factor is pure and will be proved != 0";
   let typ = Option.unsome ~error:"Arith.scale: factor needs to have a known type" factor.typ in
   let op_get, op_set =

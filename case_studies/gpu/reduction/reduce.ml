@@ -1,9 +1,10 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true
+(* let _ = Flags.check_validity := true *)
 let _ = Flags.use_resources_with_models := true
-let _ = Flags.preserve_specs_only := true
+(* let _ = Flags.preserve_specs_only := true *)
+let _ = Flags.typechecking_mode := Flags.Annotated
 let _ = Flags.pretty_matrix_notation := false
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
@@ -115,7 +116,7 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   let sum_tg = [cFunDef "reduce"; cFor "bi"; cFor "ti"; cArrayWrite "d_partial_sums"] in
   !! Ghost.flatten_expr_rewrites (sum_tg @ [dRHS]);
   !! replace_with_tree_reduce (trm_int log_tpb) sum_tg;
-  !! Flags.with_flag Flags.check_validity false (fun () -> Function.inline_def [cFunDef "tree_reduce"]);
+  !! Flags.with_flag (* Flags.check_validity false *) Flags.typechecking_mode Flags.Unverified (fun () -> Function.inline_def [cFunDef "tree_reduce"]);
 
   (* Mask writing of final result to only 1 thread *)
   !! Loop_basic.intro_loop_single_on ~index:"ti_f" (trm_int tpb) [tAfter; cFor "i" ~body:[cFor "t"]] [tAfter; occLast; cArrayWrite "d_partial_sums"];

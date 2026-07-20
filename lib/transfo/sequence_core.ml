@@ -31,10 +31,11 @@ let intro_at (mark : string) (label : label) (index : int) (nb : int) (t : trm) 
   let index, nb = if nb < 0 then (index + nb + 1, -nb) else (index, nb) in
   let tl_before, tl_rest = Mlist.split index tl in
   let tl_seq, tl_after = Mlist.split ~left_bias:false nb tl_rest in
-  if !Flags.check_validity then begin
+  (* Deprecated with models *)
+  (* if !Flags.check_validity then begin
     Scope.assert_no_interference ~after_what:"the new sequence" ~on_interference:"out of scope" tl_seq tl_after;
     Trace.justif "local variables are not used after the new sequence"
-  end;
+  end; *)
   let tl_around = Mlist.merge tl_before tl_after in
   let intro_seq = trm_seq tl_seq in
   let intro_seq = trm_add_mark mark intro_seq in

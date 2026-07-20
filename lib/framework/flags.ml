@@ -21,7 +21,7 @@ let analyse_stats_details : bool ref = ref false
 (** [dump_ast_details]: flag to dump OptiTrust AST, both in the form of a '.ast' and '_enc.cpp' files. *)
 let dump_ast_details : bool ref = ref false
 
-(* TODO : deprecate once optilambda surface display works *)
+(* TODO Yanni : deprecate once optilambda surface display works *)
 (** [pretty_matrix_notation]: flag to display matrix macros with syntactic sugar:
   MALLOC2(n, m, sizeof(T)) --> malloc(sizeof(T[n][m]))
   x[MINDEX2(n, m, i, j)] --> x[i;j]
@@ -90,9 +90,9 @@ let clang_format_nb_columns : int ref = ref 80
 (** [code_print_width]: flag to choose the width of the printed code on stdout. *)
 let code_print_width = ref 80
 
+(* TODO: could it be true by default? *)
 (** [use_light_diff]: flag to enable "light diffs", whereby we hide the function body of all the
    toplevel functions that are not affected by the transformation. *)
-   (* TODO: could it be true by default? *)
 let use_light_diff : bool ref = ref false
 
 (** [bypass_cfeatures]: flag used for debugging the [decode_from_c/intro] functions, by bypassing them.
@@ -131,18 +131,20 @@ let resource_typing_enabled = ref true
 
 (* TODO Yanni : reevaluate *)
 (** [check_validity]: perform validation of transformations *)
-let check_validity = ref false
+(* let check_validity = ref false *)
 
 (* TODO Yanni : reevaluate *)
 (** [preserve_specs_only]: allow code transformation that preserve the specification without necessarily preserving the semantics
     TODO: update code which was also using check_validity for this purpose *)
-let preserve_specs_only = ref false
+(* Deprecated *)
+(* let preserve_specs_only = ref false *)
 
 (* TODO Yanni : reevaluate *)
 (** [disable_resource_typing ()] should be called when using OptiTrust without resources. *)
-let disable_resource_typing () =
+(* Deprecated *)
+(* let disable_resource_typing () =
   resource_typing_enabled := false;
-  check_validity := false
+  check_validity := false *)
 
 (** [reparse_between_step]: always reparse between two steps *)
 let reparse_between_steps = ref false
@@ -162,8 +164,32 @@ let clang_use_libstdcxx = ref false
 
 let aux_file_compare = ref (fun (f1: string) (f2: string) -> true)
 
-(** Possible [execution_mode] of the script *)
+(* Start of new flags *)
 
+type typechecking_mode =
+  | Unverified (* equivalent to `resource_typing_enabled = false && check_validity = false` *)
+  | Annotated (* equivalent to `check_validity = false` *)
+  | AnnotatedAndVerified (* equivalent to `check_validity := true && preserve_specs_only = false` *)
+
+(** [typechecking_mode]: Defines the verification guarantee of the input code for transformations and typechecking. *)
+let typechecking_mode : typechecking_mode ref = ref Annotated (* Should later on be changed to AnnotatedAndVerified *)
+
+let unverified () : bool = !typechecking_mode = Unverified
+let annotated () : bool = (!typechecking_mode = Annotated) || (!typechecking_mode = AnnotatedAndVerified)
+let only_annotated () : bool = (!typechecking_mode = Annotated)
+let annotated_and_verified () : bool = !typechecking_mode = AnnotatedAndVerified
+
+(* Expected to be a temporary function, to be used in [trace.ml] where there is a [flag_check_validity] flag *)
+let match_typechecking_mode (flag_check_validity : bool) = if flag_check_validity then AnnotatedAndVerified else Unverified
+
+let typechecking_mode_to_string = function
+  | Unverified -> "Unverivied"
+  | Annotated -> "Annotated"
+  | AnnotatedAndVerified -> "AnnotatedAndVerified"
+
+(* End of new flags *)
+
+(** Possible [execution_mode] of the script *)
 type execution_mode =
   | Execution_mode_step_diff (* produce a diff for a small-step, assumes [target_line] is provided *)
   | Execution_mode_step_trace (* produce a trace for a small-step, assumes [target_line] is provided *)
@@ -403,8 +429,8 @@ let reset_flags_to_default () : unit =
   display_includes := false;
   stop_on_first_resource_error := true;
   resource_typing_enabled := true;
-  check_validity := false;
-  preserve_specs_only := false;
+  (* TO be modified when the code is clean: *)
+  typechecking_mode := Annotated;
   reparse_between_steps := false;
   recompute_resources_between_steps := false;
   save_steps := None;

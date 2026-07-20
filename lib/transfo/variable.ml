@@ -145,6 +145,7 @@ let%transfo delocalize ?(index : string = "dl_i") ?(mark : mark = no_mark) ?(ops
   Variable_basic.delocalize ~index ~array_size ~ops [cMark middle_mark];
   )
 
+(* TODO : depreciate transformation *)
 (** [delocalize ~var ~into ~index ~mark ~ops ~array_size ~intos tg]: it's a continuation to the [delocalize] transformation
     that will unroll all the introduced loops from the basic delocalize transformation and convert the newly declared array
     to a list of variables namely for each index on variable, this variables should be given by the user through the labelled
@@ -160,6 +161,7 @@ let%transfo delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "secti
   Marks.remove "section_of_interest" [cMark "section_of_interest"]
 *)
 
+(* TODO : depreciate transformation *)
 (** [intro_pattern_array ~pattern_aux_vars ~const ~pattern_vars ~pattern tg]: expects the target [tg] to be
      pointing to expressions of the form [pattern], then it will create an array of coefficients for each
     [pattern_vars] and replace the current coefficients with array accesses. *)

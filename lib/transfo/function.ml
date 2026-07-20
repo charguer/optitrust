@@ -93,7 +93,7 @@ let%transfo inline ?(resname : string = "")
       Marks.add call_mark (target_of_path p);
       let new_target = cMark call_mark in
 
-      let inline_mark = if !Flags.check_validity then next_mark () else no_mark in
+      let inline_mark = (* if !Flags.check_validity then next_mark () else *) no_mark in
       bind_args ~inline_impure_mark:inline_mark args [new_target];
 
       let body_mark = "__TEMP_BODY" ^ (string_of_int i) in

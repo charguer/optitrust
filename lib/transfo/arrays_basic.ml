@@ -1,6 +1,7 @@
 open Prelude
 open Target
 
+(* TODO : depreciate transformation *)
 (** [to_variables new_vars tg]: expects the target [tg] to point at an array declaration.
     Then it transforms this declaration into a list of declarations.
     [new_vars] - denotes the list of variables that is going to replace the initial declaration
@@ -11,6 +12,7 @@ let%transfo to_variables (new_vars : string list) (tg : target) : unit =
   )
 
 
+(* TODO : depreciate transformation *)
 (** [tile ~block_type block_size tg]: expects the target [tg] to point at an array declaration.
    Then it takes that declaration and transforms it into a tiled array. All the accesses of the
    targeted array are handled as well.
@@ -21,6 +23,7 @@ let%transfo tile ?(block_type : string = "") (block_size : var) (tg : target) : 
     apply_at_target_paths_in_seq (Arrays_core.tile_at block_type block_size) tg
   )
 
+(* TODO : depreciate transformation *)
 (** [swap name x tg]: expects the target [tg] to point at an array declaration.
    It changes the declaration so that the bounds of the array are switched. Also
    all the accesses of the targeted array are handled as well.*)
@@ -61,6 +64,7 @@ let aos_to_soa (tv : typvar) (sz : var) : unit =
     Arrays_core.aos_to_soa_rec tv sz t
   )
 
+(* TODO : depreciate transformation *)
 (** [set_explicit tg] expects the target [tg] to point at an array declaration
     then it will remove the initialization trm and a list of write operations on
     each of the cells of the targeted array.
@@ -83,6 +87,7 @@ let inline_constant_on (array_var : var) (array_vals : trm list) (mark_accesses 
   | _ -> trm_fail index error
   end
 
+(* TODO : depreciate transformation *)
 (** [inline_constant] expects the target [decl] to point at a constant array literal declaration, and resolves all accesses targeted by [tg], that must be at constant indices.
   *)
 let%transfo inline_constant ?(mark_accesses : mark = no_mark) ~(decl : target) (tg : target) : unit =
@@ -110,6 +115,7 @@ let elim_on (decl_index : int) (t : trm) : trm =
   let new_instrs = Mlist.update_nth decl_index remove_decl instrs in
   trm_seq ~annot:t.annot ?loc:t.loc ?result new_instrs
 
+(* TODO : depreciate transformation *)
 (** [elim] expects the target [tg] to point at a constant array literal declaration, and eliminates it if it is not accessed anymore.
   *)
 let%transfo elim (tg : target) : unit =

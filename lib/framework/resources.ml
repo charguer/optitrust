@@ -8,14 +8,16 @@ let ensure_computed = Trace.recompute_resources
 (* TODO: avoid recomputing all resources for validity checks.
    TODO: required_for_check_at path; for on-demand computation. *)
 let required_for_check () : unit =
-  if !Flags.check_validity && not !Flags.preserve_specs_only
-    then ensure_computed ()
+  (* Yanni : should require the AnnotatedAndVerified typechecking mode *)
+  (* if !Flags.check_validity && not !Flags.preserve_specs_only
+    then *)
+  ensure_computed ()
 
 let justif_correct (why : string) : unit =
-  if !Flags.check_validity then begin
-    ensure_computed ();
-    Trace.justif (sprintf "resources are correct: %s" why)
-  end
+  (* if !Flags.check_validity then begin *)
+  ensure_computed ();
+  Trace.justif (sprintf "resources are correct: %s" why)
+
 
 
 (** Returns the resource usage of the given term, fails if unavailable. *)
@@ -113,6 +115,7 @@ let fun_minimize_on (t: trm): trm =
   let new_contract = minimize_fun_contract contract post_inst body_usage in
   trm_like ~old:t (trm_let_fun name typ args body ~contract:(FunSpecContract new_contract))
 
+(* TODO : depreciate transformation *)
 (** [fun_minimize]: minimize a function contract by looking at the resource usage of its body *)
 let%transfo fun_minimize (tg: target) : unit =
   ensure_computed ();
@@ -334,6 +337,7 @@ let%transfo loop_minimize (*?(indepth : bool = false)*) (tg: target) : unit =
   Target.apply_at_target_paths loop_minimize_on tg;
   justif_correct "only changed loop contracts"
 
+(* TODO : depreciate transformation *)
 let%transfo fix_types_in_contracts (_u: unit): unit =
   Trace.recompute_resources ~missing_types:true ();
   let rec add_missing_types (t: trm) =
@@ -455,6 +459,7 @@ let set_fun_contract_on (contract: fun_contract) (t: trm): trm =
   let name, ret_typ, args, body, _ = trm_inv ~error:"Resources.set_fun_contract_on: Expected function" trm_let_fun_inv t in
   trm_like ~old:t (trm_let_fun name ret_typ args ~contract:(FunSpecContract contract) body)
 
+(* TODO : depreciate transformation *)
 let%transfo set_fun_contract (contract: unparsed_fun_contract) (tg : Target.target) : unit =
   Target.apply_at_target_paths (set_fun_contract_on (parse_fun_contract contract)) tg
 
@@ -462,6 +467,7 @@ let set_loop_contract_on (contract: loop_contract) (t: trm): trm =
   let range, mode, body, _ = trm_inv ~error:"Resource.set_loop_contract_on: Expected for loop" trm_for_inv t in
   trm_like ~old:t (trm_for ~contract ~mode range body)
 
+(* TODO : depreciate transformation *)
 let%transfo set_loop_contract ?(strict:bool=true) (contract: unparsed_loop_contract) (tg: Target.target): unit =
   Target.apply_at_target_paths (set_loop_contract_on (parse_loop_contract ~strict contract)) tg;
   if not strict then begin

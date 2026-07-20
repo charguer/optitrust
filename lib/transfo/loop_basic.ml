@@ -3,6 +3,7 @@ open Target
 open Matrix_trm
 open Loop_core
 
+(* TODO : depreciate transformation *)
 (** [color nb_colors i_color tg]: expects the target [tg] to point at a simple for  loop,
    let's say [for (int i = start; i < stop; i += step) { body } ].
    [nb_colors] - an expression denoting the number of colors (e.g., ["2"]),
@@ -95,7 +96,8 @@ let collapse_on (simpl_mark : mark) (index : string)
   let ghosts_before = add_collapse_ghost ghost_group_collapse ghost_ro_group_collapse cj.iter_contract.pre.linear in
   let ghosts_after = add_collapse_ghost ghost_group_uncollapse ghost_ro_group_uncollapse cj.iter_contract.post.linear in
   let contract = Resource_contract.loop_contract_subst subst cj in
-  let body2 = if !Flags.check_validity then
+  let body2 = body
+  (* if !Flags.check_validity then
     let instrs, _ = trm_inv ~error:"expected seq" trm_seq_inv body in
     let open Resource_formula in
     let open Resource_trm in
@@ -104,11 +106,10 @@ let collapse_on (simpl_mark : mark) (index : string)
       Mlist.push_front (assume (formula_in_range new_i (formula_loop_range ri)))
     in
     trm_seq ~annot:body.annot instrs2
-  else
-    body
+  else *)
   in
   let t2 = trm_for ~contract rk (trm_subst subst body2) in
-  if !Flags.check_validity then begin
+  (* if !Flags.check_validity then begin
     Resource_formula.(Resource_trm.(trm_seq_helper ~braces:false [
       Trm (assume (formula_geq ~typ:typ_int ri.stop (trm_int 0)));
       Trm (assume (formula_geq ~typ:typ_int rj.stop (trm_int 0)));
@@ -116,8 +117,8 @@ let collapse_on (simpl_mark : mark) (index : string)
       Trm t2;
       TrmList ghosts_after
     ]))
-  end else
-    t2
+  end else *)
+  t2
 
 (** [collapse]: expects the target [tg] to point at a simple loop nest:
     [for i in 0..Ni { for j in 0..Nj { b(i, j) } }]
@@ -142,7 +143,7 @@ let%transfo collapse ?(simpl_mark : mark = no_mark)
     let ri_rj_body = ref None in
     let _ = Path.apply_on_path (collapse_analyse ri_rj_body) (Trace.ast ()) p in
     let (ri, ci, rj, cj, body) = Option.get !ri_rj_body in
-    if !Flags.check_validity then begin
+    (* if !Flags.check_validity then begin
     (* DEPRECATED: using assume instead
       step_backtrack ~discard_after:true (fun () ->
           Target.apply_at_path (fun t ->
@@ -155,7 +156,7 @@ let%transfo collapse ?(simpl_mark : mark = no_mark)
       );
     *)
       Trace.justif "correct when start >= stop for both ranges"
-    end;
+    end; *)
     Target.apply_at_path (collapse_on simpl_mark index ri ci rj cj body) p
   ) tg)
 
@@ -277,9 +278,9 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
   let tl, _ = trm_inv trm_seq_inv t_seq in
   let tl1, _, tl2 = Mlist.split_on_marks index tl in
   let fst_contract, snd_contract =
-    if not !Flags.check_validity then
+    (* if not !Flags.check_validity then
       empty_loop_contract, empty_loop_contract
-    else
+    else *)
       let open Resource_formula in
 
       if not contract.strict then trm_fail t "Loop_basic.fission_on: requires a strict loop contract to check validity";
@@ -569,7 +570,7 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
           strict = true;
         }
       end
-    end else if !Flags.check_validity then
+    end else if (* !Flags.check_validity *) Flags.annotated () then
       trm_fail t "requires annotated for loops to check validity"
     else
       empty_loop_contract
@@ -661,7 +662,8 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
   let instrs, _ = trm_inv ~error trm_seq_inv body in
   let (rest, moved_instrs) = Mlist.extract span.start span.stop instrs in
 
-  if !Flags.check_validity && not !Flags.use_resources_with_models then begin
+  (* Deprecated loop *)
+  (* if !Flags.check_validity && not !Flags.use_resources_with_models then begin
     Mlist.iteri (fun i instr ->
       if is_free_var_in_trm range.index instr then
         (* NOTE: would be checked by var ids anyway *)
@@ -682,7 +684,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
     end;
 
     Trace.justif "instructions from following iterations are redundant with first iteration"
-  end;
+  end; *)
 
   let generate_if = (empty_range = Generate_if) in
   let contract =
@@ -758,7 +760,8 @@ let move_out_alloc_on (trm_index : int) (t : trm) : trm =
   let error = "expected free instr" in
   let _ = trm_inv ~error Matrix_trm.free_inv free_instr in
 
-  if !Flags.check_validity then begin
+  (* Deprecated loop *)
+  (* if !Flags.check_validity then begin
     (* NOTE: would be checked by var ids anyway *)
     if is_free_var_in_trm range.index alloc_instr then
       trm_fail alloc_instr "allocation instruction uses loop index";
@@ -769,7 +772,7 @@ let move_out_alloc_on (trm_index : int) (t : trm) : trm =
       *)
 
     Trace.justif "instructions from following iterations are redundant with first iteration"
-  end;
+  end; *)
 
   let open Resource_formula in
   let contract = { contract with invariant = { contract.invariant with linear = (new_anon_hyp (), formula_uninit_matrix ~mem_typ:Resource_formula.mem_typ_any (trm_var array_var) dims) :: contract.invariant.linear }} in (* TODO upgrade to multiple mem types (#24) *)
@@ -962,7 +965,8 @@ let%transfo shift_range (index : string) (kind : shift_kind)
   ?(mark_for : mark = no_mark)
   ?(mark_contract_occs : mark = no_mark)
   (tg : target) : unit =
-  if !Flags.check_validity then begin
+  (* Deprecatred *)
+  (* if !Flags.check_validity then begin
     match kind with
     | ShiftBy v | StartAt v | StopAt v ->
       if Resources.trm_is_pure v then
@@ -971,7 +975,7 @@ let%transfo shift_range (index : string) (kind : shift_kind)
       else
         trm_fail v "shifting by a non-pure expression is not yet supported, requires checking that expression is read-only, introduce a binding with 'Sequence.insert' to workaround" (* TODO: combi doing this *)
     | StartAtZero -> Trace.justif "shifting to zero is always correct, loop range is read-only"
-  end;
+  end; *)
   Nobrace_transfo.remove_after (fun () ->
     Target.apply_at_target_paths (shift_range_on kind index mark_let mark_for mark_contract_occs) tg)
 
@@ -1038,13 +1042,14 @@ let%transfo scale_range (index : string) (factor : trm)
  ?(mark_for : mark = no_mark)
  ?(mark_contract_occs : mark = no_mark)
  (tg : target) : unit =
- if !Flags.check_validity then begin
+ (* Deprecated *)
+ (* if !Flags.check_validity then begin
     if Resources.trm_is_pure factor then
       (* TODO: also works for read-only *)
       Trace.justif "scaling by a pure factor is correct when proving that factor != 0"
     else
       trm_fail factor "scaling by a non-pure expression is not yet supported, requires checking that expression is read-only, introduce a binding with 'Sequence.insert' to workaround" (* TODO: combi doing this *)
- end;
+ end; *)
  Nobrace_transfo.remove_after (fun () ->
   apply_at_target_paths (scale_range_on factor index mark_let mark_for mark_contract_occs) tg
  )
@@ -1278,6 +1283,7 @@ let loop_single_on (i : int) (t : trm) : trm =
       let loop = trm_for l_range (trm_seq (Mlist.pop_front tl2)) in
       trm_seq_helper [ TrmMlist tl1; Trm loop ]
 
+(* TODO : depreciate transformation *)
 let%transfo loop_single (tg : target) : unit = (apply_at_target_paths_in_seq loop_single_on) tg
 
 (** [elim_loop_single_on t]: Reverse the transformation loop_single_on.
@@ -1304,6 +1310,7 @@ let elim_loop_single_on (t : trm) : trm =
   trm_seq_nobrace_nomarks
     (Mlist.to_list(Mlist.push_front index_start body))
 
+(* TODO : depreciate transformation *)
 (** [elim_loop_single tg]: Expects the target to point to a for loop. Applies
     [ elim_loop_single_on] *)
 let%transfo elim_loop_single (tg : target) : unit =
@@ -1373,6 +1380,7 @@ let if_loop_switch_on (t : trm) : trm =
       let new_instrs = Mlist.replace_at 0 new_if instrs in
       trm_for ~mode new_lrange (trm_seq ?result:res new_instrs) ~contract
 
+(* TODO : depreciate transformation *)
 let%transfo if_loop_switch (tg : target) = apply_at_target_paths if_loop_switch_on tg
 
 
@@ -1441,6 +1449,7 @@ let refactor_if_in_loop_on (t : trm) : trm =
     }
     then_ ~contract
 
+(* TODO : depreciate transformation *)
 let%transfo refactor_if_in_loop (tg : target) =
   apply_at_target_paths refactor_if_in_loop_on tg
 

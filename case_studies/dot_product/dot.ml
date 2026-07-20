@@ -1,9 +1,10 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true (* FIXME: false *)
+(* let _ = Flags.check_validity := true (* FIXME: false *) *)
+let _ = Flags.typechecking_mode := Flags.AnnotatedAndVerified
 let _ = Flags.use_resources_with_models := true
-let _ = Flags.preserve_specs_only := true
+(* let _ = Flags.preserve_specs_only := true *)
 let _ = Flags.pretty_matrix_notation := false
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
