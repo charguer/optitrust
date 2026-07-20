@@ -1,3 +1,6 @@
+// Difficulty: Level 4
+// Request: target the write to field x
+
 typedef struct {
   float x;
   float y;

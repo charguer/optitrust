@@ -1,3 +1,6 @@
+// Difficulty: Level 3
+// Request: target every loop named x in blur
+
 void blur(float* out) {
   for (int x = 0; x < 4; x++) {
     out[x] = 0.0f;

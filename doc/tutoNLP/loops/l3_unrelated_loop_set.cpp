@@ -1,3 +1,6 @@
+// Difficulty: Level 3
+// Request: target the loops p, q, and r
+
 void prepare(int);
 void compute(int);
 void finish(int);

@@ -1,3 +1,6 @@
+// Difficulty: Level 2
+// Request: target the loop i inside main_loop
+
 void clear(int);
 void update(int);
 

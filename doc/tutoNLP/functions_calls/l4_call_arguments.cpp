@@ -1,3 +1,6 @@
+// Difficulty: Level 4
+// Request: target the call to swap with arguments a and b
+
 void swap(int, int);
 
 void f() {

@@ -1,3 +1,6 @@
+// Difficulty: Level 3
+// Request: target both loops i and j
+
 void rows(int);
 void cols(int);
 

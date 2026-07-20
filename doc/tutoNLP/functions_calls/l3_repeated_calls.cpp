@@ -1,3 +1,6 @@
+// Difficulty: Level 3
+// Request: target every call to update
+
 void update(int);
 
 void step() {

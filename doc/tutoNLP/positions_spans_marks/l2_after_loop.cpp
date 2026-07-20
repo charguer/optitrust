@@ -1,3 +1,6 @@
+// Difficulty: Level 2
+// Request: target the position after the loop i
+
 void work(int);
 void finish();
 

@@ -1,3 +1,6 @@
+// Difficulty: Level 5
+// Request: target the generated sum_temp variables
+
 float out_sum;
 
 void reduce() {

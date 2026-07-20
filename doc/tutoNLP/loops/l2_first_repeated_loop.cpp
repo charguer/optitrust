@@ -1,3 +1,6 @@
+// Difficulty: Level 2
+// Request: target the first y loop in blur
+
 void horizontal(int);
 void vertical(int);
 
