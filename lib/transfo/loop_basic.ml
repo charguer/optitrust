@@ -96,8 +96,8 @@ let collapse_on (simpl_mark : mark) (index : string)
   let ghosts_before = add_collapse_ghost ghost_group_collapse ghost_ro_group_collapse cj.iter_contract.pre.linear in
   let ghosts_after = add_collapse_ghost ghost_group_uncollapse ghost_ro_group_uncollapse cj.iter_contract.post.linear in
   let contract = Resource_contract.loop_contract_subst subst cj in
-  let body2 = body
-  (* if !Flags.check_validity then
+  let body2 =
+  if (* !Flags.check_validity *) Flags.annotated () then
     let instrs, _ = trm_inv ~error:"expected seq" trm_seq_inv body in
     let open Resource_formula in
     let open Resource_trm in
@@ -106,10 +106,10 @@ let collapse_on (simpl_mark : mark) (index : string)
       Mlist.push_front (assume (formula_in_range new_i (formula_loop_range ri)))
     in
     trm_seq ~annot:body.annot instrs2
-  else *)
+  else body
   in
   let t2 = trm_for ~contract rk (trm_subst subst body2) in
-  (* if !Flags.check_validity then begin
+  if (* !Flags.check_validity *) Flags.annotated () then begin
     Resource_formula.(Resource_trm.(trm_seq_helper ~braces:false [
       Trm (assume (formula_geq ~typ:typ_int ri.stop (trm_int 0)));
       Trm (assume (formula_geq ~typ:typ_int rj.stop (trm_int 0)));
@@ -117,7 +117,7 @@ let collapse_on (simpl_mark : mark) (index : string)
       Trm t2;
       TrmList ghosts_after
     ]))
-  end else *)
+  end else
   t2
 
 (** [collapse]: expects the target [tg] to point at a simple loop nest:

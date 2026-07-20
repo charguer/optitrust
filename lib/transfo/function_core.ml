@@ -290,9 +290,8 @@ let uninline_on (fct_decl : trm)
       let f_def = trm_let_fun ~contract f_dsp typ_unit ret_targs ret_body in
       let f_call = trm_apps (trm_var f_dsp) ret_args in
       to_type_ret_t := Some [Trm f_def; Trm f_call];
-    *)
     Trace.justif "uninlining pure expressions is always correct"
-  end;
+  end; *)
   [Trm (match body_ret with
   | None -> trm_apps ~typ:ret_typ (trm_var f) ret_args
   | Some rv -> trm_set (List.hd ret_args)
