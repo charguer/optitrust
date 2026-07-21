@@ -57,7 +57,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
       | Dir_before _, _ ->
         (* trm_fail t *)
         path_fail dl "apply_on_path: Dir_before should not remain at this stage; probably the transformation was not expecting a target-between (tBefore, tAfter, ...)"
-      | Dir_span span, Trm_seq _ ->
+      | Dir_span _, _ ->
         path_fail dl "apply_on_path: Dir_span should not remain at this stage; probably the transformation was not expecting a target-span (tSpan)"
       | Dir_seq_nth n, Trm_seq (tl, result) ->
         { t with desc = Trm_seq (Mlist.update_nth n aux tl, result) }
