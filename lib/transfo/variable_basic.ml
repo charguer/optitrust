@@ -1,5 +1,6 @@
 open Prelude
 
+let debug_transfo = true
 
 (** [fold ~at tg]: expects the target [tg] to point at a variable declaration,
       [at] - denotes a target where the folding is done. If empty the folding operation
@@ -157,7 +158,6 @@ let%transfo init_attach (tg : target) : unit =
   Trace.justif_always_correct ();
   Target.apply_at_target_paths_in_seq Variable_core.init_attach_at tg
 
-
 (** [local_name_on mark curr_var var_typ local_var t] declares a local
   variable [local_var] and replaces [curr_var] with [local_var] in [t].
     - [curr_var]: the replaced variable
@@ -167,12 +167,13 @@ let%transfo init_attach (tg : target) : unit =
   *)
 let local_name_on (curr_var : var) (var_typ : typ)
   ~(uninit_pre : bool) ~(uninit_post : bool)
-  (local_var : string) (t : trm) : trm =
+  (local_var : string) (span : Dir.span) (t : trm) : trm =
   let local_var = new_var local_var in
   let let_instr = trm_let_mut (local_var, var_typ) (trm_var_get ~typ:var_typ curr_var) in
   let set_instr = trm_set (trm_var ~typ:var_typ curr_var) (trm_var_get ~typ:var_typ local_var) in
-  let new_t = trm_subst_var curr_var (trm_var local_var) t in
-  trm_seq_nobrace_nomarks [let_instr; new_t; set_instr]
+  update_span_helper span t (fun span_instrs ->
+    let subst_span_instrs = Mlist.map (trm_subst_var curr_var (trm_var local_var)) span_instrs in
+    [Trm let_instr; TrmMlist subst_span_instrs; Trm set_instr])
 
 (** [local_name ~var var_typ ~local_var tg] declares a local
   variable [local_var] and replaces [var] with [local_var] in
@@ -185,24 +186,10 @@ let%transfo local_name ~(var : var) (var_typ : typ)
   ~(local_var : string) (tg : target) : unit =
   if (uninit_pre || uninit_post) then
     failwith "not implemented";
-  Target.iter (fun p -> Marks.with_fresh_mark_on p (fun m ->
-    Nobrace_transfo.remove_after (fun () ->
-      Target.apply_at_path (local_name_on var var_typ ~uninit_pre ~uninit_post local_var) p
-    );
-    if !Flags.check_validity && not !Flags.preserve_specs_only then begin
-      step_backtrack ~discard_after:true (fun () ->
-        let p = resolve_mark_exactly_one m in
-        Nobrace_transfo.remove_after (fun () ->
-        Target.apply_at_path (fun t ->
-          let (_, open_w, close_w) = Resource_trm.ghost_pair_hide
-            (Resource_formula.formula_cell_var ~mem_typ:Resource_formula.mem_typ_any ~typ:var_typ var) in
-          trm_seq_nobrace_nomarks [open_w; t; close_w]
-        ) p
-        );
-        Resources.ensure_computed_at p
-      )
-    end
-  )) tg
+  Target.iter (fun p ->
+    let (p_seq, span) = Path.extract_last_dir_span p in
+    Target.apply_at_path (local_name_on var var_typ ~uninit_pre ~uninit_post local_var span) p_seq)
+    tg
 
 (** [delocalize array_size neutral_element fold_operation tg]: expects the target [tg] to point to
     a block of code of the following form

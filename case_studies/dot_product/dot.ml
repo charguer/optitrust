@@ -18,13 +18,7 @@ let part = 1 (* Choose which part you want to work on. *)
 let _ = if part = 1 then Run.script_cpp (fun () ->
   (* !! Function.elim_infix_ops ~indepth:true []; *)
   !! Loop.tile (int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
-
-  (* LATER: !! Variable.local_name ~var:"s" ~local_var:"t" [tSpanSeq [cForBody "bi"]]; *)
-  !! (
-    Sequence.intro ~mark:"t_scope" ~start:[tFirst; cForBody "bi"] ~stop:[tLast; cForBody "bi"] ();
-    Variable.local_name ~var:"s" ~local_var:"t" [cMark "t_scope"];
-    Sequence.elim [cMark "t_scope"];
-  );
+  !! Variable.local_name ~var:"s" ~local_var:"t" [tSpanSeq [cForBody "bi"]];
 
   (* DEPRECATED? !! Sequence_basic.insert (trm_let (new_var "d", typ_f32) (trm_get (trm_find_var "s" []))) [tFirst; cForBody "bi"]; *)
   !! (

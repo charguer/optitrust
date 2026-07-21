@@ -14,9 +14,9 @@ let _ = Run.script_cpp (fun () ->
 
   !! Label.add "m0" [cVarDef "a"];
   (* TODO: fix show term--
-  ShowAt.trm [cVarDef "a"];
-  ShowAt.trm [cVarDef "b"];
-  ShowAt.trm [tFirst; cFunBody "main"]; *)
+  Show.At.trm [cVarDef "a"];
+  Show.At.trm [cVarDef "b"];
+  Show.At.trm [tFirst; cFunBody "main"]; *)
 
 
   (* FOR TESTING: uncomment to test an incorrect path:
@@ -30,7 +30,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Showing operation with step at front *)
   !! Label.add "m1" [cVarDef "b"];
-  (* TODO: fix show term-- ShowAt.trm [cVarDef "a"]; *)
+  (* TODO: fix show term-- Show.At.trm [cVarDef "a"]; *)
   (* Showing operation with reparse *)
   !! Label.add "m2" [cVarDef "a"];
   (* Showing two operations at once *)
