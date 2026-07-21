@@ -11,5 +11,5 @@ let _ = Run.script_cpp (fun _ -> (* ()
   !! Resources.ensure_computed (); *)
   (* FIXME: support double, etc, 5.0 *)
   !! Accesses.shift_var ~factor:(trm_int 5) [nbMulti; cTopFunDef "test_var"; cVarDef "x"];
-  (* !! Accesses.shift_var ~factor:(trm_int 1) [nbMulti; cTopFunDef "test_var_inv"; cVarDef "s"]; *)
+  !! Accesses.shift_var ~factor:(trm_int 1) [nbMulti; cTopFunDef "test_var_inv"; cVarDef "s"];
 )
