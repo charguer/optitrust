@@ -1133,15 +1133,17 @@ end = struct
              hash table of [aliases] accordingly, if necessary. *)
          let ll = trm_find_memlocs ti in
          let lva = aliasing aliases ll in
-             let alias : lvar = { v = v; l = String.empty } in
          List.iter (fun (_, tg, _) ->
              let nli = Apac_miscellaneous.typ_get_nli ty in
-             if !Apac_flags.verbose then
-               Printf.printf "Constification of `%s': defining new \
-                              alias %s (%d levels of indirection)\n"
-                 f.name (LVar.to_string alias) nli;
-             LVar_Hashtbl.add
-               aliases alias (tg, nli)
+             if nli > 0 then
+               begin
+                 let alias : lvar = { v = v; l = String.empty } in
+                 if !Apac_flags.verbose then
+                   Printf.printf "Constification of `%s': defining new \
+                                  alias %s (%d levels of indirection)\n"
+                     f.name (LVar.to_string alias) nli;
+                 LVar_Hashtbl.add aliases alias (tg, nli)
+               end
            ) lva;
          (** We then continue the analysis on substatements, if any. *)
          trm_iter (aux aliases f) t
