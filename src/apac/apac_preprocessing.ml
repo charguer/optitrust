@@ -1083,8 +1083,8 @@ end = struct
            begin
              (** Let us warn the user about that. *)
              Printf.printf
-               "[APAC] [Warning] Missing definition of `%s', treating it as a \
-                C library function of the same name.\n" f'.name;
+               "[APAC] [Warning] Missing definition of `%s', treating it as \
+                the C library function of the same name.\n" f'.name;
              (** Then, for each argument [arg] of [f'], the corresponding value
                  in the binding [lfr] of [f'] in [!Apac_records.libc] and *)
              let lfr = String_map.find f'.name Apac_records.libc in
