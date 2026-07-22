@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+RUN_ID="${1:-$(date +"%Y-%m-%dT%H-%M-%S")}"
+BENCHMARK_DIR="${BENCHMARK_DIR:-benchmark}"
+CSV_PATH="$BENCHMARK_DIR/runs/$RUN_ID/micro/mlist_microbench.csv"
+
+if [ -e "$BENCHMARK_DIR/runs/$RUN_ID" ] && [ "${ALLOW_EXISTING_RUN:-0}" != "1" ]; then
+  echo "[run-mlist-bench] refusing to append to existing run: $BENCHMARK_DIR/runs/$RUN_ID" >&2
+  echo "[run-mlist-bench] choose a new run id, run benchmark/cleanup, or set ALLOW_EXISTING_RUN=1" >&2
+  exit 2
+fi
+
+echo "[run-mlist-bench] run_id=$RUN_ID"
+echo "[run-mlist-bench] running microbenchmarks"
+
+dune exec tests_infra/mlist/mlist_bench.exe -- \
+  -mlist-bench \
+  -benchmark-run-id "$RUN_ID" \
+  -benchmark-dir "$BENCHMARK_DIR"
+
+echo "[run-mlist-bench] generating plots"
+
+dune exec tests_infra/mlist/mlist_plot.exe -- "$CSV_PATH"
+
+echo "[run-mlist-bench] done"
+echo "[run-mlist-bench] csv: $CSV_PATH"
+echo "[run-mlist-bench] plots: $BENCHMARK_DIR/runs/$RUN_ID/plots"

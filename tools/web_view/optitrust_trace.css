@@ -93,7 +93,15 @@ label {
   color: var(--vscode-testing-iconPassed, var(--vscode-gitDecoration-addedResourceForeground, #2ea043));
 }
 .step-invalid .step-title {
+<<<<<<< HEAD
   color: var(--vscode-inputValidation-warningForeground, var(--vscode-editorWarning-foreground, #cca700));
+=======
+  background: var(--vscode-inputValidation-warningBackground, #fff4ce);
+  /* Dark themes define warningBackground (a dark brown) but often leave
+     warningForeground unset, so fall back to the editor foreground rather
+     than a hardcoded near-black that is unreadable on the dark background. */
+  color: var(--vscode-inputValidation-warningForeground, var(--vscode-editor-foreground, #222222));
+>>>>>>> origin/main
 }
 .step-error .step-title {
   color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground, #f85149));

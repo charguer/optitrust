@@ -1,0 +1,14 @@
+(executable
+  (name mlist_correctness)
+  (libraries optitrust)
+  (flags (:standard -w A-4-44-70-60 -g)))
+
+(executable
+  (name mlist_bench)
+  (libraries optitrust)
+  (flags (:standard -w A-4-44-70-60 -g)))
+
+(executable
+  (name mlist_plot)
+  (libraries optitrust)
+  (flags (:standard -w A-4-44-70-60 -g)))
