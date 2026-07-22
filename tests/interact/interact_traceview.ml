@@ -74,7 +74,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Show.ast (); Show.ast ();
   *)
   (* Examples of show functions with output on stdout *)
-  (* !! ShowAt.trm []; *)
+  (* !! Show.At.trm []; *)
   bigstep "fourth part";
   (* Try task "View diff using internal syntax" *)
   !! Label.add "lab6" [cVarDef "a"];

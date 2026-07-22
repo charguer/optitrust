@@ -17,8 +17,8 @@ let local_accumulate_on ~(var_name : string) ~(typ : typ) (t : trm) (i : int) : 
   let range, instrs, contract =
     trm_inv ~error:"local_accumulate_on: expected a for trm" trm_for_inv_instrs t_for
   in
-  let init = ref Mlist.empty in
-  let ret = ref Mlist.empty in
+  let init = ref (Mlist.empty ()) in
+  let ret = ref (Mlist.empty ()) in
   let new_for =
     trm_for_instrs ~contract range
       (Mlist.map
