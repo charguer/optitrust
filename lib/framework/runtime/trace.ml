@@ -1333,8 +1333,10 @@ let invalidate () : unit =
 (** [get_initial_ast filename]: gets the initial ast before applying any trasformations
      [filename] - filename of the source code
      returns header and ast. *)
-let get_initial_ast (filename : string) : (string * trm) =
-  parse filename
+let get_initial_ast ?(parser : parser option) (filename : string) : (string * trm) =
+  match parser with
+  | None -> parse filename
+  | Some parser -> parser filename
 
 (** [init f]: initializes the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
@@ -1342,7 +1344,7 @@ let get_initial_ast (filename : string) : (string * trm) =
    [~prefix:"foo"] allows to use a custom prefix for all output files,
    instead of the basename of [f].
    style is computed based on the global flags.   *)
-let init ?(header : string option) ~(prefix : string) ~(program : string) (filename : string) : unit =
+let init ?(header : string option) ?(parser : parser option) ~(prefix : string) ~(program : string) (filename : string) : unit =
   ast_just_before_first_call_to_restore_original := None; (* TEMPORARY HACK *)
   invalidate ();
   let basename = Filename.basename filename in
@@ -1374,7 +1376,7 @@ let init ?(header : string option) ~(prefix : string) ~(program : string) (filen
 
   init_logs prefix;
 
-  let ((parsed_header, cur_ast), stats_parse) = Stats.measure_stats (fun () -> get_initial_ast filename) in
+  let ((parsed_header, cur_ast), stats_parse) = Stats.measure_stats (fun () -> get_initial_ast ?parser filename) in
   let header = Option.value ~default:parsed_header header in
 
   let context = { extension; prefix; header } in

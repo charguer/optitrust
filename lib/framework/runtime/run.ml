@@ -2,6 +2,13 @@
 (*                                 Debug                                      *)
 (******************************************************************************)
 include Tools
+open Ast
+open Trm
+
+(** [absolute_path path] normalizes [path] against the current working directory. *)
+let absolute_path (path : string) : string =
+  let path = if Filename.is_relative path then Filename.concat (Unix.getcwd ()) path else path in
+  Filename.concat (Unix.realpath (Filename.dirname path)) (Filename.basename path)
 
 (** [set_exn_backtrace b]: based on [b] enable or disable backtracing in case an exception was thrown *)
 let set_exn_backtrace (b : bool) : unit =
@@ -42,10 +49,6 @@ let debug_inline_cpp = false
    source file and not those referring to the include path.
     *)
 let generate_source_with_inlined_header_cpp (basepath : string) (input_file : string) (inline : string list) (output_file : string) : unit =
-  let absolute_path path =
-    let path = if Filename.is_relative path then Filename.concat (Unix.getcwd ()) path else path in
-    Filename.concat (Unix.realpath (Filename.dirname path)) (Filename.basename path)
-  in
   let output_path = Filename.concat basepath output_file in
   let output_source_path = absolute_path output_path in
   let quote_line_file filename = String.escaped filename in
@@ -79,6 +82,37 @@ let get_c_includes (filename : string) : string =
   File.get_lines filename
   |> List.filter (fun line -> String.starts_with ~prefix:"#include" (String.trim line))
   |> String.concat "\n\n"
+
+(** [inline_parser basepath inline] parses an inlined C/C++ source and makes
+    declarations from explicitly inlined files behave as main-file code. *)
+let inline_parser (basepath : string) (inline : string list) : Trace.parser =
+  let inlined_paths =
+    List.map (fun filename -> absolute_path (Filename.concat basepath filename)) inline
+  in
+  let is_inlined_file filename =
+    let filename = absolute_path filename in
+    List.exists ((=) filename) inlined_paths
+  in
+  let flatten_inlined_includes (t : trm) : trm =
+    match t.desc with
+    | Trm_seq (instrs, result) ->
+      let instrs =
+        Mlist.to_list instrs
+        |> List.concat_map (fun instr ->
+          match trm_include_inv instr, instr.desc with
+          | Some filename, Trm_seq (included_instrs, None) when is_inlined_file filename ->
+            Mlist.to_list included_instrs
+          | _ ->
+            [instr])
+        |> Mlist.of_list
+      in
+      trm_alter ~desc:(Trm_seq (instrs, result)) t
+    | _ ->
+      t
+  in
+  fun filename ->
+    let header, ast = Trace.parse filename in
+    header, flatten_inlined_includes ast
 
 (** [get_program_basename ()]: returns the basename of the current binary program being used.
     It takes care to remove the leading './' and takes care to remove the "with_lines" suffix. *)
@@ -138,7 +172,7 @@ let may_report_time (msg : string) (f : unit -> 'a) : 'a =
       This flag only has an effect if a [-exit_line] option was passed on the command line.
    - [~prefix:string] allows providing the basename for the output files produced
    *)
-let script ?(filename : string option) ?(header : string option) ~(extension : string) ?(check_exit_at_end : bool = true) ?(prefix : string option) ?(capture_show_in_batch = false) (f : unit -> unit) : unit =
+let script ?(filename : string option) ?(header : string option) ?(parser : Trace.parser option) ~(extension : string) ?(check_exit_at_end : bool = true) ?(prefix : string option) ?(capture_show_in_batch = false) (f : unit -> unit) : unit =
   Flags.process_cmdline_args ();
   Target.show_next_id_reset ();
 
@@ -175,7 +209,7 @@ let script ?(filename : string option) ?(header : string option) ~(extension : s
       try
         let trace_filename = prefix ^ "_trace.js" in
         if Sys.file_exists trace_filename then Sys.remove trace_filename;
-        Trace.init ?header ~program:program_basename ~prefix filename;
+        Trace.init ?header ?parser ~program:program_basename ~prefix filename;
         if !Flags.check_validity || !Flags.recompute_resources_between_steps then
           Trace.step ~kind:Step_small ~tags:["pre-post-processing"] ~name:"Preprocessing contracts" (fun () ->
             Resources.fix_types_in_contracts ();
@@ -271,7 +305,7 @@ let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline
     *)
 
     (* Handles on-the-fly inlining *)
-    let filename, header =
+    let filename, parser =
       match inline with
       | [] -> filename, None
       | _ ->
@@ -285,10 +319,10 @@ let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline
         let basename = Filename.chop_extension filename in
         let inlinefilename = basename ^ "_inlined.cpp" in
         generate_source_with_inlined_header_cpp basepath filename inline inlinefilename;
-        Some inlinefilename, Some (get_c_includes (Filename.concat basepath filename))
+        Some inlinefilename, Some (inline_parser basepath inline)
     in
 
-    script ?filename ?header ~capture_show_in_batch ~extension:".cpp" ~check_exit_at_end ?prefix f)
+    script ?filename ?parser ~capture_show_in_batch ~extension:".cpp" ~check_exit_at_end ?prefix f)
 
 
 let stg_name (stg: int): string =
