@@ -82,10 +82,14 @@
      highlightRenderedDiff(targetElement, function () {
        diff2htmlUi.highlightCode();
      }).then(function () {
-       if (window.OptitrustInteractiveCode) {
-       window.OptitrustInteractiveCode.enhanceDiff(targetElement, representation, diffStrings.typed);
-       }
+       enhanceDiffInteractivity(targetElement, representation);
      });
+   }
+
+   function enhanceDiffInteractivity(targetElement, representation) {
+     if (window.OptitrustInteractiveCode) {
+       window.OptitrustInteractiveCode.enhanceDiff(targetElement, representation, diffStrings.typed);
+     }
    }
 
    function requestDiffRepresentation(representation) {

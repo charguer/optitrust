@@ -64,6 +64,11 @@
     return undefined;
   }
 
+  function contractLineIsComplete(text) {
+    const trimmed = text.trim();
+    return /;\s*$/.test(trimmed);
+  }
+
   function groupLabel(kind, index) {
     return (kind === "ghost" ? "G" : "C") + index;
   }
@@ -134,6 +139,24 @@
     anchor.setAttribute("aria-expanded", "true");
   }
 
+  function groupLinesFromButton(button) {
+    try {
+      const lines = JSON.parse(button.dataset.optiGroupLines || "[]");
+      return Array.isArray(lines) ? lines.map((line) => String(line)) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function toggleGroupPopup(button) {
+    if (button.getAttribute("aria-expanded") === "true") {
+      closePopup();
+      return;
+    }
+    const lines = groupLinesFromButton(button);
+    showPopup(button, button.dataset.optiGroupTitle || button.textContent || "group", lines);
+  }
+
   function makeGroupButton(kind, index, lines) {
     const button = document.createElement("button");
     button.type = "button";
@@ -141,14 +164,8 @@
     button.textContent = groupLabel(kind, index);
     button.title = kind === "ghost" ? "Show grouped ghost code" : "Show grouped contract clauses";
     button.setAttribute("aria-expanded", "false");
-    button.addEventListener("click", (event) => {
-      event.stopPropagation();
-      if (button.getAttribute("aria-expanded") === "true") {
-        closePopup();
-        return;
-      }
-      showPopup(button, button.textContent, lines);
-    });
+    button.dataset.optiGroupTitle = button.textContent;
+    button.dataset.optiGroupLines = JSON.stringify(lines);
     return button;
   }
 
@@ -455,15 +472,35 @@
 
       const group = [current];
       let next = cursor + 1;
-      while (next < rows.length && classifyLine(rows[next].text) === kind) {
-        group.push(rows[next]);
-        next += 1;
+      if (kind === "contract") {
+        let previousLineComplete = contractLineIsComplete(current.text);
+        while (next < rows.length) {
+          const nextKind = classifyLine(rows[next].text);
+          if (nextKind === "contract") {
+            group.push(rows[next]);
+            previousLineComplete = contractLineIsComplete(rows[next].text);
+            next += 1;
+            continue;
+          }
+          if (!previousLineComplete && nextKind === undefined && rows[next].text.trim() !== "") {
+            group.push(rows[next]);
+            previousLineComplete = contractLineIsComplete(rows[next].text);
+            next += 1;
+            continue;
+          }
+          break;
+        }
+      } else {
+        while (next < rows.length && classifyLine(rows[next].text) === kind) {
+          group.push(rows[next]);
+          next += 1;
+        }
       }
 
       const index = kind === "ghost" ? ++ghostIndex : ++contractIndex;
       replaceLineWithGroup(group[0].cell, kind, index, group.map((row) => row.text));
       for (let i = 1; i < group.length; i++) {
-        group[i].row.classList.add("opti-collapsed-line");
+        group[i].hideTarget.classList.add("opti-collapsed-line");
       }
       cursor = next;
     }
@@ -471,29 +508,34 @@
 
   function enhanceSemanticHovers(root) {
     root.querySelectorAll("[data-opti-hover-info], [data-opti-type]").forEach((element) => {
-      if (element.dataset.optiHoverReady === "true") {
-        return;
-      }
-      element.dataset.optiHoverReady = "true";
       element.classList.add("opti-hover-symbol");
-      element.addEventListener("mouseenter", () => {
-        const info = element.getAttribute("data-opti-hover-info");
-        const typ = element.getAttribute("data-opti-type");
-        if (info) {
-          showPopup(element, element.getAttribute("data-opti-hover-title") || element.textContent || "symbol", info.split("\n"));
-        } else if (typ) {
-          showPopup(element, element.textContent || "symbol", ["kind: variable", "type: " + typ]);
-        }
-      });
-      element.addEventListener("mouseleave", () => closePopup());
     });
+  }
+
+  function showHoverPopup(element) {
+    const info = element.getAttribute("data-opti-hover-info");
+    const typ = element.getAttribute("data-opti-type");
+    if (info) {
+      showPopup(element, element.getAttribute("data-opti-hover-title") || element.textContent || "symbol", info.split("\n"));
+    } else if (typ) {
+      showPopup(element, element.textContent || "symbol", ["kind: variable", "type: " + typ]);
+    }
+  }
+
+  function hoverTargetFromEvent(event) {
+    const target = event.target instanceof Element ? event.target : undefined;
+    return target?.closest("[data-opti-hover-info], [data-opti-type]");
+  }
+
+  function containsRelatedTarget(element, relatedTarget) {
+    return relatedTarget instanceof Node && element.contains(relatedTarget);
   }
 
   function rowsFromDiffTable(table) {
     return Array.from(table.querySelectorAll("tr"))
       .map((row) => {
         const cell = row.querySelector(".d2h-code-line-ctn");
-        return cell ? { row, cell, text: cell.textContent || "" } : undefined;
+        return cell ? { row, hideTarget: row, cell, text: cell.textContent || "" } : undefined;
       })
       .filter(Boolean);
   }
@@ -501,6 +543,10 @@
   function enhanceDiff(root, representation, typeSource) {
     closePopup();
     if (representation === "cpp") {
+      return;
+    }
+    const signature = representation + ":" + root.querySelectorAll(".d2h-code-line-ctn").length + ":" + root.textContent.length;
+    if (root.dataset.optiInteractiveSignature === signature && root.querySelector(".opti-group-button, .opti-hover-symbol")) {
       return;
     }
     root.querySelectorAll(".opti-collapsed-line").forEach((row) => row.classList.remove("opti-collapsed-line"));
@@ -511,6 +557,7 @@
     rows.forEach((cell) => annotateSemanticTextNodes(cell, hoverData));
     root.querySelectorAll(".d2h-diff-tbody").forEach((table) => collapseRows(rowsFromDiffTable(table)));
     enhanceSemanticHovers(root);
+    root.dataset.optiInteractiveSignature = signature;
   }
 
   function enhanceCode(container, code, representation, typeSource) {
@@ -534,7 +581,7 @@
       const finish = () => {
         const hoverData = buildHoverIndex(rows.map((row) => row.text), representation === "surface" ? typeSource : undefined);
         pre.querySelectorAll(".opti-code-line-content").forEach((line) => annotateSemanticTextNodes(line, hoverData));
-        collapseRows(rows);
+        collapseRows(rows.map((row) => ({ ...row, hideTarget: row.row })));
         enhanceSemanticHovers(container);
       };
       if (window.OptitrustSyntaxHighlight && window.OptitrustSyntaxHighlight.highlightCodeBlock) {
@@ -703,9 +750,30 @@
 
   document.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : undefined;
-    if (!target || (!target.closest(".opti-info-popup") && !target.closest(".opti-group-button"))) {
+    const groupButton = target?.closest(".opti-group-button");
+    if (groupButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleGroupPopup(groupButton);
+      return;
+    }
+    if (!target || !target.closest(".opti-info-popup")) {
       closePopup();
     }
+  });
+  document.addEventListener("mouseover", (event) => {
+    const target = hoverTargetFromEvent(event);
+    if (!target || containsRelatedTarget(target, event.relatedTarget)) {
+      return;
+    }
+    showHoverPopup(target);
+  });
+  document.addEventListener("mouseout", (event) => {
+    const target = hoverTargetFromEvent(event);
+    if (!target || containsRelatedTarget(target, event.relatedTarget)) {
+      return;
+    }
+    closePopup();
   });
   function handleGlobalKeyDown(event) {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {

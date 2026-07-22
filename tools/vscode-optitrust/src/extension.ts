@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import {
-  compareOutputExpected,
   openAssociatedFiles,
   openExpectedOutput,
   openGeneratedOutput,
@@ -172,8 +171,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       await openExpectedOutput(workspace);
     }
   });
-
-  registerCommand(context, "optitrust.compareOutputExpected", compareOutputExpected);
 
   registerCommand(context, "optitrust.openAssociatedFiles", async () => {
     const workspace = await requireWorkspace();

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 
-type LiveViewKind = "native-diff" | "html";
+type LiveViewKind = "html";
 
 interface AttachedLiveView {
   readonly kind: LiveViewKind;
@@ -100,9 +100,6 @@ function activeEditorIsAttachedLiveView(): boolean {
 
 function activeEditorUris(): vscode.Uri[] {
   const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
-  if (input instanceof vscode.TabInputTextDiff) {
-    return [input.original, input.modified];
-  }
   if (input instanceof vscode.TabInputText) {
     return [input.uri];
   }

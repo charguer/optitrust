@@ -1,7 +1,6 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
-import { fileExists } from "./fileSystem";
 
 export interface AssociatedFile {
   readonly label: string;
@@ -9,32 +8,13 @@ export interface AssociatedFile {
   readonly path: string;
 }
 
-export interface OutputPair {
-  readonly label: string;
-  readonly out: string;
-  readonly exp: string;
-}
-
 export const OPTITRUST_C_SOURCE_EXTENSIONS = [".cpp", ".cc", ".cxx", ".c"] as const;
 const OPTITRUST_PRIMARY_INPUT_EXTENSIONS = [...OPTITRUST_C_SOURCE_EXTENSIONS, ".opti"] as const;
 const C_SOURCE_EXTENSION_PRIORITY: ReadonlyMap<string, number> = new Map(OPTITRUST_C_SOURCE_EXTENSIONS.map((ext, index) => [ext, index]));
-const OUTPUT_EXTENSION_LABELS = new Map<string, string>([
-  [".cpp", "C++ output"],
-  [".cc", "C++ output"],
-  [".cxx", "C++ output"],
-  [".c", "C output"],
-  [".opti", "OptiLambda output"]
-]);
 const KIND_ORDER: AssociatedFile["kind"][] = ["script", "input", "generated", "expected", "diff", "trace", "other"];
 const OPTILAMBDA_REPRESENTATIONS = ["surface", "internal", "typed"] as const;
 
 type OptilambdaRepresentation = (typeof OPTILAMBDA_REPRESENTATIONS)[number];
-
-const OPTILAMBDA_REPRESENTATION_LABELS: Record<OptilambdaRepresentation, string> = {
-  surface: "Surface",
-  internal: "Internal",
-  typed: "Fully-Typed"
-};
 
 export function baseNameForAssociatedFiles(filePath: string): { dir: string; base: string } {
   const parsed = path.parse(filePath);
@@ -164,38 +144,6 @@ function compareCSourcePriority(a: AssociatedFile, b: AssociatedFile): number {
 
 function cSourcePriority(file: AssociatedFile): number {
   return C_SOURCE_EXTENSION_PRIORITY.get(path.extname(file.path)) ?? Number.MAX_SAFE_INTEGER;
-}
-
-/**
- * Detect output/expected pairs generically. VS Code's native diff command can
- * then compare any supported output language without command-specific code.
- */
-export async function outputPairs(filePath: string): Promise<OutputPair[]> {
-  const { dir, base } = baseNameForAssociatedFiles(filePath);
-  const pairs: OutputPair[] = [];
-  for (const [ext, label] of OUTPUT_EXTENSION_LABELS) {
-    const pair = {
-      label,
-      out: path.join(dir, `${base}_out${ext}`),
-      exp: path.join(dir, `${base}_exp${ext}`)
-    };
-    if ((await fileExists(pair.out)) && (await fileExists(pair.exp))) {
-      pairs.push(pair);
-    }
-  }
-
-  for (const representation of OPTILAMBDA_REPRESENTATIONS) {
-    const pair = {
-      label: `OptiLambda ${OPTILAMBDA_REPRESENTATION_LABELS[representation]} output`,
-      out: path.join(dir, `${base}_out_${representation}.opti`),
-      exp: path.join(dir, `${base}_exp_${representation}.opti`)
-    };
-    if ((await fileExists(pair.out)) && (await fileExists(pair.exp))) {
-      pairs.push(pair);
-    }
-  }
-
-  return pairs;
 }
 
 export async function pickAssociatedFile(files: AssociatedFile[], placeHolder: string): Promise<AssociatedFile | undefined> {

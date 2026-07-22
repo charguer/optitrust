@@ -33,7 +33,6 @@
     "onCommand:optitrust.runCurrentTestAndOpenDiff",
     "onCommand:optitrust.openGeneratedOutput",
     "onCommand:optitrust.openExpectedOutput",
-    "onCommand:optitrust.compareOutputExpected",
     "onCommand:optitrust.openAssociatedFiles",
     "onCommand:optitrust.openUnitTestMlCppFiles",
     "onCommand:optitrust.selectViewSyntax",
@@ -108,10 +107,6 @@
       {
         "command": "optitrust.openExpectedOutput",
         "title": "OptiTrust: Open Expected Output"
-      },
-      {
-        "command": "optitrust.compareOutputExpected",
-        "title": "OptiTrust: Compare Output With Expected"
       },
       {
         "command": "optitrust.openAssociatedFiles",
@@ -447,9 +442,6 @@
         },
         {
           "command": "optitrust.openExpectedOutput"
-        },
-        {
-          "command": "optitrust.compareOutputExpected"
         },
         {
           "command": "optitrust.openAssociatedFiles"

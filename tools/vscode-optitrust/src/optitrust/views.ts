@@ -28,6 +28,7 @@ interface OpenHtmlViewOptions {
 interface HtmlTransformOptions {
   readonly includeDetachButton?: boolean;
   readonly initialDiffRepresentation?: string;
+  readonly detached?: boolean;
 }
 
 interface LazyDiffContext {
@@ -41,6 +42,7 @@ interface PanelRuntimeState {
   includeDetachButton?: boolean;
   lazyDiff?: LazyDiffContext;
   initialDiffRepresentation?: string;
+  detached?: boolean;
 }
 
 function webviewKey(filePath: string, viewKind: string, metadata: string): string {
@@ -63,7 +65,7 @@ async function htmlWithBase(webview: vscode.Webview, root: string, htmlFile: str
     injectDiffFallback(injectDiffWebviewStyle(withHighlightingConfig)),
     options.initialDiffRepresentation
   );
-  return options.includeDetachButton ? injectDetachButton(withDiffSupport) : withDiffSupport;
+  return options.includeDetachButton ? injectDetachButton(withDiffSupport, options.detached ?? false) : withDiffSupport;
 }
 
 function injectDiffInitialRepresentation(html: string, representation?: string): string {
@@ -571,11 +573,14 @@ document.addEventListener('DOMContentLoaded', function () {
   return `${html}\n${fallbackScript}`;
 }
 
-function injectDetachButton(html: string): string {
+function injectDetachButton(html: string, detached: boolean): string {
   if (html.includes('id="optitrustDetachViewButton"')) {
     return html;
   }
 
+  const disabled = detached ? " disabled" : "";
+  const label = detached ? "Detached" : "Detach";
+  const title = detached ? "This OptiTrust view is detached" : "Detach this OptiTrust view";
   const detachHtml = `
 <style>
 #optitrustDetachViewButton {
@@ -601,8 +606,17 @@ function injectDetachButton(html: string): string {
   outline: 1px solid var(--vscode-focusBorder, #007fd4);
   outline-offset: 1px;
 }
+
+#optitrustDetachViewButton:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+#optitrustDetachViewButton:disabled:hover {
+  background: transparent;
+}
 </style>
-<button id="optitrustDetachViewButton" type="button" title="Detach this OptiTrust view">Detach</button>
+<button id="optitrustDetachViewButton" type="button" title="${title}"${disabled}>${label}</button>
 <script>
 (function () {
   window.optitrustVsCodeApi = window.optitrustVsCodeApi || (typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : undefined);
@@ -620,6 +634,9 @@ function injectDetachButton(html: string): string {
       host.appendChild(button);
     }
     button.addEventListener('click', function () {
+      button.textContent = 'Detached';
+      button.title = 'This OptiTrust view is detached';
+      button.disabled = true;
       vscode.postMessage({ type: 'optitrust.detachView' });
     });
   }
@@ -645,14 +662,15 @@ export async function openHtmlView(
   title: string,
   options: OpenHtmlViewOptions = {}
 ): Promise<void> {
-  const key = options.useLiveView ? LIVE_VIEW_KEY : webviewKey(htmlFile, viewKind, metadata);
+  let key = options.useLiveView ? LIVE_VIEW_KEY : webviewKey(htmlFile, viewKind, metadata);
   const existing = panels.get(key);
   const state: PanelRuntimeState = {
     root,
     htmlFile,
     includeDetachButton: options.useLiveView,
     lazyDiff: options.lazyDiff,
-    initialDiffRepresentation: options.initialDiffRepresentation
+    initialDiffRepresentation: options.initialDiffRepresentation,
+    detached: false
   };
   panelStates.set(key, state);
   if (existing) {
@@ -662,7 +680,8 @@ export async function openHtmlView(
     }
     existing.webview.html = await htmlWithBase(existing.webview, root, htmlFile, {
       includeDetachButton: options.useLiveView,
-      initialDiffRepresentation: state.initialDiffRepresentation
+      initialDiffRepresentation: state.initialDiffRepresentation,
+      detached: state.detached
     });
     return;
   }
@@ -670,6 +689,7 @@ export async function openHtmlView(
   const viewColumn = options.useLiveView ? await prepareAttachedLiveView("html") : vscode.ViewColumn.Beside;
   const panel = vscode.window.createWebviewPanel(OPTITRUST_WEBVIEW_TYPE, title, viewColumn, {
     enableScripts: true,
+    retainContextWhenHidden: true,
     localResourceRoots: [vscode.Uri.file(root), vscode.Uri.file(path.dirname(htmlFile))]
   });
 
@@ -678,7 +698,18 @@ export async function openHtmlView(
         kind: "html" as const,
         viewColumn,
         getViewColumn: () => panel.viewColumn,
-        detach: () => panels.delete(key),
+        detach: () => {
+          const detachedKey = webviewKey(htmlFile, viewKind, `${metadata}:detached:${Date.now()}`);
+          const currentState = panelStates.get(key);
+          panels.delete(key);
+          panelStates.delete(key);
+          key = detachedKey;
+          if (currentState) {
+            currentState.detached = true;
+            panelStates.set(key, currentState);
+          }
+          panels.set(key, panel);
+        },
         dispose: () => panel.dispose()
       }
     : undefined;
@@ -738,7 +769,8 @@ export async function openHtmlView(
       currentState.initialDiffRepresentation = representation;
       panel.webview.html = await htmlWithBase(panel.webview, currentState.root, currentState.htmlFile, {
         includeDetachButton: currentState.includeDetachButton,
-        initialDiffRepresentation: currentState.initialDiffRepresentation
+        initialDiffRepresentation: currentState.initialDiffRepresentation,
+        detached: currentState.detached
       });
     }
   });
@@ -758,7 +790,8 @@ export async function openHtmlView(
   });
   panel.webview.html = await htmlWithBase(panel.webview, root, htmlFile, {
     includeDetachButton: options.useLiveView,
-    initialDiffRepresentation: state.initialDiffRepresentation
+    initialDiffRepresentation: state.initialDiffRepresentation,
+    detached: state.detached
   });
   panels.set(key, panel);
   if (liveView) {
