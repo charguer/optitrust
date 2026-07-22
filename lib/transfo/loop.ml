@@ -925,8 +925,8 @@ DETAILS for [unroll]
         where p points to the item "body(i+k)"
 
     {[
-      ( if body(i) is   instr1 instr2 instr3 instr4 instr5
-      ( then i make { { instr1 instr2 } { instr3 instr4 instr5 } }
+      ( if body(i) is   instr1 instr2 instr3 instr4 instr5 )
+      ( then i make { { instr1 instr2 } { instr3 instr4 instr5 } } )
     ]}
 
     {[
@@ -943,7 +943,7 @@ DETAILS for [unroll]
         { instr3 instr4 instr5(i+1) }
         { instr3 instr4 instr5(i+2) } }@?
       }
-    }]
+    ]}
     FOURTH SUBSTEP: remove nobrace sequences
 
     ===================note
@@ -966,7 +966,8 @@ DETAILS for [unroll]
       cmd3(i+2)
     }]}
 
-    LATER: This transformation should be factorized, that may change the docs. *)
+    LATER: This transformation should be factorized, that may change the docs.
+*)
 
 let%transfo unroll_one ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark = no_mark) ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
   Target.iteri (fun i p ->
