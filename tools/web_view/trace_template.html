@@ -32,21 +32,31 @@
 <!---------------------------------------------------------------------------->
 
 
-<div class="split-pane">
-  <div class="left-pane" style="width: 33%;">
-    <div id="treeDiv"></div>
-    <div class="controls" id="treeControls"></div>
-  </div>
-  <div class="resizing-handle" id="vSplitDiv"></div>
-  <div class="right-pane">
-    <pre id="debugMsgDiv">Loading the trace {TRACEJSFILE}...</pre>
-    <div id="stepMsgDiv"></div>
-    <div id="diffDiv"></div>
-    <div id="sourceDiv">
-      <textarea id='source_code' class="source col-sm-auto"></textarea>
+<div class="trace-shell">
+  <header class="trace-titlebar">
+    <div class="trace-title">{INSERT_TITLE}</div>
+  </header>
+
+  <div class="split-pane">
+    <div class="left-pane" style="width: 33%;">
+      <div class="pane-header">Trace</div>
+      <div id="treeDiv"></div>
+      <div class="controls trace-controls" id="treeControls"></div>
     </div>
-    <div id="statsDiv"></div>
-    <div class="controls" id="astControls"></div>
+    <div class="resizing-handle" id="vSplitDiv"></div>
+    <div class="right-pane">
+      <div class="pane-header details-header">
+        <span>Step Details</span>
+        <div class="controls ast-controls" id="astControls"></div>
+      </div>
+      <pre id="debugMsgDiv">Loading the trace {TRACEJSFILE}...</pre>
+      <div id="stepMsgDiv"></div>
+      <div id="diffDiv"></div>
+      <div id="sourceDiv">
+        <textarea id='source_code' class="source col-sm-auto"></textarea>
+      </div>
+      <div id="statsDiv"></div>
+    </div>
   </div>
 </div>
 

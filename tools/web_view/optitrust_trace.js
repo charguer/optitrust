@@ -506,6 +506,13 @@ function syntaxQueryString() {
   return `syntax=optilambda&repr=${optilambdaRepresentationSuffix(representation)}`;
 }
 
+function traceServerRequestUrl(query) {
+  if (window.optitrustTraceServerBaseUrl && !/^(?:https?:)?\/\//.test(serialized_trace)) {
+    return new URL(serialized_trace + query, window.optitrustTraceServerBaseUrl).toString();
+  }
+  return serialized_trace + query;
+}
+
 function resetView() {
   /*$("#sourceDiv").hide();
   $("#diffDiv").hide();
@@ -661,7 +668,8 @@ function queryStepDetails(step, view, hadEmptyDiff = false) {
   var stepCode;
   if (serialized_trace) {
     // We have a serialized trace server, get the step details from there
-    stepCode = fetch(serialized_trace + `?view=${view}&step=${step.id + root_serialized_step_id}&${syntaxQueryString()}&timestamp=${serialized_trace_timestamp}`)
+    const requestUrl = traceServerRequestUrl(`?view=${view}&step=${step.id + root_serialized_step_id}&${syntaxQueryString()}&timestamp=${serialized_trace_timestamp}`);
+    stepCode = fetch(requestUrl)
       .then((response) => {
         if (response.status == 419) {
           window.location.reload();
@@ -669,7 +677,7 @@ function queryStepDetails(step, view, hadEmptyDiff = false) {
         }
         else if(!response.ok) {
         return response.text().then((error) => {
-            throw new Error(`Failed to retreive data:<br/>${error}`);
+            throw new Error(`Failed to retrieve data from ${requestUrl} (${response.status} ${response.statusText}):<br/>${error}`);
           });
         }
         return response.text();

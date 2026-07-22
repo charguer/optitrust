@@ -1,6 +1,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
+import { fileExists } from "./fileSystem";
 
 export interface OptitrustWorkspace {
   readonly root: string;
@@ -17,15 +18,6 @@ const REQUIRED_MARKERS = [
   path.join("tools", "view_result.sh"),
   path.join("lib", "optitrust.ml")
 ];
-
-async function exists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function readText(filePath: string): Promise<string | undefined> {
   try {
@@ -50,7 +42,7 @@ function parentDirectories(start: string): string[] {
 
 async function isOptitrustRoot(candidate: string): Promise<WorkspaceDetection> {
   const duneProject = path.join(candidate, "dune-project");
-  if (!(await exists(duneProject))) {
+  if (!(await fileExists(duneProject))) {
     return { reason: `Missing ${duneProject}` };
   }
 
@@ -61,7 +53,7 @@ async function isOptitrustRoot(candidate: string): Promise<WorkspaceDetection> {
 
   const missing: string[] = [];
   for (const marker of REQUIRED_MARKERS) {
-    if (!(await exists(path.join(candidate, marker)))) {
+    if (!(await fileExists(path.join(candidate, marker)))) {
       missing.push(marker);
     }
   }

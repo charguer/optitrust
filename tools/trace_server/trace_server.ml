@@ -16,6 +16,12 @@ let handle_exn_response sub_handler request =
   | Trace.MissingAst -> Dream.respond ~status:`Not_Found ("This AST is missing, maybe retry generating the trace with Flags.save_ast_for_steps := Some Steps_all")
   | exn -> Dream.respond ~status:`Internal_Server_Error (Printexc.to_string exn ^ "\n" ^ Printexc.get_backtrace ())
 
+let with_cors sub_handler request =
+  let open Lwt.Syntax in
+  let* response = sub_handler request in
+  Dream.set_header response "Access-Control-Allow-Origin" "*";
+  Lwt.return response
+
 let get_query request query_name =
   match Dream.query request query_name with
   | Some query -> query
@@ -139,6 +145,7 @@ let () =
 
   Dream.run ~port:6775 ~adjust_terminal:false
   @@ Dream.logger
+  @@ with_cors
   @@ handle_exn_response
   @@ Dream.router [
     Dream.get "**" handle_get_request;

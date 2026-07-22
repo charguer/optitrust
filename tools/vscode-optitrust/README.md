@@ -140,6 +140,16 @@ The trace opens in the standard OptiTrust trace viewer inside VS Code. The tree,
 step navigation, and controls are preserved. The representation selector switches
 the displayed code and diff content without replacing the trace UI.
 
+### Live View Reuse And Detach
+
+Diff and trace commands share one attached OptiTrust view slot. Re-running
+`F6`, `Shift+F5`, `Shift+F6`, or `F5` updates that attached slot instead of
+leaving many old views open.
+
+Use `OptiTrust: Detach View` to freeze the current view. Detached views stay
+open and are no longer updated by later diff/trace commands. Trace webviews also
+show a `Detach` button in the panel itself.
+
 ### View A Step Trace
 
 Run:
@@ -207,10 +217,11 @@ The QuickPick menu can:
 | `OptiTrust: View Step Diff` | Shows the diff for the transformation at the cursor line. |
 | `OptiTrust: View Diff Only Code` | Shows a reduced code-only diff. |
 | `OptiTrust: View Diff Using Internal Syntax` | Shows the legacy internal syntax diff mode. |
-| `OptiTrust: View Full Trace` | Generates and opens a full standalone trace. |
+| `OptiTrust: View Full Trace` | Generates and opens a full trace in the attached OptiTrust view. |
 | `OptiTrust: View Trace Save Steps Script` | Generates a full trace with `-save-steps script`. |
 | `OptiTrust: View Step Trace` | Generates and opens a trace for the current step. |
-| `OptiTrust: Redo Last View Command` | Runs `tools/_last_view_result.sh`. |
+| `OptiTrust: Redo Last View Command` | Re-runs the last extension view command and reopens it in the attached OptiTrust view. |
+| `OptiTrust: Detach View` | Keeps the current OptiTrust view open and removes it from future live updates. |
 | `OptiTrust: Run Current Test` | Runs the current OptiTrust test. |
 | `OptiTrust: Rerun Last-Tried Tests` | Re-runs the last test selection. |
 | `OptiTrust: Run Current Test And Open Diff` | Runs the current test, then opens the associated diff. |
@@ -221,6 +232,55 @@ The QuickPick menu can:
 | `OptiTrust: Open Unit Test ML And CPP Files` | Opens the `.ml` and `.cpp` files for a unit test. |
 | `OptiTrust: Select Diff/Trace Syntax` | Selects the default server-backed view syntax. |
 | `OptiTrust: Health Check` | Runs installation and backend checks. |
+| `OptiTrust: Show Shortcuts` | Shows the extension shortcuts from inside VS Code. |
+| `OptiTrust: Open OptiNLP Chat` | Opens native VS Code Chat for `@optinlp`. |
+| `OptiTrust: OptiNLP Generate Target` | Generates a target for the active selection or file. |
+| `OptiTrust: OptiNLP Generate Script` | Generates a transformation script from a command. |
+| `OptiTrust: OptiNLP Generate Full Transformation` | Generates a complete transformation script for the active file. |
+| `OptiTrust: OptiNLP Suggest Target At Cursor` | Runs the F7 target-at-cursor workflow for `.ml` scripts. |
+
+## OptiNLP Native Chat
+
+The extension contributes a native VS Code Chat participant named `@optinlp`.
+This is the only OptiNLP chat UI; voice input belongs to VS Code Chat through
+VS Code Speech.
+
+Examples:
+
+```text
+@optinlp target the second loop named i
+@optinlp /target target the y loop that writes to out
+@optinlp /script unroll the loop i
+@optinlp /full generate a full transformation script for this file
+@optinlp /config
+@optinlp /clear
+@optinlp /help
+```
+
+When `/target` or auto mode resolves to target generation from an active `.ml`
+script, OptiNLP sends the matching same-basename `.cpp` or `.c` source file as
+the model context.
+
+`F7` prepares richer target-at-cursor context by executing the current `.ml`
+script through the line before the cursor, opening the generated `_after.opti`
+state, and focusing native VS Code Chat. To avoid creating a new chat session,
+the prepared `@optinlp /target ...` prompt is copied to the clipboard; paste it
+into the existing Chat input and send it. The pending context is short-lived and
+is consumed by that request.
+
+OptiNLP source context such as `.ml`, `.cpp`, and `.opti` files is refreshed on
+each request because those files may change while you work. Stable OptiNLP
+prompt, knowledge, and eval files under `tools/optiNLP/` are tracked by session
+hash. With a stateful provider such as OpenAI, stable prompt-kit context is sent
+once per session and later requests continue from the previous provider
+response. Stateless providers such as Gemini keep receiving stable context on
+each request so the model has the necessary context. Disable
+`optitrust.optinlpUseProviderSession` to force every request to send full
+context.
+
+For voice input, install Microsoft's `VS Code Speech` extension, open VS Code
+Chat, focus the chat input, choose `@optinlp`, and use the microphone button
+provided by VS Code Chat.
 
 ## Default Keybindings
 
@@ -233,6 +293,7 @@ The QuickPick menu can:
 | `Ctrl+F5` | View trace with `-save-steps script` |
 | `Shift+F6` | View step trace |
 | `F5` | Redo last view command |
+| `F7` | OptiNLP suggest target at cursor |
 | `F10` | Rerun last-tried tests |
 | `Ctrl+F10` | Run current test |
 | `Ctrl+Shift+F10` | Run current test and open diff |

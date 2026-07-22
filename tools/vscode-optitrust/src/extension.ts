@@ -7,7 +7,23 @@ import {
   openUnitTestMlCppFiles
 } from "./commands/associatedFiles";
 import { runHealthCheck } from "./commands/healthCheck";
+import { registerOptiNlpChatParticipant } from "./commands/optinlpChatParticipant";
+import {
+  clearOptiNlpSession,
+  generateOptiNlpScript,
+  generateOptiNlpTarget,
+  generateOptiNlpFullTransformation,
+  insertTargetAtCursorInFile,
+  openOcamlDocument,
+  selectOptiNlpProvider,
+  setOptiNlpConfiguredProviderApiKey,
+  setOptiNlpGeminiApiKey,
+  setOptiNlpModel,
+  setOptiNlpOpenAiApiKey
+} from "./commands/optinlpCommands";
+import { suggestOptiNlpTargetAtCursor } from "./commands/optinlpTargetAtCursor";
 import { rerunLastTests, runCurrentTest, runCurrentTestAndOpenDiff } from "./commands/runTests";
+import { showShortcuts } from "./commands/shortcuts";
 import {
   redoLastViewCommand,
   runViewCommand,
@@ -16,12 +32,16 @@ import {
   runViewTraceSaveStepsScript
 } from "./commands/viewCommands";
 import { disposeDecorations, updateDecorations } from "./optitrust/decorations";
+import { detachLiveView, initializeLiveViewContext, refreshLiveViewContexts } from "./optitrust/liveView";
+import { registerNativeDiffProvider, switchNativeDiffSyntax } from "./optitrust/nativeDiff";
 import { appendLine, disposeOutput } from "./optitrust/output";
 import { getSelectedViewMode, updateSelectedViewMode, VIEW_MODES } from "./optitrust/viewMode";
 import { findOptitrustRoot, OptitrustWorkspace } from "./optitrust/workspace";
+import { OptiNlpSessionMemory } from "./optinlp/sessionMemory";
 
 let currentWorkspace: OptitrustWorkspace | undefined;
 let warnedUnsupportedWorkspace = false;
+let optiNlpSession: OptiNlpSessionMemory | undefined;
 
 async function refreshWorkspace(startPath?: string): Promise<OptitrustWorkspace | undefined> {
   const detection = await findOptitrustRoot(startPath);
@@ -50,11 +70,11 @@ async function requireWorkspace(): Promise<OptitrustWorkspace | undefined> {
   return workspace;
 }
 
-function registerCommand(context: vscode.ExtensionContext, command: string, callback: () => Promise<void> | void): void {
+function registerCommand(context: vscode.ExtensionContext, command: string, callback: (...args: unknown[]) => Promise<void> | void): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand(command, async () => {
+    vscode.commands.registerCommand(command, async (...args: unknown[]) => {
       try {
-        await callback();
+        await callback(...args);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         vscode.window.showErrorMessage(`OptiTrust: ${message}`);
@@ -65,6 +85,10 @@ function registerCommand(context: vscode.ExtensionContext, command: string, call
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   await refreshWorkspace(vscode.window.activeTextEditor?.document.uri.fsPath);
+  optiNlpSession = new OptiNlpSessionMemory();
+  initializeLiveViewContext();
+  registerNativeDiffProvider(context);
+  registerOptiNlpChatParticipant(context, requireWorkspace, optiNlpSession);
 
   registerCommand(context, "optitrust.hello", async () => {
     const workspace = await requireWorkspace();
@@ -117,6 +141,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       return;
     }
     await runViewDiffInternalSyntax(workspace);
+  });
+
+  registerCommand(context, "optitrust.switchDiffSyntax", async () => {
+    await switchNativeDiffSyntax();
+  });
+
+  registerCommand(context, "optitrust.detachView", () => {
+    if (detachLiveView()) {
+      vscode.window.showInformationMessage("OptiTrust view detached. The next view command will open a new live view.");
+    } else {
+      vscode.window.showInformationMessage("No live OptiTrust view is currently attached.");
+    }
   });
 
   registerCommand(context, "optitrust.redoLastViewCommand", async () => {
@@ -202,8 +238,84 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   });
 
+  registerCommand(context, "optitrust.showShortcuts", showShortcuts);
+
+  registerCommand(context, "optitrust.optinlpChat", async (options: unknown) => {
+    await openOptiNlpChat(openChatOptions(options));
+  });
+
+  registerCommand(context, "optitrust.optinlpGenerateTarget", async () => {
+    const workspace = await requireWorkspace();
+    if (workspace && optiNlpSession) {
+      await generateOptiNlpTarget(context, workspace, optiNlpSession);
+    }
+  });
+
+  registerCommand(context, "optitrust.optinlpGenerateScript", async () => {
+    const workspace = await requireWorkspace();
+    if (workspace && optiNlpSession) {
+      await generateOptiNlpScript(context, workspace, optiNlpSession);
+    }
+  });
+
+  registerCommand(context, "optitrust.optinlpGenerateFullTransformation", async () => {
+    const workspace = await requireWorkspace();
+    if (workspace && optiNlpSession) {
+      await generateOptiNlpFullTransformation(context, workspace, optiNlpSession);
+    }
+  });
+
+  registerCommand(context, "optitrust.optinlpSuggestTargetAtCursor", async () => {
+    const workspace = await requireWorkspace();
+    if (workspace && optiNlpSession) {
+      await suggestOptiNlpTargetAtCursor(context, workspace, optiNlpSession);
+    }
+  });
+
+  registerCommand(context, "optitrust.optinlpSetGeminiApiKey", async () => {
+    await setOptiNlpGeminiApiKey(context);
+  });
+
+  registerCommand(context, "optitrust.optinlpSetOpenAiApiKey", async () => {
+    await setOptiNlpOpenAiApiKey(context);
+  });
+
+  registerCommand(context, "optitrust.optinlpSetConfiguredApiKey", async () => {
+    await setOptiNlpConfiguredProviderApiKey(context);
+  });
+
+  registerCommand(context, "optitrust.optinlpSelectProvider", selectOptiNlpProvider);
+
+  registerCommand(context, "optitrust.optinlpSetModel", setOptiNlpModel);
+
+  registerCommand(context, "optitrust.optinlpInsertTarget", async (target: unknown, filePath: unknown) => {
+    if (typeof target !== "string" || target.trim().length === 0) {
+      vscode.window.showWarningMessage("OptiNLP: no target was provided for insertion.");
+      return;
+    }
+    await insertTargetAtCursorInFile(target, typeof filePath === "string" && filePath.length > 0 ? filePath : undefined);
+  });
+
+  registerCommand(context, "optitrust.optinlpOpenScript", async (script: unknown) => {
+    if (typeof script !== "string" || script.trim().length === 0) {
+      vscode.window.showWarningMessage("OptiNLP: no generated script was provided.");
+      return;
+    }
+    await openOcamlDocument(script);
+  });
+
+  registerCommand(context, "optitrust.optinlpClearSession", async () => {
+    if (optiNlpSession) {
+      await clearOptiNlpSession(optiNlpSession);
+    }
+  });
+
   context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor(editor => updateDecorations(editor)),
+    vscode.window.onDidChangeActiveTextEditor(editor => {
+      updateDecorations(editor);
+      refreshLiveViewContexts();
+    }),
+    vscode.window.tabGroups.onDidChangeTabs(() => refreshLiveViewContexts()),
     vscode.workspace.onDidChangeTextDocument(event => {
       if (event.document === vscode.window.activeTextEditor?.document) {
         updateDecorations(vscode.window.activeTextEditor);
@@ -225,7 +337,60 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   updateDecorations();
 }
 
+interface OpenOptiNlpChatOptions {
+  readonly query: string;
+  readonly preserveExisting?: boolean;
+}
+
+function openChatOptions(value: unknown): OpenOptiNlpChatOptions {
+  if (typeof value === "string") {
+    return { query: value };
+  }
+  if (value && typeof value === "object") {
+    const maybeOptions = value as { readonly query?: unknown; readonly preserveExisting?: unknown };
+    return {
+      query: typeof maybeOptions.query === "string" ? maybeOptions.query : "@optinlp ",
+      preserveExisting: maybeOptions.preserveExisting === true
+    };
+  }
+  return { query: "@optinlp " };
+}
+
+async function openOptiNlpChat(options: OpenOptiNlpChatOptions): Promise<void> {
+  if (options.preserveExisting) {
+    await focusExistingChatAndCopyPrompt(options.query);
+    return;
+  }
+
+  try {
+    await vscode.commands.executeCommand("workbench.action.chat.open", { query: options.query });
+    return;
+  } catch {
+    // Older VS Code builds may not support opening chat with a prefilled query.
+  }
+
+  try {
+    await vscode.commands.executeCommand("workbench.action.chat.open");
+  } catch {
+    vscode.window.showInformationMessage("Open VS Code Chat and type @optinlp to use OptiNLP.");
+    return;
+  }
+  vscode.window.showInformationMessage(`Type ${options.query} in VS Code Chat to use OptiNLP.`);
+}
+
+async function focusExistingChatAndCopyPrompt(query: string): Promise<void> {
+  try {
+    await vscode.commands.executeCommand("workbench.action.chat.open");
+  } catch {
+    vscode.window.showInformationMessage("Open VS Code Chat and type @optinlp to use OptiNLP.");
+    return;
+  }
+  await vscode.env.clipboard.writeText(query);
+  vscode.window.showInformationMessage("OptiNLP target context is ready. The chat prompt was copied; paste it into the existing VS Code Chat and send it.");
+}
+
 export function deactivate(): void {
   disposeDecorations();
   disposeOutput();
+  optiNlpSession = undefined;
 }

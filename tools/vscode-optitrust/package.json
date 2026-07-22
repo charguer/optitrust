@@ -11,7 +11,7 @@
     "directory": "tools/vscode-optitrust"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
     "Other",
@@ -25,6 +25,8 @@
     "onCommand:optitrust.viewDiff",
     "onCommand:optitrust.viewDiffOnlyCode",
     "onCommand:optitrust.viewDiffInternalSyntax",
+    "onCommand:optitrust.switchDiffSyntax",
+    "onCommand:optitrust.detachView",
     "onCommand:optitrust.viewFullTrace",
     "onCommand:optitrust.viewTraceSaveStepsScript",
     "onCommand:optitrust.viewStepTrace",
@@ -38,9 +40,27 @@
     "onCommand:optitrust.openAssociatedFiles",
     "onCommand:optitrust.openUnitTestMlCppFiles",
     "onCommand:optitrust.selectViewSyntax",
-    "onCommand:optitrust.healthCheck"
+    "onCommand:optitrust.healthCheck",
+    "onCommand:optitrust.showShortcuts",
+    "onCommand:optitrust.optinlpChat",
+    "onCommand:optitrust.optinlpGenerateTarget",
+    "onCommand:optitrust.optinlpGenerateScript",
+    "onCommand:optitrust.optinlpGenerateFullTransformation",
+    "onCommand:optitrust.optinlpSuggestTargetAtCursor",
+    "onCommand:optitrust.optinlpSelectProvider",
+    "onCommand:optitrust.optinlpSetModel",
+    "onCommand:optitrust.optinlpSetConfiguredApiKey",
+    "onCommand:optitrust.optinlpSetGeminiApiKey",
+    "onCommand:optitrust.optinlpSetOpenAiApiKey",
+    "onCommand:optitrust.optinlpInsertTarget",
+    "onCommand:optitrust.optinlpOpenScript",
+    "onCommand:optitrust.optinlpClearSession",
+    "onChatParticipant:optitrust.optinlp"
   ],
   "main": "./out/extension.js",
+  "bin": {
+    "optinlp": "./out/optinlp/cli.js"
+  },
   "contributes": {
     "commands": [
       {
@@ -58,6 +78,16 @@
       {
         "command": "optitrust.viewDiffInternalSyntax",
         "title": "OptiTrust: View Diff Using Internal Syntax"
+      },
+      {
+        "command": "optitrust.switchDiffSyntax",
+        "title": "OptiTrust: Switch Diff Syntax",
+        "icon": "$(replace)"
+      },
+      {
+        "command": "optitrust.detachView",
+        "title": "OptiTrust: Detach View",
+        "icon": "$(debug-disconnect)"
       },
       {
         "command": "optitrust.viewFullTrace",
@@ -115,6 +145,57 @@
       {
         "command": "optitrust.healthCheck",
         "title": "OptiTrust: Health Check"
+      },
+      {
+        "command": "optitrust.showShortcuts",
+        "title": "OptiTrust: Show Shortcuts",
+        "icon": "$(keyboard)"
+      },
+      {
+        "command": "optitrust.optinlpChat",
+        "title": "OptiTrust: Open OptiNLP Chat",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "optitrust.optinlpGenerateTarget",
+        "title": "OptiTrust: OptiNLP Generate Target"
+      },
+      {
+        "command": "optitrust.optinlpGenerateScript",
+        "title": "OptiTrust: OptiNLP Generate Script"
+      },
+      {
+        "command": "optitrust.optinlpGenerateFullTransformation",
+        "title": "OptiTrust: OptiNLP Generate Full Transformation"
+      },
+      {
+        "command": "optitrust.optinlpSuggestTargetAtCursor",
+        "title": "OptiTrust: OptiNLP Suggest Target At Cursor",
+        "icon": "$(target)"
+      },
+      {
+        "command": "optitrust.optinlpSetGeminiApiKey",
+        "title": "OptiTrust: OptiNLP Set Gemini API Key"
+      },
+      {
+        "command": "optitrust.optinlpSetOpenAiApiKey",
+        "title": "OptiTrust: OptiNLP Set OpenAI API Key"
+      },
+      {
+        "command": "optitrust.optinlpSetConfiguredApiKey",
+        "title": "OptiTrust: OptiNLP Set API Key"
+      },
+      {
+        "command": "optitrust.optinlpSelectProvider",
+        "title": "OptiTrust: OptiNLP Select Provider"
+      },
+      {
+        "command": "optitrust.optinlpSetModel",
+        "title": "OptiTrust: OptiNLP Set Model"
+      },
+      {
+        "command": "optitrust.optinlpClearSession",
+        "title": "OptiTrust: OptiNLP Clear Session"
       }
     ],
     "configuration": {
@@ -165,9 +246,83 @@
             "Use explicit OptiLambda operations with type parameters."
           ],
           "description": "Default OptiLambda representation for backend-generated diff and trace views."
+        },
+        "optitrust.optinlpProvider": {
+          "type": "string",
+          "default": "gemini",
+          "enum": [
+            "gemini",
+            "mock",
+            "openai"
+          ],
+          "enumDescriptions": [
+            "Use Gemini through the configured API key.",
+            "Use deterministic local mock responses for UI testing.",
+            "Use OpenAI through the configured API key."
+          ],
+          "description": "AI provider used by OptiNLP commands and native VS Code Chat."
+        },
+        "optitrust.optinlpModel": {
+          "type": "string",
+          "default": "",
+          "description": "Optional model override for the configured OptiNLP provider. Leave empty to use the provider default."
+        },
+        "optitrust.optinlpUseProviderSession": {
+          "type": "boolean",
+          "default": true,
+          "description": "Let stateful OptiNLP providers reuse prior prompt/knowledge/eval context in the current in-memory session. Disable to send full context every request."
         }
       }
     },
+    "configurationDefaults": {
+      "diffEditor.renderSideBySide": true
+    },
+    "chatParticipants": [
+      {
+        "id": "optitrust.optinlp",
+        "name": "optinlp",
+        "fullName": "OptiNLP",
+        "description": "Generate OptiTrust targets and transformation scripts for the active file.",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "target",
+            "description": "Generate robust OptiTrust target suggestions for the active file."
+          },
+          {
+            "name": "script",
+            "description": "Generate an OptiTrust transformation script from a command."
+          },
+          {
+            "name": "full",
+            "description": "Generate a complete OptiTrust transformation script for the active file."
+          },
+          {
+            "name": "config",
+            "description": "Show and change OptiNLP provider, model, and API key configuration."
+          },
+          {
+            "name": "clear",
+            "description": "Clear OptiNLP session memory."
+          },
+          {
+            "name": "help",
+            "description": "Show OptiNLP chat usage examples."
+          }
+        ],
+        "disambiguation": [
+          {
+            "category": "optitrust_targets",
+            "description": "The user wants to generate an OptiTrust target, transformation script, or full transformation script for C, C++, OptiLambda, or OCaml OptiTrust code.",
+            "examples": [
+              "target the second loop named i",
+              "generate an OptiTrust script that unrolls loop i",
+              "create a full transformation script for this file"
+            ]
+          }
+        ]
+      }
+    ],
     "keybindings": [
       {
         "command": "optitrust.viewDiff",
@@ -205,6 +360,11 @@
         "when": "editorTextFocus && config.optitrust.enableKeybindings"
       },
       {
+        "command": "optitrust.optinlpSuggestTargetAtCursor",
+        "key": "f7",
+        "when": "editorTextFocus && resourceExtname == .ml && config.optitrust.enableKeybindings"
+      },
+      {
         "command": "optitrust.runCurrentTest",
         "key": "ctrl+f10",
         "mac": "cmd+f10",
@@ -231,8 +391,55 @@
       "editor/title": [
         {
           "command": "optitrust.openAssociatedFiles",
-          "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti || resourceExtname == .html || resourceExtname == .js || resourceExtname == .trace",
+          "when": "resourceScheme == file && (resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti || resourceExtname == .html || resourceExtname == .js || resourceExtname == .trace)",
           "group": "navigation@50"
+        },
+        {
+          "command": "optitrust.switchDiffSyntax",
+          "when": "resourceScheme == optitrust-diff",
+          "group": "navigation@51"
+        },
+        {
+          "command": "optitrust.detachView",
+          "when": "resourceScheme == optitrust-diff",
+          "group": "navigation@52"
+        },
+        {
+          "command": "optitrust.optinlpChat",
+          "when": "resourceScheme == file && (resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti)",
+          "group": "navigation@55"
+        },
+        {
+          "command": "optitrust.optinlpSuggestTargetAtCursor",
+          "when": "resourceScheme == file && resourceExtname == .ml",
+          "group": "navigation@60"
+        },
+        {
+          "command": "optitrust.showShortcuts",
+          "when": "resourceScheme == file && (resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti || resourceExtname == .html || resourceExtname == .js || resourceExtname == .trace)",
+          "group": "navigation@70"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "optitrust.optinlpSuggestTargetAtCursor",
+          "when": "resourceExtname == .ml",
+          "group": "optinlp@0"
+        },
+        {
+          "command": "optitrust.optinlpGenerateTarget",
+          "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti",
+          "group": "optinlp@1"
+        },
+        {
+          "command": "optitrust.optinlpGenerateScript",
+          "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti",
+          "group": "optinlp@2"
+        },
+        {
+          "command": "optitrust.optinlpGenerateFullTransformation",
+          "when": "resourceExtname == .ml || resourceExtname == .cpp || resourceExtname == .c || resourceExtname == .opti",
+          "group": "optinlp@3"
         }
       ],
       "commandPalette": [
@@ -247,6 +454,12 @@
         },
         {
           "command": "optitrust.viewDiffInternalSyntax"
+        },
+        {
+          "command": "optitrust.switchDiffSyntax"
+        },
+        {
+          "command": "optitrust.detachView"
         },
         {
           "command": "optitrust.viewFullTrace"
@@ -289,6 +502,42 @@
         },
         {
           "command": "optitrust.healthCheck"
+        },
+        {
+          "command": "optitrust.showShortcuts"
+        },
+        {
+          "command": "optitrust.optinlpChat"
+        },
+        {
+          "command": "optitrust.optinlpGenerateTarget"
+        },
+        {
+          "command": "optitrust.optinlpGenerateScript"
+        },
+        {
+          "command": "optitrust.optinlpGenerateFullTransformation"
+        },
+        {
+          "command": "optitrust.optinlpSuggestTargetAtCursor"
+        },
+        {
+          "command": "optitrust.optinlpSetGeminiApiKey"
+        },
+        {
+          "command": "optitrust.optinlpSetOpenAiApiKey"
+        },
+        {
+          "command": "optitrust.optinlpSetConfiguredApiKey"
+        },
+        {
+          "command": "optitrust.optinlpSelectProvider"
+        },
+        {
+          "command": "optitrust.optinlpSetModel"
+        },
+        {
+          "command": "optitrust.optinlpClearSession"
         }
       ]
     },
@@ -316,12 +565,16 @@
   "scripts": {
     "build:webview": "esbuild ../web_view/optitrust_syntax_highlight.mjs --bundle --format=esm --target=es2020 --outfile=../web_view/optitrust_syntax_highlight.js",
     "compile": "npm run build:webview && tsc -p ./",
+    "dev:extension": "./scripts/run_extension_dev_host.sh",
+    "optinlp": "node ./out/optinlp/cli.js",
+    "test:optinlp": "npm run compile && node ./out/optinlp/provider.test.js && node ./out/optinlp/cli.test.js && node ./out/optinlp/sessionMemory.test.js",
     "watch": "tsc -watch -p ./",
     "package": "vsce package",
     "vscode:prepublish": "npm run compile"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/unist": "^3.0.3",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.1",

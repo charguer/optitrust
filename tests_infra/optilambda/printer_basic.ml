@@ -57,6 +57,57 @@ let surface_writes_contract =
     post = resource_set ~linear:[ (v "x", body) ] ();
   }
 
+let surface_formula_contract =
+  { empty_fun_contract with pre = resource_set ~linear:[ (v "h", points_to_formula (term "src") (term "H")) ] () }
+
+let generated_name_cleanup_contract =
+  let anon_hyp = Ast.new_var "" in
+  let anon_binder_hyp = Ast.new_var "" in
+  let anon_i = Ast.new_var "" in
+  let range = range (Trm.trm_int 0) (term "n") (Trm.trm_int 1) in
+  let group_body = app "H" [ Trm.trm_var anon_i ] in
+  let group_body = app "Group" [ range; Trm.trm_fun [ (anon_i, Typ.typ_int) ] Typ.typ_auto group_body ] in
+  {
+    empty_fun_contract with
+    pre = resource_set ~linear:[ (anon_hyp, term "Anon"); (v "named", term "Named"); (anon_binder_hyp, group_body) ] ();
+  }
+
+let mixed_recovery_contract =
+  let frac = term "f" in
+  let read_body = term "ReadH" in
+  let write_body = term "WriteH" in
+  {
+    pre =
+      resource_set
+        ~pure:[ (v "f", term "_Fraction") ]
+        ~linear:[ (v "read", read_only_formula frac read_body); (v "kept", term "Kept"); (v "write", uninit_formula write_body) ]
+        ();
+    post =
+      resource_set
+        ~linear:[ (v "write", write_body); (v "read", read_only_formula frac read_body); (v "new_out", term "Produced") ]
+        ();
+  }
+
+let alpha_group_reads_contract =
+  let frac = term "f" in
+  let range_var = Ast.new_var "range" in
+  let group_var = Ast.new_var "Group" in
+  let h_var = Ast.new_var "H" in
+  let n_var = Ast.new_var "n" in
+  let pre_i = Ast.new_var "i" in
+  let post_i = Ast.new_var "i" in
+  let app_var fn args = Trm.trm_apps (Trm.trm_var fn) args in
+  let range = app_var range_var [ Trm.trm_int 0; Trm.trm_var n_var; Trm.trm_int 1 ] in
+  let group_formula index body =
+    app_var group_var [ range; Trm.trm_fun [ (index, Typ.typ_int) ] Typ.typ_auto body ]
+  in
+  let pre_body = group_formula pre_i (app_var h_var [ Trm.trm_var pre_i ]) in
+  let post_body = group_formula post_i (app_var h_var [ Trm.trm_var post_i ]) in
+  {
+    pre = resource_set ~pure:[ (v "f", term "_Fraction") ] ~linear:[ (v "read", read_only_formula frac pre_body) ] ();
+    post = resource_set ~linear:[ (v "read", read_only_formula frac post_body) ] ();
+  }
+
 let read_only_focus_contract =
   let frac = term "f" in
   let whole = term "Whole" in
@@ -233,13 +284,13 @@ let () =
 
   check "function definition"
     (Trm.trm_let_fun (v "f") Typ.typ_int [ tv "x" Typ.typ_int ] (Trm.trm_seq_nomarks [ Trm.trm_abort (Ret (Some (term "x"))) ]))
-    "fun f(x: int): int { x }";
+    "fun f(x) { x }";
 
   check "function contract"
     (Trm.trm_let_fun ~contract:(FunSpecContract simple_fun_contract) (v "f") Typ.typ_int
        [ tv "x" Typ.typ_int; tv "y" Typ.typ_int ]
        (Trm.trm_seq_nomarks [ Trm.trm_abort (Ret (Some (term "x"))) ]))
-    "fun f(x: int, y: int): int [h_req, h_in, h_ens, h_out] {\n\
+    "fun f(x, y) [h_req, h_in, h_ens, h_out] {\n\
     \  requires h_req: x = y;\n\
     \  consumes h_in: R;\n\
     \  ensures h_ens: result = x;\n\
@@ -257,9 +308,9 @@ let () =
     (Trm.trm_let_fun ~contract:(FunSpecContract multi_requires_contract) (v "rewrite")
        (Typ.typ_var (Typ.name_to_typvar "__ghost_ret"))
        [] (Trm.trm_seq_nomarks []))
-    "ghost fun rewrite() {\n  requires from: int,\n           to: int,\n           inside: pure_fun(fun(x: int): Prop);\n}";
+    "ghost fun rewrite() {\n  requires from: int,\n           to: int;\n}";
 
-  check_typ "compact Type result" (Typ.typ_pure_fun [ (v "x", Typ.typ_int) ] Typ.typ_prop) "pure_fun(fun(x: int): Prop)";
+  check_typ "compact Type result" (Typ.typ_pure_fun [ (v "x", Typ.typ_int) ] Typ.typ_prop) "int -> Prop";
 
   check "if"
     (Trm.trm_if
@@ -309,12 +360,43 @@ let () =
   check "surface reads contract"
     (Trm.trm_let_fun ~contract:(FunSpecContract surface_reads_contract) (v "read_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
-    "fun read_example(): unit [f, x, x] { reads x: H; }";
+    "fun read_example() [f, x, x] { reads x: H; }";
 
   check "surface writes contract"
     (Trm.trm_let_fun ~contract:(FunSpecContract surface_writes_contract) (v "write_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
-    "fun write_example(): unit [x, x] { writes x: H; }";
+    "fun write_example() [x, x] { writes x: H; }";
+
+  check "surface local formula printer in contract"
+    (Trm.trm_let_fun ~contract:(FunSpecContract surface_formula_contract) (v "formula_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    "fun formula_example() [h] { consumes h: src ~> H; }";
+
+  check "surface generated contract names are hidden"
+    (Trm.trm_let_fun ~contract:(FunSpecContract generated_name_cleanup_contract) (v "generated_name_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    "fun generated_name_example() [named] {\n\
+    \  consumes Anon,\n\
+    \           named: Named,\n\
+    \           for #_1 in 0..n -> H(#_1);\n\
+     }";
+
+  check "non-adjacent reads and writes recovery"
+    (Trm.trm_let_fun ~contract:(FunSpecContract mixed_recovery_contract) (v "mixed_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    "fun mixed_example() [f, read, kept, write, write, read, new_out] {\n\
+    \  reads read: ReadH;\n\
+    \  writes write: WriteH;\n\
+    \  consumes kept: Kept;\n\
+    \  produces new_out: Produced;\n\
+     }";
+
+  check "alpha-equivalent group reads recovery"
+    (Trm.trm_let_fun ~contract:(FunSpecContract alpha_group_reads_contract) (v "alpha_group_read_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    "fun alpha_group_read_example() [f, read, read] {\n\
+    \  reads read: for i in 0..n -> H(i);\n\
+     }";
 
   check_with_style "internal reads contract"
     internal_style
@@ -340,7 +422,15 @@ let () =
        (Trm.trm_seq_nomarks []))
     "fun write_example(): unit [x, x] { writes x: H; }";
 
-  let focus_expected =
+  let surface_focus_expected =
+    "fun focus_example() [f, whole, wand, focused] {\n\
+    \  requires f: _Fraction;\n\
+    \  consumes whole: _RO(f, Whole);\n\
+    \  produces wand: Wand(_RO(f, Focused), _RO(f, Whole)),\n\
+    \           focused: _RO(f, Focused);\n\
+     }"
+  in
+  let explicit_focus_expected =
     "fun focus_example(): unit [f, whole, wand, focused] {\n\
     \  requires f: _Fraction;\n\
     \  consumes whole: _RO(f, Whole);\n\
@@ -351,25 +441,25 @@ let () =
   check "read-only focus contract stays explicit"
     (Trm.trm_let_fun ~contract:(FunSpecContract read_only_focus_contract) (v "focus_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
-    focus_expected;
+    surface_focus_expected;
 
   check_with_style "internal read-only focus contract stays explicit"
     internal_style
     (Trm.trm_let_fun ~contract:(FunSpecContract read_only_focus_contract) (v "focus_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
-    focus_expected;
+    explicit_focus_expected;
 
   check_with_style "typed read-only focus contract stays explicit"
     typed_style
     (Trm.trm_let_fun ~contract:(FunSpecContract read_only_focus_contract) (v "focus_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
-    focus_expected;
+    explicit_focus_expected;
 
   check "loop contract"
     (Trm.trm_for ~contract:simple_loop_contract
        { index = v "i"; start = Trm.trm_int 0; direction = DirUp; stop = term "n"; step = Trm.trm_int 1 }
        (Trm.trm_seq_nomarks [ Trm.trm_set (term "x") (Trm.trm_add ~typ:Typ.typ_int (term "x") (Trm.trm_int 1)) ]))
-    "for<seq> i in 0..n [h_loop, h_inv, h_xreq, h_xprod] {\n\
+    "for<seq> i in 0..n {\n\
     \  requires h_loop: i < n,\n\
     \           h_inv: 0 <= i;\n\
     \  xrequires h_xreq: i < n;\n\
@@ -377,7 +467,14 @@ let () =
     \  x = x + 1;\n\
      }";
 
-  check "compound operator call" (Trm.trm_compound_assign ~typ:Typ.typ_int Binop_add (term "r") (Trm.trm_int 2)) "(+=)(r, 2)";
+  check "compound operator assignment" (Trm.trm_compound_assign ~typ:Typ.typ_int Binop_add (term "r") (Trm.trm_int 2)) "r += 2";
+
+  let mindex =
+    app "MINDEX1" [ term "n"; Trm.trm_add ~typ:Typ.typ_int (Trm.trm_mul ~typ:Typ.typ_int (term "bi") (Trm.trm_int 32)) (term "i") ]
+  in
+  let indexed_product = Trm.trm_mul ~typ:Typ.typ_int (Trm.trm_array_get (term "a") mindex) (Trm.trm_array_get (term "b") mindex) in
+  check "compound assignment with indexed product" (Trm.trm_compound_assign ~typ:Typ.typ_int Binop_add (term "s") indexed_product)
+    "s += a[MINDEX1(n, bi * 32 + i)] * b[MINDEX1(n, bi * 32 + i)]";
 
   check "struct access" (Trm.trm_struct_access ~struct_typ:Typ.typ_auto (term "v") "x") "v.x";
 
@@ -420,6 +517,6 @@ let () =
     (Trm.trm_let_fun ~contract:(FunSpecContract simple_fun_contract) (v "f") Typ.typ_int
        [ tv "x" Typ.typ_int; tv "y" Typ.typ_int ]
        (Trm.trm_seq_nomarks [ Trm.trm_abort (Ret (Some (term "x"))) ]))
-    "fun f(x: int, y: int): int { x }";
+    "fun f(x, y) { x }";
 
   check "marks" (Mark.trm_add_mark "target" (term "x")) "@marks[target] x"
