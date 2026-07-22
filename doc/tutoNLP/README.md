@@ -1,8 +1,25 @@
-# OptiNLP Target-Generation Test Suite
+# OptiNLP Target Tutorial And Test Suite
 
-This directory contains independent tests for the OptiNLP target-generation
-prompt. Each test has its own source file and matching expected-result file so
-it can be evaluated or validated independently.
+This directory is both a tutorial for new OptiNLP users and a target-generation
+test suite for AI models.
+
+As a tutorial, it teaches OptiTrust target writing through repetition. A user
+opens one `.cpp` file, studies the source code, reads the natural-language
+request that should be given to OptiNLP, sends that request to the AI, and then
+compares the returned target with the expected answer. Repeating this workflow
+across many small examples helps new users learn how targets are written, when
+to qualify targets by function or body context, when occurrence selectors are
+needed, and when the correct answer is to ask for clarification instead of
+guessing.
+
+As a test suite, it evaluates whether the selected AI model can generate
+correct OptiTrust targets. The same cases can be used to compare Gemini,
+OpenAI, mock behavior, or any future provider by checking whether the model
+returns the expected target, an accepted equivalent target, or the expected
+clarification for ambiguous requests.
+
+Each test has its own source file and matching expected-result file so it can
+be practiced, evaluated, or validated independently.
 
 The `.cpp` file is the input source to give to the target-generation prompt.
 The matching `.ml` file contains the expected target and a `Show.target`
@@ -42,15 +59,35 @@ The target vocabulary and style rules are documented in:
 - `tools/optiNLP/knowledge/target_description.md`
 - `tools/optiNLP/prompts/01_target_generator.md`
 
-## How To Run A Manual Test
+## How To Use This As A Tutorial
 
-For a single test:
+For one practice case:
+
+1. Open one `.cpp` file from this directory.
+2. Read the code and identify the node the request is probably talking about.
+3. Read the `// Request:` comment at the top of the `.cpp` file.
+4. Send the `.cpp` source and that request to OptiNLP.
+5. Compare the target returned by the AI with the expected target in the
+   matching file.
+6. Open the matching `.ml` or `.md` file with the same basename only when you
+   want to verify the answer or inspect the expected clarification.
+7. Repeat the same workflow on the next case.
+
+The goal is not only to get one answer right. The goal is to build intuition by
+seeing many examples of target syntax, including simple semantic targets,
+function-qualified targets, repeated-name targets, occurrence selectors,
+relative positions, spans, marks, memory accesses, and ambiguity cases.
+
+## How To Use This To Test An AI Model
+
+For a single model-evaluation case:
 
 1. Give the assistant `tools/optiNLP/prompts/01_target_generator.md`.
 2. Give it the relevant target knowledge files.
 3. Paste one `.cpp` source file from this directory.
-4. Paste the request from the matching `.ml` or `.md` file comment.
-5. Compare the response with the expected target or expected clarification.
+4. Use the `// Request:` comment from the `.cpp` file as the user request.
+5. Record the model response.
+6. Compare the response with the expected target or expected clarification.
 
 A response passes when it:
 
@@ -64,6 +101,13 @@ A response passes when it:
 
 For executable target cases, the matching `.ml` file can also be used as a
 target-validation script in the usual OptiTrust `Run.script_cpp` style.
+
+This makes the directory useful for two different audiences:
+
+- new users, who can practice target writing step by step until the syntax
+  becomes familiar;
+- OptiNLP developers, who can test whether the currently selected AI model is
+  able to generate correct targets reliably.
 
 ## Difficulty Levels
 
