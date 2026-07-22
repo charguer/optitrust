@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BENCHMARK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+GENERATED_PATHS=(
+  "$BENCHMARK_DIR/runs"
+  "$BENCHMARK_DIR/report.md"
+)
+
+for path in "${GENERATED_PATHS[@]}"; do
+  if [ -e "$path" ]; then
+    rm -rf "$path"
+    echo "Removed: $path"
+  fi
+done
+
+echo "Cleaned benchmark outputs under: $BENCHMARK_DIR"

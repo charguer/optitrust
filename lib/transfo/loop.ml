@@ -158,8 +158,8 @@ let%transfo hoist_alloc_loop_list
         (* Transfo_debug.path "p_nested" p_nested;
         Transfo_debug.path "p" p; *)
         Matrix_basic.simpl_access_of_access (target_of_path p);
-        (* ShowAt.trm ~msg:"t@p" (target_of_path p);
-        ShowAt.trm ~msg:"t@p" (target_of_path (p @ [Dir_arg_nth 1])); *)
+        (* Show.At.trm ~msg:"t@p" (target_of_path p);
+        Show.At.trm ~msg:"t@p" (target_of_path (p @ [Dir_arg_nth 1])); *)
         Matrix_basic.simpl_index_add (target_of_path (p @ [Dir_arg_nth 1]));
         Arith.(simpl_rec gather_rec (target_of_path (p @ [Dir_arg_nth 1])));
       ) [nbAny; cMark mark]
