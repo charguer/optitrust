@@ -1069,8 +1069,9 @@ end = struct
                          is aliasing. *)
                      let ll = trm_find_memlocs arg in
                      let lva = aliasing aliases ll in
-                         acr.propagate <- Var_map.add f tg acr.propagate
                      List.iter (fun (_, tg, _) ->
+                         if acr.self <> Variable then
+                           acr.propagate <- Var_map.add f tg acr.propagate
                        ) lva
                    end
                  else
