@@ -11,7 +11,7 @@ int solutions[] = {1, 0, 0, 2, 10, 4, 40, 92, 352, 724, 2680, 14200, 73712, 3655
 
 int total_count;
 
-int ok(int n, char* a) {
+int ok(int n, const char* a) {
   int i;
   int j;
   char p;
