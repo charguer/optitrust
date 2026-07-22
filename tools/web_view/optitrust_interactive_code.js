@@ -78,6 +78,7 @@
     document.querySelectorAll(".opti-group-button[aria-expanded='true']").forEach((button) => {
       button.setAttribute("aria-expanded", "false");
     });
+    activeGroupButton = undefined;
   }
 
   function popupCodeBlock(lines) {
@@ -139,6 +140,9 @@
     anchor.setAttribute("aria-expanded", "true");
   }
 
+  let activeGroupButton;
+  let groupPopupMode = "text";
+
   function groupLinesFromButton(button) {
     try {
       const lines = JSON.parse(button.dataset.optiGroupLines || "[]");
@@ -153,11 +157,10 @@
       closePopup();
       return;
     }
-    const lines = groupLinesFromButton(button);
-    showPopup(button, button.dataset.optiGroupTitle || button.textContent || "group", lines);
+    showGroupPopup(button);
   }
 
-  function makeGroupButton(kind, index, lines) {
+  function makeGroupButton(kind, index, lines, metadata = {}) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "opti-group-button opti-group-" + kind;
@@ -166,7 +169,178 @@
     button.setAttribute("aria-expanded", "false");
     button.dataset.optiGroupTitle = button.textContent;
     button.dataset.optiGroupLines = JSON.stringify(lines);
+    button.dataset.optiGroupKind = kind;
+    button.dataset.optiGroupIndex = String(index);
+    button.dataset.optiGroupSide = metadata.side || "single";
+    button.dataset.optiGroupContext = metadata.context || "";
+    button.dataset.optiGroupFile = metadata.file || "";
+    button.dataset.optiGroupOrder = String(metadata.order ?? 0);
     return button;
+  }
+
+  function showGroupPopup(button) {
+    closePopup();
+    activeGroupButton = button;
+    const popup = document.createElement("div");
+    popup.className = "opti-info-popup opti-group-popup";
+    popup.setAttribute("role", "dialog");
+
+    const header = document.createElement("div");
+    header.className = "opti-info-popup-header";
+
+    const heading = document.createElement("div");
+    heading.className = "opti-info-popup-title";
+    heading.textContent = button.dataset.optiGroupTitle || button.textContent || "group";
+    header.appendChild(heading);
+
+    if (canShowGroupDiff(button)) {
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "opti-popup-mode-toggle";
+      toggle.textContent = groupPopupMode === "diff" ? "Text" : "Diff";
+      toggle.title = groupPopupMode === "diff" ? "Show grouped text" : "Show old/new diff for this context";
+      header.appendChild(toggle);
+    }
+
+    popup.appendChild(header);
+
+    const body = document.createElement("div");
+    body.className = "opti-popup-body";
+    popup.appendChild(body);
+
+    document.body.appendChild(popup);
+    renderGroupPopupBody(button, popup, body);
+    positionPopup(button, popup);
+    button.setAttribute("aria-expanded", "true");
+  }
+
+  function canShowGroupDiff(button) {
+    return button.dataset.optiGroupSide !== "single" && button.dataset.optiGroupContext !== "" && Boolean(button.closest("#diffDiv"));
+  }
+
+  function renderGroupPopupBody(button, popup, body) {
+    body.textContent = "";
+    const mode = canShowGroupDiff(button) ? groupPopupMode : "text";
+    const block = mode === "diff"
+      ? groupDiffCodeBlock(groupDiffForButton(button))
+      : popupCodeBlock(groupLinesFromButton(button));
+    body.appendChild(block);
+    highlightPopupBody(button, popup, block);
+    const toggle = popup.querySelector(".opti-popup-mode-toggle");
+    if (toggle) {
+      toggle.textContent = groupPopupMode === "diff" ? "Text" : "Diff";
+      toggle.title = groupPopupMode === "diff" ? "Show grouped text" : "Show old/new diff for this context";
+    }
+  }
+
+  function toggleActiveGroupPopupMode() {
+    if (!activeGroupButton) {
+      return;
+    }
+    groupPopupMode = groupPopupMode === "diff" ? "text" : "diff";
+    const popup = document.querySelector(".opti-group-popup");
+    const body = popup?.querySelector(".opti-popup-body");
+    if (popup && body) {
+      renderGroupPopupBody(activeGroupButton, popup, body);
+      positionPopup(activeGroupButton, popup);
+    }
+  }
+
+  function groupDiffForButton(button) {
+    const currentSide = button.dataset.optiGroupSide || "old";
+    const oldLines = groupLinesForContext(button, "old");
+    const newLines = groupLinesForContext(button, "new");
+    if (oldLines.length === 0 && currentSide === "old") {
+      return groupLinesFromButton(button).map((line) => ({ kind: "removed", line }));
+    }
+    if (newLines.length === 0 && currentSide === "new") {
+      return groupLinesFromButton(button).map((line) => ({ kind: "added", line }));
+    }
+    return diffLines(oldLines, newLines);
+  }
+
+  function groupLinesForContext(button, side) {
+    const root = button.closest("#diffDiv");
+    if (!root) {
+      return [];
+    }
+    const kind = button.dataset.optiGroupKind;
+    const context = button.dataset.optiGroupContext;
+    const file = button.dataset.optiGroupFile;
+    return Array.from(root.querySelectorAll(".opti-group-button"))
+      .filter((candidate) =>
+        candidate.dataset.optiGroupKind === kind &&
+        candidate.dataset.optiGroupContext === context &&
+        candidate.dataset.optiGroupFile === file &&
+        candidate.dataset.optiGroupSide === side
+      )
+      .sort((left, right) => Number(left.dataset.optiGroupOrder || 0) - Number(right.dataset.optiGroupOrder || 0))
+      .flatMap((candidate) => groupLinesFromButton(candidate));
+  }
+
+  function normalizeDiffLine(line) {
+    return line.trim().replace(/\s+/g, " ");
+  }
+
+  function diffLines(oldLines, newLines) {
+    const oldKeys = oldLines.map(normalizeDiffLine);
+    const newKeys = newLines.map(normalizeDiffLine);
+    const rows = Array.from({ length: oldLines.length + 1 }, () => Array(newLines.length + 1).fill(0));
+    for (let oldIndex = oldLines.length - 1; oldIndex >= 0; oldIndex--) {
+      for (let newIndex = newLines.length - 1; newIndex >= 0; newIndex--) {
+        rows[oldIndex][newIndex] = oldKeys[oldIndex] === newKeys[newIndex]
+          ? rows[oldIndex + 1][newIndex + 1] + 1
+          : Math.max(rows[oldIndex + 1][newIndex], rows[oldIndex][newIndex + 1]);
+      }
+    }
+
+    const diff = [];
+    let oldIndex = 0;
+    let newIndex = 0;
+    while (oldIndex < oldLines.length && newIndex < newLines.length) {
+      if (oldKeys[oldIndex] === newKeys[newIndex]) {
+        diff.push({ kind: "same", line: oldLines[oldIndex] });
+        oldIndex += 1;
+        newIndex += 1;
+      } else if (rows[oldIndex + 1][newIndex] >= rows[oldIndex][newIndex + 1]) {
+        diff.push({ kind: "removed", line: oldLines[oldIndex] });
+        oldIndex += 1;
+      } else {
+        diff.push({ kind: "added", line: newLines[newIndex] });
+        newIndex += 1;
+      }
+    }
+    while (oldIndex < oldLines.length) {
+      diff.push({ kind: "removed", line: oldLines[oldIndex] });
+      oldIndex += 1;
+    }
+    while (newIndex < newLines.length) {
+      diff.push({ kind: "added", line: newLines[newIndex] });
+      newIndex += 1;
+    }
+    return diff;
+  }
+
+  function groupDiffCodeBlock(diff) {
+    const pre = document.createElement("pre");
+    pre.className = "opti-rich-code opti-popup-code opti-group-diff";
+    for (const entry of diff) {
+      const row = document.createElement("div");
+      row.className = "opti-code-line opti-group-diff-line opti-group-diff-" + entry.kind;
+
+      const prefix = document.createElement("span");
+      prefix.className = "opti-group-diff-prefix";
+      prefix.textContent = entry.kind === "added" ? "+" : entry.kind === "removed" ? "-" : " ";
+      row.appendChild(prefix);
+
+      const content = document.createElement("span");
+      content.className = "opti-code-line-content opti-group-diff-content";
+      content.setAttribute("data-opti-line-text", entry.line);
+      content.textContent = entry.line === "" ? " " : entry.line;
+      row.appendChild(content);
+      pre.appendChild(row);
+    }
+    return pre;
   }
 
   function buildTypeMap(typeSource) {
@@ -453,12 +627,87 @@
     root.dataset.optiAnnotated = "true";
   }
 
-  function replaceLineWithGroup(cell, kind, index, lines) {
-    cell.textContent = "";
-    cell.appendChild(makeGroupButton(kind, index, lines));
+  function contextKeyFromLine(line) {
+    const compact = normalizeDiffLine(line);
+    if (compact === "") {
+      return undefined;
+    }
+    const functionMatch = compact.match(/\b(?:ghost\s+)?fun\s+([A-Za-z_][A-Za-z0-9_']*)\b/);
+    if (functionMatch) {
+      return "fun:" + functionMatch[1];
+    }
+    const loopMatch = compact.match(/\b(?:desync_)?for(?:<[^>]+>)?\s+([A-Za-z_][A-Za-z0-9_']*)\s+in\b/);
+    if (loopMatch) {
+      return "for:" + loopMatch[1];
+    }
+    const whileMatch = compact.match(/\bwhile\s*\(([^)]*)\)/);
+    if (whileMatch) {
+      return "while:" + shortText(whileMatch[1], 80);
+    }
+    const ifMatch = compact.match(/\bif\s*\(([^)]*)\)/);
+    if (ifMatch) {
+      return "if:" + shortText(ifMatch[1], 80);
+    }
+    const callMatch = compact.match(/\b([A-Za-z_][A-Za-z0-9_']*)\s*(?:<[^>\n(){};]*>)?\s*\(/);
+    if (callMatch && !syntaxKeywords.has(callMatch[1])) {
+      return "call:" + callMatch[1];
+    }
+    const letMatch = compact.match(/\blet(?:mut)?\s+([A-Za-z_][A-Za-z0-9_']*)\b/);
+    if (letMatch) {
+      return "let:" + letMatch[1];
+    }
+    if (/[{;]$/u.test(compact)) {
+      return "stmt:" + shortText(compact, 100);
+    }
+    return undefined;
   }
 
-  function collapseRows(rows) {
+  function nearestContextBefore(rows, start, predicate) {
+    for (let index = start - 1; index >= Math.max(0, start - 100); index--) {
+      if (classifyLine(rows[index].text)) {
+        continue;
+      }
+      const key = contextKeyFromLine(rows[index].text);
+      if (key && predicate(key)) {
+        return key;
+      }
+    }
+    return undefined;
+  }
+
+  function contextForGroup(rows, start, end, kind) {
+    const functionContext = nearestContextBefore(rows, start, (key) => key.startsWith("fun:"));
+    for (let index = start - 1; index >= Math.max(0, start - 30); index--) {
+      if (!classifyLine(rows[index].text)) {
+        const key = contextKeyFromLine(rows[index].text);
+        if (key) {
+          if (key.startsWith("fun:")) {
+            return key;
+          }
+          return functionContext ? functionContext + ">" + key : key;
+        }
+      }
+    }
+    for (let index = end; index < Math.min(rows.length, end + 30); index++) {
+      if (!classifyLine(rows[index].text)) {
+        const key = contextKeyFromLine(rows[index].text);
+        if (key) {
+          if (key.startsWith("fun:")) {
+            return key;
+          }
+          return functionContext ? functionContext + ">" + key : key;
+        }
+      }
+    }
+    return functionContext ? functionContext + ">unscoped:" + kind : "unscoped:" + kind;
+  }
+
+  function replaceLineWithGroup(cell, kind, index, lines, metadata) {
+    cell.textContent = "";
+    cell.appendChild(makeGroupButton(kind, index, lines, metadata));
+  }
+
+  function collapseRows(rows, options = {}) {
     let ghostIndex = 0;
     let contractIndex = 0;
     let cursor = 0;
@@ -498,7 +747,12 @@
       }
 
       const index = kind === "ghost" ? ++ghostIndex : ++contractIndex;
-      replaceLineWithGroup(group[0].cell, kind, index, group.map((row) => row.text));
+      replaceLineWithGroup(group[0].cell, kind, index, group.map((row) => row.text), {
+        side: options.side || group[0].side || "single",
+        context: contextForGroup(rows, cursor, next, kind),
+        file: group[0].file || "",
+        order: group[0].order ?? cursor
+      });
       for (let i = 1; i < group.length; i++) {
         group[i].hideTarget.classList.add("opti-collapsed-line");
       }
@@ -532,12 +786,28 @@
   }
 
   function rowsFromDiffTable(table) {
+    const side = sideForDiffTable(table);
+    const file = fileForDiffTable(table);
     return Array.from(table.querySelectorAll("tr"))
-      .map((row) => {
+      .map((row, order) => {
         const cell = row.querySelector(".d2h-code-line-ctn");
-        return cell ? { row, hideTarget: row, cell, text: cell.textContent || "" } : undefined;
+        return cell ? { row, hideTarget: row, cell, text: cell.textContent || "", side, file, order } : undefined;
       })
       .filter(Boolean);
+  }
+
+  function sideForDiffTable(table) {
+    const sideContainer = table.closest(".d2h-file-side-diff");
+    if (!sideContainer || !sideContainer.parentElement) {
+      return "single";
+    }
+    const sides = Array.from(sideContainer.parentElement.children).filter((child) => child.classList.contains("d2h-file-side-diff"));
+    return sides.indexOf(sideContainer) === 0 ? "old" : "new";
+  }
+
+  function fileForDiffTable(table) {
+    const wrapper = table.closest(".d2h-file-wrapper");
+    return wrapper?.id || "";
   }
 
   function enhanceDiff(root, representation, typeSource) {
@@ -555,7 +825,7 @@
     const hoverData = buildHoverIndex(lines, representation === "surface" ? typeSource : undefined);
     rows.forEach((cell, index) => cell.setAttribute("data-opti-line-text", lines[index] || ""));
     rows.forEach((cell) => annotateSemanticTextNodes(cell, hoverData));
-    root.querySelectorAll(".d2h-diff-tbody").forEach((table) => collapseRows(rowsFromDiffTable(table)));
+    root.querySelectorAll(".d2h-diff-tbody").forEach((table) => collapseRows(rowsFromDiffTable(table), { side: sideForDiffTable(table) }));
     enhanceSemanticHovers(root);
     root.dataset.optiInteractiveSignature = signature;
   }
@@ -750,6 +1020,12 @@
 
   document.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : undefined;
+    if (target?.closest(".opti-popup-mode-toggle")) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleActiveGroupPopupMode();
+      return;
+    }
     const groupButton = target?.closest(".opti-group-button");
     if (groupButton) {
       event.preventDefault();
