@@ -40,7 +40,7 @@ let%transfo unfold ?(mark : mark = no_mark) ~(at : target) (tg : target) : unit 
 *)
 let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : target) : unit =
   (* if !Flags.check_validity then Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *) *)
-  if !Flags.use_resources_with_models then Resources.ensure_computed ();
+  (* if !Flags.use_resources_with_models then Resources.ensure_computed (); *)
   Target.iter (fun p ->
     let (p_seq, p_local, index) = Internal.get_instruction_in_surrounding_sequence p in
     assert (p_local = []);
@@ -49,6 +49,8 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
       let tl, result = trm_inv ~error trm_seq_inv t_seq in
       let dl = Mlist.nth tl index in
       let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
+
+      if Flags.annotated () then begin
       let init = trm_add_mark mark init in
       let res = Resources.after_trm init in
       let init_model = trm_add_mark mark (Var_map.find Resource_set.var_result res.aliases) in
@@ -77,61 +79,55 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
         ] in
       let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) perform_subst_trm tl in
       trm_seq ~annot:t_seq.annot ?result new_tl
-      (* LEGACY: shapes *)
-      (* Deprecated, legacy code *)
-      (*
-            end else begin
-        if !Flags.check_validity then begin
-        if Resources.trm_is_pure init then
-          (* Case 1: pure expression *)
-          Trace.justif "inlining a pure expression is always correct"
-        else begin
-          (* Case 2: duplicable expression can be inlined if we don't go through interfering context, control flow or formulas *)
-          Resources.required_for_check ();
-          (* Resources.assert_instr_effects_shadowed p; *)
-          (* -- DUPLICATE CODE *)
-          let t_seq = Target.resolve_path p_seq in
-          let tl, _ = trm_inv ~error trm_seq_inv t_seq in
-          let dl = Mlist.nth tl index in
-          let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
-          (* -- *)
-          Resources.assert_not_self_interfering init;
-          let occurences = Constr.resolve_target ~prefix:p_seq [nbMulti; cVarId x] t_seq in
-          let end_occ_index = match snd (List.unlast occurences) with
-          | Dir_seq_nth i :: _ -> i
-          | p -> path_fail p "expected path to be inside current sequence"
-          in
-          (* check that we don't go through control flow or formulas *)
-          List.iter (fun occ_p ->
-            List.iter (fun dir ->
-              let open Dir in
-              match dir with
-              | Dir_body | Dir_then | Dir_else
-              | Dir_for_start | Dir_for_stop | Dir_for_step
-              | Dir_for_c_init | Dir_for_c_step | Dir_case _
-              | Dir_contract _ | Dir_ghost_arg_nth _ ->
-                path_fail (p_seq @ occ_p) (sprintf "inlining non-pure expression does not support going through %s yet" (Dir.dir_to_string dir))
-              | _ -> ()
-            ) occ_p
-          ) (List.drop 1 occurences);
-          (* is calling this useful?
-          Resources.assert_dup_instr_redundant index last_occ_index t_seq; *)
-          let usage = Resources.usage_of_trm init in
-          let _, instrs_after_let = Mlist.split (index + 1) tl in
-          let context_instrs, _ = Mlist.split (end_occ_index - index - 1) instrs_after_let in
-          (* DEBUG: Show.trms ~msg:"\n---- HERE:\n" (Mlist.to_list context_instrs); *)
-          let context_usage = Resources.compute_usage_of_instrs context_instrs in
-          (* TODO: double check that we don't need to check commute for every occ and not just last one. *)
-          Resources.assert_usages_commute ~res_ctx:(Resources.after_trm init) [path_error_context p] usage context_usage;
-          Trace.justif "inlining a duplicable expression through a non-interfering, non-control-flow and non-formula context is correct"
-          (* TODO: Case 3 ? recursive traversal analysis with special constructor cases? *)
-          (* trm_fail init "inlining non-pure expression is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc" *)
-        end
+      end else
+      begin
+        if Flags.annotated () then
+        begin
+        (* Case 2: duplicable expression can be inlined if we don't go through interfering context, control flow or formulas *)
+        Resources.required_for_check ();
+        (* Resources.assert_instr_effects_shadowed p; *)
+        (* -- DUPLICATE CODE *)
+        let t_seq = Target.resolve_path p_seq in
+        let tl, _ = trm_inv ~error trm_seq_inv t_seq in
+        let dl = Mlist.nth tl index in
+        let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
+        (* -- *)
+        Resources.assert_not_self_interfering init;
+        let occurences = Constr.resolve_target ~prefix:p_seq [nbMulti; cVarId x] t_seq in
+        let end_occ_index = match snd (List.unlast occurences) with
+        | Dir_seq_nth i :: _ -> i
+        | p -> path_fail p "expected path to be inside current sequence"
+        in
+        (* check that we don't go through control flow or formulas *)
+        List.iter (fun occ_p ->
+          List.iter (fun dir ->
+            let open Dir in
+            match dir with
+            | Dir_body | Dir_then | Dir_else
+            | Dir_for_start | Dir_for_stop | Dir_for_step
+            | Dir_for_c_init | Dir_for_c_step | Dir_case _
+            | Dir_contract _ | Dir_ghost_arg_nth _ ->
+              path_fail (p_seq @ occ_p) (sprintf "inlining non-pure expression does not support going through %s yet" (Dir.dir_to_string dir))
+            | _ -> ()
+          ) occ_p
+        ) (List.drop 1 occurences);
+        (* is calling this useful?
+        Resources.assert_dup_instr_redundant index last_occ_index t_seq; *)
+        let usage = Resources.usage_of_trm init in
+        let _, instrs_after_let = Mlist.split (index + 1) tl in
+        let context_instrs, _ = Mlist.split (end_occ_index - index - 1) instrs_after_let in
+        (* DEBUG: Show.trms ~msg:"\n---- HERE:\n" (Mlist.to_list context_instrs); *)
+        let context_usage = Resources.compute_usage_of_instrs context_instrs in
+        (* TODO: double check that we don't need to check commute for every occ and not just last one. *)
+        Resources.assert_usages_commute ~res_ctx:(Resources.after_trm init) [path_error_context p] usage context_usage;
+        Trace.justif "inlining a duplicable expression through a non-interfering, non-control-flow and non-formula context is correct"
+        (* TODO: Case 3 ? recursive traversal analysis with special constructor cases? *)
+        (* trm_fail init "inlining non-pure expression is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc" *)
       end;
       let init = trm_add_mark mark init in
       let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) (trm_subst_var x init) tl in
       trm_seq ~annot:t_seq.annot ?result new_tl
-      end *)
+      end
     ) p_seq
   ) tg
 

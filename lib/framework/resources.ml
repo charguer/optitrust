@@ -9,13 +9,11 @@ let ensure_computed = Trace.recompute_resources
    TODO: required_for_check_at path; for on-demand computation. *)
 let required_for_check () : unit =
   (* Yanni : should require the AnnotatedAndVerified typechecking mode *)
-  (* if !Flags.check_validity && not !Flags.preserve_specs_only
-    then *)
-  ensure_computed ()
+  if Flags.annotated_and_verified () then ensure_computed ()
 
 let justif_correct (why : string) : unit =
   (* if !Flags.check_validity then begin *)
-  ensure_computed ();
+  if Flags.annotated () then ensure_computed ();
   Trace.justif (sprintf "resources are correct: %s" why)
 
 
