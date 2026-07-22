@@ -883,17 +883,19 @@ end = struct
       [!type:a]), the function filters the list of memory locations [ll] (see
       [!type:memloc]) so as to keep only memory locations representing an
       argument or an alias to an argument. It then transforms the resulting list
-      of memory locations into the list of pairs of L-variables and the
-      corresponding 0-based positions of the arguments they alias. *)
-  let rec aliasing (a : l) (ll : memloc list) : (lvar * int) list =
+      of memory locations into the list of triplets of L-variables, the
+      corresponding 0-based positions of the arguments they alias and booleans
+      indicating whether the variables were completely dereferenced. *)
+  let rec aliasing (a : l) (ll : memloc list) : (lvar * int * bool) list =
     match ll with
     | hd :: tl ->
        let lv : lvar = { v = hd.variable; l = hd.label } in
        let alias = LVar_Hashtbl.find_opt a lv in
        if Option.is_some alias then
-         let tg, _ = Option.get alias in
-         (lv, tg) :: (aliasing a tl)
-       else aliasing a tl
+         let tg, nli = Option.get alias in
+         (lv, tg, hd.dereferencements >= nli) :: (aliasing a tl)
+       else
+         aliasing a tl
     | [] -> []
 
   (** [targeting a v l nli]: checks in the hash table of aliases [a] (see
@@ -1048,7 +1050,7 @@ end = struct
                      member variables. *)
                  let ll = trm_find_memlocs (List.hd args) in
                  let lva = aliasing aliases ll in
-                 List.iter (fun (lv, tg) ->
+                 List.iter (fun (lv, tg, _) ->
                      if lv.v.name <> "this" then
                        Stack.push (f, tg, f') ous
                    ) lva
@@ -1067,8 +1069,8 @@ end = struct
                          is aliasing. *)
                      let ll = trm_find_memlocs arg in
                      let lva = aliasing aliases ll in
-                     List.iter (fun (_, tg) ->
                          acr.propagate <- Var_map.add f tg acr.propagate
+                     List.iter (fun (_, tg, _) ->
                        ) lva
                    end
                  else
@@ -1097,7 +1099,7 @@ end = struct
                  if nli > 0 && rw then
                    let ll = trm_find_memlocs arg in
                    let lva = aliasing aliases ll in
-                   List.iter (fun (_, tg) -> Stack.push (f, tg) us) lva
+                   List.iter (fun (_, tg, _) -> Stack.push (f, tg) us) lva
                ) args lfr
            end
          (** If we do not have a constification record for [f'] and if it is not
@@ -1118,7 +1120,7 @@ end = struct
                      behind the [arg] it is aliasing. *)
                  let ll = trm_find_memlocs arg in
                  let lva = aliasing aliases ll in
-                 List.iter (fun (_, tg) -> Stack.push (f, tg) us) lva
+                 List.iter (fun (_, tg, _) -> Stack.push (f, tg) us) lva
                ) args
            end;
          (** Continue the analysis on substatements, if any. *)
@@ -1131,8 +1133,8 @@ end = struct
              hash table of [aliases] accordingly, if necessary. *)
          let ll = trm_find_memlocs ti in
          let lva = aliasing aliases ll in
-         List.iter (fun (_, tg) ->
              let alias : lvar = { v = v; l = String.empty } in
+         List.iter (fun (_, tg, _) ->
              let nli = Apac_miscellaneous.typ_get_nli ty in
              if !Apac_flags.verbose then
                Printf.printf "Constification of `%s': defining new \
@@ -1207,7 +1209,7 @@ end = struct
                                       alias %s (%d dereferencements, %d \
                                       levels of indirection)\n"
                          f.name (LVar.to_string lv) l.dereferencements nli;
-                     List.iter (fun (_, tg) ->
+                     List.iter (fun (_, tg, _) ->
                          LVar_Hashtbl.add aliases lv (tg, nli);
                          if (not !Apac_flags.constify_quietly) then
                            Stack.push (f, tg) us
@@ -1278,16 +1280,19 @@ end = struct
                    the example below. *)
                let rval = trm_find_memlocs rval in
                let rval = aliasing aliases rval in
-               List.iter (fun (rv, tg) ->
-                   let _, nli = LVar_Hashtbl.find aliases rv in
-                   if !Apac_flags.verbose then
-                     Printf.printf "Constification of `%s': %s becomes an \
-                                    alias to the argument %s (%d levels of \
-                                    indirection)\n"
-                       f.name (LVar.to_string lv) (LVar.to_string rv) nli;
-                   LVar_Hashtbl.add aliases lv (tg, nli);
-                   if (not !Apac_flags.constify_quietly) then
-                     Stack.push (f, tg) us
+               List.iter (fun (rv, tg, d) ->
+                   if not d then
+                     begin
+                       let _, nli = LVar_Hashtbl.find aliases rv in
+                       if !Apac_flags.verbose then
+                         Printf.printf "Constification of `%s': %s becomes an \
+                                        alias to the argument %s (%d levels of \
+                                        indirection)\n"
+                           f.name (LVar.to_string lv) (LVar.to_string rv) nli;
+                       LVar_Hashtbl.add aliases lv (tg, nli);
+                       if (not !Apac_flags.constify_quietly) then
+                         Stack.push (f, tg) us
+                     end
                  ) rval
            ) ll;
          (** Continue the analysis on substatements, if any. *)
@@ -1304,7 +1309,7 @@ end = struct
              classes for now. *)
          let o = trm_find_memlocs o in
          let o = aliasing aliases o in
-         List.iter (fun (lv, tg) ->
+         List.iter (fun (lv, tg, _) ->
              let all = LVar_Hashtbl.find_all aliases lv in
              List.iter (fun (tg, _) ->
                  if tg > -1 then Stack.push (f, tg) us
@@ -1331,7 +1336,7 @@ end = struct
                  classes for now. *)
              let rt = trm_find_memlocs rt in
              let rt = aliasing aliases rt in
-             List.iter (fun (_, tg) ->
+             List.iter (fun (_, tg, _) ->
                  if tg > -1 then Stack.push (f, tg) us
                ) rt
            end;
@@ -1625,7 +1630,7 @@ end = struct
          let ll = trm_find_memlocs ti in
          let ll = aliasing aliases ll in
          (** If so, i.e. if [ll] is not an empty list, *)
-         List.iter (fun (_, argument) ->
+         List.iter (fun (_, argument, _) ->
              (** we have to update [aliases] for each [alias] to an
                  [argument]. *)
              let alias : lvar = { v = v; l = String.empty } in
