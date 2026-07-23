@@ -96,7 +96,7 @@
       "patterns": [
         {
           "name": "entity.other.attribute-name.contract.optilambda",
-          "match": "\\b(?:requires|consumes|ensures|produces|reads|writes|pure|modifies|preserves|xrequires|xconsumes|xensures|xproduces|xreads|xwrites|xmodifies|xpreserves|strict|reverts)\\b"
+          "match": "\\b(?:requires|consumes|ensures|produces|reads|writes|pure|modifies|preserves|srequires|sreads|smodifies|spreserves|xrequires|xconsumes|xensures|xproduces|xreads|xwrites|xmodifies|xpreserves|strict|reverts)\\b"
         }
       ]
     },

@@ -788,24 +788,31 @@ and loop_contract_clauses (style : Optilambda_style.style) (contract : loop_cont
   else
     let strict_doc = if contract.strict then [ ContractRaw (string "strict") ] else [] in
     let parallel_reads, used_fracs = surface_parallel_reads style contract.parallel_reads in
+    let xconsumes, xproduces, xreads, xwrites, xpreserves, xused_fracs =
+      simplify_linear_contract contract.iter_contract.pre.linear contract.iter_contract.post.linear
+    in
+    let used_fracs = used_fracs @ xused_fracs in
     let loop_ghosts = filter_surface_type_only_requirements style (remove_used_fraction_requirements used_fracs contract.loop_ghosts) in
     let invariant_pure = filter_surface_type_only_requirements style (remove_used_fraction_requirements used_fracs contract.invariant.pure) in
     let iter_pre_pure = filter_surface_type_only_requirements style (remove_used_fraction_requirements used_fracs contract.iter_contract.pre.pure) in
     let iter_post_pure = filter_surface_type_only_requirements style contract.iter_contract.post.pure in
     let items =
       loop_ghosts @ invariant_pure @ contract.invariant.linear @ parallel_reads @ iter_pre_pure
-      @ contract.iter_contract.pre.linear @ iter_post_pure @ contract.iter_contract.post.linear
+      @ xreads @ xwrites @ xpreserves @ xconsumes @ iter_post_pure @ xproduces
     in
     let used_vars = resource_items_used_vars items in
     strict_doc
     @ contract_clauses ~used_vars "requires" loop_ghosts
-    @ contract_clauses ~used_vars "requires" invariant_pure
-    @ contract_clauses ~used_vars "preserves" contract.invariant.linear
-    @ contract_clauses ~used_vars "reads" parallel_reads
+    @ contract_clauses ~used_vars "srequires" invariant_pure
+    @ contract_clauses ~used_vars "spreserves" contract.invariant.linear
+    @ contract_clauses ~used_vars "sreads" parallel_reads
     @ contract_clauses ~used_vars "xrequires" iter_pre_pure
-    @ contract_clauses ~used_vars "xconsumes" contract.iter_contract.pre.linear
+    @ contract_clauses ~used_vars "xreads" xreads
+    @ contract_clauses ~used_vars "xwrites" xwrites
+    @ contract_clauses ~used_vars "xpreserves" xpreserves
+    @ contract_clauses ~used_vars "xconsumes" xconsumes
     @ contract_clauses ~used_vars "xensures" iter_post_pure
-    @ contract_clauses ~used_vars "xproduces" contract.iter_contract.post.linear
+    @ contract_clauses ~used_vars "xproduces" xproduces
 
 (** [fun_spec_items spec] collects resources mentioned by a function spec. *)
 and fun_spec_items (spec : fun_spec) : resource_item list =

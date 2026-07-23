@@ -142,6 +142,44 @@ let simple_loop_contract =
       };
   }
 
+let detailed_loop_contract =
+  let shared_frac = term "sf" in
+  let iter_frac = term "xf" in
+  {
+    empty_loop_contract with
+    invariant =
+      resource_set
+        ~pure:[ (v "s_inv", Trm.trm_le ~typ:Typ.typ_int (Trm.trm_int 0) (term "i")) ]
+        ~linear:[ (v "s_ctx", term "SharedCtx"); (v "s_tmp", term "SharedTmp") ]
+        ();
+    parallel_reads = [ (v "s_read", read_only_formula shared_frac (term "SharedRead")) ];
+    iter_contract =
+      {
+        pre =
+          resource_set
+            ~pure:[ (v "xf", term "_Fraction") ]
+            ~linear:
+              [
+                (v "x_read", read_only_formula iter_frac (term "IterRead"));
+                (v "x_write", uninit_formula (term "IterWrite"));
+                (v "x_keep", term "IterKeep");
+                (v "x_in", term "IterIn");
+              ]
+            ();
+        post =
+          resource_set
+            ~pure:[ (v "x_ens", Trm.trm_gt ~typ:Typ.typ_int (Trm.trm_add ~typ:Typ.typ_int (term "i") (Trm.trm_int 1)) (Trm.trm_int 0)) ]
+            ~linear:
+              [
+                (v "x_read", read_only_formula iter_frac (term "IterRead"));
+                (v "x_write", term "IterWrite");
+                (v "x_keep", term "IterKeep");
+                (v "x_out", term "IterOut");
+              ]
+            ();
+      };
+  }
+
 let ghost_call_example =
   Trm.trm_ghost_force
     (Trm.ghost_call ~ghost_bind:[ (Some (v "z"), "h_out") ] (v "rewrite") [ ("h", Trm.trm_eq ~typ:Typ.typ_int (term "x") (term "y")) ])
@@ -514,10 +552,28 @@ let () =
        { index = v "i"; start = Trm.trm_int 0; direction = DirUp; stop = term "n"; step = Trm.trm_int 1 }
        (Trm.trm_seq_nomarks [ Trm.trm_set (term "x") (Trm.trm_add ~typ:Typ.typ_int (term "x") (Trm.trm_int 1)) ]))
     "for<seq> i in 0..n {\n\
-    \  requires h_loop: i < n,\n\
-    \           h_inv: 0 <= i;\n\
+    \  requires h_loop: i < n;\n\
+    \  srequires h_inv: 0 <= i;\n\
     \  xrequires h_xreq: i < n;\n\
     \  xproduces h_xprod: Done;\n\
+    \  x = x + 1;\n\
+     }";
+
+  check "loop shared and exclusive contract clauses"
+    (Trm.trm_for ~contract:detailed_loop_contract
+       { index = v "i"; start = Trm.trm_int 0; direction = DirUp; stop = term "n"; step = Trm.trm_int 1 }
+       (Trm.trm_seq_nomarks [ Trm.trm_set (term "x") (Trm.trm_add ~typ:Typ.typ_int (term "x") (Trm.trm_int 1)) ]))
+    "for<seq> i in 0..n {\n\
+    \  srequires s_inv: 0 <= i;\n\
+    \  spreserves s_ctx: SharedCtx,\n\
+    \             s_tmp: SharedTmp;\n\
+    \  sreads s_read: SharedRead;\n\
+    \  xreads x_read: IterRead;\n\
+    \  xwrites x_write: IterWrite;\n\
+    \  xpreserves x_keep: IterKeep;\n\
+    \  xconsumes x_in: IterIn;\n\
+    \  xensures x_ens: i + 1 > 0;\n\
+    \  xproduces x_out: IterOut;\n\
     \  x = x + 1;\n\
      }";
 

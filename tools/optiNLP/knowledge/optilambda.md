@@ -33,5 +33,9 @@ Visible OptiLambda cues:
   for target reasoning.
 - Surface contracts hide generated resource names and type-only pure
   requirements when those details are not useful for reading the trace.
+- Function contracts use clauses such as `reads`, `writes`, `preserves`,
+  `consumes`, and `produces`. Loop contracts distinguish shared resources with
+  `sreads` / `spreserves` and per-iteration exclusive resources with
+  `xreads`, `xwrites`, `xpreserves`, `xconsumes`, and `xproduces`.
 - Printed `.opti` text is inspection evidence only; runnable transformation
   scripts still target the C/C++ workflow.

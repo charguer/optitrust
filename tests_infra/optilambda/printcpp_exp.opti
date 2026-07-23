@@ -1540,40 +1540,44 @@
     ghost(assert_prop, "proof := admit(int * int * int * int * (int -> int) * (b >= a) * (ap1 = a + 1) * (bp1 = b + 1) -> reduce_int_sum(a, b, f) + (f(b) - f(a)) = reduce_int_sum(ap1, bp1, f))", "reduce_int_sum_slide <- proof");
   };
 
-  fun one_fork() {
-    letmut x = 0;
+  fun loop_contract_clause_examples() {
     letmut n = 64;
     letmut a;
     letmut b;
-    letmut s = 0;
-    letmut bi = 0;
-    letmut ii = 0;
-    s += (a)[MINDEX1(n, bi * 32 + ii)] * (b)[MINDEX1(n, bi * 32 + ii)];
+    letmut read_value = 0;
+    letmut kept_value = 0;
+    letmut written_value;
+    letmut shared_sum = 0;
+    letmut shared_tmp = 0;
     for<seq> k in 0..n {
+      srequires n_nonneg: *n >= 0;
+      spreserves shared_sum ~> CellOf(Any)(reduce_int_sum(0, k, fun(i) -> A(i))),
+                 shared_tmp ~> CellOf(Any)(k);
+      sreads for i in 0..(*n) -> (*a)[MINDEX1(*n, i)] ~> CellOf(Any)(A(i));
       xrequires k_nonneg: k >= 0;
-      xconsumes read: _RO(1, (*(*a)[MINDEX1(*n, k)]) ~> CellOf(Any)),
-                kept: (*(*b)[MINDEX1(*n, k)]) ~> CellOf(Any),
-                write: _Uninit((*s) ~> CellOf(Any));
-      xproduces write: (*s) ~> CellOf(Any),
-                read: _RO(1, (*(*a)[MINDEX1(*n, k)]) ~> CellOf(Any)),
-                out: (*(*b)[MINDEX1(*n, k)]) ~> CellOf(Any),
-                done: Done(k);
-      s += (a)[MINDEX1(n, k)];
+      xreads read_value ~> CellOf(Any)(0);
+      xwrites written_value ~> CellOf(Any)(k);
+      xpreserves kept_value ~> CellOf(Any)(0);
+      xconsumes input: IterInput(k);
+      xensures k_done: k + 1 > 0;
+      xproduces output: IterOutput(k);
+      written_value = read_value + (b)[MINDEX1(n, k)];
     };
+  };
+
+
+  fun one_fork() {
+    letmut x = 0;
     let fork_out = ghost_begin(ghost(ro_fork_group, "H := x ~> CellOf(Any)(0)", "r := 0..5"));
     for<seq> i in 0..5 {
       strict;
-      requires #344: _Fraction;
-      xconsumes _RO(#344, x ~> CellOf(Any)(0));
-      xproduces _RO(#344, x ~> CellOf(Any)(0));
+      xreads x ~> CellOf(Any)(0);
       ghost(ro_split2, "f := #_1", "H := x ~> CellOf(Any)(0)");
       ghost(ro_fork_group, "f := #_1 / 2", "H := x ~> CellOf(Any)(0)", "r := 0..5");
       ghost(ro_allow_join2, "f := #_1", "H := x ~> CellOf(Any)(0)");
       for<seq> j in 0..5 {
         strict;
-        requires #346: _Fraction;
-        xconsumes _RO(#346, x ~> CellOf(Any)(0));
-        xproduces _RO(#346, x ~> CellOf(Any)(0));
+        xreads x ~> CellOf(Any)(0);
         __ignore(x + 1);
       };
       ghost(ro_join_group, "H := x ~> CellOf(Any)(0)", "r := 0..5");
@@ -1587,18 +1591,14 @@
     let fork_out = ghost_begin(ghost(ro_fork_group, "H := x ~> CellOf(Any)(0)", "r := 0..5"));
     for<seq> i in 0..5 {
       strict;
-      requires #348: _Fraction;
-      xconsumes _RO(#348, x ~> CellOf(Any)(0));
-      xproduces _RO(#348, x ~> CellOf(Any)(0));
+      xreads x ~> CellOf(Any)(0);
       ghost(ro_split3, "f := #_1", "H := x ~> CellOf(Any)(0)");
       ghost(ro_fork_group, "f := #_1 / 3", "H := x ~> CellOf(Any)(0)", "r := 0..5");
       ghost(ro_fork_group, "f := #_1 / 3", "H := x ~> CellOf(Any)(0)", "r := 0..5");
       ghost(ro_allow_join3, "f := #_1", "H := x ~> CellOf(Any)(0)");
       for<seq> j in 0..5 {
         strict;
-        requires #350: _Fraction;
-        xconsumes _RO(#350, x ~> CellOf(Any)(0));
-        xproduces _RO(#350, x ~> CellOf(Any)(0));
+        xreads x ~> CellOf(Any)(0);
         __ignore(x + 1);
       };
       ghost(ro_join_group, "H := x ~> CellOf(Any)(0)", "r := 0..5");
@@ -1613,9 +1613,7 @@
     let fork_out = ghost_begin(ghost(ro_fork_group, "H := x ~> CellOf(Any)(0)", "r := 0..5"));
     for<seq> i in 0..5 {
       strict;
-      requires #352: _Fraction;
-      xconsumes _RO(#352, x ~> CellOf(Any)(0));
-      xproduces _RO(#352, x ~> CellOf(Any)(0));
+      xreads x ~> CellOf(Any)(0);
       ghost(ro_split2, "f := #_1", "H := x ~> CellOf(Any)(0)");
       ghost(ro_split2, "f := #_1 / 2", "H := x ~> CellOf(Any)(0)");
       ghost(ro_fork_group, "f := #_1 / 2", "H := x ~> CellOf(Any)(0)", "r := 0..5");
@@ -1623,9 +1621,7 @@
       ghost(ro_allow_join2, "f := #_1 / 2", "H := x ~> CellOf(Any)(0)");
       for<seq> j in 0..5 {
         strict;
-        requires #354: _Fraction;
-        xconsumes _RO(#354, x ~> CellOf(Any)(0));
-        xproduces _RO(#354, x ~> CellOf(Any)(0));
+        xreads x ~> CellOf(Any)(0);
         __ignore(x + 1);
       };
       ghost(ro_join_group, "H := x ~> CellOf(Any)(0)", "r := 0..5");
