@@ -108,7 +108,7 @@ v.x
 Function definitions:
 
 ```optilambda
-fun f[A](x, y) {
+fun f[A](x: A, y: B): A {
   requires h1: x = y;
   produces h2: y = x;
 
@@ -116,7 +116,7 @@ fun f[A](x, y) {
 }
 ```
 
-Surface function headers omit argument types, return types, and contract-name
+Surface function headers print argument and return types, but omit contract-name
 summaries. Contract details are printed as clauses in the function body. Hidden
 details remain available in the Internal and Fully-Typed representations.
 

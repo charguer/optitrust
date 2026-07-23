@@ -17,13 +17,13 @@
   type int2 = array(int, 2);
   type intstar = ptr(int);
 
-  fun addr_array_cell() {
+  fun addr_array_cell(): unit {
     letmut p;
     letmut n = p[0];
   };
 
 
-  fun initlist() {
+  fun initlist(): unit {
     letmut v1 = {1, 2};
     letmut v2 = {1, 2};
     letmut p = {1, 2};
@@ -31,13 +31,13 @@
   };
 
 
-  fun f(n) {
+  fun f(n: int): int {
     let __res: int = n;
     __res
   };
 
 
-  fun test_loop() {
+  fun test_loop(): unit {
     letmut a = 0;
     for<seq> i in 0..10 { __ignore(post_incr(a)); };
     for<seq> i in range(10, 0, -1) { __ignore(post_decr(a)); };
@@ -51,7 +51,7 @@
   };
 
 
-  fun stack_var() {
+  fun stack_var(): unit {
     letmut r = 3;
     r = r + 1 + 2;
     r += 2;
@@ -60,14 +60,14 @@
   };
 
 
-  fun stack_array() {
+  fun stack_array(): unit {
     letmut t = array(5, 6);
     letmut a = t[0];
     t[1] = a + 2;
   };
 
 
-  fun stack_struct() {
+  fun stack_struct(): unit {
     letmut v = {5, 6};
     letmut a = v.x;
     v.y = a + 2;
@@ -78,14 +78,14 @@
   };
 
 
-  fun references() {
+  fun references(): unit {
     letmut a = 3;
     let b: ptr(int) = a;
     b = b + 4;
   };
 
 
-  fun constants() {
+  fun constants(): unit {
     let a: int = 3;
     let b: int = a + 3;
     letmut c = b + 4;
@@ -94,14 +94,14 @@
   };
 
 
-  fun const_pointers() {
+  fun const_pointers(): unit {
     letmut a = 3;
     letmut b = a;
     let c: int = b + 4;
   };
 
 
-  fun nonconst_pointers() {
+  fun nonconst_pointers(): unit {
     letmut a = 3;
     letmut b = a;
     b = b + 4;
@@ -110,17 +110,17 @@
   };
 
 
-  fun main() {};
+  fun main(): int {};
 
 
-  fun h(x) {
+  fun h(x: int): int {
     letmut y = x + 1;
     let __res: int = y;
     __res
   };
 
 
-  fun immutable_stack_ptr() {
+  fun immutable_stack_ptr(): int {
     letmut x = 3;
     letmut y = f(x);
     letmut p = x;
@@ -133,7 +133,7 @@
   };
 
 
-  fun immutable_stack_array() {
+  fun immutable_stack_array(): int {
     letmut x = 3;
     letmut y = 4;
     letmut t = array(x, y);
@@ -146,7 +146,7 @@
   };
 
 
-  fun immutable_stack_var() {
+  fun immutable_stack_var(): int {
     let a: int = 4;
     let r: int = 3;
     let s: int = r + 1;
@@ -154,7 +154,7 @@
   };
 
 
-  fun mutable_stack_var() {
+  fun mutable_stack_var(): int {
     letmut r = 3;
     r = r + 1;
     __ignore(post_incr(r));
@@ -163,7 +163,7 @@
   };
 
 
-  fun mutable_stack_array() {
+  fun mutable_stack_array(): int {
     letmut x = 3;
     letmut y = 4;
     letmut w = array(x, y);
@@ -174,7 +174,7 @@
   };
 
 
-  fun access_encoding() {
+  fun access_encoding(): unit {
     let a: vect = {0, 1};
     let b: vect = a;
     letmut c = a;
@@ -183,13 +183,13 @@
   };
 
 
-  fun foo(v) {
+  fun foo(v: vect): int {
     let __res: int = v.x;
     __res
   };
 
 
-  fun mutable_var_encoding() {
+  fun mutable_var_encoding(): int {
     let a: vect = {0, 1};
     letmut ax = foo(a);
     letmut c = a;
@@ -203,7 +203,7 @@
     snd: vect
   };
 
-  fun lvalue_encoding() {
+  fun lvalue_encoding(): unit {
     letmut p;
     (p).x = 2;
     (p).x = 3;
@@ -215,7 +215,7 @@
   };
 
 
-  fun arrow() {
+  fun arrow(): unit {
     letmut v = {0, 1};
     letmut p = v;
     (p).x = (p).y;
@@ -223,22 +223,24 @@
   };
 
   {
-    fun __ghost_begin(#2, #3, #4) { __admitted };
+    fun __ghost_begin(#2, #3: __ghost_args, #4: __ghost_bind): __ghost_fn {
+      __admitted
+    };
 
 
-    fun __ghost_end(#5) {};
+    fun __ghost_end(#5): unit {};
 
 
-    fun __with_reverse(g, g_rev) {
+    fun __with_reverse(g, g_rev): __ghost_fn {
       let __res = g;
       __res
     };
 
 
-    fun __reverts(#6) {};
+    fun __reverts(#6): unit {};
 
 
-    ghost fun __clear(#7) {};
+    ghost fun __clear(#7: __ghost_args) {};
 
 
     ghost fun assert_inhabited() {
@@ -357,7 +359,7 @@
     ghost(assert_prop, "proof := admit(int * int -> n - d + d = n)", "z_cancel_minus_plus <- proof");
     ghost(assert_prop, "proof := admit(int * int -> n + d - d = n)", "z_cancel_plus_minus <- proof");
 
-    fun wrap_z_cancel_minus_plus(m) {
+    fun wrap_z_cancel_minus_plus(m: int): int {
       requires n: int,
                d: int,
                m = n - d + d;
@@ -370,140 +372,140 @@
     ghost(assert_prop, "proof := admit(float * float -> n - d + d = n)", "r_cancel_minus_plus <- proof");
     ghost(assert_prop, "proof := admit(float * float -> n + d - d = n)", "r_cancel_plus_minus <- proof");
 
-    fun MINDEX0() {
+    fun MINDEX0(): int {
       let __res: int = 0;
       __res
     };
 
 
-    fun MINDEX1(N1, i1) {
+    fun MINDEX1(N1: int, i1: int): int {
       let __res: int = i1;
       __res
     };
 
 
-    fun MINDEX2(N1, N2, i1, i2) {
+    fun MINDEX2(N1: int, N2: int, i1: int, i2: int): int {
       let __res: int = i1 * N2 + i2;
       __res
     };
 
 
-    fun MINDEX3(N1, N2, N3, i1, i2, i3) {
+    fun MINDEX3(N1: int, N2: int, N3: int, i1: int, i2: int, i3: int): int {
       let __res: int = i1 * N2 * N3 + i2 * N3 + i3;
       __res
     };
 
 
-    fun MINDEX4(N1, N2, N3, N4, i1, i2, i3, i4) {
+    fun MINDEX4(N1: int, N2: int, N3: int, N4: int, i1: int, i2: int, i3: int, i4: int): int {
       let __res: int = i1 * N2 * N3 * N4 + i2 * N3 * N4 + i3 * N4 + i4;
       __res
     };
 
 
-    fun MINDEX5(N1, N2, N3, N4, N5, i1, i2, i3, i4, i5) {
+    fun MINDEX5(N1: int, N2: int, N3: int, N4: int, N5: int, i1: int, i2: int, i3: int, i4: int, i5: int): int {
       let __res: int = i1 * N2 * N3 * N4 * N5 + i2 * N3 * N4 * N5 + i3 * N4 * N5 + i4 * N5 + i5;
       __res
     };
 
 
-    fun DMINDEX0() {
+    fun DMINDEX0(): int {
       let __res: int = 0;
       __res
     };
 
 
-    fun DMINDEX1(N1, i1) {
+    fun DMINDEX1(N1: int, i1: int): int {
       let __res: int = 0;
       __res
     };
 
 
-    fun DMINDEX2(N1, N2, i1, i2) {
+    fun DMINDEX2(N1: int, N2: int, i1: int, i2: int): int {
       let __res: int = 0;
       __res
     };
 
 
-    fun DMINDEX3(N1, N2, N3, i1, i2, i3) {
+    fun DMINDEX3(N1: int, N2: int, N3: int, i1: int, i2: int, i3: int): int {
       let __res: int = 0;
       __res
     };
 
 
-    fun DMINDEX4(N1, N2, N3, N4, i1, i2, i3, i4) {
+    fun DMINDEX4(N1: int, N2: int, N3: int, N4: int, i1: int, i2: int, i3: int, i4: int): int {
       let __res: int = 0;
       __res
     };
 
 
-    fun DMINDEX5(N1, N2, N3, N4, N5, i1, i2, i3, i4, i5) {
+    fun DMINDEX5(N1: int, N2: int, N3: int, N4: int, N5: int, i1: int, i2: int, i3: int, i4: int, i5: int): int {
       let __res: int = 0;
       __res
     };
 
 
-    fun MSIZE0() {
+    fun MSIZE0(): usize {
       let __res: int = 1;
       __res
     };
 
 
-    fun MSIZE1(N1) {
+    fun MSIZE1(N1: int): usize {
       let __res: usize = cast<usize>(N1);
       __res
     };
 
 
-    fun MSIZE2(N1, N2) {
+    fun MSIZE2(N1: int, N2: int): usize {
       let __res: usize = cast<usize>(N1) * cast<usize>(N2);
       __res
     };
 
 
-    fun MSIZE3(N1, N2, N3) {
+    fun MSIZE3(N1: int, N2: int, N3: int): usize {
       let __res: usize = cast<usize>(N1) * cast<usize>(N2) * cast<usize>(N3);
       __res
     };
 
 
-    fun MSIZE4(N1, N2, N3, N4) {
+    fun MSIZE4(N1: int, N2: int, N3: int, N4: int): usize {
       let __res: usize = cast<usize>(N1) * cast<usize>(N2) * cast<usize>(N3) * cast<usize>(N4);
       __res
     };
 
 
-    fun MSIZE5(N1, N2, N3, N4, N5) {
+    fun MSIZE5(N1: int, N2: int, N3: int, N4: int, N5: int): usize {
       let __res: usize = cast<usize>(N1) * cast<usize>(N2) * cast<usize>(N3) * cast<usize>(N4) * cast<usize>(N5);
       __res
     };
 
 
-    fun exact_div(n, b) {
+    fun exact_div(n: int, b: int): int {
       __admitted();
       let __res: int = n / b;
       __res
     };
 
 
-    fun min(a, b) {
+    fun min(a: int, b: int): int {
       __admitted();
       if (a < b) { a } else { b }
     };
 
 
-    fun max(a, b) {
+    fun max(a: int, b: int): int {
       __admitted();
       if (a > b) { a } else { b }
     };
 
 
-    fun maxf(a, b) {
+    fun maxf(a: float, b: float): float {
       __admitted();
       if (a > b) { a } else { b }
     };
 
 
-    fun ANY(maxValue) {
+    fun ANY(maxValue: int): int {
       let __res: int = 0;
       __res
     };
@@ -1405,7 +1407,7 @@
     };
 
 
-    fun MATRIX1_COPY_int(dest, src, length) {
+    fun MATRIX1_COPY_int(dest: ptr(int), src: ptr(int), length: int): unit {
       reads for i1 in 0..length -> src[MINDEX1(length, i1)] ~> CellOf(Any)(model(i1));
       writes for i1 in 0..length -> dest[MINDEX1(length, i1)] ~> CellOf(Any)(model(i1));
       __admitted();
@@ -1413,7 +1415,7 @@
     };
 
 
-    fun MATRIX2_COPY_int(dest, src, n1, n2) {
+    fun MATRIX2_COPY_int(dest: ptr(int), src: ptr(int), n1: int, n2: int): unit {
       reads for i1 in 0..n1 -> for i2 in 0..n2 -> src[MINDEX2(n1, n2, i1, i2)] ~> CellOf(Any)(model(i1, i2));
       writes for i1 in 0..n1 -> for i2 in 0..n2 -> dest[MINDEX2(n1, n2, i1, i2)] ~> CellOf(Any)(model(i1, i2));
       __admitted();
@@ -1421,7 +1423,7 @@
     };
 
 
-    fun MATRIX3_COPY_int(dest, src, n1, n2, n3) {
+    fun MATRIX3_COPY_int(dest: ptr(int), src: ptr(int), n1: int, n2: int, n3: int): unit {
       reads for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> src[MINDEX3(n1, n2, n3, i1, i2, i3)] ~> CellOf(Any)(model(i1, i2, i3));
       writes for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> dest[MINDEX3(n1, n2, n3, i1, i2, i3)] ~> CellOf(Any)(model(i1, i2, i3));
       __admitted();
@@ -1429,7 +1431,7 @@
     };
 
 
-    fun MATRIX1_COPY_float(dest, src, length) {
+    fun MATRIX1_COPY_float(dest: ptr(float), src: ptr(float), length: int): unit {
       reads for i1 in 0..length -> src[MINDEX1(length, i1)] ~> CellOf(Any)(model(i1));
       writes for i1 in 0..length -> dest[MINDEX1(length, i1)] ~> CellOf(Any)(model(i1));
       __admitted();
@@ -1437,7 +1439,7 @@
     };
 
 
-    fun MATRIX2_COPY_float(dest, src, n1, n2) {
+    fun MATRIX2_COPY_float(dest: ptr(float), src: ptr(float), n1: int, n2: int): unit {
       reads for i1 in 0..n1 -> for i2 in 0..n2 -> src[MINDEX2(n1, n2, i1, i2)] ~> CellOf(Any)(model(i1, i2));
       writes for i1 in 0..n1 -> for i2 in 0..n2 -> dest[MINDEX2(n1, n2, i1, i2)] ~> CellOf(Any)(model(i1, i2));
       __admitted();
@@ -1445,7 +1447,7 @@
     };
 
 
-    fun MATRIX3_COPY_float(dest, src, n1, n2, n3) {
+    fun MATRIX3_COPY_float(dest: ptr(float), src: ptr(float), n1: int, n2: int, n3: int): unit {
       reads for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> src[MINDEX3(n1, n2, n3, i1, i2, i3)] ~> CellOf(Any)(model(i1, i2, i3));
       writes for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> dest[MINDEX3(n1, n2, n3, i1, i2, i3)] ~> CellOf(Any)(model(i1, i2, i3));
       __admitted();
@@ -1453,7 +1455,7 @@
     };
 
 
-    fun MATRIX1_COPY_double(dest, src, length) {
+    fun MATRIX1_COPY_double(dest: ptr(double), src: ptr(double), length: int): unit {
       reads for i1 in 0..length -> src[MINDEX1(length, i1)] ~> CellOf(Any)(model(i1));
       writes for i1 in 0..length -> dest[MINDEX1(length, i1)] ~> CellOf(Any)(model(i1));
       __admitted();
@@ -1461,7 +1463,7 @@
     };
 
 
-    fun MATRIX2_COPY_double(dest, src, n1, n2) {
+    fun MATRIX2_COPY_double(dest: ptr(double), src: ptr(double), n1: int, n2: int): unit {
       reads for i1 in 0..n1 -> for i2 in 0..n2 -> src[MINDEX2(n1, n2, i1, i2)] ~> CellOf(Any)(model(i1, i2));
       writes for i1 in 0..n1 -> for i2 in 0..n2 -> dest[MINDEX2(n1, n2, i1, i2)] ~> CellOf(Any)(model(i1, i2));
       __admitted();
@@ -1469,7 +1471,7 @@
     };
 
 
-    fun MATRIX3_COPY_double(dest, src, n1, n2, n3) {
+    fun MATRIX3_COPY_double(dest: ptr(double), src: ptr(double), n1: int, n2: int, n3: int): unit {
       reads for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> src[MINDEX3(n1, n2, n3, i1, i2, i3)] ~> CellOf(Any)(model(i1, i2, i3));
       writes for i1 in 0..n1 -> for i2 in 0..n2 -> for i3 in 0..n3 -> dest[MINDEX3(n1, n2, n3, i1, i2, i3)] ~> CellOf(Any)(model(i1, i2, i3));
       __admitted();
@@ -1540,7 +1542,7 @@
     ghost(assert_prop, "proof := admit(int * int * int * int * (int -> int) * (b >= a) * (ap1 = a + 1) * (bp1 = b + 1) -> reduce_int_sum(a, b, f) + (f(b) - f(a)) = reduce_int_sum(ap1, bp1, f))", "reduce_int_sum_slide <- proof");
   };
 
-  fun loop_contract_clause_examples() {
+  fun loop_contract_clause_examples(): unit {
     letmut n = 64;
     letmut a;
     letmut b;
@@ -1566,7 +1568,7 @@
   };
 
 
-  fun one_fork() {
+  fun one_fork(): unit {
     letmut x = 0;
     let fork_out = ghost_begin(ghost(ro_fork_group, "H := x ~> CellOf(Any)(0)", "r := 0..5"));
     for<seq> i in 0..5 {
@@ -1586,7 +1588,7 @@
   };
 
 
-  fun two_forks() {
+  fun two_forks(): unit {
     letmut x = 0;
     let fork_out = ghost_begin(ghost(ro_fork_group, "H := x ~> CellOf(Any)(0)", "r := 0..5"));
     for<seq> i in 0..5 {
@@ -1608,7 +1610,7 @@
   };
 
 
-  fun two_forks_spe_twice() {
+  fun two_forks_spe_twice(): unit {
     letmut x = 0;
     let fork_out = ghost_begin(ghost(ro_fork_group, "H := x ~> CellOf(Any)(0)", "r := 0..5"));
     for<seq> i in 0..5 {

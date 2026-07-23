@@ -872,11 +872,10 @@ and fun_def_to_doc (style : Optilambda_style.style) ?(type_params = []) (name : 
     | [] -> empty
     | _ -> brackets_doc (comma_sep (List.map (var_to_doc style) type_params))
   in
-  let args_doc = parens_doc (comma_sep (List.map (surface_typed_var_to_doc style) args)) in
+  let args_doc = parens_doc (comma_sep (List.map (typed_var_to_doc style) args)) in
   let is_ghost = is_ghost_ret_type ret_ty in
   let ret_doc =
     if is_ghost then empty
-    else if is_surface style then empty
     else if style.print_types && not (is_auto_type ret_ty) then colon ^^ blank 1 ^^ typ_to_doc style ret_ty
     else empty
   in

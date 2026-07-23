@@ -335,13 +335,13 @@ let () =
 
   check "function definition"
     (Trm.trm_let_fun (v "f") Typ.typ_int [ tv "x" Typ.typ_int ] (Trm.trm_seq_nomarks [ Trm.trm_abort (Ret (Some (term "x"))) ]))
-    "fun f(x) { x }";
+    "fun f(x: int): int { x }";
 
   check "function contract"
     (Trm.trm_let_fun ~contract:(FunSpecContract simple_fun_contract) (v "f") Typ.typ_int
        [ tv "x" Typ.typ_int; tv "y" Typ.typ_int ]
        (Trm.trm_seq_nomarks [ Trm.trm_abort (Ret (Some (term "x"))) ]))
-    "fun f(x, y) {\n\
+    "fun f(x: int, y: int): int {\n\
     \  requires h_req: x = y;\n\
     \  consumes h_in: R;\n\
     \  ensures h_ens: result = x;\n\
@@ -425,17 +425,17 @@ let () =
   check "surface reads contract"
     (Trm.trm_let_fun ~contract:(FunSpecContract surface_reads_contract) (v "read_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
-    "fun read_example() { reads x: H; }";
+    "fun read_example(): unit { reads x: H; }";
 
   check "surface writes contract"
     (Trm.trm_let_fun ~contract:(FunSpecContract surface_writes_contract) (v "write_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
-    "fun write_example() { writes x: H; }";
+    "fun write_example(): unit { writes x: H; }";
 
   check "surface preserves contract"
     (Trm.trm_let_fun ~contract:(FunSpecContract preserves_contract) (v "preserve_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
-    "fun preserve_example() {\n\
+    "fun preserve_example(): unit {\n\
     \  preserves ctx: Ctx;\n\
     \  consumes changed: Old;\n\
     \  produces changed_out: New;\n\
@@ -444,12 +444,12 @@ let () =
   check "surface local formula printer in contract"
     (Trm.trm_let_fun ~contract:(FunSpecContract surface_formula_contract) (v "formula_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
-    "fun formula_example() { consumes h: src ~> H; }";
+    "fun formula_example(): unit { consumes h: src ~> H; }";
 
   check "surface generated contract names are hidden"
     (Trm.trm_let_fun ~contract:(FunSpecContract generated_name_cleanup_contract) (v "generated_name_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
-    "fun generated_name_example() {\n\
+    "fun generated_name_example(): unit {\n\
     \  consumes Anon,\n\
     \           named: Named,\n\
     \           for #_1 in 0..n -> H(#_1);\n\
@@ -458,7 +458,7 @@ let () =
   check "non-adjacent reads and writes recovery"
     (Trm.trm_let_fun ~contract:(FunSpecContract mixed_recovery_contract) (v "mixed_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
-    "fun mixed_example() {\n\
+    "fun mixed_example(): unit {\n\
     \  reads read: ReadH;\n\
     \  writes write: WriteH;\n\
     \  consumes kept: Kept;\n\
@@ -468,7 +468,9 @@ let () =
   check "alpha-equivalent group reads recovery"
     (Trm.trm_let_fun ~contract:(FunSpecContract alpha_group_reads_contract) (v "alpha_group_read_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
-    "fun alpha_group_read_example() { reads read: for i in 0..n -> H(i); }";
+    "fun alpha_group_read_example(): unit {\n\
+    \  reads read: for i in 0..n -> H(i);\n\
+     }";
 
   check_with_style "internal reads contract"
     internal_style
@@ -515,7 +517,7 @@ let () =
      }";
 
   let surface_focus_expected =
-    "fun focus_example() {\n\
+    "fun focus_example(): unit {\n\
     \  requires f: _Fraction;\n\
     \  consumes whole: _RO(f, Whole);\n\
     \  produces wand: Wand(_RO(f, Focused), _RO(f, Whole)),\n\
@@ -635,6 +637,6 @@ let () =
     (Trm.trm_let_fun ~contract:(FunSpecContract simple_fun_contract) (v "f") Typ.typ_int
        [ tv "x" Typ.typ_int; tv "y" Typ.typ_int ]
        (Trm.trm_seq_nomarks [ Trm.trm_abort (Ret (Some (term "x"))) ]))
-    "fun f(x, y) { x }";
+    "fun f(x: int, y: int): int { x }";
 
   check "marks" (Mark.trm_add_mark "target" (term "x")) "@marks[target] x"
