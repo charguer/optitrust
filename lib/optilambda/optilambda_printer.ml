@@ -864,7 +864,7 @@ and fun_def_to_doc (style : Optilambda_style.style) ?(type_params = []) (name : 
     else empty
   in
   let contract_docs = contract_clauses_to_docs style (fun_spec_clauses style spec) in
-  let contract_summary_doc = if is_ghost then empty else contract_summary_to_doc style (fun_spec_items spec) in
+  let contract_summary_doc = if is_ghost || is_surface style then empty else contract_summary_to_doc style (fun_spec_items spec) in
   let fun_prefix = if is_ghost then string "ghost fun" else string "fun" in
   let body_doc =
     if (not (is_surface style)) && style.print_types && is_type_type ret_ty then
