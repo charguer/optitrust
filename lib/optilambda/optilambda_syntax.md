@@ -108,7 +108,7 @@ v.x
 Function definitions:
 
 ```optilambda
-fun f[A](x, y) [h1, h2] {
+fun f[A](x, y) {
   requires h1: x = y;
   produces h2: y = x;
 
@@ -116,8 +116,9 @@ fun f[A](x, y) [h1, h2] {
 }
 ```
 
-Surface function headers omit argument and return types. Those details remain
-available in the Internal and Fully-Typed representations.
+Surface function headers omit argument types, return types, and contract-name
+summaries. Contract details are printed as clauses in the function body. Hidden
+details remain available in the Internal and Fully-Typed representations.
 
 Ghost functions hide the internal `__ghost_ret` return type in Surface syntax:
 
