@@ -621,10 +621,11 @@ and resource_item_to_doc (style : Optilambda_style.style) (used_vars : var list)
 and contract_clauses ?(used_vars = []) (keyword : string) (items : resource_item list) : contract_clause list =
   List.map (fun item -> ContractClause (keyword, used_vars, item)) items
 
-(** [simplify_linear_contract pre post] recovers user-facing [reads] and [writes] clauses from desugared linear resources.
-    It only recovers preserved [_RO] resources and [Uninit] writes; transformations that reshape resources remain explicit. *)
+(** [simplify_linear_contract pre post] recovers user-facing [reads], [writes], and [preserves] clauses from desugared
+    linear resources. It only recovers preserved [_RO] resources, [Uninit] writes, and unchanged resources with the same
+    hypothesis name; transformations that reshape resources remain explicit. *)
 and simplify_linear_contract (pre : resource_item list) (post : resource_item list) :
-    resource_item list * resource_item list * resource_item list * resource_item list * var list =
+    resource_item list * resource_item list * resource_item list * resource_item list * resource_item list * var list =
   let rec find_remove pred before = function
     | [] -> None
     | item :: rest ->
@@ -633,8 +634,8 @@ and simplify_linear_contract (pre : resource_item list) (post : resource_item li
         | None -> find_remove pred (item :: before) rest
         end
   in
-  let rec aux kept_pre reads writes used_fracs remaining_post = function
-    | [] -> (List.rev kept_pre, remaining_post, List.rev reads, List.rev writes, List.rev used_fracs)
+  let rec aux kept_pre reads writes preserves used_fracs remaining_post = function
+    | [] -> (List.rev kept_pre, remaining_post, List.rev reads, List.rev writes, List.rev preserves, List.rev used_fracs)
     | ((pre_hyp, pre_formula) as pre_item) :: rest ->
         begin match read_only_formula_inv pre_formula with
         | Some pre_ro ->
@@ -652,11 +653,11 @@ and simplify_linear_contract (pre : resource_item list) (post : resource_item li
                   | Some frac -> frac :: used_fracs
                   | None -> used_fracs
                 in
-                aux kept_pre ((pre_hyp, post_ro.read_body) :: reads) writes used_fracs remaining_post rest
-            | None -> aux (pre_item :: kept_pre) reads writes used_fracs remaining_post rest
+                aux kept_pre ((pre_hyp, post_ro.read_body) :: reads) writes preserves used_fracs remaining_post rest
+            | None -> aux (pre_item :: kept_pre) reads writes preserves used_fracs remaining_post rest
             end
         | None ->
-            let pred (post_hyp, post_formula) =
+            let write_pred (post_hyp, post_formula) =
               if pre_hyp = post_hyp then
                 match uninit_formula_body pre_formula with
                 | Some body when same_formula body post_formula -> Some post_formula
@@ -664,14 +665,22 @@ and simplify_linear_contract (pre : resource_item list) (post : resource_item li
                 | _ -> None
               else None
             in
-            begin match find_remove pred [] remaining_post with
+            begin match find_remove write_pred [] remaining_post with
             | Some (post_formula, remaining_post) ->
-                aux kept_pre reads ((pre_hyp, post_formula) :: writes) used_fracs remaining_post rest
-            | None -> aux (pre_item :: kept_pre) reads writes used_fracs remaining_post rest
+                aux kept_pre reads ((pre_hyp, post_formula) :: writes) preserves used_fracs remaining_post rest
+            | None ->
+                let preserve_pred (post_hyp, post_formula) =
+                  if pre_hyp = post_hyp && same_formula pre_formula post_formula then Some post_formula else None
+                in
+                begin match find_remove preserve_pred [] remaining_post with
+                | Some (post_formula, remaining_post) ->
+                    aux kept_pre reads writes ((pre_hyp, post_formula) :: preserves) used_fracs remaining_post rest
+                | None -> aux (pre_item :: kept_pre) reads writes preserves used_fracs remaining_post rest
+                end
             end
         end
   in
-  aux [] [] [] [] post pre
+  aux [] [] [] [] [] post pre
 
 (** [remove_used_fraction_requirements used_fracs pure] drops generated [_Fraction] hypotheses that only support recovered [reads] clauses. *)
 and remove_used_fraction_requirements (used_fracs : var list) (pure : resource_item list) : resource_item list =
@@ -754,13 +763,14 @@ and contract_clauses_to_docs (style : Optilambda_style.style) (clauses : contrac
 and fun_contract_clauses (style : Optilambda_style.style) (contract : fun_contract) : contract_clause list =
   if not style.print_contracts then []
   else
-    let consumes, produces, reads, writes, used_fracs = simplify_linear_contract contract.pre.linear contract.post.linear in
+    let consumes, produces, reads, writes, preserves, used_fracs = simplify_linear_contract contract.pre.linear contract.post.linear in
     let pure = remove_used_fraction_requirements used_fracs contract.pre.pure in
     let pure = filter_surface_type_only_requirements style pure in
-    let used_vars = resource_items_used_vars (pure @ reads @ writes @ consumes @ contract.post.pure @ produces) in
+    let used_vars = resource_items_used_vars (pure @ reads @ writes @ preserves @ consumes @ contract.post.pure @ produces) in
     contract_clauses ~used_vars "requires" pure
     @ contract_clauses ~used_vars "reads" reads
     @ contract_clauses ~used_vars "writes" writes
+    @ contract_clauses ~used_vars "preserves" preserves
     @ contract_clauses ~used_vars "consumes" consumes
     @ contract_clauses ~used_vars "ensures" contract.post.pure
     @ contract_clauses ~used_vars "produces" produces

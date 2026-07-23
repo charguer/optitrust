@@ -366,20 +366,23 @@ Resource points-to formulas use infix notation in all three representations:
 (src ~> Matrix1(length, model))
 ```
 
-Function contracts recover compact `reads` and `writes` clauses in all three
-representations when the desugared resources match the safe user-facing
-patterns:
+Function contracts recover compact `reads`, `writes`, and `preserves` clauses
+in all three representations when the desugared resources match the safe
+user-facing patterns:
 
 ```optilambda
 reads h: H
 writes h: H
+preserves h: H
 ```
 
 `reads` means that the same fractional read-only permission `_RO(f, H)` is
 present in both the precondition and the postcondition. `writes` means that an
 uninitialized resource is consumed and the initialized resource is produced.
-Read-only transformations that change the resource shape, split or join
-fractions, or produce a `Wand(...)` stay explicit as `consumes` / `produces`.
+`preserves` means that the same named resource `H` is consumed and produced
+unchanged. Read-only transformations that change the resource shape, split or
+join fractions, or produce a `Wand(...)` stay explicit as `consumes` /
+`produces`.
 
 Clauses with the same keyword are grouped across a raw-clause-free contract
 region. Raw clauses such as `strict` and `reverts` remain barriers, so clauses

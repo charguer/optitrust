@@ -57,6 +57,12 @@ let surface_writes_contract =
     post = resource_set ~linear:[ (v "x", body) ] ();
   }
 
+let preserves_contract =
+  {
+    pre = resource_set ~linear:[ (v "ctx", term "Ctx"); (v "changed", term "Old") ] ();
+    post = resource_set ~linear:[ (v "ctx", term "Ctx"); (v "changed_out", term "New") ] ();
+  }
+
 let surface_formula_contract =
   { empty_fun_contract with pre = resource_set ~linear:[ (v "h", points_to_formula (term "src") (term "H")) ] () }
 
@@ -388,6 +394,15 @@ let () =
        (Trm.trm_seq_nomarks []))
     "fun write_example() { writes x: H; }";
 
+  check "surface preserves contract"
+    (Trm.trm_let_fun ~contract:(FunSpecContract preserves_contract) (v "preserve_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    "fun preserve_example() {\n\
+    \  preserves ctx: Ctx;\n\
+    \  consumes changed: Old;\n\
+    \  produces changed_out: New;\n\
+     }";
+
   check "surface local formula printer in contract"
     (Trm.trm_let_fun ~contract:(FunSpecContract surface_formula_contract) (v "formula_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
@@ -440,6 +455,26 @@ let () =
     (Trm.trm_let_fun ~contract:(FunSpecContract surface_writes_contract) (v "write_example") Typ.typ_unit []
        (Trm.trm_seq_nomarks []))
     "fun write_example(): unit [x, x] { writes x: H; }";
+
+  check_with_style "internal preserves contract"
+    internal_style
+    (Trm.trm_let_fun ~contract:(FunSpecContract preserves_contract) (v "preserve_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    "fun preserve_example(): unit [ctx, changed, ctx, changed_out] {\n\
+    \  preserves ctx: Ctx;\n\
+    \  consumes changed: Old;\n\
+    \  produces changed_out: New;\n\
+     }";
+
+  check_with_style "typed preserves contract"
+    typed_style
+    (Trm.trm_let_fun ~contract:(FunSpecContract preserves_contract) (v "preserve_example") Typ.typ_unit []
+       (Trm.trm_seq_nomarks []))
+    "fun preserve_example(): unit [ctx, changed, ctx, changed_out] {\n\
+    \  preserves ctx: Ctx;\n\
+    \  consumes changed: Old;\n\
+    \  produces changed_out: New;\n\
+     }";
 
   let surface_focus_expected =
     "fun focus_example() {\n\

@@ -1312,20 +1312,18 @@
     ghost fun group_to_desyncgroup() {
       requires N: int,
                r: Range;
-      consumes ThreadsCtx(r),
-               for i in 0..N -> items(i);
-      produces ThreadsCtx(r),
-               desync_for i in ..N -> items(i);
+      preserves ThreadsCtx(r);
+      consumes for i in 0..N -> items(i);
+      produces desync_for i in ..N -> items(i);
       __admitted();
     };
 
 
     ghost fun unwrap_singleton_desyncgroup() {
       requires t: int;
-      consumes ThreadsCtx(counted_range(t, MSIZE0())),
-               DesyncGroup(MSIZE0(), H);
-      produces ThreadsCtx(counted_range(t, MSIZE0())),
-               H(0);
+      preserves ThreadsCtx(counted_range(t, MSIZE0()));
+      consumes DesyncGroup(MSIZE0(), H);
+      produces H(0);
       __admitted();
     };
 
