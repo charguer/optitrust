@@ -1435,7 +1435,7 @@ let failure_expected (h : exn -> bool) (f : unit -> unit) : unit =
 let resource_error_expected (f: unit -> unit): unit =
   failure_expected (function
   | Resource_computation.ResourceError _ -> true
-  | _ -> false) f
+  | _ -> false) (fun () -> f (); recompute_resources ())
 
 (** [apply f]: applies the transformation [f] to the current AST,
    and updates the current ast with the result of that transformation.

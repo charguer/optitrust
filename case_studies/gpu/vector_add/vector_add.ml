@@ -25,7 +25,7 @@ let _ = Run.script_cpp (fun () ->
   !! Resources.ensure_computed ();
 
   (* Stage 2: create thread hierarchy *)
-  !! Gpu.convert_tail_thread_for [cFor "i"];
+  !! Gpu.convert_tail_thread_for [] [cFor "i"];
   !! Resources.ensure_computed ();
 
   (* Stage 3: convert memories *)
