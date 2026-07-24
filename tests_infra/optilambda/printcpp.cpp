@@ -291,9 +291,32 @@ void arrow() {
 
 #include <optitrust_models.h>
 
+void loop_contract_clause_examples() {
+  __pure();
+  int n = 64;
+  int* a;
+  int* b;
+  int read_value = 0;
+  int kept_value = 0;
+  int written_value;
+  int shared_sum = 0;
+  int shared_tmp = 0;
 
-
-
+  for (int k = 0; k < n; k++) {
+    __srequires("n_nonneg: n >= 0");
+    __sreads("for i in 0..n -> &a[MINDEX1(n, i)] ~~> A(i)");
+    __spreserves("&shared_sum ~~> reduce_int_sum(0, k, fun i -> A(i))");
+    __smodifies("&shared_tmp ~~> k");
+    __xrequires("k_nonneg: k >= 0");
+    __xensures("k_done: k + 1 > 0");
+    __xreads("&read_value ~~> 0");
+    __xpreserves("&kept_value ~~> 0");
+    __xwrites("&written_value ~~> k");
+    __xconsumes("input: IterInput(k)");
+    __xproduces("output: IterOutput(k)");
+    written_value = read_value + b[MINDEX1(n, k)];
+  }
+}
 
   void one_fork ()  {
   __pure();
@@ -360,4 +383,3 @@ void arrow() {
   }
   __ghost_end(fork_out);
 }
-

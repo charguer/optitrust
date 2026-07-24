@@ -7,12 +7,20 @@ body {
 
 .diff-representation-controls {
   display: flex;
-  gap: 12px;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 6px 10px;
   border-bottom: 1px solid #bbb;
   font-family: sans-serif;
   font-size: 10pt;
+}
+
+.diff-representation-options {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .diff-representation-choice {
@@ -22,6 +30,218 @@ body {
 
 .diff-representation-choice input {
   margin-right: 4px;
+}
+
+.diff-detach-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.opti-collapsed-line {
+  display: none;
+}
+
+.opti-group-button {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 4px;
+  border: 1px solid var(--vscode-button-border, var(--vscode-panel-border, #8a8a8a));
+  background: var(--vscode-button-secondaryBackground, var(--vscode-editorWidget-background, #f3f3f3));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-editor-foreground, #222222));
+  font: 11px var(--vscode-editor-font-family, monospace);
+  cursor: pointer;
+  line-height: 18px;
+}
+
+.opti-group-button:hover,
+.opti-group-button[aria-expanded="true"] {
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground, rgba(127, 127, 127, 0.18)));
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.opti-group-ghost {
+  border-radius: 2px;
+}
+
+.opti-group-contract {
+  border-radius: 999px;
+}
+
+.opti-info-popup {
+  position: fixed;
+  z-index: 20000;
+  max-width: min(760px, calc(100vw - 16px));
+  max-height: min(420px, calc(100vh - 16px));
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border, #777777));
+  border-radius: 3px;
+  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background, #f3f3f3));
+  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground, #222222));
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.25));
+  font: var(--vscode-editor-font-size, 13px) var(--vscode-editor-font-family, monospace);
+}
+
+.opti-info-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.opti-info-popup-title {
+  flex: 1;
+  color: var(--vscode-descriptionForeground, var(--vscode-editor-foreground, #666666));
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+}
+
+.opti-info-popup > .opti-info-popup-title {
+  margin-bottom: 6px;
+}
+
+.opti-popup-mode-toggle {
+  min-height: 22px;
+  padding: 1px 7px;
+  border: 1px solid var(--vscode-button-border, var(--vscode-panel-border, #777777));
+  border-radius: 3px;
+  background: transparent;
+  color: var(--vscode-button-secondaryForeground, var(--vscode-editor-foreground, #222222));
+  font: 12px var(--vscode-font-family, system-ui, sans-serif);
+  cursor: pointer;
+}
+
+.opti-popup-mode-toggle:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground, rgba(127, 127, 127, 0.18)));
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.opti-info-popup pre {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.opti-info-popup .opti-popup-code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.opti-hover-symbol {
+  border-bottom: 1px dotted var(--vscode-editorHoverWidget-border, var(--vscode-editor-foreground, #777777));
+  cursor: help;
+}
+
+.opti-rich-code {
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--vscode-editor-background, #ffffff);
+  color: var(--vscode-editor-foreground, #222222);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: var(--vscode-editor-font-size, 13px);
+  line-height: 1.4;
+}
+
+.opti-code-line {
+  min-height: 1.4em;
+  white-space: pre-wrap;
+}
+
+.opti-group-diff {
+  padding: 0;
+}
+
+.opti-group-diff-line {
+  display: flex;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.opti-group-diff-added {
+  background: var(--vscode-diffEditor-insertedTextBackground, rgba(46, 160, 67, 0.18));
+}
+
+.opti-group-diff-removed {
+  background: var(--vscode-diffEditor-removedTextBackground, rgba(248, 81, 73, 0.18));
+}
+
+.opti-group-diff-prefix {
+  flex: 0 0 1ch;
+  color: var(--vscode-descriptionForeground, var(--vscode-editor-foreground, #666666));
+  user-select: none;
+}
+
+.opti-group-diff-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.opti-search-widget {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 30000;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, #777777));
+  border-radius: 3px;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #ffffff));
+  color: var(--vscode-editorWidget-foreground, var(--vscode-editor-foreground, #222222));
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.25));
+  font: var(--vscode-font-size, 13px) var(--vscode-font-family, system-ui, sans-serif);
+}
+
+.opti-search-widget[hidden] {
+  display: none;
+}
+
+.opti-search-input {
+  width: 220px;
+  min-height: 24px;
+  border: 1px solid var(--vscode-input-border, var(--vscode-panel-border, #777777));
+  background: var(--vscode-input-background, var(--vscode-editor-background, #ffffff));
+  color: var(--vscode-input-foreground, var(--vscode-editor-foreground, #222222));
+  padding: 2px 6px;
+  font: inherit;
+}
+
+.opti-search-input:focus {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+}
+
+.opti-search-count {
+  min-width: 58px;
+  color: var(--vscode-descriptionForeground, var(--vscode-editor-foreground, #666666));
+  text-align: center;
+}
+
+.opti-search-widget button {
+  min-height: 24px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground, #222222));
+  cursor: pointer;
+  font: inherit;
+}
+
+.opti-search-widget button:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground, rgba(127, 127, 127, 0.14)));
+}
+
+.opti-search-match {
+  background: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 92, 0, 0.33));
+  color: inherit;
+}
+
+.opti-search-current {
+  background: var(--vscode-editor-findMatchBackground, rgba(255, 207, 64, 0.55));
+  outline: 1px solid var(--vscode-editor-findMatchBorder, var(--vscode-focusBorder, #007fd4));
 }
 
 /* Hide the filename since we're concerned with only one file name */

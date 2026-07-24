@@ -557,7 +557,7 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
   begin try
     begin match style.print with
     | Lang_OptiLambda optilambda_style ->
-      output_string out_prog (Optitrust_optilambda.Optilambda.trm_to_string ~style:optilambda_style ast)
+      output_string out_prog (Optitrust_optilambda.Optilambda.program_to_string ~style:optilambda_style ~header:ctx.header ast)
     | Lang_AST _ -> raise (TraceFailure "output_prog requires a Lang_C or Lang_OptiLambda printing mode, not a Lang_AST")
     | Lang_C cstyle ->
       (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
@@ -1333,8 +1333,10 @@ let invalidate () : unit =
 (** [get_initial_ast filename]: gets the initial ast before applying any trasformations
      [filename] - filename of the source code
      returns header and ast. *)
-let get_initial_ast (filename : string) : (string * trm) =
-  parse filename
+let get_initial_ast ?(parser : parser option) (filename : string) : (string * trm) =
+  match parser with
+  | None -> parse filename
+  | Some parser -> parser filename
 
 (** [init f]: initializes the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
@@ -1342,7 +1344,7 @@ let get_initial_ast (filename : string) : (string * trm) =
    [~prefix:"foo"] allows to use a custom prefix for all output files,
    instead of the basename of [f].
    style is computed based on the global flags.   *)
-let init ~(prefix : string) ~(program : string) (filename : string) : unit =
+let init ?(header : string option) ?(parser : parser option) ~(prefix : string) ~(program : string) (filename : string) : unit =
   ast_just_before_first_call_to_restore_original := None; (* TEMPORARY HACK *)
   invalidate ();
   let basename = Filename.basename filename in
@@ -1374,7 +1376,8 @@ let init ~(prefix : string) ~(program : string) (filename : string) : unit =
 
   init_logs prefix;
 
-  let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast filename) in
+  let ((parsed_header, cur_ast), stats_parse) = Stats.measure_stats (fun () -> get_initial_ast ?parser filename) in
+  let header = Option.value ~default:parsed_header header in
 
   let context = { extension; prefix; header } in
   the_trace.next_step_id <- 0;
@@ -1815,19 +1818,25 @@ let produce_diff_output_internal (step:step_tree) : unit =
     output_prog style ctx filename_prefix ast;
     Flags.verbose_info "Generated: %s" (output_filename style ctx filename_prefix);
     in
-  let output_optilambda_pair suffix representation =
-    let style = optilambda_style representation in
-    output_ast style (prefix ^ "_before" ^ suffix) ast_before;
-    output_ast style (prefix ^ "_after" ^ suffix) ast_after;
+  let diff_filename_prefix style side =
+    let suffix =
+      match style.Style.print with
+      | Lang_OptiLambda optilambda_style ->
+        begin match optilambda_style.representation with
+        | Optitrust_optilambda.Optilambda.Style.Surface -> ""
+        | Optitrust_optilambda.Optilambda.Style.Internal -> "_internal"
+        | Optitrust_optilambda.Optilambda.Style.FullyTypedInternal -> "_typed"
+        end
+      | Lang_AST _
+      | Lang_C _ -> ""
+      in
+    prefix ^ "_" ^ side ^ suffix
     in
-  (* Generate files. *)
-  output_ast style_before (prefix ^ "_before") ast_before;
-  output_ast style_after (prefix ^ "_after") ast_after;
-  output_optilambda_pair "" Optitrust_optilambda.Optilambda.Style.Surface;
-  List.iter
-    (fun (suffix, representation) -> output_optilambda_pair ("_" ^ suffix) representation)
-    optilambda_representations;
-  Flags.verbose_info "Writing ast and code into %s.js" prefix
+  (* Generate only the requested pair. Other OptiLambda representations are
+     generated lazily by the VS Code diff webview when the user switches syntax. *)
+  output_ast style_before (diff_filename_prefix style_before "before") ast_before;
+  output_ast style_after (diff_filename_prefix style_after "after") ast_after;
+  Flags.verbose_info "Generated diff files for %s" prefix
 
 (** [produce_trace_output step] is an auxiliary function for [produce_output_and_exit] *)
 let produce_trace_output (step:step_tree) : unit =
