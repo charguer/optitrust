@@ -161,13 +161,12 @@ let%transfo init_attach (tg : target) : unit =
     - [local_var]: the name of the local variable to be declared
     - [t]: the modified term that contains [curr_var].
   *)
-let local_name_on (* (m : mark) *) (curr_var : var) (var_typ : typ)
+let local_name_on (curr_var : var) (var_typ : typ)
   ~(uninit_pre : bool) ~(uninit_post : bool)
   (local_var : string) (span : Dir.span) (t : trm) : trm =
   let local_var = new_var local_var in
   let let_instr = trm_let_mut (local_var, var_typ) (trm_var_get ~typ:var_typ curr_var) in
   let set_instr = trm_set (trm_var ~typ:var_typ curr_var) (trm_var_get ~typ:var_typ local_var) in
-  (* let new_t = trm_add_mark m (trm_subst_var curr_var (trm_var local_var) t) in *)
   update_span_helper span t (fun span_instrs ->
     let subst_span_instrs = Mlist.map (trm_subst_var curr_var (trm_var local_var)) span_instrs in
     [Trm let_instr; TrmMlist subst_span_instrs; Trm set_instr])
@@ -187,25 +186,6 @@ let%transfo local_name ~(var : var) (var_typ : typ)
     let (p_seq, span) = Path.extract_last_dir_span p in
     Target.apply_at_path (local_name_on var var_typ ~uninit_pre ~uninit_post local_var span) p_seq)
     tg
-    (* if !Flags.check_validity && not !Flags.preserve_specs_only then begin
-      step_backtrack ~discard_after:true (fun () ->
-        let p = resolve_mark_exactly_one m
-        in
-        Nobrace_transfo.remove_after (fun () -> (* The path p points to the term AFTER adding let and get. *)
-        Target.apply_at_path (fun t ->
-          if debug_transfo then begin
-          let open Ast_to_c in
-            Printf.printf "Variable_basic.local_name: term pointed by path = %s\n" (Tools.document_to_string (trm_to_doc (default_style ()) t))
-            end;
-          let (_, open_w, close_w) = Resource_trm.ghost_pair_hide
-            (Resource_formula.formula_cell_var ~mem_typ:Resource_formula.mem_typ_any ~typ:var_typ var) in
-          trm_seq_nobrace_nomarks [open_w; t; close_w]
-        ) p
-        );
-        Resources.ensure_computed_at p
-      )
-    end *)
-
 
 (** [delocalize array_size neutral_element fold_operation tg]: expects the target [tg] to point to
     a block of code of the following form
