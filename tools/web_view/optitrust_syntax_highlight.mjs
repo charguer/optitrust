@@ -5,19 +5,27 @@ import c from "../vscode-optitrust/node_modules/shiki/dist/langs/c.mjs";
 import cpp from "../vscode-optitrust/node_modules/shiki/dist/langs/cpp.mjs";
 import darkPlus from "../vscode-optitrust/node_modules/shiki/dist/themes/dark-plus.mjs";
 import lightPlus from "../vscode-optitrust/node_modules/shiki/dist/themes/light-plus.mjs";
+import optilambdaGrammar from "../vscode-optitrust/syntaxes/optilambda.tmLanguage.json" with { type: "json" };
 
 const ACTIVE_THEME = "optitrust-active-vscode-theme";
+const BUILTIN_THEMES = {
+  "dark-plus": darkPlus,
+  "light-plus": lightPlus
+};
 let highlighterPromise;
 let cachedActiveTheme;
+let cachedHighlightConfig;
 let didReadActiveTheme = false;
 
 window.OptitrustSyntaxHighlight = {
-  highlightDiff
+  highlightDiff,
+  highlightCodeBlock
 };
 
 async function highlightDiff(container) {
   const highlighter = await getHighlighter();
   const wrappers = container.querySelectorAll(".d2h-file-wrapper");
+  markHighlightDiagnostics(container);
 
   for (const wrapper of wrappers) {
     const language = languageForWrapper(wrapper);
@@ -25,6 +33,30 @@ async function highlightDiff(container) {
       continue;
     }
     highlightWrapper(highlighter, wrapper, language);
+  }
+}
+
+async function highlightCodeBlock(container, language) {
+  const highlighter = await getHighlighter();
+  const lang = language === "optilambda" || language === "opti" ? "optilambda" : language;
+  const lines = container.querySelectorAll(".opti-code-line-content");
+  markHighlightDiagnostics(container);
+  let grammarState;
+  for (const line of lines) {
+    const text = line.textContent ?? "";
+    if (text.length === 0) {
+      line.innerHTML = "<br>";
+      continue;
+    }
+    const result = highlighter.codeToTokens(text, {
+      lang,
+      theme: themeName(),
+      grammarState
+    });
+    grammarState = result.grammarState;
+    line.classList.add("optitrust-shiki");
+    line.style.color = result.fg ?? "";
+    line.innerHTML = tokensToHtml(result.tokens[0] ?? []);
   }
 }
 
@@ -46,15 +78,9 @@ async function createHighlighter() {
   });
 }
 
-async function loadOptilambdaGrammar() {
-  const grammarUrl = new URL("../vscode-optitrust/syntaxes/optilambda.tmLanguage.json", import.meta.url);
-  const response = await fetch(grammarUrl);
-  if (!response.ok) {
-    throw new Error(`failed to load OptiLambda grammar: ${response.status}`);
-  }
-  const grammar = await response.json();
+function loadOptilambdaGrammar() {
   return {
-    ...grammar,
+    ...optilambdaGrammar,
     name: "optilambda",
     aliases: ["opti"]
   };
@@ -65,15 +91,26 @@ function activeTheme() {
     return cachedActiveTheme;
   }
   didReadActiveTheme = true;
+  const config = highlightConfig();
+  cachedActiveTheme = normalizeTheme(config?.theme) ?? builtinTheme(config?.builtinTheme);
+  return cachedActiveTheme;
+}
+
+function highlightConfig() {
+  if (cachedHighlightConfig !== undefined) {
+    return cachedHighlightConfig;
+  }
   const element = document.getElementById("optitrustSyntaxHighlightConfig");
   if (!element?.textContent) {
+    cachedHighlightConfig = undefined;
     return undefined;
   }
   try {
-    cachedActiveTheme = normalizeTheme(JSON.parse(element.textContent).theme);
-    return cachedActiveTheme;
+    cachedHighlightConfig = JSON.parse(element.textContent);
+    return cachedHighlightConfig;
   } catch (error) {
     console.warn("OptiTrust: failed to parse syntax highlight theme config", error);
+    cachedHighlightConfig = undefined;
     return undefined;
   }
 }
@@ -89,11 +126,19 @@ function normalizeTheme(theme) {
   };
 }
 
-function fallbackTheme() {
-  if (document.body.classList.contains("vscode-light")) {
-    return lightPlus;
+function builtinTheme(name) {
+  if (typeof name !== "string") {
+    return undefined;
   }
-  return darkPlus;
+  return BUILTIN_THEMES[name];
+}
+
+function fallbackTheme() {
+  if (document.body.classList.contains("vscode-dark") ||
+      document.body.classList.contains("vscode-high-contrast")) {
+    return darkPlus;
+  }
+  return lightPlus;
 }
 
 function languageForWrapper(wrapper) {
@@ -151,7 +196,25 @@ function highlightLineGroup(highlighter, group, language) {
 }
 
 function themeName() {
-  return activeTheme() ? ACTIVE_THEME : fallbackTheme().name;
+  return activeTheme()?.name ?? fallbackTheme().name;
+}
+
+function requestedThemeName() {
+  const requestedTheme = highlightConfig()?.requestedTheme;
+  return typeof requestedTheme === "string" ? requestedTheme : "";
+}
+
+function markHighlightDiagnostics(container) {
+  container.dataset.optitrustHighlighter = "shiki";
+  container.dataset.optitrustTheme = themeName();
+  container.dataset.optitrustThemeSource = highlightConfig()?.resolutionStatus ?? (activeTheme() ? "vscode-theme" : "fallback");
+  container.dataset.optitrustRequestedTheme = requestedThemeName();
+  const config = highlightConfig();
+  container.dataset.optitrustBuiltinTheme = config?.builtinTheme ?? "";
+  container.dataset.optitrustResolvedThemePath = config?.themePath ?? "";
+  container.dataset.optitrustResolvedThemeExtension = config?.themeExtension ?? "";
+  container.dataset.optitrustThemeRuleCount = String(config?.themeRuleCount ?? 0);
+  container.dataset.optitrustCustomRuleCount = String(config?.customRuleCount ?? 0);
 }
 
 function tokensToHtml(tokens) {

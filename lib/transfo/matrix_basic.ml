@@ -14,12 +14,14 @@ let%transfo reorder_dims ~(base:trm) ?(rotate_n : int = 0) ?(order : int list = 
 let%transfo insert_alloc_dim (new_dim : trm) (tg : target) : unit =
   Target.apply_at_target_paths (Matrix_core.insert_alloc_dim_aux new_dim) tg
 
+(* TODO : depreciate transformation *)
 (** [insert_access_dim new_dim new_index tg]: expects the target [tg] to point at an array access, then it will
     add two new args([new_dim] and [new_index]) in the call to MINDEX function inside that array access. *)
 
 let%transfo insert_access_dim_index (new_dim : trm) (new_index : trm) (tg : target) : unit =
   Target.apply_at_target_paths (Matrix_core.insert_access_dim_index_aux new_dim new_index) tg
 
+(* TODO : depreciate transformation *)
 (** [biject fun_name tg]: expectes the target [tg] to point at a function call, then it replaces the name
      of the called function with [fun_name]. *)
 let%transfo biject (fun_name : var) (tg : target) : unit =
@@ -122,7 +124,7 @@ let ghost_shift
   ((range, formula): loop_range list * formula)
   ((shifted_range, shifted_formula): loop_range list * formula)
   (uninit_pre : bool) (uninit_post : bool): trm =
-  if !Flags.check_validity then (* FIXME: need more precise flag? *)
+  if (* !Flags.check_validity *) Flags.annotated () then (* FIXME: need more precise flag? *)
     (* FIXME: this can be explained as a sequence of calls to group_shift* ghosts *)
     let open Resource_formula in
     let before = List.fold_right (fun r f -> formula_group_range r f) range formula in
@@ -259,7 +261,7 @@ let%transfo local_name_tile
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun p -> Marks.with_fresh_mark_on p (fun m ->
       let tile_dims_typ_model = ref None in
-      if !Flags.check_validity || !Flags.use_resources_with_models then begin
+      if Flags.annotated () then begin
         (* find groups of mindex resource over !ret_var in context *)
         Resources.ensure_computed ();
         let var = !ret_var in
@@ -344,7 +346,7 @@ let%transfo local_name_tile
         mark_dims mark_accesses mark_indices mark_alloc mark_load mark_unload !ret_var tile local_var dims elem_ty indices uninit_pre uninit_post
         model_before model_after
       ) p;
-      if !Flags.check_validity then begin
+      if (* !Flags.check_validity *) Flags.annotated () then begin
         Resources.ensure_computed ();
         if not !Flags.use_resources_with_models then begin
           let p = resolve_target_exactly_one [cMark m] in
@@ -802,7 +804,7 @@ let%transfo stack_copy ~(var : var) ~(copy_var : string) ~(copy_dims : int) (tg 
   Nobrace_transfo.remove_after (fun () ->
     Target.iter (fun p -> Marks.with_fresh_mark_on p (fun m ->
       Target.apply_at_path (stack_copy_on var copy_var copy_dims) p;
-      if !Flags.check_validity then begin
+      if (* !Flags.check_validity *) Flags.annotated () then begin
         Resources.ensure_computed ();
         (* TODO: is this exactly the same check as for Variable.local_name and Matrix.local_name? *)
         let t = get_trm_at_exn [cMark m] in
@@ -845,6 +847,7 @@ let memset_apply_on ~(depth: int) ?(typ:typ option) (t : trm) :trm =
   List.iter check (List.combine ranges (List.combine dims indices));
   Matrix_core.matrix_set ~typ:array_typ rhs array dims
 
+  (* TODO : depreciate transformation *)
   (** [memset] : Uses memset instead of for-loops initialization  *)
 let%transfo memset ?(depth :int option) ?(typ:typ option) (tg:target) : unit =
   apply_at_target_paths (fun t ->
@@ -985,6 +988,7 @@ let storage_folding_kind_to_string = function
 | ModuloIndices -> "ModuloIndices"
 | RotateVariables -> "RotateVariables"
 
+(* TODO : depreciate transformation *)
 (** [storage_folding] expects target [tg] to point at a sequence defining matrix
    [var], and folds the [dim]-th dimension so that every index [i] into this matrix dimension is mapped to index [i % n].
 

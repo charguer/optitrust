@@ -8,7 +8,7 @@ include Style
      Show.trm ~msg:"foo:" t
      Show.trm ~msg:"foo:" tg
      Show.trm ~msg:"foo:" (Target.resolve_path p)
-     ShowAt.trm ~msg:"foo:" (Target.of_path p)
+     Show.At.trm ~msg:"foo:" (Target.of_path p)
 *)
 
 
@@ -113,7 +113,7 @@ let trm_text ?(msg : string option) ?(only_desc : bool = false) (t : trm) : unit
 
 
 
-(* DEPRECATED: use ShowAt.trm []
+(* DEPRECATED: use Show.At.trm []
 let ast ?(style = Default) ?(msg : string = "") () : unit =
   trm ~style ~msg (**:(add_linebreak msg)*) (Trace.ast ())
 *)
@@ -179,9 +179,9 @@ module At = struct
 
   (* Operations *)
 
-(* DEPRECATED: use ShowAt.trm []
+(* DEPRECATED: use Show.At.trm []
   let ast ?(msg : string = "") (tg : Target.target) : unit =
-    if tg <> [] then fail None "ShowAt.ast: can only be called on the root, with argument []";
+    if tg <> [] then fail None "Show.At.ast: can only be called on the root, with argument []";
     ast ~msg ()
     *)
 
@@ -399,5 +399,5 @@ type style = {
 *)
 
 (* = Show.trm ~style msg (Target.resolve_path p) *)
-(* = ShowAt.trm ~style msg (Target.of_path p) *)
+(* = Show.At.trm ~style msg (Target.of_path p) *)
 (* let current_ast_at_path ?(style = Display) ?(msg : string = "") (p : Path.path) : *)

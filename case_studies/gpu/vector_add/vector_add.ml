@@ -2,7 +2,8 @@ open Optitrust
 open Prelude
 open Cuda_lowering
 
-let _ = Flags.check_validity := true
+(* let _ = Flags.check_validity := true *)
+let _ = Flags.typechecking_mode := Flags.AnnotatedAndVerified
 let _ = Flags.pretty_matrix_notation := true
 let _ = Flags.recompute_resources_between_steps := false
 let _ = Flags.disable_stringreprs := true
@@ -24,7 +25,7 @@ let _ = Run.script_cpp (fun () ->
   !! Resources.ensure_computed ();
 
   (* Stage 2: create thread hierarchy *)
-  !! Gpu.convert_tail_thread_for [cFor "i"];
+  !! Gpu.convert_tail_thread_for [] [cFor "i"];
   !! Resources.ensure_computed ();
 
   (* Stage 3: convert memories *)

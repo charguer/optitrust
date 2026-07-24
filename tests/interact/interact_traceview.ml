@@ -1,9 +1,10 @@
+(* Deprecated *)
 open Optitrust
 open Prelude
 
 (** This unit test is for testing the trace generation *)
 
-let _ = Flags.check_validity := true
+(* let _ = Flags.check_validity := true *)
 
 (* Use the line below to generate a smaller trace with ast
    only for big and small steps
@@ -74,7 +75,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Show.ast (); Show.ast ();
   *)
   (* Examples of show functions with output on stdout *)
-  (* !! ShowAt.trm []; *)
+  (* !! Show.At.trm []; *)
   bigstep "fourth part";
   (* Try task "View diff using internal syntax" *)
   !! Label.add "lab6" [cVarDef "a"];

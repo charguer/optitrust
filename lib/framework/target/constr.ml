@@ -13,6 +13,8 @@ exception Resolve_target_failure of string
 (* TODO deprecate this after Target.iter is used everywhere *)
 let old_resolution = ref false
 
+let debug_marks = true
+
 (******************************************************************************)
 (*                        Data structure for targets                          *)
 (******************************************************************************)
@@ -831,9 +833,12 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
 
   | Constr_prim (pred_ty, pred_prim), Trm_prim (ty1, p1) ->
     pred_ty ty1 && pred_prim p1
+
   | Constr_mark (pred, _m), _ ->
     if !old_resolution then begin
       let t_marks = trm_get_marks t in
+      if debug_marks then
+        begin Printf.printf "check_constraint: marks of term are [%s]" (String.concat "; " t_marks) end;
       begin match t.desc with
       | Trm_seq (tl, _) ->
         (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))

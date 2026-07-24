@@ -1,5 +1,6 @@
 open Prelude
 
+let debug_transfo = true
 
 (** [fold ~at tg]: expects the target [tg] to point at a variable declaration,
       [at] - denotes a target where the folding is done. If empty the folding operation
@@ -21,13 +22,13 @@ let%transfo unfold ?(mark : mark = no_mark) ~(at : target) (tg : target) : unit 
   Target.iter (fun p ->
     let t_decl = Target.resolve_path p in
     let x, _, init = trm_inv ~error:"Variable_core.unfold: expected a target to a variable definition" trm_let_inv t_decl in
-    if !Flags.check_validity then begin
+    (* if !Flags.check_validity then begin
       if Resources.trm_is_pure init then
         (* Case 1: pure expression *)
         Trace.justif "inlining a pure expression is always correct"
       else
         failwith "not yet implemented: factorize validity check with inlining"
-    end;
+    end; *)
     let init = trm_add_mark mark init in
     Target.apply_at_target_paths (trm_subst_var x init) at
   ) tg
@@ -39,7 +40,7 @@ let%transfo unfold ?(mark : mark = no_mark) ~(at : target) (tg : target) : unit 
 *)
 let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : target) : unit =
   (* if !Flags.check_validity then Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *) *)
-  if !Flags.use_resources_with_models then Resources.ensure_computed ();
+  (* if !Flags.use_resources_with_models then Resources.ensure_computed (); *)
   Target.iter (fun p ->
     let (p_seq, p_local, index) = Internal.get_instruction_in_surrounding_sequence p in
     assert (p_local = []);
@@ -48,84 +49,80 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
       let tl, result = trm_inv ~error trm_seq_inv t_seq in
       let dl = Mlist.nth tl index in
       let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
-      if !Flags.use_resources_with_models then begin
-        (* when using models, type-checking is sufficient to check for correctness *)
-        let init = trm_add_mark mark init in
-        let res = Resources.after_trm init in
-        let init_model = trm_add_mark mark (Var_map.find Resource_set.var_result res.aliases) in
-        (* Printf.printf "rs: %s\n" (Resource_computation.resource_set_to_string res);
-        let init_model = (Option.unsome ~error:"expected init result" Resource_set.(find_pure var_result res)) in *)
-        let rec perform_subst_formula (f: formula): formula =
-          Pattern.pattern_match f [
-            Pattern.(trm_specific_var x) (fun () -> trm_copy init_model);
-            Pattern.(__) (fun () -> trm_map perform_subst_formula f)
-          ] in
-        let rec perform_subst_trm (t: trm): trm =
-          let aux = trm_map ~f_formula:perform_subst_formula perform_subst_trm in
-          Pattern.pattern_match t [
-            Pattern.(trm_specific_var x) (fun () -> trm_copy init);
-            Pattern.(trm_for !__ !__ !__ !__) (fun range mode body spec () ->
-              (* NOTE: erase contracts on the way, the inline expression might require more resources. *)
-              let t2 = aux t in
-              Pattern.pattern_match t2 [
-                Pattern.(trm_for !__  !__ !__ !__) (fun range mode body spec () ->
-                  let contract = { spec with strict = false } in
-                  trm_for ~mode ~annot:t.annot ~contract range body
-                )
-              ]
-            );
-            Pattern.(__) (fun () -> aux t)
-          ] in
-        let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) perform_subst_trm tl in
-        trm_seq ~annot:t_seq.annot ?result new_tl
-      end else begin
-      (* LEGACY: shapes *)
-      if !Flags.check_validity then begin
-        if Resources.trm_is_pure init then
-          (* Case 1: pure expression *)
-          Trace.justif "inlining a pure expression is always correct"
-        else begin
-          (* Case 2: duplicable expression can be inlined if we don't go through interfering context, control flow or formulas *)
-          Resources.required_for_check ();
-          (* Resources.assert_instr_effects_shadowed p; *)
-          (* -- DUPLICATE CODE *)
-          let t_seq = Target.resolve_path p_seq in
-          let tl, _ = trm_inv ~error trm_seq_inv t_seq in
-          let dl = Mlist.nth tl index in
-          let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
-          (* -- *)
-          Resources.assert_not_self_interfering init;
-          let occurences = Constr.resolve_target ~prefix:p_seq [nbMulti; cVarId x] t_seq in
-          let end_occ_index = match snd (List.unlast occurences) with
-          | Dir_seq_nth i :: _ -> i
-          | p -> path_fail p "expected path to be inside current sequence"
-          in
-          (* check that we don't go through control flow or formulas *)
-          List.iter (fun occ_p ->
-            List.iter (fun dir ->
-              let open Dir in
-              match dir with
-              | Dir_body | Dir_then | Dir_else
-              | Dir_for_start | Dir_for_stop | Dir_for_step
-              | Dir_for_c_init | Dir_for_c_step | Dir_case _
-              | Dir_contract _ | Dir_ghost_arg_nth _ ->
-                path_fail (p_seq @ occ_p) (sprintf "inlining non-pure expression does not support going through %s yet" (Dir.dir_to_string dir))
-              | _ -> ()
-            ) occ_p
-          ) (List.drop 1 occurences);
-          (* is calling this useful?
-          Resources.assert_dup_instr_redundant index last_occ_index t_seq; *)
-          let usage = Resources.usage_of_trm init in
-          let _, instrs_after_let = Mlist.split (index + 1) tl in
-          let context_instrs, _ = Mlist.split (end_occ_index - index - 1) instrs_after_let in
-          (* DEBUG: Show.trms ~msg:"\n---- HERE:\n" (Mlist.to_list context_instrs); *)
-          let context_usage = Resources.compute_usage_of_instrs context_instrs in
-          (* TODO: double check that we don't need to check commute for every occ and not just last one. *)
-          Resources.assert_usages_commute ~res_ctx:(Resources.after_trm init) [path_error_context p] usage context_usage;
-          Trace.justif "inlining a duplicable expression through a non-interfering, non-control-flow and non-formula context is correct"
-          (* TODO: Case 3 ? recursive traversal analysis with special constructor cases? *)
-          (* trm_fail init "inlining non-pure expression is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc" *)
-        end
+
+      if Flags.annotated () then begin
+      let init = trm_add_mark mark init in
+      let res = Resources.after_trm init in
+      let init_model = trm_add_mark mark (Var_map.find Resource_set.var_result res.aliases) in
+      (* Printf.printf "rs: %s\n" (Resource_computation.resource_set_to_string res);
+      let init_model = (Option.unsome ~error:"expected init result" Resource_set.(find_pure var_result res)) in *)
+      let rec perform_subst_formula (f: formula): formula =
+        Pattern.pattern_match f [
+          Pattern.(trm_specific_var x) (fun () -> trm_copy init_model);
+          Pattern.(__) (fun () -> trm_map perform_subst_formula f)
+        ] in
+      let rec perform_subst_trm (t: trm): trm =
+        let aux = trm_map ~f_formula:perform_subst_formula perform_subst_trm in
+        Pattern.pattern_match t [
+          Pattern.(trm_specific_var x) (fun () -> trm_copy init);
+          Pattern.(trm_for !__ !__ !__ !__) (fun range mode body spec () ->
+            (* NOTE: erase contracts on the way, the inline expression might require more resources. *)
+            let t2 = aux t in
+            Pattern.pattern_match t2 [
+              Pattern.(trm_for !__  !__ !__ !__) (fun range mode body spec () ->
+                let contract = { spec with strict = false } in
+                trm_for ~mode ~annot:t.annot ~contract range body
+              )
+            ]
+          );
+          Pattern.(__) (fun () -> aux t)
+        ] in
+      let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) perform_subst_trm tl in
+      trm_seq ~annot:t_seq.annot ?result new_tl
+      end else
+      begin
+        if Flags.annotated () then
+        begin
+        (* Case 2: duplicable expression can be inlined if we don't go through interfering context, control flow or formulas *)
+        Resources.required_for_check ();
+        (* Resources.assert_instr_effects_shadowed p; *)
+        (* -- DUPLICATE CODE *)
+        let t_seq = Target.resolve_path p_seq in
+        let tl, _ = trm_inv ~error trm_seq_inv t_seq in
+        let dl = Mlist.nth tl index in
+        let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
+        (* -- *)
+        Resources.assert_not_self_interfering init;
+        let occurences = Constr.resolve_target ~prefix:p_seq [nbMulti; cVarId x] t_seq in
+        let end_occ_index = match snd (List.unlast occurences) with
+        | Dir_seq_nth i :: _ -> i
+        | p -> path_fail p "expected path to be inside current sequence"
+        in
+        (* check that we don't go through control flow or formulas *)
+        List.iter (fun occ_p ->
+          List.iter (fun dir ->
+            let open Dir in
+            match dir with
+            | Dir_body | Dir_then | Dir_else
+            | Dir_for_start | Dir_for_stop | Dir_for_step
+            | Dir_for_c_init | Dir_for_c_step | Dir_case _
+            | Dir_contract _ | Dir_ghost_arg_nth _ ->
+              path_fail (p_seq @ occ_p) (sprintf "inlining non-pure expression does not support going through %s yet" (Dir.dir_to_string dir))
+            | _ -> ()
+          ) occ_p
+        ) (List.drop 1 occurences);
+        (* is calling this useful?
+        Resources.assert_dup_instr_redundant index last_occ_index t_seq; *)
+        let usage = Resources.usage_of_trm init in
+        let _, instrs_after_let = Mlist.split (index + 1) tl in
+        let context_instrs, _ = Mlist.split (end_occ_index - index - 1) instrs_after_let in
+        (* DEBUG: Show.trms ~msg:"\n---- HERE:\n" (Mlist.to_list context_instrs); *)
+        let context_usage = Resources.compute_usage_of_instrs context_instrs in
+        (* TODO: double check that we don't need to check commute for every occ and not just last one. *)
+        Resources.assert_usages_commute ~res_ctx:(Resources.after_trm init) [path_error_context p] usage context_usage;
+        Trace.justif "inlining a duplicable expression through a non-interfering, non-control-flow and non-formula context is correct"
+        (* TODO: Case 3 ? recursive traversal analysis with special constructor cases? *)
+        (* trm_fail init "inlining non-pure expression is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc" *)
       end;
       let init = trm_add_mark mark init in
       let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) (trm_subst_var x init) tl in
@@ -157,7 +154,6 @@ let%transfo init_attach (tg : target) : unit =
   Trace.justif_always_correct ();
   Target.apply_at_target_paths_in_seq Variable_core.init_attach_at tg
 
-
 (** [local_name_on mark curr_var var_typ local_var t] declares a local
   variable [local_var] and replaces [curr_var] with [local_var] in [t].
     - [curr_var]: the replaced variable
@@ -167,12 +163,13 @@ let%transfo init_attach (tg : target) : unit =
   *)
 let local_name_on (curr_var : var) (var_typ : typ)
   ~(uninit_pre : bool) ~(uninit_post : bool)
-  (local_var : string) (t : trm) : trm =
+  (local_var : string) (span : Dir.span) (t : trm) : trm =
   let local_var = new_var local_var in
   let let_instr = trm_let_mut (local_var, var_typ) (trm_var_get ~typ:var_typ curr_var) in
   let set_instr = trm_set (trm_var ~typ:var_typ curr_var) (trm_var_get ~typ:var_typ local_var) in
-  let new_t = trm_subst_var curr_var (trm_var local_var) t in
-  trm_seq_nobrace_nomarks [let_instr; new_t; set_instr]
+  update_span_helper span t (fun span_instrs ->
+    let subst_span_instrs = Mlist.map (trm_subst_var curr_var (trm_var local_var)) span_instrs in
+    [Trm let_instr; TrmMlist subst_span_instrs; Trm set_instr])
 
 (** [local_name ~var var_typ ~local_var tg] declares a local
   variable [local_var] and replaces [var] with [local_var] in
@@ -185,24 +182,10 @@ let%transfo local_name ~(var : var) (var_typ : typ)
   ~(local_var : string) (tg : target) : unit =
   if (uninit_pre || uninit_post) then
     failwith "not implemented";
-  Target.iter (fun p -> Marks.with_fresh_mark_on p (fun m ->
-    Nobrace_transfo.remove_after (fun () ->
-      Target.apply_at_path (local_name_on var var_typ ~uninit_pre ~uninit_post local_var) p
-    );
-    if !Flags.check_validity && not !Flags.preserve_specs_only then begin
-      step_backtrack ~discard_after:true (fun () ->
-        let p = resolve_mark_exactly_one m in
-        Nobrace_transfo.remove_after (fun () ->
-        Target.apply_at_path (fun t ->
-          let (_, open_w, close_w) = Resource_trm.ghost_pair_hide
-            (Resource_formula.formula_cell_var ~mem_typ:Resource_formula.mem_typ_any ~typ:var_typ var) in
-          trm_seq_nobrace_nomarks [open_w; t; close_w]
-        ) p
-        );
-        Resources.ensure_computed_at p
-      )
-    end
-  )) tg
+  Target.iter (fun p ->
+    let (p_seq, span) = Path.extract_last_dir_span p in
+    Target.apply_at_path (local_name_on var var_typ ~uninit_pre ~uninit_post local_var span) p_seq)
+    tg
 
 (** [delocalize array_size neutral_element fold_operation tg]: expects the target [tg] to point to
     a block of code of the following form
@@ -262,11 +245,11 @@ let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ~(name : st
   Target.reparse_after ~reparse (Target.iter (fun p ->
     let (p_seq, i) = Path.extract_last_dir_before p in
     Target.apply_at_path (Variable_core.insert_at i const name typ value) p_seq;
-    if !Flags.check_validity then begin (* NOTE: same as instruction insertion *)
+    (* if !Flags.check_validity then begin (* NOTE: same as instruction insertion *)
       Resources.ensure_computed ();
       Resources.assert_instr_effects_shadowed (p_seq @ [Dir_seq_nth i]);
       Trace.justif "nothing modified by the instruction is observed later"
-    end
+    end *)
   )) tg
 
 (** [subst ~subst ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the
@@ -274,7 +257,7 @@ let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ~(name : st
 let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : target) : unit =
   Target.reparse_after ~reparse (
     Target.iter (fun p ->
-      if !Flags.check_validity then begin
+      if (* !Flags.check_validity *) Flags.annotated () then begin
         let instr_p, expr_p = Path.path_in_instr p (Trace.ast ()) in
         Nobrace_transfo.remove_after (fun () -> (* FIXME: handle no brace in scope and typing to remove more lazily? *)
         Target.apply_at_path (fun instr_t ->
@@ -368,7 +351,7 @@ let%transfo elim_reuse (tg : target) : unit =
     let _ = Path.apply_on_path (elim_analyse xy) (Trace.ast ()) p in
     let (x, y) = Option.get !xy in
     let (i, p_seq) = Path.index_in_seq p in
-    if !Flags.check_validity then begin
+    if (* !Flags.check_validity *) Flags.annotated () then begin
       step_backtrack ~discard_after:true (fun () ->
         Target.apply_at_path (fun t_seq ->
           let error = "expected sequence" in

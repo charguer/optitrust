@@ -39,7 +39,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int)
     else if i = Mlist.length loop_body_instrs then
       Marks.add m_between [cPath p_loop; tAfter]
     else begin
-      let m_interstice = if !Flags.check_validity || !Flags.use_resources_with_models then begin (* FIXME: hide condition between better API? *)
+      let m_interstice = if Flags.annotated () then begin
         let m = next_mark () in
         Ghost_pair.fission ~mark_between:m (target_of_path p_interstice);
         Ghost_pure.fission ~mark_clears:m_clears [cPath p_loop_body; cMark m];
@@ -55,7 +55,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int)
       Resources.make_strict_loop_contracts [cPath p_loop];
       fission_basic ~mark_loops:m_loops ~mark_between_loops:m_between [cPath p_loop_body; cMark m_interstice];
       if nest_of = 1 then Marks.add mark_loops [nbMulti; cMark m_loops];
-      if !Flags.check_validity || !Flags.use_resources_with_models then begin (* FIXME: hide condition between better API? *)
+      if Flags.annotated () then begin
         Ghost_pair.minimize_all_in_seq [nbExact 2; cPath p_outer_seq; cMark m_loops; dBody];
         Resources.loop_minimize [nbExact 2; cPath p_outer_seq; cMark m_loops];
         Ghost_pure.remove_clears m_clears [occFirst; cPath p_outer_seq; cMark m_loops; dBody];
@@ -108,7 +108,7 @@ let%transfo move_out_bis
     Resources.make_strict_loop_contracts [];
     let loop_mark = next_mark () in
     Loop_basic.move_out ~loop_mark [cPath seq_path; Constr_depth (DepthAt 0); tSpan [tFirst] [cMarkSpanStop mark_moved]];
-    if !Flags.check_validity then Resources.loop_minimize [cMark loop_mark];
+    if (* !Flags.check_validity *) Flags.annotated () then Resources.loop_minimize [cMark loop_mark];
   ) tg)
 
 (* TODO: redundant with 'hoist' *)
@@ -162,8 +162,8 @@ let%transfo hoist_alloc_loop_list
         (* Transfo_debug.path "p_nested" p_nested;
         Transfo_debug.path "p" p; *)
         Matrix_basic.simpl_access_of_access (target_of_path p);
-        (* ShowAt.trm ~msg:"t@p" (target_of_path p);
-        ShowAt.trm ~msg:"t@p" (target_of_path (p @ [Dir_arg_nth 1])); *)
+        (* Show.At.trm ~msg:"t@p" (target_of_path p);
+        Show.At.trm ~msg:"t@p" (target_of_path (p @ [Dir_arg_nth 1])); *)
         Matrix_basic.simpl_index_add (target_of_path (p @ [Dir_arg_nth 1]));
         Arith.(simpl_rec gather_rec (target_of_path (p @ [Dir_arg_nth 1])));
       ) [nbAny; cMark mark]
@@ -465,7 +465,7 @@ let%transfo simpl_scoped_ghosts (ghosts_before : trm list) (ghosts_after : trm l
 
    #equiv-rewrite: fixes a similar problem as the code in Variable_basic.subst . *)
 let%transfo simpl_scoped ~(simpl : unit -> unit) (tg : target) : unit =
-  if !Flags.check_validity then Target.iter (fun p ->
+  if (* !Flags.check_validity *) Flags.annotated () then Target.iter (fun p ->
   Nobrace_transfo.remove_after (fun () ->
   Trace.without_resource_computation_between_steps (fun () ->
     let error = "expected for loop" in
@@ -827,7 +827,7 @@ let%transfo move_out ?(upto : string = "") (tg : target) : unit =
     Instr_basic.move ~dest:[tFirst] (target_of_path instr_p);
     let loop_m = next_mark () in
     Loop_basic.move_out ~loop_mark:loop_m instr_tg;
-    if !Flags.check_validity then
+    if (* !Flags.check_validity *) Flags.annotated () then
       Resources.loop_minimize [cMark loop_m];
   in
   Target.iter (fun instr_p -> Marks.with_marks (fun next_mark ->
@@ -970,8 +970,8 @@ DETAILS for [unroll]
         where p points to the item "body(i+k)"
 
     {[
-      ( if body(i) is   instr1 instr2 instr3 instr4 instr5
-      ( then i make { { instr1 instr2 } { instr3 instr4 instr5 } }
+      ( if body(i) is   instr1 instr2 instr3 instr4 instr5 )
+      ( then i make { { instr1 instr2 } { instr3 instr4 instr5 } } )
     ]}
 
     {[
@@ -988,7 +988,7 @@ DETAILS for [unroll]
         { instr3 instr4 instr5(i+1) }
         { instr3 instr4 instr5(i+2) } }@?
       }
-    }]
+    ]}
     FOURTH SUBSTEP: remove nobrace sequences
 
     ===================note
@@ -1011,7 +1011,8 @@ DETAILS for [unroll]
       cmd3(i+2)
     }]}
 
-    LATER: This transformation should be factorized, that may change the docs. *)
+    LATER: This transformation should be factorized, that may change the docs.
+*)
 
 let%transfo unroll_one ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark = no_mark) ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
   Target.iteri (fun i p ->

@@ -2,7 +2,8 @@ open Optitrust
 open Prelude
 open Target
 
-let _ = Flags.check_validity := false
+(* let _ = Flags.check_validity := false *)
+let _ = Flags.typechecking_mode := Flags.Unverified
 let _ = Flags.pretty_matrix_notation := true
 let _ = Flags.recompute_resources_between_steps := false
 

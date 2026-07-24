@@ -1,8 +1,7 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true (* FIXME: false *)
-let _ = Flags.preserve_specs_only := true
+let _ = Flags.typechecking_mode := Flags.AnnotatedAndVerified
 let _ = Flags.pretty_matrix_notation := false
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
@@ -13,13 +12,7 @@ let int = trm_int
 let _ = Run.script_cpp (fun () ->
   (* !! Function.elim_infix_ops ~indepth:true []; *)
   !! Loop.tile (int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
-
-  (* LATER: !! Variable.local_name ~var:"s" ~local_var:"t" [tSpanSeq [cForBody "bi"]]; *)
-  !! (
-    Sequence.intro ~mark:"t_scope" ~start:[tFirst; cForBody "bi"] ~stop:[tLast; cForBody "bi"] ();
-    Variable.local_name ~var:"s" ~local_var:"t" [cMark "t_scope"];
-    Sequence.elim [cMark "t_scope"];
-  );
+  !! Variable.local_name ~var:"s" ~local_var:"t" [tSpanSeq [cForBody "bi"]];
 
   (* DEPRECATED? !! Sequence_basic.insert (trm_let (new_var "d", typ_f32) (trm_get (trm_find_var "s" []))) [tFirst; cForBody "bi"]; *)
   !! (

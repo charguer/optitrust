@@ -185,7 +185,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
     let process_one_item ~(fold : bool) =
       process_matching_resource_item (fun wrap is_ro c -> process_one_cell ~fold wrap (is_ro, c)) (fun () -> [])
     in
-    let (unfolds, folds) = if !Flags.check_validity then begin
+    let (unfolds, folds) = if (* !Flags.check_validity *) Flags.annotated () then begin
       let (res_start, res_stop) = Resources.around_instrs span_instrs in
       let unfolds = List.concat_map (process_one_item ~fold:false) res_start.linear in
       let folds = List.concat_map (process_one_item ~fold:true) res_stop.linear in
@@ -235,11 +235,11 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
         trm_seq_nobrace_nomarks (folds @ [t])
       in
       (* FIXME: duplicated code with set_explicit *)
-      let check_pure = if !Flags.check_validity then (fun name x ->
+      (* let check_pure = if !Flags.check_validity then (fun name x ->
         if Resources.trm_is_pure x then Trace.justif (sprintf "duplicated %s is pure" name)
       ) else (fun name x ->
         ()
-      ) in
+      ) in *)
       let rec aux (t : trm) : trm =
         Pattern.pattern_match t [
           Pattern.(trm_seq !__ !__) (fun instrs result () ->
@@ -297,7 +297,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
           );
           Pattern.(trm_set !__ !__) (fun base value () ->
             Pattern.when_ (trm_ptr_typ_matches base);
-            check_pure "set value" value;
+            (* check_pure "set value" value; *)
             let set_one (sf, ty) =
               trm_set (trm_struct_access ~field_typ:ty ~struct_typ base sf) (trm_struct_get ~field_typ:ty ~struct_typ value sf)
             in
@@ -347,6 +347,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
     [ TrmList unfolds; TrmMlist span_instrs; TrmList folds ]
   )
 
+(* TODO : depreciate transformation *)
 (** [split_fields]: expects the target [tg] to point at a sequence span to perform the mapping:
   - `set(base, get(get_base))` --> `set(struct_access(base, f), get(struct_access(get_base, f))), ...`
   - `set(base, { .f = v; .. })` --> `set(struct_access(base, f) = v`
@@ -368,14 +369,15 @@ let%transfo split_fields ~(typ : typvar) (tg : target) : unit =
   in
   let field_list = Internal.get_field_list struct_def in
 
-  if !Flags.check_validity then
+  (* if !Flags.check_validity then
     Trace.justif "correct if the produced code typechecks";
-
+ *)
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let (p_seq, span) = Path.extract_last_dir_span p in
     Target.apply_at_path (split_fields_on typ field_list span) p_seq
   ) tg)
 
+(* TODO : depreciate transformation *)
 (** [set_explicit tg]: expects the target [tg] to point at a set instruction where one struct
     instance has been assigned another struct instance. *)
 let%transfo set_explicit (tg : target) : unit =
@@ -383,12 +385,14 @@ let%transfo set_explicit (tg : target) : unit =
   Nobrace_transfo.remove_after ( fun _ ->
     apply_at_target_paths (Record_core.set_explicit_on) tg)
 
+(* TODO : depreciate transformation *)
 (** [set_implicit tg]: expects the target [tg] to point at a sequence containing
       a list of struct set assignments. And transforms it into a single struct assignment.
       So it is the inverse of set_explicit. *)
 let%transfo set_implicit (tg : target) : unit =
   apply_at_target_paths (Record_core.set_implicit_on) tg
 
+(* TODO : depreciate transformation *)
 (** [reorder_fields order tg]: expects the target to be pointing at typedef struct or class.
       then it changes the order of the fields based on [order].
       [order] - can be one of the following
@@ -401,6 +405,7 @@ let%transfo set_implicit (tg : target) : unit =
 let%transfo reorder_fields (order : fields_order) (tg : target) : unit =
   apply_at_target_paths_in_seq (Record_core.reorder_fields_at order) tg
 
+(* TODO : depreciate transformation *)
 (** [reveal_field ~reparse field_to_reveal_field tg]: expects the target [tg] to point at a typedef struct,
     then it will find [field_to_reveal_field] and it's underlying type and it will
     replace [field_to_reveal_field] with a list of fields rename comming from its underlying type. *)
@@ -409,12 +414,14 @@ let%transfo reveal_field ?(reparse:bool=false) (field_to_reveal_field : field) (
     (apply_at_target_paths_in_seq (Record_core.reveal_field_at field_to_reveal_field))
     tg
 
+(* TODO : depreciate transformation *)
 (** [reveal_fields fields_to_reveal_field tg]: an extension to the reveal_field transformation, this one
      is applied on multiple struct fields. *)
 let%transfo reveal_fields ?(reparse : bool = false) (fields_to_reveal_field : fields) (tg : target) : unit =
   List.iter (fun f -> reveal_field f tg) fields_to_reveal_field
 
 
+(* TODO : depreciate transformation *)
 (** [to_variables tg]: expects the target [tg] to point at a variable declaration of type typedef Record.
     Then it will transform this declaration into a list of variable declarations where the type
     of these variables is inherited from the type of the struct definition. All the struct_accesses
@@ -428,6 +435,7 @@ let%transfo to_variables (tg : target) : unit =
     )
   ) tg
 
+(* TODO : depreciate transformation *)
 (** [rename_fields rename tg] expects the target [tg] to point at a struct declaration,
     then it will rename all the fields that are matched when applying the type [rename]
     which can be a function to rename all the struct fields or only those that
@@ -435,6 +443,7 @@ let%transfo to_variables (tg : target) : unit =
 let%transfo rename_fields (rename : rename) (tg : target) : unit =
   apply_at_target_paths_in_seq (fun i t -> Record_core.rename_fields_at i rename t) tg
 
+(* TODO : depreciate transformation *)
 (** [applyto_fields_type ~reparse pattern typ_update tg]: expects the target [tg] to point at a
     struct definition, then it will update all the struct field types whose identifier matches [pattern]. *)
 let%transfo applyto_fields_type ?(reparse : bool = false) (pattern : string) (typ_update: typ -> typ) (tg : target) : unit =
@@ -471,6 +480,7 @@ let struct_modif_simple ?(use_annot_of : bool = false) ?(new_fields : (label * t
  *)
 
 
+(* TODO : depreciate transformation *)
 (** [change_field_access_kind acc_kind f tg]: expects the target [tg] to point a typedef, then it will find
     field [f] at change its access kind to [acc_kind]. *)
 let%transfo change_field_access_kind ?(field : field = "") (acc_kind : record_member_annot) (tg : target) : unit =
@@ -481,6 +491,7 @@ let%transfo change_field_access_kind ?(field : field = "") (acc_kind : record_me
 let make_all_memebers_public : target -> unit =
   change_field_access_kind Access_public
 
+(* TODO : depreciate transformation *)
 (** [method_to_const method_name]: expects the target [ŧg] to be pointing at a typedef record definition.
     Then it will check if the method of that record definition is already a const method or not.
     If it's a const method then this transformation does nothing, otherwise it will transform that method to a const one.

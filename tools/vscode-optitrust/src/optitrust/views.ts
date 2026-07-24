@@ -1,9 +1,49 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
+import {
+  attachLiveView,
+  clearLiveView,
+  detachLiveView,
+  isAttachedLiveView,
+  prepareAttachedLiveView,
+  setActiveLiveViewContext
+} from "./liveView";
+import { appendLine } from "./output";
+import { runCommand } from "./runner";
+import { backendFlagsForViewMode, VIEW_MODES } from "./viewMode";
 
 const panels = new Map<string, vscode.WebviewPanel>();
+const panelStates = new Map<string, PanelRuntimeState>();
 const MAX_INLINE_ASSET_BYTES = 2 * 1024 * 1024;
+const LIVE_VIEW_KEY = "optitrust-live-view";
+export const OPTITRUST_WEBVIEW_TYPE = "optitrustView";
+
+interface OpenHtmlViewOptions {
+  readonly useLiveView?: boolean;
+  readonly lazyDiff?: LazyDiffContext;
+  readonly initialDiffRepresentation?: string;
+}
+
+interface HtmlTransformOptions {
+  readonly includeDetachButton?: boolean;
+  readonly initialDiffRepresentation?: string;
+  readonly detached?: boolean;
+}
+
+interface LazyDiffContext {
+  readonly relativePath: string;
+  readonly line: number;
+}
+
+interface PanelRuntimeState {
+  root: string;
+  htmlFile: string;
+  includeDetachButton?: boolean;
+  lazyDiff?: LazyDiffContext;
+  initialDiffRepresentation?: string;
+  detached?: boolean;
+}
 
 function webviewKey(filePath: string, viewKind: string, metadata: string): string {
   return `${path.resolve(filePath)}::${viewKind}::${metadata}`;
@@ -14,13 +54,44 @@ function webviewKey(filePath: string, viewKind: string, metadata: string): strin
  * webviews run with a stricter resource model, so local assets must be inlined
  * or rewritten before the HTML can be displayed reliably inside the editor.
  */
-async function htmlWithBase(webview: vscode.Webview, htmlFile: string): Promise<string> {
+async function htmlWithBase(webview: vscode.Webview, root: string, htmlFile: string, options: HtmlTransformOptions = {}): Promise<string> {
   const html = await fs.readFile(htmlFile, "utf8");
   const htmlDir = path.dirname(htmlFile);
   const inlined = await inlineLocalScriptsAndStyles(htmlDir, html);
   const rewritten = rewriteLocalResourceUris(webview, htmlDir, inlined);
-  const withHighlightingConfig = await injectSyntaxHighlightingConfig(rewritten);
-  return injectDiffFallback(injectDiffWebviewStyle(withHighlightingConfig));
+  const withTraceServerBase = injectTraceServerBase(root, htmlFile, rewritten);
+  const withHighlightingConfig = await injectSyntaxHighlightingConfig(withTraceServerBase);
+  const withDiffSupport = injectDiffInitialRepresentation(
+    injectDiffFallback(injectDiffWebviewStyle(withHighlightingConfig)),
+    options.initialDiffRepresentation
+  );
+  return options.includeDetachButton ? injectDetachButton(withDiffSupport, options.detached ?? false) : withDiffSupport;
+}
+
+function injectDiffInitialRepresentation(html: string, representation?: string): string {
+  if (!representation || !html.includes("diffStrings")) {
+    return html;
+  }
+  const script = `<script>window.optitrustInitialDiffRepresentation = ${JSON.stringify(representation)};</script>`;
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${script}\n</head>`);
+  }
+  return `${script}\n${html}`;
+}
+
+function injectTraceServerBase(root: string, htmlFile: string, html: string): string {
+  if (!html.includes("serialized_trace") || html.includes('id="optitrustTraceServerBaseUrl"')) {
+    return html;
+  }
+
+  const relativeDir = path.dirname(path.relative(root, htmlFile));
+  const urlPath = relativeDir === "." ? "" : `${relativeDir.split(path.sep).map(encodeURIComponent).join("/")}/`;
+  const baseUrl = `http://localhost:6775/${urlPath}`;
+  const script = `<script id="optitrustTraceServerBaseUrl">window.optitrustTraceServerBaseUrl = ${JSON.stringify(baseUrl)};</script>`;
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${script}\n</head>`);
+  }
+  return `${script}\n${html}`;
 }
 
 /**
@@ -153,6 +224,14 @@ interface ThemeJson {
 
 interface WebviewHighlightConfig {
   readonly theme?: ThemeJson;
+  readonly builtinTheme?: "dark-plus" | "light-plus";
+  readonly requestedTheme?: string;
+  readonly themePath?: string;
+  readonly themeExtension?: string;
+  readonly themeLabel?: string;
+  readonly themeRuleCount?: number;
+  readonly customRuleCount?: number;
+  readonly resolutionStatus: "configured-theme" | "vscode-theme" | "shiki-builtin" | "fallback";
 }
 
 async function injectSyntaxHighlightingConfig(html: string): Promise<string> {
@@ -160,9 +239,7 @@ async function injectSyntaxHighlightingConfig(html: string): Promise<string> {
     return html;
   }
 
-  const config: WebviewHighlightConfig = {
-    theme: await activeThemeJson()
-  };
+  const config = await activeHighlightConfig();
   const script = `<script type="application/json" id="optitrustSyntaxHighlightConfig">${escapeScriptJson(JSON.stringify(config))}</script>`;
   if (html.includes("</head>")) {
     return html.replace("</head>", `${script}\n</head>`);
@@ -170,16 +247,73 @@ async function injectSyntaxHighlightingConfig(html: string): Promise<string> {
   return `${script}\n${html}`;
 }
 
-async function activeThemeJson(): Promise<ThemeJson | undefined> {
+async function activeHighlightConfig(): Promise<WebviewHighlightConfig> {
   const activeTheme = vscode.workspace.getConfiguration("workbench").get<string>("colorTheme", "");
-  const themePath = activeTheme ? findThemePath(activeTheme) : undefined;
-  if (!themePath) {
-    return undefined;
+  const customRules = customTokenRules(activeTheme);
+  const configuredThemePath = syntaxHighlightThemePath();
+  if (configuredThemePath) {
+    const theme = await activeThemeJson(activeTheme, configuredThemePath, customRules);
+    if (theme) {
+      return {
+        requestedTheme: activeTheme,
+        themePath: configuredThemePath,
+        themeLabel: path.basename(configuredThemePath),
+        customRuleCount: customRules.length,
+        theme,
+        themeRuleCount: themeRules(theme).length,
+        resolutionStatus: "configured-theme"
+      };
+    }
+    appendLine(`OptiTrust syntax highlight: configured theme path "${configuredThemePath}" could not be loaded; continuing with automatic theme resolution.`);
   }
 
+  const resolved = activeTheme ? findTheme(activeTheme) : undefined;
+  const configBase = {
+    requestedTheme: activeTheme,
+    themePath: resolved?.path,
+    themeExtension: resolved?.extensionId,
+    themeLabel: resolved?.label,
+    customRuleCount: customRules.length
+  };
+  if (!resolved) {
+    const builtinTheme = builtinShikiTheme(activeTheme);
+    if (builtinTheme) {
+      return {
+        ...configBase,
+        builtinTheme,
+        resolutionStatus: "shiki-builtin"
+      };
+    }
+    appendLine(`OptiTrust syntax highlight: VS Code theme "${activeTheme || "(empty)"}" was not found; webviews will use Shiki fallback colors.`);
+    return {
+      ...configBase,
+      resolutionStatus: "fallback"
+    };
+  }
+  const theme = await activeThemeJson(activeTheme, resolved.path, customRules);
+  return {
+    ...configBase,
+    theme,
+    themeRuleCount: themeRules(theme ?? {}).length,
+    resolutionStatus: theme ? "vscode-theme" : "fallback"
+  };
+}
+
+function syntaxHighlightThemePath(): string | undefined {
+  const configuredPath = vscode.workspace.getConfiguration("optitrust").get<string>("syntaxHighlightThemePath", "").trim();
+  if (!configuredPath) {
+    return undefined;
+  }
+  if (path.isAbsolute(configuredPath)) {
+    return configuredPath;
+  }
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  return workspaceRoot ? path.resolve(workspaceRoot, configuredPath) : path.resolve(configuredPath);
+}
+
+async function activeThemeJson(activeTheme: string, themePath: string, customRules: readonly TextMateRule[]): Promise<ThemeJson | undefined> {
   try {
     const theme = await loadThemeJson(themePath);
-    const customRules = customTokenRules(activeTheme);
     const tokenColors = [...themeRules(theme), ...customRules];
     return {
       ...theme,
@@ -192,19 +326,113 @@ async function activeThemeJson(): Promise<ThemeJson | undefined> {
   }
 }
 
-function findThemePath(activeTheme: string): string | undefined {
+interface ThemeResolution {
+  readonly path: string;
+  readonly extensionId: string;
+  readonly label?: string;
+}
+
+function findTheme(activeTheme: string): ThemeResolution | undefined {
+  const names = themeLookupNames(activeTheme);
   for (const extension of vscode.extensions.all) {
     const themes = extension.packageJSON?.contributes?.themes;
     if (!Array.isArray(themes)) {
       continue;
     }
     for (const theme of themes) {
-      if ((theme.id === activeTheme || theme.label === activeTheme) && typeof theme.path === "string") {
-        return path.join(extension.extensionPath, theme.path);
+      if (typeof theme.path === "string" && themeMatches(theme, names)) {
+        return {
+          path: path.join(extension.extensionPath, theme.path),
+          extensionId: extension.id,
+          label: themeLabel(theme)
+        };
       }
     }
   }
   return undefined;
+}
+
+function builtinShikiTheme(activeTheme: string): "dark-plus" | "light-plus" | undefined {
+  switch (normalizeThemeName(activeTheme)) {
+    case "dark 2026":
+    case "default dark modern":
+    case "dark modern":
+    case "default dark+":
+    case "default dark plus":
+    case "dark+":
+    case "dark plus":
+    case "visual studio dark":
+      return "dark-plus";
+    case "light 2026":
+    case "default light modern":
+    case "light modern":
+    case "default light+":
+    case "default light plus":
+    case "light+":
+    case "light plus":
+    case "visual studio light":
+      return "light-plus";
+    default:
+      return undefined;
+  }
+}
+
+function themeLabel(theme: unknown): string | undefined {
+  if (!isRecord(theme)) {
+    return undefined;
+  }
+  for (const value of [theme.label, theme.name, theme.id]) {
+    if (typeof value === "string") {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function themeLookupNames(activeTheme: string): Set<string> {
+  const names = new Set<string>();
+  const normalized = normalizeThemeName(activeTheme);
+  if (normalized) {
+    names.add(normalized);
+    names.add(normalized.replace(/^default /u, ""));
+  }
+
+  const aliases: Record<string, readonly string[]> = {
+    "default dark modern": ["dark modern"],
+    "default light modern": ["light modern"],
+    "default dark+": ["dark+"],
+    "default light+": ["light+"],
+    "default dark plus": ["dark+"],
+    "default light plus": ["light+"],
+    "dark+": ["dark plus"],
+    "light+": ["light plus"]
+  };
+  for (const alias of aliases[normalized] ?? []) {
+    names.add(alias);
+  }
+  return names;
+}
+
+function themeMatches(theme: unknown, names: ReadonlySet<string>): boolean {
+  if (!isRecord(theme)) {
+    return false;
+  }
+  return [
+    theme.id,
+    theme.label,
+    theme.name
+  ].some(value => typeof value === "string" && names.has(normalizeThemeName(value)));
+}
+
+function normalizeThemeName(name: string): string {
+  return name
+    .trim()
+    .replace(/^%|%$/gu, "")
+    .replace(/color theme label$/iu, "")
+    .replace(/theme label$/iu, "")
+    .replace(/([a-z])([A-Z])/gu, "$1 $2")
+    .replace(/\s+/gu, " ")
+    .toLowerCase();
 }
 
 async function loadThemeJson(themePath: string, seen: Set<string> = new Set()): Promise<ThemeJson> {
@@ -345,27 +573,230 @@ document.addEventListener('DOMContentLoaded', function () {
   return `${html}\n${fallbackScript}`;
 }
 
-export async function openHtmlView(root: string, htmlFile: string, viewKind: string, metadata: string, title: string): Promise<void> {
-  const key = webviewKey(htmlFile, viewKind, metadata);
+function injectDetachButton(html: string, detached: boolean): string {
+  if (html.includes('id="optitrustDetachViewButton"')) {
+    return html;
+  }
+
+  const disabled = detached ? " disabled" : "";
+  const label = detached ? "Detached" : "Detach";
+  const title = detached ? "This OptiTrust view is detached" : "Detach this OptiTrust view";
+  const detachHtml = `
+<style>
+#optitrustDetachViewButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 3px;
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground, #222222));
+  background: transparent;
+  font: 12px var(--vscode-font-family, sans-serif);
+  cursor: pointer;
+}
+
+#optitrustDetachViewButton:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground, rgba(127, 127, 127, 0.14)));
+}
+
+#optitrustDetachViewButton:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 1px;
+}
+
+#optitrustDetachViewButton:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+#optitrustDetachViewButton:disabled:hover {
+  background: transparent;
+}
+</style>
+<button id="optitrustDetachViewButton" type="button" title="${title}"${disabled}>${label}</button>
+<script>
+(function () {
+  window.optitrustVsCodeApi = window.optitrustVsCodeApi || (typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : undefined);
+  if (!window.optitrustVsCodeApi) {
+    return;
+  }
+  var vscode = window.optitrustVsCodeApi;
+  function registerDetachButton() {
+    var button = document.getElementById('optitrustDetachViewButton');
+    if (!button) {
+      return;
+    }
+    var host = document.getElementById('astControls') || document.getElementById('diffDetachSlot') || document.querySelector('.trace-titlebar');
+    if (host && button.parentElement !== host) {
+      host.appendChild(button);
+    }
+    button.addEventListener('click', function () {
+      button.textContent = 'Detached';
+      button.title = 'This OptiTrust view is detached';
+      button.disabled = true;
+      vscode.postMessage({ type: 'optitrust.detachView' });
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', registerDetachButton);
+  } else {
+    registerDetachButton();
+  }
+}());
+</script>`;
+
+  if (html.includes("</body>")) {
+    return html.replace("</body>", `${detachHtml}\n</body>`);
+  }
+  return `${html}\n${detachHtml}`;
+}
+
+export async function openHtmlView(
+  root: string,
+  htmlFile: string,
+  viewKind: string,
+  metadata: string,
+  title: string,
+  options: OpenHtmlViewOptions = {}
+): Promise<void> {
+  let key = options.useLiveView ? LIVE_VIEW_KEY : webviewKey(htmlFile, viewKind, metadata);
   const existing = panels.get(key);
+  const state: PanelRuntimeState = {
+    root,
+    htmlFile,
+    includeDetachButton: options.useLiveView,
+    lazyDiff: options.lazyDiff,
+    initialDiffRepresentation: options.initialDiffRepresentation,
+    detached: false
+  };
+  panelStates.set(key, state);
   if (existing) {
-    existing.webview.html = await htmlWithBase(existing.webview, htmlFile);
-    // Reopening an existing view should refresh it in place. Passing
-    // ViewColumn.Beside here moves the tab back next to the active editor,
-    // which is disruptive when users place diff/trace panels on another group
-    // or screen.
-    existing.reveal(existing.viewColumn, true);
+    existing.title = title;
+    if (!options.useLiveView) {
+      existing.reveal(existing.viewColumn, true);
+    }
+    existing.webview.html = await htmlWithBase(existing.webview, root, htmlFile, {
+      includeDetachButton: options.useLiveView,
+      initialDiffRepresentation: state.initialDiffRepresentation,
+      detached: state.detached
+    });
     return;
   }
 
-  const panel = vscode.window.createWebviewPanel("optitrustView", title, vscode.ViewColumn.Beside, {
+  const viewColumn = options.useLiveView ? await prepareAttachedLiveView("html") : vscode.ViewColumn.Beside;
+  const panel = vscode.window.createWebviewPanel(OPTITRUST_WEBVIEW_TYPE, title, viewColumn, {
     enableScripts: true,
+    retainContextWhenHidden: true,
     localResourceRoots: [vscode.Uri.file(root), vscode.Uri.file(path.dirname(htmlFile))]
   });
 
-  panel.onDidDispose(() => panels.delete(key));
-  panel.webview.html = await htmlWithBase(panel.webview, htmlFile);
+  const liveView = options.useLiveView
+    ? {
+        kind: "html" as const,
+        viewColumn,
+        getViewColumn: () => panel.viewColumn,
+        detach: () => {
+          const detachedKey = webviewKey(htmlFile, viewKind, `${metadata}:detached:${Date.now()}`);
+          const currentState = panelStates.get(key);
+          panels.delete(key);
+          panelStates.delete(key);
+          key = detachedKey;
+          if (currentState) {
+            currentState.detached = true;
+            panelStates.set(key, currentState);
+          }
+          panels.set(key, panel);
+        },
+        dispose: () => panel.dispose()
+      }
+    : undefined;
+
+  const messageSubscription = panel.webview.onDidReceiveMessage(async (message: unknown) => {
+    if (!isRecord(message)) {
+      return;
+    }
+    if (message.type === "optitrust.detachView") {
+      if (liveView && isAttachedLiveView(liveView) && detachLiveView()) {
+        vscode.window.showInformationMessage("OptiTrust view detached. The next view command will open a new live view.");
+      } else {
+        vscode.window.showInformationMessage("This OptiTrust view is already detached.");
+      }
+      return;
+    }
+    if (message.type === "optitrust.generateDiffRepresentation") {
+      const representation = typeof message.representation === "string" ? message.representation : "";
+      const currentState = panelStates.get(key);
+      const lazyDiff = currentState?.lazyDiff;
+      if (!lazyDiff) {
+        const warning = "This OptiTrust diff cannot generate another syntax. Re-run View Step Diff.";
+        void panel.webview.postMessage({ type: "optitrust.diffGenerationFailed", representation, message: warning });
+        vscode.window.showWarningMessage(warning);
+        return;
+      }
+      const viewMode = VIEW_MODES.find(mode =>
+        representation === "cpp" ? mode.id === "cpp" : mode.optilambdaRepresentation === representation
+      );
+      if (!viewMode) {
+        const warning = `Unknown OptiTrust diff syntax: ${representation}`;
+        void panel.webview.postMessage({ type: "optitrust.diffGenerationFailed", representation, message: warning });
+        vscode.window.showWarningMessage(warning);
+        return;
+      }
+      try {
+        await runCommand({
+          cwd: currentState.root,
+          command: path.join(currentState.root, "tools", "view_result.sh"),
+          args: [
+            "step_diff",
+            lazyDiff.relativePath,
+            String(lazyDiff.line),
+            ...backendFlagsForViewMode(viewMode)
+          ],
+          title: `OptiTrust: Generate ${viewMode.label} Diff`,
+          env: {
+            OPTITRUST_NO_BROWSER: "1"
+          }
+        });
+      } catch {
+        const warning = `Failed to generate ${viewMode.label} diff.`;
+        appendLine(warning);
+        void panel.webview.postMessage({ type: "optitrust.diffGenerationFailed", representation, message: warning });
+        return;
+      }
+      currentState.initialDiffRepresentation = representation;
+      panel.webview.html = await htmlWithBase(panel.webview, currentState.root, currentState.htmlFile, {
+        includeDetachButton: currentState.includeDetachButton,
+        initialDiffRepresentation: currentState.initialDiffRepresentation,
+        detached: currentState.detached
+      });
+    }
+  });
+
+  panel.onDidDispose(() => {
+    messageSubscription.dispose();
+    panels.delete(key);
+    panelStates.delete(key);
+    if (liveView) {
+      clearLiveView(liveView);
+    }
+  });
+  panel.onDidChangeViewState(event => {
+    if (event.webviewPanel.active) {
+      setActiveLiveViewContext(liveView ? isAttachedLiveView(liveView) : false);
+    }
+  });
+  panel.webview.html = await htmlWithBase(panel.webview, root, htmlFile, {
+    includeDetachButton: options.useLiveView,
+    initialDiffRepresentation: state.initialDiffRepresentation,
+    detached: state.detached
+  });
   panels.set(key, panel);
+  if (liveView) {
+    attachLiveView(liveView);
+  }
 }
 
 export async function openFileOrHtml(root: string, filePath: string, title?: string): Promise<void> {
