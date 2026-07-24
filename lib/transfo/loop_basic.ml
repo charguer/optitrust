@@ -428,8 +428,7 @@ let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : 
       (* DEBUG: let debug_p = Path.parent p_loop in
       Show.res ~msg:"res1" ~ast:(get_trm_at_exn (target_of_path debug_p))
       ); *)
-      if !Flags.check_validity || !Flags.use_resources_with_models
-        then Resources.ensure_computed ();
+      if Flags.annotated_and_verified () then Resources.ensure_computed ();
       apply_at_path (fission_on mark_loops mark_between_loops split_i) p_loop;
     ) tg
   );

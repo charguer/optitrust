@@ -6,25 +6,24 @@ int main() {
   x--;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("x ~> Cell");
+    __smodifies("&x ~> Cell");
     /*@mymark2, mymark1*/ x /*mymark2, mymark1@*/++;
   }
 }
 /*
 CAPTURED STDOUT:
-AST:
+AST: include "../../include/optitrust.h";
 
-
-
-  int main ()  {
-  int  a,  b;
-  int x = 3;
+fun main(): int {
+  letmut a;
+  letmut b;
+  letmut x = 3;
   x--;
-  for (int i = 0; i < 3; i++) {
-    __strict();
-    __smodifies("x ~> Cell");
+  for<seq> i in 0..3 {
+    strict;
+    spreserves x ~> CellOf(Any);
     x++;
-  }
+  };
 }
 for-trm-internal-desc: Trm_for (seq,
   i,

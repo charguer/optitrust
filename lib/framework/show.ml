@@ -91,7 +91,10 @@ let trm ?(style = optilambda ()) ?(msg : string = "") (t : trm) : unit =
   let st =
     match style.print with
     | Lang_OptiLambda optilambda_style ->
-      Optitrust_optilambda.Optilambda.trm_to_string ~style:optilambda_style t
+      if Trm.trm_is_mainfile t
+        (* FIXME: optilambda printer should probably know this through term annots ? *)
+        then Optitrust_optilambda.Optilambda.program_to_string ~style:optilambda_style ~header:(Trace.get_context ()).header t
+        else Optitrust_optilambda.Optilambda.trm_to_string ~style:optilambda_style t
     | Lang_AST ast_style ->
       let t = prepare_encoded_term t in
       Ast_to_text.ast_to_string ~style:ast_style t
