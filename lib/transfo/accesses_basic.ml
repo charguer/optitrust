@@ -3,7 +3,7 @@ open Target
 
 (* DEBUG flags *)
 
-let debug_transform = true
+let debug_transform = false
 
 type transform_ret = {
   typedvar : (var * typ option) option ref;
@@ -213,6 +213,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
   ?(mark_to_prove : mark = no_mark)
   ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
   (tg : target) : unit =
+  Resources.required_for_check ();
   Marks.with_marks (fun next_mark -> Target.iter (fun p ->
     let (p_seq, span) = Path.extract_last_dir_span p in
     let (mark_to_prove, mark_preprocess, mark_postprocess, mark_handled_resources) =

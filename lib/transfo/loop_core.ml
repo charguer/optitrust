@@ -78,7 +78,8 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
     let outer_range = { index = tile_index; start = (trm_int 0); direction = DirUp; stop = tile_count; step = trm_step_one () } in
     let inner_range = { index; start = (trm_int 0); direction = DirUp; stop = tile_size; step = trm_step_one () } in
 
-    if not contract.strict then begin
+    if Flags.unverified () then begin
+      (* if not (contract.strict) *)
       (* if !Flags.check_validity then begin
         Trace.justif "loop range is checked to be dividable by tile size";
         trm_seq_nobrace_nomarks [
@@ -348,7 +349,7 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
     else
       trm_seq_nobrace_nomarks unrolled_body
   in
-  if not contract.strict then
+  if Flags.unverified () then
     outer_seq
   else
     let unroll_in_range_ghosts = List.map (fun new_index ->

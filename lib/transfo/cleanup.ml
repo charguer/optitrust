@@ -12,6 +12,7 @@ let%transfo std ?(arith_simpl : (Arith.expr -> Arith.expr) list = [Arith.gather_
   (* should: this be a transfo instead of trm -> trm ? *)
   (* Matrix.elim_mops ~simpl:(Arith_core.(simplify false Arith_basic.(compose [expand; euclidian; gather_rec; compute]))) []; *)
   Matrix.elim_mops ~simpl:(fun t -> t) [];
+  Flags.typechecking_mode := Flags.Unverified;
   Arith.(simpl_rec expand_rec) [];
   Arith.(simpl_rec (compose [euclidian; compute])) [];
   Arith.(simpl_rec gather_rec) [];

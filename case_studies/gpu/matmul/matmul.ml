@@ -3,7 +3,7 @@ open Prelude
 
 let _ = Flags.typechecking_mode := Flags.AnnotatedAndVerified
 let _ = Flags.pretty_matrix_notation := false
-let _ = Flags.recompute_resources_between_steps := false
+(* let _ = Flags.recompute_resources_between_steps := false *)
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Steps_effectful (* Flags.Steps_script *)
 
@@ -96,8 +96,6 @@ let _ =  Run.script_cpp_stage stage_ok (fun () ->
   !! Loop.hoist_instr ~dest:[tBefore; cFor ~body:[cWrite ~lhs:[cVar "c_gmem"] ()] "bi"] [cMark "s3"];
   !! Loop.hoist_instr ~down:true ~dest:[tAfter; cFor ~body:[cWrite ~lhs:[cVar "c_gmem"] ()] "bi"] [cMark "s4"];
 )
-
-let _ = Flags.check_validity := false
 
 let _ = Run.script_cpp_stage stage_ok (fun () ->
   (* Construct terms to pass to kernel_launch *)

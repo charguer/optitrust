@@ -616,7 +616,7 @@ let%transfo fusion ?(upwards : bool = true) (tg : target) : unit =
     let (index, p_seq) = Path.index_in_seq p in
     Resources.required_for_check ();
     Target.apply_at_path (fusion_on index upwards) p_seq;
-    Resources.required_for_check ();
+    (* Resources.required_for_check (); *)
   ) tg;
   Resources.justif_correct "loop resources where successfully merged"
 

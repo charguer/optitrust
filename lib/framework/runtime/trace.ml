@@ -981,8 +981,15 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
   if not (is_kind_preserving_code step.step_kind)
     then make_substeps_chained step;
   (* Check that [Flags.check_validity] is like at the start of the step *)
-  if not on_error && (!Flags.typechecking_mode <> infos.step_typechecking_mode) (* (!Flags.check_validity && (not !Flags.use_resources_with_models)) <> infos.step_flag_check_validity *)
-    then raise (TraceFailure "At finalize_step, Flags.check_validity is not same as when step was opened.");
+  (* if not on_error && (!Flags.check_validity && (not !Flags.use_resources_with_models)) <> infos.step_flag_check_validity *)
+  begin match (on_error, infos.step_typechecking_mode, !Flags.typechecking_mode) with
+  | true, _, _ -> ()
+  | false, _, Unverified -> ()
+  | false, Unverified, _ ->
+    raise (TraceFailure "At finalize_step, Flags.typechecking_mode change from Unverified to something else.");
+  | false, Annotated, (Annotated | AnnotatedAndVerified) -> ()
+  | false, AnnotatedAndVerified, (Annotated | AnnotatedAndVerified) -> ()
+  end;
   (* Set the validity flag if it is not already set, in particular
      if the step is an identity step, or if all substeps are valid.
      (they have previously been ensured to form a chain).

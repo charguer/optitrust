@@ -42,7 +42,7 @@ let _ = Run.script_cpp (fun () ->
      + Instr.gather_targets
      + Variable.symb_eval
     *)
-  !! Loop.collapse [nbMulti; cMark "w"; cFor "i"];
+  !! Loop.collapse ~simpl:Arith.no_simpl [nbMulti; cMark "w"; cFor "i"];
 
   !! Loop.swap [nbMulti; cMark "anyw"; cFor "i"];
   !! Reduce.first_then_slide ~mark_alloc:"acc" [nbMulti; cMark "anyw"; cFor "i"];
@@ -52,7 +52,7 @@ let _ = Run.script_cpp (fun () ->
 
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anycn" ~simpl:Arith.no_simpl
     ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "anyw"; cFor "c"];
-  !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
+  !! Loop.unroll ~simpl:Arith.no_simpl [nbMulti; cMark "cn"; cFor "c"];
 
   !! Target.foreach [nbMulti; cMark "cn"] (fun c ->
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i"];

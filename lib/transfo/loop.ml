@@ -750,6 +750,7 @@ let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int =
           (* TODO: add flag to only allow backtrack for ghosts instead of all instrs? *)
           match Trace.step_backtrack_on_failure (fun () ->
             Instr_basic.move ~dest:[tBefore; cMark (snd to_fuse)] (target_of_path (p_seq @ [Path.Dir_seq_nth i]));
+            Resources.ensure_computed ();
           ) with
           | Success () -> ()
           | Failure _ -> incr not_before_current;
@@ -775,6 +776,7 @@ let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int =
         for i = span_end downto span_beg do
           match Trace.step_backtrack_on_failure (fun () ->
             Instr_basic.move ~dest:[tAfter; cMark (snd to_fuse)] (target_of_path (p_seq @ [Path.Dir_seq_nth i]));
+            Resources.ensure_computed ();
           ) with
           | Success () -> ()
           | Failure _ -> incr not_after_current;

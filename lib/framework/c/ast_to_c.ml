@@ -423,7 +423,7 @@ and binop_to_doc style ?(formula: bool = false) (op : binary_op) : document =
   | Binop_array_access -> lbracket ^^ rbracket
   | Binop_array_get -> lbracket ^^ rbracket
   | Binop_eq -> if formula then equals else twice equals
-  | Binop_neq -> bang ^^ equals
+  | Binop_neq -> if formula then string "<>" else bang ^^ equals
   | Binop_sub -> minus
   | Binop_add -> plus
   | Binop_mul -> star
@@ -1039,11 +1039,11 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_
           begin match op with
           (* | Unop_get when style.optitrust_syntax -> star ^^ d *)
           | Unop_get -> star ^^ d
-          | Unop_address ->ampersand ^^ d
+          | Unop_address -> ampersand ^^ d
           | Unop_neg -> bang ^^ d
           | Unop_bitwise_neg -> tilde ^^ d
-          | Unop_minus -> minus ^^ float_mod ^^ blank 1 ^^ d
-          | Unop_plus -> plus ^^ float_mod ^^ blank 1 ^^ d
+          | Unop_minus -> lparen ^^ minus ^^ float_mod ^^ blank 1 ^^ d ^^ rparen
+          | Unop_plus -> lparen ^^ plus ^^ float_mod ^^ blank 1 ^^ d ^^ rparen
           | Unop_post_incr -> d ^^ twice plus
           | Unop_post_decr -> d ^^ twice minus
           | Unop_pre_incr -> twice plus ^^ d
