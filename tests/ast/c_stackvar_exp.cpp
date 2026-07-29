@@ -187,7 +187,7 @@ void bag_ho_iter_chunk(bag* b, void (*body)(particle*)) {
 
 void bag_push_initial(bag* b, particle p) { bag_push_serial(b, p); }
 
-void bag_init_initial(bag* b) { bag_init(b, -1, -1); }
+void bag_init_initial(bag* b) { bag_init(b, (-1), (-1)); }
 
 unsigned int FREELIST_SIZE;
 
@@ -223,7 +223,7 @@ void manual_chunk_free(chunk* c, int thread_id) {
   }
 }
 
-const int THREAD_INITIAL = -1;
+const int THREAD_INITIAL = (-1);
 
 const int THREAD_ZERO = 0;
 
@@ -423,9 +423,9 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
   const double rX = relativePosX((pos.x));
   const double rY = relativePosY((pos.y));
   const double rZ = relativePosZ((pos.z));
-  const double cX = 1. + -1. * rX;
-  const double cY = 1. + -1. * rY;
-  const double cZ = 1. + -1. * rZ;
+  const double cX = 1. + (-1.) * rX;
+  const double cY = 1. + (-1.) * rY;
+  const double cZ = 1. + (-1.) * rZ;
   double_nbCorners r;
   (r.v)[0] = cX * cY * cZ;
   (r.v)[1] = cX * cY * rZ;

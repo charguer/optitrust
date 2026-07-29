@@ -2,7 +2,7 @@ open Optitrust
 open Prelude
 
 (* let _ = Flags.check_validity := false *)
-let _ = Flags.typechecking_mode := Flags.Unverified
+let _ = Flags.typechecking_mode := Flags.AnnotatedAndVerified
 let _ = Flags.recompute_resources_between_steps := false
 
 let _ = Run.script_cpp (fun () ->

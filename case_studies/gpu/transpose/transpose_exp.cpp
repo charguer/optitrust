@@ -28,17 +28,17 @@ void transpose(float* a, float* b, int W, int H) {
           "div_check := tile_div_check_x, items := fun (x: int) -> for y in "
           "0..H -> &d_b[MINDEX2(W, H, x, y)] ~> UninitCellOf(GMem)");
   /*@kernel_sequence*/ {
-    kernel_launch(MSIZE2(exact_div(H, 32), exact_div(W, 32)), MSIZE2(16, 32),
-                  sizeof(float) * (32 * 32) + 0);
     __ghost(assume,
-            "P := (exact_div(H, 32) * (exact_div(W, 32)) = MSIZE2(exact_div(H, "
-            "32), exact_div(W, 32)))");
+            "P := (MSIZE2(exact_div(H, 32), exact_div(W, 32)) = exact_div(H, "
+            "32) * (exact_div(W, 32)))");
     __ghost(assume,
             "P := (MSIZE2(exact_div(H, 32), exact_div(W, 32)) * MSIZE2(16, 32) "
             "= MSIZE4(exact_div(H, 32), exact_div(W, 32), 16, 32))");
     __ghost(assume,
-            "P := (MSIZE2(exact_div(H, 32), exact_div(W, 32)) = exact_div(H, "
-            "32) * (exact_div(W, 32)))");
+            "P := (exact_div(H, 32) * (exact_div(W, 32)) = MSIZE2(exact_div(H, "
+            "32), exact_div(W, 32)))");
+    kernel_launch(MSIZE2(exact_div(H, 32), exact_div(W, 32)), MSIZE2(16, 32),
+                  sizeof(float) * (32 * 32) + 0);
     __ghost(take_smem_token, "tok_sz := sizeof(float) * (32 * 32)");
     for (int bx = 0; bx < exact_div(W, 32); bx++) {
       __strict();

@@ -3,11 +3,12 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
+  !! Loop.unroll [nbMulti; cFunBody "iter_contract_ro"; cFor "x"];
+
+  Flags.typechecking_mode := Unverified;
+
   !! Loop.unroll [cFor "i"];
   !! Loop.unroll [cFor "j"];
 
   !! Loop.unroll ~nest_of:2 [cFor "k"];
-
-  !! Loop.unroll [nbMulti; cFunBody "iter_contract_ro"; cFor "x"];
-
 )

@@ -293,32 +293,33 @@ let [@warning "-11"] get_loop_contract_generators res loop_mode range contract: 
   | GpuThread -> Some
     (compute_thread_for_ctx_ranges range res)
   | _ -> None in
-  let grp_apply_fn = match threadfor_info with
-    | Some info ->
-      (* TODO: should the pre & post share the threadsctx variable or no? *)
-      let tctx = (new_anon_hyp (),formula_threadsctx info.r_out) in
-      fun range res -> (
-        let res = Resource_set.desyncgroup_range range res in
-        { res with linear = tctx :: res.linear }
-      )
-    | _ ->
-      (match loop_mode with
-      | MagicThread -> Resource_set.desyncgroup_range
-      | _ -> Resource_set.group_range) in
+  let par_reads_inside = parallel_reads_inside_loop range contract.parallel_reads in
 
   let contract_outside_loop () =
+    let grp_apply_fn = match threadfor_info with
+      | Some info ->
+        (* TODO: should the pre & post share the threadsctx variable or no? *)
+        let tctx = (new_anon_hyp (),formula_threadsctx info.r_out) in
+        fun range res -> (
+          Resource_set.add_linear tctx (Resource_set.desyncgroup_range range res)
+        )
+      | _ ->
+        (match loop_mode with
+        | MagicThread -> Resource_set.desyncgroup_range
+        | _ -> Resource_set.group_range) in
     let invariant_before = Resource_set.subst_loop_range_start range contract.invariant in
     let pre = grp_apply_fn range contract.iter_contract.pre in
     let pre = Resource_set.union invariant_before (Resource_set.add_linear_list contract.parallel_reads pre) in
     let pre = { pre with pure = contract.loop_ghosts @ pre.pure } in
     let invariant_after = Resource_set.subst_loop_range_end range contract.invariant in
     let post = grp_apply_fn range contract.iter_contract.post in
-    let post = Resource_set.add_linear_list contract.parallel_reads post in
+    let post = match loop_mode with
+    | Sequential | Parallel -> Resource_set.add_linear_list contract.parallel_reads post
+    | GpuThread | MagicThread -> Resource_set.union (Resource_set.desyncgroup_range range (Resource_set.make ~linear:par_reads_inside ())) post in
     let post = Resource_set.union invariant_after post in
     { pre; post } in
 
   let contract_inside_loop () =
-    let par_reads_inside = parallel_reads_inside_loop range contract.parallel_reads in
     let pre = Resource_set.union contract.invariant (Resource_set.add_linear_list par_reads_inside contract.iter_contract.pre) in
     let index_in_range_hyp = (new_anon_hyp (), formula_in_range (trm_var range.index) (formula_loop_range range)) in
     let pre = { pre with pure = (range.index, typ_int) :: index_in_range_hyp :: contract.loop_ghosts @ pre.pure } in
