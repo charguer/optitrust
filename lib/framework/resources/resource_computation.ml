@@ -201,10 +201,6 @@ let missing_types_in_contracts = ref false
 let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
   let typ = match t.desc with
   | Trm_var v ->
-    if String.starts_with ~prefix:"__hole" v.name then
-      (* FIXME: hole hack *)
-      unsome_or_trm_fail t "unknown hole type" t.typ
-    else
     begin match Resource_set.find_pure v (Resource_set.make ~pure:env.res ()) with
     | Some typ -> typ
     | None -> failwith "Variable '%s' could not be found in environment" (var_to_string v)
@@ -291,6 +287,8 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
     if gargs <> [] then failwith "Pure functions do not have ghost arguments";
     if gbind <> [] then failwith "Pure functions do not have ghost output bindings";
     begin match f.desc, args with
+    (* | Trm_var h, [t] when var_eq h Trm_unify.hole_var ->
+      t *)
     | Trm_prim (_, Prim_binop Binop_array_access), [arr; index] ->
       let arr_typ = compute_pure_typ env arr in
       let index_typ = compute_pure_typ env index in
@@ -481,6 +479,10 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       (fun inner_formula idx range inner_formula_candidate () ->
         formula_group idx range (may_coerce_desyncgroup inner_formula_candidate inner_formula)
       );
+      Pattern.((formula_read_only __ !__) ^* (formula_read_only !__ !__))
+      (fun inner_formula frac inner_formula_candidate () ->
+        formula_read_only ~frac (may_coerce_desyncgroup inner_formula_candidate inner_formula)
+      );
       Pattern.__ (fun () -> formula_candidate)
     ] in
 
@@ -541,6 +543,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       function faster on most frequent cases *)
     extract (fun (h, formula_candidate) ->
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
+      let formula_candidate = may_coerce_desyncgroup formula_candidate formula in
       let* evar_ctx = trm_unify formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
@@ -1268,18 +1271,21 @@ let sync_simplification ?(magic = false) (res: resource_set): resource_set =
       formula_If cond (simplify mem_fn h));
     Pattern.(formula_desyncgroup !__ !__ !__) (fun idx bound sub () ->
       formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (simplify mem_fn sub));
+    Pattern.(formula_read_only !__ !__) (fun frac inner () ->
+      formula_read_only ~frac (simplify mem_fn inner)
+    );
     Pattern.(formula_points_to !__ !__ !__) (fun var model mem_typ () ->
       if magic then t else
       match (find_mem_fn_proof mem_fn mem_typ) with
       | Some _ -> t
       | None -> formula_sync mem_fn t
-      );
+    );
     Pattern.(formula_uninit_cell !__ !__) (fun var mem_typ () ->
       if magic then t else
       match (find_mem_fn_proof mem_fn mem_typ) with
       | Some _ -> t
       | None -> formula_sync mem_fn t
-      );
+    );
     Pattern.__ (fun () ->
       if magic then t else formula_sync mem_fn t)
   ] in
@@ -2216,6 +2222,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_formula.var_spec_override_ret_implicit, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_prop));
   Resource_trm.var_ghost_ret, typ_type;
   Resource_trm.var_ghost_fn, typ_type; (* Maybe add an alias to trm_fun [] trm_ghost_ret *)
+  Trm_unify.hole_var, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_var typ));
   Resource_trm.var_arbitrary, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_var typ));
   Resource_trm.var_admit, (let prop = new_var "P" in typ_pure_fun [prop, typ_prop] (typ_var prop));
   Resource_trm.var_admitted, typ_auto;

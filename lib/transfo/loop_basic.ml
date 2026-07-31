@@ -421,6 +421,7 @@ let fission_on (mark_loops : mark) (mark_between_loops : mark) (index : int) (t 
    writes in first loop after index i. *)
 let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : mark = no_mark) (tg : target) : unit =
   (* TODO: figure out best nobrace/iter/resource interleaving *)
+  if Flags.annotated_and_verified () then Resources.ensure_computed ();
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun p_before ->
       let (p_seq, split_i) = Path.extract_last_dir_before p_before in
@@ -428,7 +429,6 @@ let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : 
       (* DEBUG: let debug_p = Path.parent p_loop in
       Show.res ~msg:"res1" ~ast:(get_trm_at_exn (target_of_path debug_p))
       ); *)
-      if Flags.annotated_and_verified () then Resources.ensure_computed ();
       apply_at_path (fission_on mark_loops mark_between_loops split_i) p_loop;
     ) tg
   );

@@ -616,6 +616,7 @@ let rec formula_has_desyncgroups (f: formula): bool =
   Pattern.pattern_match f [
     Pattern.(formula_desyncgroup __ __ __) (fun () -> true);
     Pattern.(formula_group __ __ !__) (fun body () -> formula_has_desyncgroups body);
+    Pattern.(formula_read_only __ !__) (fun inner () -> formula_has_desyncgroups inner);
     Pattern.(__) (fun () -> false)
   ]
 
