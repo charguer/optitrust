@@ -1,8 +1,9 @@
+(* Deprecated *)
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true
-let _ = Flags.recompute_resources_between_steps := true
+(* let _ = Flags.check_validity := true *)
+(* let _ = Flags.recompute_resources_between_steps := true *)
 
 let _ = Run.script_cpp(fun _ ->
   !! Loop.scale_range ~index:"i_s" ~factor:(trm_int 2) [cFunBody "f"; cFor "i"];

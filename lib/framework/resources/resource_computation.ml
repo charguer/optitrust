@@ -201,10 +201,6 @@ let missing_types_in_contracts = ref false
 let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
   let typ = match t.desc with
   | Trm_var v ->
-    if String.starts_with ~prefix:"__hole" v.name then
-      (* FIXME: hole hack *)
-      unsome_or_trm_fail t "unknown hole type" t.typ
-    else
     begin match Resource_set.find_pure v (Resource_set.make ~pure:env.res ()) with
     | Some typ -> typ
     | None -> failwith "Variable '%s' could not be found in environment" (var_to_string v)
@@ -291,6 +287,8 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
     if gargs <> [] then failwith "Pure functions do not have ghost arguments";
     if gbind <> [] then failwith "Pure functions do not have ghost output bindings";
     begin match f.desc, args with
+    (* | Trm_var h, [t] when var_eq h Trm_unify.hole_var ->
+      t *)
     | Trm_prim (_, Prim_binop Binop_array_access), [arr; index] ->
       let arr_typ = compute_pure_typ env arr in
       let index_typ = compute_pure_typ env index in
@@ -333,7 +331,7 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
         Pattern.__ (fun () -> failwith "Unknown representation predicate '%s'" (Ast_to_c.ast_to_string repr))
       ];
       typ_hprop
-    | Trm_var xf, [ptr; alloc_cells] when var_eq xf var_free ->
+    | Trm_var xf, [ptr; alloc_cells] when var_eq xf var_free || var_eq xf var_auto_free ->
       let ptr_typ = compute_pure_typ env ptr in
       let alloc_cells_typ = compute_pure_typ env alloc_cells in
       assert (is_typ_ptr ptr_typ);
@@ -467,11 +465,23 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   (* DesyncGroup coercion *)
   (* TODO: does this need to change the formula instantiation? "Formula_inst.inst_forget_group?"
     how would it combine with Uninit? *)
-  let desyncgroup_coerce formula_candidate =
-    Pattern.pattern_match formula_candidate [
-      Pattern.(formula_group !__ (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) !__)
-      (fun idx dim inner_formula () ->
-        formula_desyncgroup idx dim inner_formula
+  let rec may_coerce_desyncgroup formula_candidate formula =
+    Pattern.pattern_match (formula, formula_candidate) [
+      Pattern.((formula_desyncgroup __ __ !__) ^* (formula_group !__ (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) !__))
+      (fun inner_formula idx dim inner_formula_candidate () ->
+        formula_desyncgroup idx dim (may_coerce_desyncgroup inner_formula_candidate inner_formula)
+      );
+      Pattern.((formula_desyncgroup __ __ !__) ^* (formula_desyncgroup !__ !__ !__))
+      (fun inner_formula idx dim inner_formula_candidate () ->
+        formula_desyncgroup idx dim (may_coerce_desyncgroup inner_formula_candidate inner_formula)
+      );
+      Pattern.((formula_group __ __ !__) ^* (formula_group !__ !__ !__))
+      (fun inner_formula idx range inner_formula_candidate () ->
+        formula_group idx range (may_coerce_desyncgroup inner_formula_candidate inner_formula)
+      );
+      Pattern.((formula_read_only __ !__) ^* (formula_read_only !__ !__))
+      (fun inner_formula frac inner_formula_candidate () ->
+        formula_read_only ~frac (may_coerce_desyncgroup inner_formula_candidate inner_formula)
       );
       Pattern.__ (fun () -> formula_candidate)
     ] in
@@ -501,14 +511,12 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
     (* Used by {!subtract_linear_resource_item} in the case where [formula] is not a read-only resource. *)
     (* LATER: Improve the structure of the linear_resource_set to make this
       function faster on most frequent cases *)
-    let is_desyncgroup = Option.is_some (formula_desyncgroup_inv formula) in
     extract (fun (candidate_name, formula_candidate) ->
 (*      (try
         Printf.printf "ref: (%s) %s\ncandidate: (%s) %s \n\n" (if uninit then "UNINIT" else "INIT") (Ast_to_c.ast_to_string formula) (if (is_formula_uninit formula_candidate) then "UNINIT" else "INIT") (Ast_to_c.ast_to_string formula_candidate)
       with CannotTransformIntoUninit _ -> ());*)
       try
-
-        let formula_candidate = if is_desyncgroup then (desyncgroup_coerce formula_candidate) else formula_candidate in
+        let formula_candidate = may_coerce_desyncgroup formula_candidate formula in
         let inst_by, formula_to_unify =
           (* Check for possible Uninit coercion if formula_candidate is not already uninit *)
           if uninit && not (is_formula_uninit formula_candidate) then (
@@ -535,6 +543,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       function faster on most frequent cases *)
     extract (fun (h, formula_candidate) ->
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
+      let formula_candidate = may_coerce_desyncgroup formula_candidate formula in
       let* evar_ctx = trm_unify formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
@@ -1191,22 +1200,33 @@ let handle_resource_errors (t: trm) (phase:resource_error_phase) (exn: exn) =
 let empty_usage_map = Var_map.empty
 
 let delete_stack_allocs instrs res =
-  let extract_let_mut ti =
+  let extract_let ti =
     match trm_let_inv ti with
-    | Some (x, _, t) ->
+    | Some (x, _, t) -> [x]
+      (* DEPRECATED:
       begin match trm_ref_any_inv t with
       (* TODO: Stack allocations (i.e. automatic free) for other types of cells (#26) *)
       | Some ty -> [formula_uninit_cells_var ~mem_typ:mem_typ_any ty x]
       | None -> []
-      end
+      end *)
     | None -> []
   in
-  let to_free = List.concat_map extract_let_mut instrs in
+  let may_be_freed = List.concat_map extract_let instrs in
+  let may_be_freed = Var_set.of_list may_be_freed in
   (*Tools.debug "Trying to free %s from %s\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
-  let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), f)) to_free) () in
+  let res_to_extract = List.concat_map
+    (fun (x, f) ->
+      begin match Resource_formula.formula_auto_free_inv f with
+      | Some (base_ptr, cells) when Var_set.mem base_ptr may_be_freed ->
+        [(new_anon_hyp (), cells); (new_anon_hyp (), f)]
+      | _ -> []
+      end
+    )
+    res.linear
+  in
+  let res_to_free = Resource_set.make ~linear:res_to_extract () in
   let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
   (removed_res, linear)
-
 
 let check_pure_resource_types ~(pure_ctx: pure_env) (pure_res: pure_resource_set): pure_env =
   List.fold_left (fun pure_ctx (pure_var, typ) ->
@@ -1241,20 +1261,33 @@ let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): uni
   If [magic] is true, fM is not checked (works on any kind of Cell). *)
 let sync_simplification ?(magic = false) (res: resource_set): resource_set =
   let find_mem_fn_proof (mem_fn: trm) (mem: trm) =
-    let proof_type = (trm_apps mem_fn [mem]) in
-    List.find_opt (fun (_,r) -> Trm_unify.are_same_trm proof_type r) res.pure in
+    let proof_type = trm_apps mem_fn [mem] in
+    List.find_opt (fun (_,r) -> Trm_unify.are_same_trm proof_type r) res.pure
+  in
   let rec simplify (mem_fn: trm) (t: trm) = Pattern.pattern_match t [
     Pattern.(formula_group !__ !__ !__) (fun idx range sub () ->
       formula_group idx range (simplify mem_fn sub));
+    Pattern.(formula_If !__ !__) (fun cond h () ->
+      formula_If cond (simplify mem_fn h));
     Pattern.(formula_desyncgroup !__ !__ !__) (fun idx bound sub () ->
       formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (simplify mem_fn sub));
+    Pattern.(formula_read_only !__ !__) (fun frac inner () ->
+      formula_read_only ~frac (simplify mem_fn inner)
+    );
     Pattern.(formula_points_to !__ !__ !__) (fun var model mem_typ () ->
       if magic then t else
       match (find_mem_fn_proof mem_fn mem_typ) with
       | Some _ -> t
       | None -> formula_sync mem_fn t
-      );
-    Pattern.__ (fun () -> t)
+    );
+    Pattern.(formula_uninit_cell !__ !__) (fun var mem_typ () ->
+      if magic then t else
+      match (find_mem_fn_proof mem_fn mem_typ) with
+      | Some _ -> t
+      | None -> formula_sync mem_fn t
+    );
+    Pattern.__ (fun () ->
+      if magic then t else formula_sync mem_fn t)
   ] in
   let simplify_if_sync (t: trm) = match (formula_sync_inv t) with
   | Some (mem_fn, t) -> simplify mem_fn t
@@ -1437,7 +1470,7 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
         [init_var, typ], [typ], [init_var], formula_cells_var ~mem_typ:mem_typ_any typ var_result (trm_var init_var)
     in
     let post_linear = match prim with
-      | Prim_ref | Prim_ref_uninit -> [new_anon_hyp (), alloc_res]
+      | Prim_ref | Prim_ref_uninit -> [new_anon_hyp (), alloc_res; new_anon_hyp (), formula_auto_free var_result (formula_uninit alloc_res)]
       | _ -> [new_anon_hyp (), alloc_res; new_anon_hyp (), formula_free var_result (formula_uninit alloc_res)]
     in
     let contract = {
@@ -2189,6 +2222,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_formula.var_spec_override_ret_implicit, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_prop));
   Resource_trm.var_ghost_ret, typ_type;
   Resource_trm.var_ghost_fn, typ_type; (* Maybe add an alias to trm_fun [] trm_ghost_ret *)
+  Trm_unify.hole_var, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_var typ));
   Resource_trm.var_arbitrary, (let typ = new_var "T" in typ_pure_fun [typ, typ_type] (typ_var typ));
   Resource_trm.var_admit, (let prop = new_var "P" in typ_pure_fun [prop, typ_prop] (typ_var prop));
   Resource_trm.var_admitted, typ_auto;

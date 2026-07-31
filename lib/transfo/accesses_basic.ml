@@ -1,6 +1,10 @@
 open Prelude
 open Target
 
+(* DEBUG flags *)
+
+let debug_transform = false
+
 type transform_ret = {
   typedvar : (var * typ option) option ref;
   matched_pre : formula list ref;
@@ -209,16 +213,17 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
   ?(mark_to_prove : mark = no_mark)
   ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
   (tg : target) : unit =
+  Resources.required_for_check ();
   Marks.with_marks (fun next_mark -> Target.iter (fun p ->
     let (p_seq, span) = Path.extract_last_dir_span p in
     let (mark_to_prove, mark_preprocess, mark_postprocess, mark_handled_resources) =
-      if !Flags.check_validity && not !Flags.preserve_specs_only then begin
+      if (* !Flags.check_validity && not !Flags.preserve_specs_only *) Flags.annotated_and_verified () then begin
         (Mark.reuse_or_next next_mark mark_to_prove,
          Mark.reuse_or_next next_mark mark_preprocess,
          Mark.reuse_or_next next_mark mark_postprocess,
          next_mark ())
       end else
-        (mark_to_prove, mark_preprocess, mark_postprocess, no_mark)
+      (mark_to_prove, mark_preprocess, mark_postprocess, no_mark)
     in
     let ret = {
       typedvar = ref None;
@@ -230,60 +235,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
       pure_post = ref [];
     } in
     Target.apply_at_path (transform_on f_get f_set f_cancel to_prove address_pattern mark_to_prove mark_preprocess mark_postprocess mark_handled_resources ret span) p_seq;
-    if !Flags.check_validity && not !Flags.preserve_specs_only then begin
-      (* TODO: factorize with local_name, should this be a Resource.assert_??? feature? may also be decomposed via elim_reuse? *)
-      let error = "did not find on which inner pointer variable addresses where based" in
-      let (v, ty_opt) = Option.unsome ~error !(ret.typedvar) in
-      let typ = Option.unsome ~error ty_opt in
-      Trace.without_resource_computation_between_steps (fun () ->
-      let f_body_mark = next_mark () in
-      step_backtrack ~discard_after:true (fun () ->
-        let f = new_var "isolate_addr" in
-        let v_tr = new_var (v.name ^ "_tr") in
-        Target.apply_at_path (fun t_seq ->
-          let resolve_at tg =
-            let idxs = Target.resolve_target_between_children tg t_seq in
-            match idxs with
-            | [i] -> i
-            | _ -> failwith "expected a single index"
-          in
-          let span: Dir.span = {
-            start = resolve_at [cMarkSpanStop mark_preprocess];
-            stop = resolve_at [cMarkSpanStart mark_postprocess];
-          } in
-          let formulas_to_res = List.map (fun r -> Resource_formula.new_anon_hyp (), r) in
-          (* let linear_original res = formulas_to_res (
-            (Resource_formula.formula_cell_var ~typ v_tr) :: res
-          ) in *)
-          let isolated_linear res = formulas_to_res (
-            List.map (trm_subst_var v (trm_var ~typ v_tr)) res
-          ) in
-          update_span_helper span t_seq (fun instrs ->
-            let isolated_pre = isolated_linear !(ret.matched_pre) in
-            let isolated_post = isolated_linear !(ret.matched_post) in
-            let others_pre = formulas_to_res !(ret.others_pre) in
-            let others_post = formulas_to_res !(ret.others_post) in
-            let pre = Resource_set.make ~pure:(List.filter (fun (h, f) -> f = Resource_formula.typ_frac) !(ret.pure_pre)) ~linear:(isolated_pre @ others_pre) () in
-            (* TODO: Add ensured linear vars to post.pure *)
-            let post = Resource_set.make (*~pure:(List.filter (fun (h, f) -> f <> Resource_formula.typ_frac) !(ret.pure_post))*) ~linear:(isolated_post @ others_post) () in
-            let post = { post with linear = snd (Resource_computation.delete_stack_allocs (Mlist.to_list instrs) post) } in
-            let contract = FunSpecContract { pre; post } in
-            let f_body = trm_add_mark f_body_mark (trm_copy (trm_seq instrs)) in
-            let f_def = trm_let_fun ~contract f typ_unit [(v_tr, typ)] f_body in
-            (* TODO: instead of duplicating code, call f, but deactivate stack deallocation in the body of f ? *)
-            (* let f_call = trm_apps (trm_var f) [trm_var v] in *)
-            [Trm f_def; (* Trm f_call; *) TrmMlist instrs]
-          )
-        ) p_seq;
-        (* DEBUG: Show.(trm ~style:(internal ~print_var_id:false ()) (get_trm_at_exn (target_of_path p_seq))); *)
-        Target.iter (fun p ->
-          Target.apply_at_path (trm_subst_var v (trm_var ~typ v_tr)) p
-        ) [nbAny; cMark f_body_mark; cMark mark_handled_resources];
-        if not !Flags.preserve_specs_only
-          then Resources.ensure_computed_at p_seq;
-      ));
-      Trace.justif "all of the transformed gets and sets operate on resources found at the begining of the scope"
-    end;
+    if debug_transform then Show.trm ~style:(Style.optilambda ()) ~msg:"term at p_seq" (resolve_path p_seq);
   ) tg)
 
 (** <private> *)
@@ -339,9 +291,9 @@ let%transfo transform_arith ~(op:transform_arith_op) ?(inv:bool=false) ~(factor:
   ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
   (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->
-  if !Flags.check_validity && not !Flags.preserve_specs_only then
+  (* if !Flags.check_validity && not !Flags.preserve_specs_only then
     if not (Resources.trm_is_pure factor) then
-      trm_fail factor "basic variable scaling does not support non-pure arguments";
+      trm_fail factor "basic variable scaling does not support non-pure arguments"; *)
   let () =
     match op with
     | Transform_arith_add -> Trace.justif "factor is pure";
@@ -366,9 +318,9 @@ let%transfo transform_arith ~(op:transform_arith_op) ?(inv:bool=false) ~(factor:
   )
 
 let%transfo transform_arith_immut ~(op:transform_arith_op) ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
-  if !Flags.check_validity && not !Flags.preserve_specs_only then
+  (* if !Flags.check_validity && not !Flags.preserve_specs_only then
     if not (Resources.trm_is_pure factor) then
-      trm_fail factor "basic variable scaling does not support non-pure arguments";
+      trm_fail factor "basic variable scaling does not support non-pure arguments"; *)
   Trace.justif "factor is pure and will be proved != 0";
   let typ = Option.unsome ~error:"Arith.scale: factor needs to have a known type" factor.typ in
   let op_get, op_set =

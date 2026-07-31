@@ -1,7 +1,8 @@
+(* Deprecated *)
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true
+(* let _ = Flags.check_validity := true *)
 
 let _ = Run.script_cpp (fun () ->
   !! Loop.hoist_expr ~dest:[tBefore; cFor "i"] "t2" [cFor "i"; cArrayRead "t"];

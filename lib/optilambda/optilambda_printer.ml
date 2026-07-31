@@ -917,6 +917,8 @@ and let_to_doc (style : Optilambda_style.style) ((v, ty) : typed_var) (body : tr
 and app_to_doc (style : Optilambda_style.style) ~(result_typ : typ) (f : trm) (args : trm list) (ghost_args : resource_item list)
     (ghost_bind : (var option * var) list) : document =
   match (f.desc, args) with
+  | Trm_var ignore_var, [arg] when var_eq ignore_var var_ignore ->
+    trm_to_doc_at style 0 arg
   | Trm_var group_var, [ { desc = Trm_apps ({ desc = Trm_var range_var; _ }, [ start; stop; step ], [], []); _ };
                          { desc = Trm_fun ([ (index, _) ], _, body, _); _ } ]
     when style.representation = Surface && group_var.name = "Group" && group_var.namespaces = [] && range_var.name = "range"
@@ -980,8 +982,13 @@ and app_to_doc (style : Optilambda_style.style) ~(result_typ : typ) (f : trm) (a
   | Trm_prim (_, Prim_unop Unop_get), [ arg ] when is_explicit_internal style ->
       name_with_optional_type_arg style "get" result_typ ^^ parens_doc (trm_to_doc_at style 0 arg)
   | Trm_prim (_, Prim_unop Unop_get), [ arg ] -> trm_to_doc_at style 8 arg
-  | Trm_prim (_, Prim_unop Unop_address), [ arg ] -> string "&" ^^ trm_to_doc_at style 8 arg
-  | Trm_prim (_, Prim_unop Unop_minus), [ arg ] -> string "-" ^^ trm_to_doc_at style 8 arg
+  | Trm_prim (_, Prim_unop Unop_address), [ arg ] when is_surface style -> string "&" ^^ trm_to_doc_at style 8 arg
+  | Trm_prim (_, Prim_unop Unop_minus), [ arg ] when is_surface style -> string "-" ^^ trm_to_doc_at style 8 arg
+  | Trm_prim (_, Prim_unop Unop_plus), [ arg ] when is_surface style -> string "+" ^^ trm_to_doc_at style 8 arg
+  | Trm_prim (_, Prim_unop Unop_pre_incr), [ arg ] when is_surface style -> twice plus ^^ trm_to_doc_at style 8 arg
+  | Trm_prim (_, Prim_unop Unop_post_incr), [ arg ] when is_surface style -> trm_to_doc_at style 8 arg ^^ twice plus
+  | Trm_prim (_, Prim_unop Unop_pre_decr), [ arg ] when is_surface style -> twice minus ^^ trm_to_doc_at style 8 arg
+  | Trm_prim (_, Prim_unop Unop_post_decr), [ arg ] when is_surface style -> trm_to_doc_at style 8 arg ^^ twice minus
   | Trm_prim (_, Prim_unop Unop_neg), [ arg ] -> string "not" ^^ blank 1 ^^ trm_to_doc_at style 8 arg
   | Trm_prim (_, Prim_unop (Unop_cast cast_ty)), [ arg ] ->
       string "cast" ^^ angles_doc (typ_to_doc style cast_ty) ^^ parens_doc (trm_to_doc_at style 0 arg)
@@ -1062,6 +1069,7 @@ and instrs_to_block_items (style : Optilambda_style.style) (instrs : trm list) :
     match instrs with
     | [] -> List.rev acc
     | [ { desc = Trm_abort (Ret (Some ret)); _ } ] -> List.rev (FinalExpr (trm_to_doc_at style 0 ret) :: acc)
+    | instr :: rest when trm_is_include instr -> aux acc rest
     | instr :: rest ->
         let is_fun = is_function_definition instr in
         let acc = if is_fun && acc <> [] then Blank :: acc else acc in
@@ -1167,7 +1175,9 @@ and trm_to_doc_at (style : Optilambda_style.style) (ctx_prec : int) (t : trm) : 
         | Trm_lit lit -> lit_to_doc style lit
         | Trm_prim (ty, prim) -> prim_to_doc style ty prim
         | Trm_let (typed_var, body) -> let_to_doc style typed_var body
-        | Trm_let_mult bindings -> block_doc (List.map (fun (typed_var, body) -> let_to_doc style typed_var body) bindings)
+        | Trm_let_mult bindings ->
+          (* NOTE: should this case exist ? *)
+          semi_sep (List.map (fun (typed_var, body) -> let_to_doc style typed_var body) bindings)
         | Trm_predecl typed_var -> string "let" ^^ blank 1 ^^ typed_var_to_doc style typed_var
         | Trm_fun (args, ret_ty, body, spec) -> fun_def_to_doc style None args ret_ty spec body
         | Trm_typedef _ -> typedef_to_doc style t
@@ -1227,12 +1237,11 @@ and trm_to_doc (style : Optilambda_style.style) (t : trm) : document = trm_to_do
     output describes the source program without expanding every included declaration. *)
 let program_to_doc (style : Optilambda_style.style) ~(header : string) (t : trm) : document =
   let include_docs = header_to_docs header in
-  let program =
-    match t.desc with
+  let program = match t.desc with
     | Trm_seq (instrs, result) ->
-        let main_file = main_source_file t in
-        trm_to_doc style { t with desc = Trm_seq (Mlist.filter (fun instr -> not (is_from_included_file main_file instr)) instrs, result) }
-    | _ -> trm_to_doc style t
+      let main_file = main_source_file t in
+      separate (semi ^^ twice hardline) (List.map (trm_to_doc style) (List.filter (fun instr -> not (is_from_included_file main_file instr)) (Mlist.to_list instrs)))
+    | _ -> failwith "expected root sequence on main file"
   in
   match include_docs with
   | [] -> program

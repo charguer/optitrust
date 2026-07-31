@@ -48,7 +48,7 @@ let default_simpl tg = simpl_surrounding_expr (fun x -> compute (gather x)) (nbA
 *)
 let default_simpl tg = simpl_surrounding_expr gather (nbAny :: tg)
 
-let do_nothing tg = Marks.clean ~indepth:false (nbAny :: tg)
+let no_simpl tg = Marks.clean ~indepth:false (nbAny :: tg)
 
 let arith_goal_solver ((x, formula): resource_item) (evar_ctx: Resource_computation.unification_ctx): Resource_computation.unification_ctx option =
   let open Resource_formula in
@@ -65,7 +65,11 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: Resource_computat
     Pattern.(trm_apps2 (trm_specific_var var_is_subrange) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step () ->
       Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_trunc_mod_int sub_step step) (trm_int 0))
     );
-    Pattern.(formula_is_true (trm_eq !__ !__)) (fun t1 t2 () -> check_eq t1 t2);
+    Pattern.(formula_is_true (trm_eq !__ !__)) (fun t1 t2 () ->
+      (* FIXME: built-in syntactic eq (refl) solving in typechecker outside of arith ?
+         could also accept triggering variable unifications. *)
+      if are_same_trm t1 t2 then true else check_eq t1 t2
+    );
     Pattern.(formula_is_true (trm_neq !__ !__)) (fun t1 t2 () -> check_neq t1 t2);
     Pattern.(formula_is_true (trm_gt !__ !__)) (fun t1 t2 () -> check_gt t1 t2);
     Pattern.(formula_is_true (trm_ge !__ !__)) (fun t1 t2 () -> check_geq t1 t2);

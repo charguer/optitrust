@@ -27,19 +27,19 @@ let set_explicit_on (t : trm) : trm =
       | _ -> trm_fail t (sprintf "could not get the declaration of typedef for %s" (var_to_string tid))
     in
     let field_list = Internal.get_field_list struct_def in
-    let check_pure = if !Flags.check_validity then (fun name x ->
+    (* let check_pure = if !Flags.check_validity then (fun name x ->
       if Resources.trm_is_pure x then Trace.justif (sprintf "duplicated %s is pure" name)
     ) else (fun name x ->
       ()
-    ) in
+    ) in *)
     (* already checked by set contract:
        check_pure "lhs" lt; *)
-    if !Flags.check_validity then Trace.justif "duplicated terms are pure";
+    (* if !Flags.check_validity then Trace.justif "duplicated terms are pure"; *)
     (* clause is Reads or Writes *)
     let unfold_cells clause_locs =
       let open Resource_formula in
       let open Resource_contract in
-      if !Flags.check_validity then begin
+      if (* !Flags.check_validity *) Flags.annotated () then begin
         let make_admitted pure linear1 linear2 =
           Resource_trm.ghost_admitted {
             pre = Resource_set.make ~pure ~linear:linear1 ();
@@ -107,7 +107,7 @@ let set_explicit_on (t : trm) : trm =
       (unfold_cells [Writes,lt], set_one)
     | _ ->  (* other cases are included here *)
       (* lt = rt --> lt.f = rt.f *)
-      check_pure "rhs" rt;
+      (* check_pure "rhs" rt; *)
       let set_one i (sf, ty) =
         trm_set (trm_struct_access ~field_typ:ty ~struct_typ lt sf) (trm_struct_get ~field_typ:ty ~struct_typ rt sf)
       in

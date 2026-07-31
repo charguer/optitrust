@@ -183,6 +183,8 @@ and constr =
   | Constr_namespace of constr_name
   (* Constraint to match a term when a predicate is true *)
   | Constr_pred of (trm -> bool)
+  (* Constraint to match inside a term of a given kind *)
+  | Constr_kind of trm_kind * target
 
 (* LATER: optimize constr_of_path; should be recognized by resolution,
    and processed more efficiently; checking that the start of the path
@@ -386,6 +388,9 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_omp _ -> c
   | Constr_namespace _ -> c
   | Constr_pred _ -> c
+  | Constr_kind (k, tg) ->
+    let s_tg = aux tg in
+    Constr_kind (k, s_tg)
 
 (** [get_target_regexp_kinds tgs]: gets the list of trm_kinds of the terms
    for which we would potentially need to use the string representation,
@@ -458,7 +463,7 @@ let target_to_target_struct ?(default_occ = ExpectNb 1) (tr : target) : target_s
     in
   List.iter process_constr tr;
   let tgs = {
-    target_path = List.filter (function | Constr_relative _ | Constr_occurrences _ -> false | _ -> true) tr;
+    target_path = List.filter (function | Constr_relative _ | Constr_occurrences _ | Constr_incontracts -> false | _ -> true) tr;
     target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
     target_occurrences = begin match !occurences with | None -> default_occ | Some oc -> oc end;
     target_incontracts = !incontracts;
@@ -734,7 +739,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
     check_target p_cond cond &&
     check_target p_step step &&
     check_target p_body body
-  | Constr_for (p_index, p_mode, p_start, p_direction, p_stop, p_step, p_body), Trm_for(range, mode, body, _) ->
+  | Constr_for (p_index, p_mode, p_start, p_direction, p_stop, p_step, p_body), Trm_for(range, mode, body, contract) ->
     let direction_match = match p_direction with
     | None -> true
     | Some d -> d = range.direction in
@@ -789,7 +794,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
     check_name name x.name
   | Constr_lit pred_l, Trm_lit l ->
     pred_l l
-  | Constr_fun (cl_args, ty_pred, p_body), Trm_fun (args, tx, body, _) ->
+  | Constr_fun (cl_args, ty_pred, p_body), Trm_fun (args, tx, body, contract) ->
     ty_pred tx &&
     check_args cl_args args &&
     check_target p_body body
@@ -849,6 +854,8 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
   | Constr_omp (pred, _), _ -> trm_has_pragma pred t
   | Constr_namespace cn, Trm_namespace (name, _, _) -> check_name cn name
   | Constr_pred pred, _ -> pred t
+  | Constr_kind (k, tg), _ ->
+    match_regexp_trm_kind k t && check_target tg t
   | _ -> false
 
 (** [check_list ~incontracts ~depth lpred tl]: checks if [tl] satisfy the predicate [lpred] *)

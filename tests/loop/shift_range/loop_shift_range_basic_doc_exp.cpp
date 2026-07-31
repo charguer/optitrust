@@ -3,7 +3,7 @@
 int main() {
   int x = 0;
   for (int i2 = 0; i2 < 12 - 2; i2++) {
-    const int i = i2 - -2;
+    const int i = i2 - (-2);
     __ghost(assume, "P := in_range(i, 2..12)");
     x += i;
   }

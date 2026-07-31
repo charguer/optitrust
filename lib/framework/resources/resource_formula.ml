@@ -269,6 +269,19 @@ let var_free = toplevel_var "Free"
 let formula_free (base_ptr: var) (cells: formula) : formula =
   trm_apps ~annot:formula_annot (trm_var var_free) [trm_var base_ptr; cells]
 
+let var_auto_free = toplevel_var "AutoFree"
+let trm_auto_free = trm_var var_auto_free
+
+let formula_auto_free (base_ptr: var) (cells: formula) : formula =
+  trm_apps ~annot:formula_annot (trm_var var_auto_free) [trm_var base_ptr; cells]
+
+let formula_auto_free_inv (f: formula) : (var * formula) option =
+  Pattern.pattern_match_opt f [
+    Pattern.(trm_apps2 (trm_specific_var var_auto_free) (trm_var !__) !__) (fun base_ptr cells () ->
+      (base_ptr, cells)
+    );
+  ]
+
 let var_range = toplevel_var "range"
 let trm_range = trm_var var_range
 let formula_range (start: trm) (stop: trm) (step: trm) =
@@ -313,6 +326,15 @@ let formula_desyncgroup_inv (t: trm): (var * trm * formula) option =
     | Some ([index, _], _, body, _) -> Some (index, bound, body)
     | _ -> None
     end
+  | _ -> None
+
+let var_formula_If = toplevel_var "If"
+let formula_If (cond: formula) (h: formula) = trm_apps ~annot:formula_annot ~typ:typ_hprop (trm_var var_formula_If) [cond; h]
+
+let formula_If_inv (t: trm): (formula * formula) option =
+  match trm_apps_inv t with
+  | Some ({ desc = Trm_var v }, [cond; h]) when var_eq v var_formula_If ->
+    Some (cond, h)
   | _ -> None
 
 let var_threadsctx = toplevel_var "ThreadsCtx"
@@ -471,6 +493,14 @@ module Pattern = struct
       k
     | None -> raise Next
 
+  let formula_If f_cond f_h k t =
+    match formula_If_inv t with
+    | Some (cond, h) ->
+      let k = f_cond k cond in
+      let k = f_h k h in
+      k
+    | None -> raise Next
+
   let formula_range (f_begin: 'a -> trm -> 'b) (f_end: 'b -> trm -> 'c) (f_step: 'c -> trm -> 'd) =
     trm_apps3 (trm_specific_var var_range) f_begin f_end f_step
 
@@ -586,6 +616,7 @@ let rec formula_has_desyncgroups (f: formula): bool =
   Pattern.pattern_match f [
     Pattern.(formula_desyncgroup __ __ __) (fun () -> true);
     Pattern.(formula_group __ __ !__) (fun body () -> formula_has_desyncgroups body);
+    Pattern.(formula_read_only __ !__) (fun inner () -> formula_has_desyncgroups inner);
     Pattern.(__) (fun () -> false)
   ]
 

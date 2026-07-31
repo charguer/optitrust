@@ -2,7 +2,8 @@
 open Optitrust
 open Target
 
-let _ = Flags.check_validity := true
+(* let _ = Flags.check_validity := true *)
+let _ = Flags.typechecking_mode := Flags.AnnotatedAndVerified
 let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp (fun _ ->

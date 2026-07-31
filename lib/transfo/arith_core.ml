@@ -615,12 +615,14 @@ let get_purity (t : trm) : purity =
       deletable = true }
   end else begin
     let noinfo () = { redundant = false; deletable = false } in
-    if not !Flags.check_validity then begin
+    if not (* !Flags.check_validity *) (Flags.annotated_and_verified ()) then begin
       (* Second, if resources are never computed, don't try to read resources *)
       noinfo()
     end else begin
       try
         (* Else, try resource-based criteria *)
+        (* LATER Yanni : Resource functions should be the one looking up the flags :
+  The resource computation functions will compute the asked property iff the annotations are considered verified `Flags.annotated_and_verified ()` *)
         let redundant = Resources.is_not_self_interfering t in
         let deletable = Resources.is_deletable t in
         { redundant; deletable }

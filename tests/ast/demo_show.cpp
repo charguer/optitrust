@@ -6,7 +6,7 @@ int main() {
   x--;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("x ~> Cell");
+    __smodifies("&x ~> Cell");
     x++;
   }
 }

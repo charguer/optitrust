@@ -3,3 +3,5 @@ config/
 matmul.c
 tvm_code
 tvm_ir
+results
+uv.lock

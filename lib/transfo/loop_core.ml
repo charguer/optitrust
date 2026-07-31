@@ -78,8 +78,9 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
     let outer_range = { index = tile_index; start = (trm_int 0); direction = DirUp; stop = tile_count; step = trm_step_one () } in
     let inner_range = { index; start = (trm_int 0); direction = DirUp; stop = tile_size; step = trm_step_one () } in
 
-    if not contract.strict then begin
-      if !Flags.check_validity then begin
+    if Flags.unverified () then begin
+      (* if not (contract.strict) *)
+      (* if !Flags.check_validity then begin
         Trace.justif "loop range is checked to be dividable by tile size";
         trm_seq_nobrace_nomarks [
           div_check_assert;
@@ -87,7 +88,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
             trm_for ~mode inner_range (trm_subst_var index new_index body)
           ])
         ]
-      end else
+      end else *)
         trm_for ~mode outer_range (trm_seq_nomarks [
           trm_for ~mode inner_range (trm_subst_var index new_index body)
         ])
@@ -348,7 +349,7 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
     else
       trm_seq_nobrace_nomarks unrolled_body
   in
-  if not contract.strict then
+  if Flags.unverified () then
     outer_seq
   else
     let unroll_in_range_ghosts = List.map (fun new_index ->
@@ -490,7 +491,7 @@ let split_range_at (nb : int) (cut : trm)
   let split_index = trm_add_mark mark_simpl split_index in
   let range1 = { range with stop = split_index } in
   let range2 = { range with start = split_index } in
-  let (pre_ghosts, post_ghosts) = if !Flags.check_validity then begin
+  let (pre_ghosts, post_ghosts) = if (* !Flags.check_validity *) Flags.annotated () then begin
     if not (Resources.trm_is_pure split_index) then
       trm_fail split_index "basic range splitting does not support non-pure split point";
     let to_prove = Resource_trm.to_prove Resource_formula.(formula_is_subrange (formula_loop_range range1) (formula_loop_range range)) in

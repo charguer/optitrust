@@ -21,7 +21,8 @@ let path_of_loop_surrounding_mark_current_ast (m : mark) : path =
   loop_path
 
 (* internal *)
-let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : mark) : unit =
+let rec fission_rec (next_mark : unit -> mark) (nest_of : int)
+    (mark_loops : mark) (m_interstice : mark) : unit =
   if nest_of > 0 then begin
     (* Apply fission in innermost loop *)
     let p_interstice = Target.resolve_mark_exactly_one m_interstice in
@@ -38,7 +39,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     else if i = Mlist.length loop_body_instrs then
       Marks.add m_between [cPath p_loop; tAfter]
     else begin
-      let m_interstice = if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
+      let m_interstice = if Flags.annotated () then begin
         let m = next_mark () in
         Ghost_pair.fission ~mark_between:m (target_of_path p_interstice);
         Ghost_pure.fission ~mark_clears:m_clears [cPath p_loop_body; cMark m];
@@ -53,7 +54,8 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
       (* TODO: this is required if other transformations like Variable_basic.inline don't eagerly do it. *)
       Resources.make_strict_loop_contracts [cPath p_loop];
       fission_basic ~mark_loops:m_loops ~mark_between_loops:m_between [cPath p_loop_body; cMark m_interstice];
-      if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
+      if nest_of = 1 then Marks.add mark_loops [nbMulti; cMark m_loops];
+      if Flags.annotated () then begin
         Ghost_pair.minimize_all_in_seq [nbExact 2; cPath p_outer_seq; cMark m_loops; dBody];
         Resources.loop_minimize [nbExact 2; cPath p_outer_seq; cMark m_loops];
         Ghost_pure.remove_clears m_clears [occFirst; cPath p_outer_seq; cMark m_loops; dBody];
@@ -62,7 +64,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     end;
 
     (* And go through the outer loops *)
-    fission_rec next_mark (nest_of - 1) m_between
+    fission_rec next_mark (nest_of - 1) mark_loops m_between
   end
 
 (** Expects the target [tg] to point somewhere inside the body of a simple loop nest.
@@ -82,10 +84,12 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
       -> beware of nesting, should probably start with innermost paths
     for each for loop, apply fission on that loop, at the selected indices
     *)
-let%transfo fission ?(nest_of : int  = 1) (tg : target) : unit =
+let%transfo fission ?(nest_of : int  = 1)
+    ?(mark_loops : mark = no_mark)
+    (tg : target) : unit =
   Target.iter (fun p_interstice -> Marks.with_marks (fun next_mark ->
     let m_interstice = Marks.add_next_mark_on next_mark p_interstice in
-    fission_rec next_mark nest_of m_interstice
+    fission_rec next_mark nest_of mark_loops m_interstice
   )) tg
 
 (* TODO: factorize with non-bis
@@ -104,7 +108,7 @@ let%transfo move_out_bis
     Resources.make_strict_loop_contracts [];
     let loop_mark = next_mark () in
     Loop_basic.move_out ~loop_mark [cPath seq_path; Constr_depth (DepthAt 0); tSpan [tFirst] [cMarkSpanStop mark_moved]];
-    if !Flags.check_validity then Resources.loop_minimize [cMark loop_mark];
+    if (* !Flags.check_validity *) Flags.annotated () then Resources.loop_minimize [cMark loop_mark];
   ) tg)
 
 (* TODO: redundant with 'hoist' *)
@@ -273,7 +277,10 @@ let%transfo hoist ?(tmp_names : string = "${var}_step${i}")
             where [0] represents a loop for which no dimension should be created,
             and [1] represents a loop for which a dimension should be created.
 *)
-let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
+let%transfo hoist_instr_loop_list
+    ?(down : bool = false) (* TODO: infer from destination *)
+    (loops : int list)
+    (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Marks.with_marks (fun next_m ->
   let rec aux (i : int) (remaining_loops : int list) (p : path) : unit =
@@ -284,25 +291,38 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
       let instr_mark = next_m () in
       Trace.step ~kind:Step_group ~name:(sprintf "%d. move out" i) (fun () ->
       Marks.add instr_mark (target_of_path p);
+      if down then failwith "downward move out not supported yet";
       move_out_bis (target_of_path p);
       );
-      Target.iter (fun p -> aux (i + 1) rl p) [cMark instr_mark];
+      (* FIXME: hack on span API differences *)
+      let target = match Path.extract_last_dir p with
+      | _, Path.Nth _ -> [cMark instr_mark]
+      | _ -> [cMarkSpan instr_mark]
+      in
+      Target.iter (fun p -> aux (i + 1) rl p) target;
     | 1 :: rl ->
       (* create dimension. *)
-      let (idx, loop_path) = Path.index_in_surrounding_loop p in
+      let (_idx, loop_path) = Path.span_in_surrounding_loop p in
       let loop_target = target_of_path loop_path in
       let instr_mark = next_m () in
+      let mark_loops = next_m () in
       Trace.step ~kind:Step_group ~name:(sprintf "%d. hoist" i) (fun () ->
       Marks.add instr_mark (target_of_path p);
-      Instr.move_in_seq ~dest:[tFirst] (target_of_path p);
-      fission (loop_target @ [tAfter; cMark instr_mark]);
-      );
-      aux (i + 1) rl loop_path;
+      let move_dest = if not down then [tFirst] else [tLast] in
+      Instr.move_in_seq ~dest:move_dest (target_of_path p);
+      (* FIXME: hack on span API differences *)
+      let target = begin match Path.extract_last_dir p with
+      | _, Path.Nth _ -> if not down then [tAfter; cMark instr_mark] else [tBefore; cMark instr_mark]
+      | _ -> if not down then [tAfter; cMarkSpanStop instr_mark] else [tBefore; cMarkSpanStart instr_mark]
+      end in
+      fission ~mark_loops (loop_target @ target);
+      let next_loop_path = if not down then loop_path else Target.resolve_target_exactly_one [occLast; cMark mark_loops] in
+      aux (i + 1) rl next_loop_path)
     | _ -> failwith "expected list of 0 and 1s"
   in
   Target.iter (fun p ->
-    let tg_trm = Target.resolve_path p in
-    assert (Option.is_none (trm_let_inv tg_trm));
+    (* let tg_trm = Target.resolve_path p in *)
+    (* assert (Option.is_none (trm_let_inv tg_trm)); *)
     aux 1 (List.rev loops) p;
   ) tg)
 
@@ -342,6 +362,7 @@ let%transfo hoist_expr_loop_list (name : string)
 let targets_iter_with_loop_lists
   ?(indep : string list = [])
   ?(dest : target = [])
+  ?(down : bool = false) (* TODO: infer from destination *)
   (f : int list -> path -> unit)
   (tg : target) : unit =
 begin
@@ -359,7 +380,13 @@ begin
     | _ -> path_fail hoist_relpath "expects [before] to point a sequence surrounding its target"
     in
     (* TODO: otherwise, need to move instrs after hoist. *)
-    assert ((List.hd target_relpath) = (Dir_seq_nth hoist_before_index));
+    if not down then begin
+      if not ((List.hd target_relpath) = (Dir_seq_nth hoist_before_index))
+      then path_fail target_relpath "would need to move instrs after hoist.";
+    end else begin
+      if not ((List.hd target_relpath) = (Dir_seq_nth (hoist_before_index - 1)))
+      then path_fail target_relpath "would need to move instrs after hoist.";
+    end;
     let (rev_loop_list, _) = List.fold_left (fun (rev_loop_list, p) elem ->
       let new_rev_loop_list = match trm_for_inv (resolve_path p) with
       | Some ({ index }, _, _, _) ->
@@ -404,6 +431,24 @@ let%transfo hoist_expr (name : string)
     hoist_expr_loop_list name loops (target_of_path p)
   ) tg
 
+let%transfo hoist_decl ?(name : string = "")
+    ?(indep : string list = [])
+    ?(dest : target = [])
+    (tg : target) : unit =
+  Trace.tag_valid_by_composition ();
+  targets_iter_with_loop_lists ~indep ~dest (fun loops p ->
+    hoist_decl_loop_list ~name loops (target_of_path p)
+  ) tg
+
+let%transfo hoist_instr
+    ?(dest : target = [])
+    ?(down : bool = false) (* TODO: infer from destination *)
+    (tg : target) : unit =
+  Trace.tag_valid_by_composition ();
+  targets_iter_with_loop_lists ~dest ~down (fun loops p ->
+    hoist_instr_loop_list ~down loops (target_of_path p)
+  ) tg
+
 (* <internal> *)
 let%transfo simpl_scoped_ghosts (ghosts_before : trm list) (ghosts_after : trm list) (p_span : path) : unit =
   Trace.justif_always_correct ();
@@ -420,7 +465,7 @@ let%transfo simpl_scoped_ghosts (ghosts_before : trm list) (ghosts_after : trm l
 
    #equiv-rewrite: fixes a similar problem as the code in Variable_basic.subst . *)
 let%transfo simpl_scoped ~(simpl : unit -> unit) (tg : target) : unit =
-  if !Flags.check_validity then Target.iter (fun p ->
+  if (* !Flags.check_validity *) Flags.annotated () then Target.iter (fun p ->
   Nobrace_transfo.remove_after (fun () ->
   Trace.without_resource_computation_between_steps (fun () ->
     let error = "expected for loop" in
@@ -705,6 +750,7 @@ let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int =
           (* TODO: add flag to only allow backtrack for ghosts instead of all instrs? *)
           match Trace.step_backtrack_on_failure (fun () ->
             Instr_basic.move ~dest:[tBefore; cMark (snd to_fuse)] (target_of_path (p_seq @ [Path.Dir_seq_nth i]));
+            Resources.ensure_computed ();
           ) with
           | Success () -> ()
           | Failure _ -> incr not_before_current;
@@ -730,6 +776,7 @@ let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int =
         for i = span_end downto span_beg do
           match Trace.step_backtrack_on_failure (fun () ->
             Instr_basic.move ~dest:[tAfter; cMark (snd to_fuse)] (target_of_path (p_seq @ [Path.Dir_seq_nth i]));
+            Resources.ensure_computed ();
           ) with
           | Success () -> ()
           | Failure _ -> incr not_after_current;
@@ -782,7 +829,7 @@ let%transfo move_out ?(upto : string = "") (tg : target) : unit =
     Instr_basic.move ~dest:[tFirst] (target_of_path instr_p);
     let loop_m = next_mark () in
     Loop_basic.move_out ~loop_mark:loop_m instr_tg;
-    if !Flags.check_validity then
+    if (* !Flags.check_validity *) Flags.annotated () then
       Resources.loop_minimize [cMark loop_m];
   in
   Target.iter (fun instr_p -> Marks.with_marks (fun next_mark ->
@@ -925,8 +972,8 @@ DETAILS for [unroll]
         where p points to the item "body(i+k)"
 
     {[
-      ( if body(i) is   instr1 instr2 instr3 instr4 instr5
-      ( then i make { { instr1 instr2 } { instr3 instr4 instr5 } }
+      ( if body(i) is   instr1 instr2 instr3 instr4 instr5 )
+      ( then i make { { instr1 instr2 } { instr3 instr4 instr5 } } )
     ]}
 
     {[
@@ -943,7 +990,7 @@ DETAILS for [unroll]
         { instr3 instr4 instr5(i+1) }
         { instr3 instr4 instr5(i+2) } }@?
       }
-    }]
+    ]}
     FOURTH SUBSTEP: remove nobrace sequences
 
     ===================note
@@ -966,7 +1013,8 @@ DETAILS for [unroll]
       cmd3(i+2)
     }]}
 
-    LATER: This transformation should be factorized, that may change the docs. *)
+    LATER: This transformation should be factorized, that may change the docs.
+*)
 
 let%transfo unroll_one ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark = no_mark) ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
   Target.iteri (fun i p ->

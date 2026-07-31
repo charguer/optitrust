@@ -22,10 +22,10 @@ let%transfo delete ?(nb_extra: int = 0) (tg : target) : unit =
   Target.iter (fun p ->
     let p_seq, span = Path.extract_last_dir_span p in
     let span = { span with stop = span.stop + nb_extra } in
-    if !Flags.check_validity && not !Flags.preserve_specs_only then begin
+    (* if !Flags.check_validity && not !Flags.preserve_specs_only then begin
       Resources.assert_instr_effects_shadowed p;
       Trace.justif "nothing modified by the instruction is observed later"
-    end;
+    end; *)
     apply_at_path (Sequence_core.delete_at span) p_seq
   ) tg
 

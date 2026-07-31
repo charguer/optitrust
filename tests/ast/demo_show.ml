@@ -5,6 +5,7 @@ let has_reference (t : trm) : bool =
   Trm.trm_get_cstyles t = [Reference]
 
 let _ = Run.script_cpp ~capture_show_in_batch:true (fun () ->
+  !! Resources.ensure_computed ();
   !! Show.At.trm ~msg:"AST" [];
   (*!! Show.At.trm ~msg:"for trm" [cFor "i"]; --> need decoding of nonroot*)
   (* TODO: ensure a deterministic printing of identifiers

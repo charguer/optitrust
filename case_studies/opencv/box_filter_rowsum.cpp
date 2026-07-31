@@ -11,11 +11,9 @@ void rowSum(const int w, const uint8_t* S, uint16_t* D, const int n, const int c
   __writes("D ~> Matrix2(n, cn)");
 
   for (int i = 0; i < n; i++) { // for each pixel
-    __sreads("S ~> Matrix2(n+w-1, cn)");
     __xwrites("for c in 0..cn -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
 
     for (int c = 0; c < cn; c++) { // foreach channel
-      __sreads("S ~> Matrix2(n+w-1, cn)");
       __xwrites("&D[MINDEX2(n, cn, i, c)] ~> Cell");
 
       __ghost(assume, "is_subrange(i..i + w, 0..n + w - 1)"); // TODO: solve

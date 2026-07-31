@@ -1,8 +1,9 @@
+(* Deprecated *)
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true
-let _ = Flags.recompute_resources_between_steps := true
+(* let _ = Flags.check_validity := true *)
+(* let _ = Flags.recompute_resources_between_steps := true *)
 let _ = Run.script_cpp (fun _ ->
   (* let range a b = (trm_int a, trm_int b) in *)
   !! Matrix.local_name_tile ~alloc_instr:[cVarDef "a"] ~var:"a" ~local_var:"y_local"

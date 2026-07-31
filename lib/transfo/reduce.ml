@@ -1,3 +1,5 @@
+(* TODO Yanni : verify whether this file should be deleted/removed by deprecation *)
+
 open Prelude
 open Target
 
@@ -29,8 +31,9 @@ else
   trm_seq_nobrace_nomarks [], trm_seq_nobrace_nomarks []
 in *)
 
+(* Deprecated *)
 (** <private> *)
-let focus_reduce_item (input : trm) (i : trm) (j : trm) (n : trm) (m : trm)
+(* let focus_reduce_item (input : trm) (i : trm) (j : trm) (n : trm) (m : trm)
   (wrapped_t : trm) : trm =
   let open Resource_formula in
   if !Flags.check_validity then
@@ -39,13 +42,16 @@ let focus_reduce_item (input : trm) (i : trm) (j : trm) (n : trm) (m : trm)
     trm_seq_nobrace_nomarks [beg_focus; wrapped_t; end_focus]
   else
     wrapped_t
-
-let%transfo intro (tg : target) : unit =
+ *)
+(* TODO : depreciate transformation *)
+(* let%transfo intro (tg : target) : unit =
   let include_path = if !Flags.use_resources_with_models then "optitrust.h" else "optitrust_models.h" in
   Function.uninline ~f:[cInclude include_path; cFunDef "reduce_spe1"] tg
+ *)
 
+(* Deprecated *)
 (** <private> *)
-let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : trm) : trm =
+(* let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : trm) : trm =
   let prefix = ref None in
   let updated_t = Path.apply_on_path (fun red_t ->
     let error = "expected call to reduce" in
@@ -86,19 +92,21 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
     trm_var_get acc
   ) t to_expr in
   let prefix = Option.get !prefix in
-  trm_seq_nobrace_nomarks (prefix @ [updated_t])
+  trm_seq_nobrace_nomarks (prefix @ [updated_t]) *)
 
+(* TODO : depreciate transformation *)
 (** [elim_basic tg]: eliminates a call to [reduce], expanding it to a for loop. *)
-let%transfo elim_basic ?(mark_alloc : mark = no_mark) ?(mark_loop : mark = no_mark) (tg : target) =
+(* let%transfo elim_basic ?(mark_alloc : mark = no_mark) ?(mark_loop : mark = no_mark) (tg : target) =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let (to_instr, to_expr) = Path.path_in_instr p (Trace.ast ()) in
     Target.apply_at_path (elim_basic_on mark_alloc mark_loop to_expr) to_instr;
     if !Flags.check_validity then
       Trace.justif "valid by definition of reduce (not supporting negative ranges)"
-  ) tg)
+  ) tg) *)
 
+(* Deprecated *)
 (** <private> *)
-let elim_inline_on (mark_simpl : mark) (red_p : path) (t : trm) : trm =
+(* let elim_inline_on (mark_simpl : mark) (red_p : path) (t : trm) : trm =
   let focuses = ref (fun x -> x) in
   let t2 = Path.apply_on_path (fun red_t ->
     let error = "expected call to reduce" in
@@ -131,25 +139,27 @@ let elim_inline_on (mark_simpl : mark) (red_p : path) (t : trm) : trm =
     | None ->
       trm_fail red_t "expected trivially constant loop range"
   ) t red_p in
-  if !Flags.check_validity then !focuses(t2) else t2
+  if !Flags.check_validity then !focuses(t2) else t2 *)
 
+(* TODO : depreciate transformation *)
 (** [elim_inline tg]: eliminates a call to [reduce], expanding it to an inlined expression.
     TODO: later, implement this as combi (1. unroll; 2. inline accumulator; 3. simplify zero add)
     *)
-let%transfo elim_inline ?(mark_simpl : mark = no_mark) (tg : target) =
+(* let%transfo elim_inline ?(mark_simpl : mark = no_mark) (tg : target) =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let instr_p, expr_p = Path.path_in_instr p (Trace.ast ()) in
     Target.apply_at_path (elim_inline_on mark_simpl expr_p) instr_p;
     if !Flags.check_validity then
       Trace.justif "valid by definition of reduce (not supporting negative ranges)"
-  ) tg)
+  ) tg) *)
 
+(* TODO : depreciate transformation *)
 (** [elim_basic tg]: eliminates a call to [reduce], expanding it to a for loop.
 
   - [unroll]: whether the reduction loop should be unrolled
   - [inline]: whether the reduction variable should be inlined (implies [unroll])
   *)
-let%transfo elim ?(unroll : bool = false) ?(inline : bool = false) (tg : target) =
+(* let%transfo elim ?(unroll : bool = false) ?(inline : bool = false) (tg : target) =
   Marks.with_marks (fun next_mark ->
     Target.iter (fun p ->
       if inline then begin
@@ -162,10 +172,10 @@ let%transfo elim ?(unroll : bool = false) ?(inline : bool = false) (tg : target)
         if unroll then Loop.unroll [cMark mark_loop];
       end
     ) tg
-  )
+  ) *)
 
 (** <private> *)
-let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
+(* let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
   (* FIXME: needs refactor, do at least unrolling with combi *)
   let error = "expected for loop" in
   let (range, mode, instrs, contract) = trm_inv ~error trm_for_inv_instrs t in
@@ -281,20 +291,22 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
         Trm (trm_set out (trm_var_get acc));
         TrmMlist after_instrs;
       ]));
-    ]
+    ] *)
 
+(* TODO : depreciate transformation *)
 (** [slide_basic tg]: given a target to a call to [set(p, reduce)] within a perfectly nested loop:
     [for i in 0..n { set(p, reduce(... i ...)) }]
     allocates a variable outside the loop to compute next values based on previous values:
     [alloc s = reduce(... 0 ...); set(p[i := 0], s); for i in 1..n { set(s, f(s)); set(p, s) }]
   *)
-let%transfo slide_basic ?(mark_alloc : mark = no_mark) ?(mark_simpl : mark = no_mark)
+(* let%transfo slide_basic ?(mark_alloc : mark = no_mark) ?(mark_simpl : mark = no_mark)
   (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let (i, loop_p) = Path.index_in_surrounding_loop p in
     Target.apply_at_path (slide_on mark_alloc mark_simpl i) loop_p;
-  ) tg)
+  ) tg) *)
 
+(* TODO : depreciate transformation *)
 (** [slide tg]: given a target to a call to [set(p, reduce)] within a perfectly nested loop:
     [for i in 0..n { set(p, reduce(... i ...)) }]
     allocates a variable outside the loop to compute next values based on previous values:
@@ -302,9 +314,9 @@ let%transfo slide_basic ?(mark_alloc : mark = no_mark) ?(mark_simpl : mark = no_
 
     TODO: generate check that n > 0
   *)
-let%transfo slide ?(mark_alloc : mark = no_mark) ?(simpl : target -> unit = Arith.default_simpl) (tg : target) : unit =
+(* let%transfo slide ?(mark_alloc : mark = no_mark) ?(simpl : target -> unit = Arith.default_simpl) (tg : target) : unit =
   Marks.with_marks (fun next_mark -> Target.iter (fun p ->
     let mark_simpl = next_mark () in
     slide_basic ~mark_alloc ~mark_simpl (target_of_path p);
     simpl [cMark mark_simpl];
-  ) tg)
+  ) tg) *)

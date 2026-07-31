@@ -10,8 +10,7 @@ include Gpu_basic
   The list [loops] is a list containing either 0 or 1: 0 means skip conversion (leave it as sequential for), 1 means convert.
   It is always assumed that the leaf will be converted. *)
 let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
-  let fission_helper tg =
-    Flags.with_flag Flags.check_validity true (fun () -> Loop.fission tg) in
+  let fission_helper tg = Loop.fission tg in
   let rec aux barrier_mark loops_incl_leaf leaf_p: unit =
     let convert,loops = match loops_incl_leaf with
     | 0 :: tl -> false, tl
@@ -65,7 +64,7 @@ let%transfo convert_to_global_mem (tg: target): unit =
   Target.iter (fun p ->
     let _,tg_seq_p = Path.index_in_seq p in
     Resources.with_non_strict_loop_contracts [cPath tg_seq_p] (fun () ->
-      Gpu_basic.convert_memory Gpu_basic.gmem_spec [cPath p]
+      Gpu_basic.convert_memory Gpu_basic.gmem_spec [cPath p];
     )
   ) tg
 
@@ -81,9 +80,34 @@ let%transfo convert_to_shared_mem ~(chop_dims: int) (tg: target): unit =
           let free_mark = next_m () in
           Gpu_basic.convert_memory (Gpu_basic.smem_spec ~alloc_mark ~free_mark chop_dims) tg;
           let aliases = ref Var_set.empty in
-          let kernel_seq = [tSpan [cMark alloc_mark] [cMark free_mark]] in
-          Gpu_basic.fix_distrib_accesses ~aliases chop_dims kernel_seq tg;
+          (* FIXME: support multiple kernels *)
+          Gpu_basic.fix_distrib_accesses ~aliases ~synced:true chop_dims [tSpan [cMark alloc_mark] [tBefore; cCall "kernel_setup_end"]] tg;
+          Gpu_basic.fix_distrib_accesses ~aliases chop_dims [tSpan [tAfter; cCall "kernel_setup_end"] [tBefore; cCall "kernel_teardown_begin"]] tg;
+          Gpu_basic.fix_distrib_accesses ~aliases ~synced:true chop_dims [tSpan [tAfter; cCall "kernel_teardown_begin"] [cMark free_mark]] tg;
           Var_set.iter (fun alias ->
             Gpu_basic.convert_memory (Gpu_basic.smem_alias_spec alias) tg;
+          ) !aliases;
+  ))) tg
+
+(** [convert_to_register_mem ~chop_dims tg] convert the targeted declaration to register memory, replacing all operations on that variable with the appropriate ones.
+  [chop_dims]: number of dimensions that will become distributed, that should be chopped off. *)
+let%transfo convert_to_register_mem ~(chop_dims: int) (tg: target): unit =
+  Target.iter (fun p ->
+    let _,tg_seq_p = Path.index_in_seq p in
+    let tg = [cPath p] in
+    Marks.with_marks (fun next_m ->
+        Resources.with_non_strict_loop_contracts [cPath tg_seq_p] (fun () ->
+          let alloc_mark = next_m () in
+          let free_mark = next_m () in
+          Gpu_basic.convert_memory (Gpu_basic.treg_mem_spec ~alloc_mark ~free_mark chop_dims) tg;
+          let aliases = ref Var_set.empty in
+          Gpu_basic.fix_distrib_accesses ~aliases chop_dims [tSpan [cMark alloc_mark] [cMark free_mark]] tg;
+          (* TODO ?
+          (* FIXME: support multiple kernels *)
+          Gpu_basic.fix_distrib_accesses ~aliases ~synced:true chop_dims [tSpan [cMark alloc_mark] [tBefore; cCall "kernel_setup_end"]] tg;
+          Gpu_basic.fix_distrib_accesses ~aliases chop_dims [tSpan [tAfter; cCall "kernel_setup_end"] [tBefore; cCall "kernel_teardown_begin"]] tg;
+          Gpu_basic.fix_distrib_accesses ~aliases ~synced:true chop_dims [tSpan [tAfter; cCall "kernel_teardown_begin"] [cMark free_mark]] tg; *)
+          Var_set.iter (fun alias ->
+            Gpu_basic.convert_memory (Gpu_basic.treg_mem_alias_spec alias) tg;
           ) !aliases;
   ))) tg

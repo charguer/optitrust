@@ -224,10 +224,28 @@ let convert_memory (spec: 'a memory_spec) (alloc_tg: target): unit =
      ) seq
   ) alloc_tg
 
+(** [to_desync_for] weakens a group into a desync group. *)
+let to_desync_for (tg: target): unit =
+  let open Resource_formula in
+  Target.iter (fun p ->
+    Target.apply_at_path (fun t ->
+      Pattern.pattern_match t [
+        Pattern.(formula_group !__ (formula_range __ !__ __) !__) (fun ind stop body () ->
+          formula_desyncgroup ind stop body
+        );
+        Pattern.(formula_desyncgroup __ __ __) (fun () ->
+          t (* no-op *)
+        );
+      ]
+    ) p
+  ) tg
+
 (** [fix_distrib_accesses] fixes distributed dimensions: e.g. if a 4D buffer declared at the kernel level is
   converted to shared memory, and there are 2 dimensions of blocks, then there are now 2 distributed dimensions.
   This function would convert all instances of MINDEX4(...) on that variable to MINDEX3(DMINDEX2(...), ...). *)
-let fix_distrib_accesses ~(aliases: Var_set.t ref) (chop_dims: int) (body_span_tg: target) (alloc_tg: target): unit =
+let fix_distrib_accesses ~(aliases: Var_set.t ref) ?(synced = false) (chop_dims: int) (body_span_tg: target) (alloc_tg: target): unit =
+  if chop_dims = 0 then () else begin
+
   let body_seq_path,body_seq_span = Target.resolve_target_span_exactly_one body_span_tg in
   let _ = Target.resolve_target_exactly_one alloc_tg in (* expect only one target *)
   let open Resource_formula in
@@ -235,7 +253,7 @@ let fix_distrib_accesses ~(aliases: Var_set.t ref) (chop_dims: int) (body_span_t
     let error = "Gpu_basic.ml: expected target to point to a matrix allocation" in
     let var, _, _ = trm_inv ~error trm_let_inv alloc_trm in
 
-    let rec aux ?(alias_binder:var option) loop_depth t = match (Matrix_trm.access_inv t) with
+    let rec aux ?(alias_binder:var option) threadfor_depth t = match (Matrix_trm.access_inv t) with
     | Some ({desc = Trm_var base}, dims, inds) when (var_eq var base) ->
       (match alias_binder with
       | Some v -> aliases := Var_set.add v !aliases;
@@ -246,26 +264,34 @@ let fix_distrib_accesses ~(aliases: Var_set.t ref) (chop_dims: int) (body_span_t
         ((Matrix_trm.dmindex distrib_dims distrib_inds) :: real_inds))
     | _ ->
       Pattern.pattern_match t [
-        Pattern.(trm_let !__ __ __ ) (fun v () -> trm_map (aux ~alias_binder:v loop_depth) t);
-        Pattern.(trm_for __ __ __ __) (fun () -> trm_map (aux (loop_depth + 1)) t);
-        (* LATER: better heuristics to convert the desyncgroups if ghosts are being used on these dimensions *)
+        Pattern.(trm_let !__ __ __ ) (fun v () -> trm_map (aux ~alias_binder:v threadfor_depth) t);
+        Pattern.(trm_for __ !__ __ __) (fun mode () ->
+          let threadfor_depth = begin match mode with
+          | GpuThread | MagicThread -> threadfor_depth + 1
+          | _ -> threadfor_depth
+          end in
+          trm_map (aux threadfor_depth) t
+        );
         Pattern.(formula_group !__ !(formula_range __ !__ __) !__) (fun ind range stop body () ->
           Pattern.when_ (is_free_var_in_trm var t);
-          let body = aux (loop_depth + 1) body in
-          if (chop_dims - loop_depth <= 0) then
-            formula_group ind range body
-          else
+          let body = aux (threadfor_depth + 1) body in
+          (* LATER: better heuristics to convert the desyncgroups if ghosts are being used on these dimensions *)
+          let probably_distributed = chop_dims - threadfor_depth > 0 in
+          if (not synced) && probably_distributed then
             formula_desyncgroup ind stop body
+          else
+            formula_group ind range body
         );
         Pattern.(formula_desyncgroup !__ !__ !__) (fun ind stop body () ->
-          formula_desyncgroup ind stop (aux (loop_depth + 1) body)
+          formula_desyncgroup ind stop (aux (threadfor_depth + 1) body)
         );
-        Pattern.__ (fun () -> trm_map (aux loop_depth) t)
+        Pattern.__ (fun () -> trm_map (aux threadfor_depth) t)
       ] in
     Target.apply_at_path (fun body_seq ->
       update_span_helper body_seq_span body_seq (fun instrs ->
       Mlist.to_list (Mlist.map (fun instr -> Trm (aux 0 instr)) instrs))
     ) body_seq_path) alloc_tg
+  end
 
 (** [desync_alloc_ghosts] inserts the rewriting ghosts needed to take the flattened DesyncGroup of all distributed dimensions,
 which is produced by smem_alloc, treg_alloc, etc. into a nest of DesyncGroups, which can be used in a `thread for`. *)
@@ -278,17 +304,29 @@ let desync_alloc_ghosts (inverse: bool) (distrib_dims: trm list) (real_dims: trm
       Matrix_trm.access (trm_var matrix) (distrib_dim :: real_dims) (distrib_ind :: (List.map trm_var real_inds))
     ) in
     List.fold_right2 (fun idx dim formula ->
-    trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula])
+      (* NOTE: #group-free
+        would be weaker so may be easier to produce,
+        but should always be able to strengthen before deallocation (only for non-distributed / "real" indices).
+        For distributed indices, we don't want to force a sync.
+      if inverse
+      then formula_desyncgroup idx dim formula
+      else *)
+      trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula]
+    )
     real_inds real_dims inside_formula in
 
   let wrap_desyncgroups distrib_inds distrib_dims inside_formula =
     List.fold_right2 (fun idx dim formula ->
-    if (inverse) then
-      (* when free-ing, we expect things to already be synchronized (groups) *)
+    (* NOTE: #group-free
+    if inverse then
       trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula]
-    else
+    else *)
       trm_apps ~annot:formula_annot trm_desyncgroup [dim; formula_fun [idx, typ_int] formula])
     distrib_inds distrib_dims inside_formula in
+
+  match distrib_dims with
+  | [] -> []
+  | _ -> begin
 
   let from, into = if inverse then
     ((mul_nest distrib_dims),(Matrix_trm.msize distrib_dims))
@@ -310,7 +348,10 @@ let desync_alloc_ghosts (inverse: bool) (distrib_dims: trm list) (real_dims: trm
       formula)) in
     assume_msize_mult, msize_to_from_mult in
 
-  let desync_tile_ghost_f = if inverse then ghost_untile_divides_trivial else ghost_desync_tile_divides_trivial in
+  let desync_tile_ghost_f = if inverse
+    (* NOTE: #group-free *)
+    then ghost_desync_untile_divides_trivial
+    else ghost_desync_tile_divides_trivial in
   let dmindex_tile_ghost_f = if inverse then ghost_dmindex_tile else ghost_dmindex_untile in
   let rec make_ghosts ghosts seen_dims remain_dims =
     let ghosts = match remain_dims with
@@ -346,6 +387,7 @@ let desync_alloc_ghosts (inverse: bool) (distrib_dims: trm list) (real_dims: trm
   let ghosts = msize_rewrite :: ghosts in
   let ghosts = if inverse then (List.rev ghosts) else ghosts in
   msize_assume :: ghosts
+  end
 
 (* Global memory specification *)
 let gmem_spec : unit memory_spec = {
@@ -419,6 +461,43 @@ let smem_alias_spec (alias_var: var): unit memory_spec = {
   extra_patterns = (fun (var,_) aux -> []);
 }
 
+(* Thread register memory specification *)
+let treg_mem_spec ?(alloc_mark="") ?(free_mark="") (chop_dims: int): (trm list * trm list) memory_spec = {
+  alloc_handler = (fun alloc_trm -> (
+    let error = "Gpu.convert_to_register_mem: expected target to point to a matrix allocation" in
+    let (array_var, typ_array, typ_alloc, trms, init) = trm_inv ~error (Matrix_trm.let_alloc_inv) alloc_trm in
+    assert (not init); (* LATER: implement CALLOC *)
+    let distrib_dims, real_dims = List.split_at chop_dims trms in
+    let ref_uninit = if chop_dims = 0 then var__treg_ref_uninit_s else var__treg_ref_uninit in
+    let f = trm_add_cstyle (Typ_arguments [typ_alloc]) (trm_var (ref_uninit (List.length real_dims))) in
+    let alloc_instr = trm_apps f real_dims ~ghost_args:[(new_var "T", typ_alloc)] in
+    let instrs = Mlist.of_list (
+      (trm_let (array_var,typ_array) alloc_instr) ::
+      (desync_alloc_ghosts false distrib_dims real_dims array_var (trm_var var_treg))
+    ) in
+    let t = trm_seq_nobrace (Mlist.insert_mark_at (Mlist.length instrs) alloc_mark instrs) in
+    t, (distrib_dims,real_dims), array_var
+  ));
+  get_handler = (fun _ args -> trm_apps (trm_var var__treg_get) args);
+  set_handler = (fun _ args -> trm_apps (trm_var var__treg_set) args);
+  free_handler = (fun _ (var, (distrib_dims, real_dims)) args ->
+    let instrs = (Mlist.of_list
+      (desync_alloc_ghosts true distrib_dims real_dims var (trm_var var_treg))) in
+    trm_seq_nobrace (Mlist.insert_mark_at 0 free_mark instrs)
+  );
+  cell_var = var_treg;
+  extra_patterns = (fun (var,_) aux -> []);
+}
+
+let treg_mem_alias_spec (alias_var: var): unit memory_spec = {
+  alloc_handler = (fun t -> (t,(),alias_var));
+  get_handler = (fun _ args -> trm_apps (trm_var var__treg_get) args);
+  set_handler = (fun _ args -> trm_apps (trm_var var__treg_set) args);
+  free_handler = (fun t _ _ -> t);
+  cell_var = var_treg;
+  extra_patterns = (fun (var,_) aux -> []);
+}
+
 (* ----------------------- Barrier conversion ------------------------ *)
 
 (** [remove_loop_around_barrier] simplifies the pattern
@@ -452,6 +531,7 @@ let remove_loop_around_barrier (tg: target): unit =
     ()) tg
 
 
+(* TODO : depreciate transformation *)
 let%transfo insert_barrier (tg: target) =
   Sequence_basic.insert ~reparse:false (magic_barrier ()) tg
 
@@ -468,13 +548,13 @@ let is_smem_or_gmem (f: formula): bool =
   | _ -> false
 
 (* LATER: generic transfos for barrier conversion (take the barrier desired as argument )*)
-let%transfo magic_barrier_to_blocksync (kernel_body: target) (tg: target): unit =
+let%transfo magic_barrier_to_blocksync ?(mark : mark = no_mark) (kernel_body: target) (tg: target): unit =
   (* note: blocksync() breaks the strict loop contracts, because it wants a fraction of the KernelParams. Thus,
     we remove the strict annotations in the entire kernel body. *)
   Resources.with_non_strict_loop_contracts ([nbAny] @ kernel_body @ [cFor ""]) (fun () ->
     Target.iter (fun p ->
       Resources.ensure_computed_at p;
-      Target.apply_at_path (Gpu_trm.magic_barrier_to_seq block_sync is_smem_or_gmem) p) tg
+      Target.apply_at_path (fun t -> trm_add_mark mark (Gpu_trm.magic_barrier_to_seq block_sync is_smem_or_gmem t)) p) tg
   )
 
 let%transfo magic_barrier_to_teardown_sync (tg: target): unit =

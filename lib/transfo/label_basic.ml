@@ -12,6 +12,7 @@ open Target
    - label as a standalone instruction (=> currently encoded as Trm_label ("foo", trm_unit))
    - or label around an instruction. *)
 
+(* TODO : depreciate transformation *)
 (** [add label tg]: adds a C-label named [label] to the front of the terms
    matching the target [tg].
    Does nothing if [label = no_label].

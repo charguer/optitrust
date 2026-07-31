@@ -1,3 +1,4 @@
+(* Deprecated *)
 open Optitrust
 open Target
 

@@ -20,7 +20,7 @@ void ok2() {
   __pure();
   int a = 0;
   int x = a;
-l : { x++; }
+l: { x++; }
   a = x;
   int y = 0;
 }
@@ -59,9 +59,9 @@ void ko_scope() {
   __pure();
   int x = 0;
   int a = 0;
-  int x4 = a;
-l: { x4++; }
-  a = x4;
+  int x2 = a;
+l: { x2++; }
+  a = x2;
 }
 
 void ok3() {

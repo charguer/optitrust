@@ -14,7 +14,7 @@ int main() {
   }
   int ld = 2;
   int u = N + 5;
-  for (int k = -ld; k < u; k++) {
+  for (int k = (-ld); k < u; k++) {
     if (0 <= k && k < N) {
       x += k;
     }
