@@ -91,7 +91,7 @@ let%transfo accumulate_targets (tg : target) : unit =
 let%transfo move_in_seq
   ?(mark_moved : mark = no_mark)
   ~(dest: target) (tg: target) : unit =
-  if !Flags.resource_typing_enabled then
+  if (* !Flags.resource_typing_enabled *) Flags.annotated () then
     Target.iter (fun p ->
       let seq_path, span = Path.extract_last_dir_span p in
       let t_seq = Target.resolve_path seq_path in

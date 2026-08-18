@@ -46,7 +46,7 @@ let generate_ghost_pair_var ?name () =
   | None -> new_var (sprintf "__ghost_pair_%d" (ghost_pair_fresh_id ()))
 
 let void_when_resource_typing_disabled (f : unit -> trm) : trm =
-  if !Flags.resource_typing_enabled
+  if (* !Flags.resource_typing_enabled *) Flags.annotated ()
     then f ()
     else Nobrace.trm_seq_nomarks []
 

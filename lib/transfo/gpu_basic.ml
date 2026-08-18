@@ -452,7 +452,6 @@ let remove_loop_around_barrier (tg: target): unit =
     ()) tg
 
 
-(* TODO : depreciate transformation *)
 let%transfo insert_barrier (tg: target) =
   Sequence_basic.insert ~reparse:false (magic_barrier ()) tg
 

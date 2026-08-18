@@ -745,7 +745,7 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
   let new_dims = List.take_last copy_dims dims in
 
   let res_pattern_before, res_pattern_after =
-    if !Flags.resource_typing_enabled then
+    if (* !Flags.resource_typing_enabled *) Flags.annotated () then
       let find_matrix_res_pattern res_list =
         let open Resource_formula in
         let var_access_fn = new_var "access" in

@@ -138,7 +138,6 @@ let inline_multi = inline ~recurse:true
 let%transfo inline_def ?(vars : rename = AddSuffix "") ?(args : string list = [])
   ?(delete : bool = true) ?(simpl : target -> unit = Variable.default_inline_simpl) (tg : target) : unit
   =
-  Trace.tag_valid_by_composition ();
   Target.iter (fun p ->
     let def_trm = Target.resolve_path p in
     let error = "Function.inline_def: expected function definition" in

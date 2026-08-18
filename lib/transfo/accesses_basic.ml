@@ -216,7 +216,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
   Marks.with_marks (fun next_mark -> Target.iter (fun p ->
     let (p_seq, span) = Path.extract_last_dir_span p in
     let (mark_to_prove, mark_preprocess, mark_postprocess, mark_handled_resources) =
-      if (* !Flags.check_validity && not !Flags.preserve_specs_only *) Flags.annotated_and_verified () then begin
+      if (* !Flags.check_validity && not !Flags.preserve_specs_only *) Flags.proof_preserving () then begin
         (Mark.reuse_or_next next_mark mark_to_prove,
          Mark.reuse_or_next next_mark mark_preprocess,
          Mark.reuse_or_next next_mark mark_postprocess,

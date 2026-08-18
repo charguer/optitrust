@@ -9,7 +9,7 @@ open Target
 let%transfo delete (tg : target) : unit =
   let tr () =
     Sequence_basic.delete tg in
-  if (* !Flags.check_validity *) Flags.annotated_and_verified () then begin
+  if (* !Flags.check_validity *) Flags.proof_preserving () then begin
     Target.iter (fun p ->
       let error =  "Function.delete expects to target a function definition within a sequence" in
       let (_, _, _, _, _) = trm_inv ~error trm_let_fun_inv (resolve_path p) in

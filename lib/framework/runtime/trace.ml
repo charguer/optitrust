@@ -318,9 +318,7 @@ type step_infos = {
   mutable step_exectime : float; (* seconds *)
   mutable step_name : string;
   mutable step_args : (string * string) list;
-  (* Yanni : Deprecated flag *)
   mutable step_typechecking_mode : Flags.typechecking_mode;
-  (* mutable step_flag_check_validity : bool; (* state of flag check_validity at start; must be the same at end *) *)
   mutable step_valid : bool;
   mutable step_justif : string list; (* accumulated in reverse order during the step *)
   mutable step_tags : string list; (* accumulated in reverse order during the step *)
@@ -881,12 +879,12 @@ let tag_simpl_access () : unit =
   tag "simpl";
   tag "simpl_access"
 
-(* Yanni : might change this flag to [Flags.Annotated] instead *)
+(* Yanni : might change this flag to [Flags.ProofRepairing] instead *)
 (** [without_substep_validity_checks f] executes [f] with
     the flag [check_validity] temporarily set to false.
     Only for internal use; user scripts should use the [trustme] function. *)
 let without_substep_validity_checks (f: unit -> 'a): 'a =
-  Flags.with_flag (* Flags.check_validity false *) Flags.typechecking_mode Flags.Unverified f
+  Flags.with_flag Flags.typechecking_mode Flags.ProofRepairing f
 
 (** [make_substeps_chained step] Finalize the list of substeps of [step],
     by inserting [Step_change] steps where the ast was modified directly
@@ -1173,7 +1171,7 @@ and recompute_resources ?(missing_types = false) (): unit =
     typing_step ~name:"Resource recomputation" (recompute_resources_on_ast ~missing_types)
 
 and recompute_resources_on_ast ?(missing_types = false) () : unit =
-  if not !Flags.resource_typing_enabled then failwith "Cannot compute resources when resource typing is disabled";
+  if (* not !Flags.resource_typing_enabled *) Flags.semantics_preserving () then failwith "Cannot compute resources when resource typing is disabled";
   let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
   (* Compute a typed AST *)
 
