@@ -410,9 +410,7 @@ let%transfo reorder_fields (order : fields_order) (tg : target) : unit =
     then it will find [field_to_reveal_field] and it's underlying type and it will
     replace [field_to_reveal_field] with a list of fields rename comming from its underlying type. *)
 let%transfo reveal_field ?(reparse:bool=false) (field_to_reveal_field : field) (tg : target) : unit =
-  reparse_after ~reparse
-    (apply_at_target_paths_in_seq (Record_core.reveal_field_at field_to_reveal_field))
-    tg
+  apply_at_target_paths_in_seq (Record_core.reveal_field_at field_to_reveal_field) tg
 
 (* TODO : depreciate transformation *)
 (** [reveal_fields fields_to_reveal_field tg]: an extension to the reveal_field transformation, this one
@@ -447,7 +445,7 @@ let%transfo rename_fields (rename : rename) (tg : target) : unit =
 (** [applyto_fields_type ~reparse pattern typ_update tg]: expects the target [tg] to point at a
     struct definition, then it will update all the struct field types whose identifier matches [pattern]. *)
 let%transfo applyto_fields_type ?(reparse : bool = false) (pattern : string) (typ_update: typ -> typ) (tg : target) : unit =
-  reparse_after ~reparse (apply_at_target_paths (Record_core.update_fields_type_on pattern typ_update)) tg
+  apply_at_target_paths (Record_core.update_fields_type_on pattern typ_update) tg
 
 (** [update_fields_type pattern ty tg]: expects the target [tg] to point at a struct declaration,
     then it will change the current type to [ty] for all the fields that are matched by [pattern]. *)

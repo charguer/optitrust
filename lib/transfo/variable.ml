@@ -223,18 +223,18 @@ let%transfo detach_if_needed
 
    @correctness: correct if the previous variable space was never read after the reuse point. *)
 let%transfo reuse ?(reparse : bool = false) (space : trm) (tg : target) : unit =
-  reparse_after ~reparse (Target.iter (fun p ->
-      let decl_t = Target.resolve_path p in
-      begin match decl_name decl_t with
-      | Some x ->
-        let _path_to_seq, _,_ = Internal.get_instruction_in_surrounding_sequence p in
-        Marks.add "reuse_mark" (target_of_path p);
-        detach_if_needed [cMark "reuse_mark"];
-        Instr_basic.delete [cMark "reuse_mark"];
-        Variable_basic.subst ~subst:x ~put:space (target_of_path _path_to_seq)
-      | None -> trm_fail decl_t "Variable.reuse: could not match the declaration"
-      end
-      )) tg
+  Target.iter (fun p ->
+    let decl_t = Target.resolve_path p in
+    begin match decl_name decl_t with
+    | Some x ->
+      let _path_to_seq, _,_ = Internal.get_instruction_in_surrounding_sequence p in
+      Marks.add "reuse_mark" (target_of_path p);
+      detach_if_needed [cMark "reuse_mark"];
+      Instr_basic.delete [cMark "reuse_mark"];
+      Variable_basic.subst ~subst:x ~put:space (target_of_path _path_to_seq)
+    | None -> trm_fail decl_t "Variable.reuse: could not match the declaration"
+    end
+    ) tg
 
 (** [renames rename tg]: expects [tg] to point at a sequence.
     [rename] can be either ByList l where l denotes a list of pairs on which
@@ -464,18 +464,15 @@ let%transfo insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ 
     then it wil insert a new variable declaration with [name], [typ] and initialization [value] *)
 let%transfo insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : (string * string * trm ) list) (tg : target) : unit =
   let defs = List.rev defs in
-  reparse_after ~reparse (fun tg ->
-    List.iter (fun (typ, name, value) ->
-      (* This check is needed to avoid the parentheses in the case when the value of the vairbale is a simple expression  *)
-      insert ~const ~name ~typ:(AstParser.ty typ) ~value tg) (List.rev defs)
-  ) tg
+  List.iter (fun (typ, name, value) ->
+    (* This check is needed to avoid the parentheses in the case when the value of the vairbale is a simple expression  *)
+    insert ~const ~name ~typ:(AstParser.ty typ) ~value tg) (List.rev defs)
 
 (** [insert_list_same_type typ name_vals tg]: inserts a list of variables with type [typ] and name and value give as argument in [name_vals]. *)
 let%transfo insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (string * trm) list) (tg : target) : unit =
   let const = false in
-  reparse_after ~reparse (fun tg ->
     List.iter (fun (name, value) ->
-      insert ~const ~name ~typ ~value tg) name_vals) tg
+      insert ~const ~name ~typ ~value tg) name_vals
 
 
 

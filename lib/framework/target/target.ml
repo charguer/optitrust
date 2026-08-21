@@ -1557,7 +1557,7 @@ let get_relative_type (tg : target) : target_relative option =
    else on annotations added by clangml but cleared by smart-constructors
    TODO URGENT: the resolve_target does not work with the new Dir_before system *)
 let reparse_after ?(update_cur_ast : bool = true) ?(reparse : bool = true) (tr : target -> unit) (tg : target) : unit =
-    if not reparse then tr tg else begin
+  if not reparse then tr tg else begin
       let tg = enable_multi_targets tg in
       let ast = (get_ast()) in
       (* LATER: it would be nice to avoid computing the
