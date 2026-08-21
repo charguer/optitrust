@@ -36,6 +36,8 @@ instr/gather/instr_gather.ml
 function/elim_infix_ops/function_elim_infix_ops.ml
 arith/simpl/arith_simpl_doc.ml
 arith/simpl/arith_simpl.ml
+loop/hoist/loop_hoist.ml
+loop/hoist_expr/loop_hoist_expr.ml
 
 ## failed
 variable/unfold/variable_unfold_basic.ml
