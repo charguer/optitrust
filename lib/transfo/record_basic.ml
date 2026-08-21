@@ -445,7 +445,7 @@ let%transfo rename_fields (rename : rename) (tg : target) : unit =
 (** [applyto_fields_type ~reparse pattern typ_update tg]: expects the target [tg] to point at a
     struct definition, then it will update all the struct field types whose identifier matches [pattern]. *)
 let%transfo applyto_fields_type ?(reparse : bool = false) (pattern : string) (typ_update: typ -> typ) (tg : target) : unit =
-  apply_at_target_paths (Record_core.update_fields_type_on pattern typ_update) tg
+  reparse_after ~reparse (apply_at_target_paths (Record_core.update_fields_type_on pattern typ_update)) tg
 
 (** [update_fields_type pattern ty tg]: expects the target [tg] to point at a struct declaration,
     then it will change the current type to [ty] for all the fields that are matched by [pattern]. *)

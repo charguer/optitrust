@@ -242,50 +242,52 @@ let%transfo change_type (new_type : string) (tg : target) : unit =
 
     NOTE: if initialization [value] is not provided then the declaration will be un-initialized. *)
 let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ~(name : string) ~(typ : typ) ?(value : trm option) (tg : target) : unit =
-  Target.iter (fun p ->
+  Target.reparse_after ~reparse (Target.iter (fun p ->
     let (p_seq, i) = Path.extract_last_dir_before p in
     Target.apply_at_path (Variable_core.insert_at i const name typ value) p_seq;
-  ) tg
+  )) tg
 
 (** [subst ~subst ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the
     variable [subst], then it will check for occurrences of the variable [subst] and replace is with [put]. *)
 let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : target) : unit =
-  Target.iter (fun p ->
-    if (* !Flags.check_validity *) Flags.annotated () then begin
-      let instr_p, expr_p = Path.path_in_instr p (Trace.ast ()) in
-      Nobrace_transfo.remove_after (fun () -> (* FIXME: handle no brace in scope and typing to remove more lazily? *)
-      Target.apply_at_path (fun instr_t ->
-        let res_before = Resources.before_trm instr_t in
-        let res_after = Resources.after_trm instr_t in
-        let g = Resource_trm.may_ghost_intro_alias subst put res_before in
-        let filter (_, f) = is_free_var_in_trm subst f in
-        let res_filter = Resource_set.filter
-          ~pure_filter:filter ~linear_filter:filter
-          (*~aliases_filter:(fun _ _ -> false) ~spec_filter:(fun _ _ -> false)*) in
-        let res_before_touched = res_filter res_before in
-        let res_after_touched = res_filter res_after in
-        let res_before_changed = Resource_set.subst_var subst put res_before_touched in
-        let res_after_changed = Resource_set.subst_var subst put res_after_touched in
-        (* NOTE: #equiv-rewrite
-        these ghosts assume that all affected code typechecks with the substitution applied to the entire resource context, this is not always true, it might be necessary to forget the substitution on resources consumed by function calls, and learn the substitution on resources produced by function calls.
-        This is a general problem for any equivalence rewrite, in particular for arithmetic simplification. *)
-        let change_res_before = Resource_trm.ghost_admitted {
-          pre = res_before_touched; post = res_before_changed
-        } in
-        let change_res_after = Resource_trm.ghost_admitted {
-          pre = res_after_changed; post = res_after_touched
-        } in
-        let t = Path.apply_on_path (trm_subst_var subst put) instr_t expr_p in
-        match trm_seq_inv t with
-        | Some (instrs, result) ->
-          (* is this code path used? *)
-          trm_seq_helper ~annot:t.annot ?result [Trm g; Trm change_res_before; TrmMlist instrs; Trm change_res_after]
-        | None ->
-          trm_seq_helper ~braces:false [Trm g; Trm change_res_before; Trm t; Trm change_res_after]
-      ) instr_p);
-      Resources.justif_correct (sprintf "can substitute %s for its value" subst.name)
-    end else
-      Target.apply_at_path (trm_subst_var subst put) p
+  Target.reparse_after ~reparse (
+    Target.iter (fun p ->
+      if (* !Flags.check_validity *) Flags.annotated () then begin
+        let instr_p, expr_p = Path.path_in_instr p (Trace.ast ()) in
+        Nobrace_transfo.remove_after (fun () -> (* FIXME: handle no brace in scope and typing to remove more lazily? *)
+        Target.apply_at_path (fun instr_t ->
+          let res_before = Resources.before_trm instr_t in
+          let res_after = Resources.after_trm instr_t in
+          let g = Resource_trm.may_ghost_intro_alias subst put res_before in
+          let filter (_, f) = is_free_var_in_trm subst f in
+          let res_filter = Resource_set.filter
+            ~pure_filter:filter ~linear_filter:filter
+            (*~aliases_filter:(fun _ _ -> false) ~spec_filter:(fun _ _ -> false)*) in
+          let res_before_touched = res_filter res_before in
+          let res_after_touched = res_filter res_after in
+          let res_before_changed = Resource_set.subst_var subst put res_before_touched in
+          let res_after_changed = Resource_set.subst_var subst put res_after_touched in
+          (* NOTE: #equiv-rewrite
+          these ghosts assume that all affected code typechecks with the substitution applied to the entire resource context, this is not always true, it might be necessary to forget the substitution on resources consumed by function calls, and learn the substitution on resources produced by function calls.
+          This is a general problem for any equivalence rewrite, in particular for arithmetic simplification. *)
+          let change_res_before = Resource_trm.ghost_admitted {
+            pre = res_before_touched; post = res_before_changed
+          } in
+          let change_res_after = Resource_trm.ghost_admitted {
+            pre = res_after_changed; post = res_after_touched
+          } in
+          let t = Path.apply_on_path (trm_subst_var subst put) instr_t expr_p in
+          match trm_seq_inv t with
+          | Some (instrs, result) ->
+            (* is this code path used? *)
+            trm_seq_helper ~annot:t.annot ?result [Trm g; Trm change_res_before; TrmMlist instrs; Trm change_res_after]
+          | None ->
+            trm_seq_helper ~braces:false [Trm g; Trm change_res_before; Trm t; Trm change_res_after]
+        ) instr_p);
+        Resources.justif_correct (sprintf "can substitute %s for its value" subst.name)
+      end else
+        Target.apply_at_path (trm_subst_var subst put) p
+    )
   ) tg
 
 (** <private> *)

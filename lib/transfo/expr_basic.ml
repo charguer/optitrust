@@ -4,7 +4,7 @@ open Target
 
 (** [update f tg]: applies the operation [f] at the target [tg] *)
 let update ?(reparse: bool = false) (f : trm -> trm) (tg: target) : unit =
-  Target.apply_at_target_paths f tg
+  Target.reparse_after ~reparse (Target.apply_at_target_paths f) tg
 
 
 (** [replace node tg]: expects the target to point at an instruction, then it will replace this

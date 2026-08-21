@@ -6,7 +6,7 @@ open Target
 (** [insert ~reparse code tg]: expects the target [tg] to point at a relative position(in between two instructoins),
      [code] - the instruction that is going to be added, provided by the user as an arbitrary trm. *)
 let%transfo insert ?(reparse : bool = false) (code : trm) (tg : target) : unit =
-  Target.apply_at_target_paths_before (fun t i -> Sequence_core.insert_at code i t) tg
+  Target.reparse_after ~reparse (Target.apply_at_target_paths_before (fun t i -> Sequence_core.insert_at code i t)) tg
 
 
 (** [delete index nb tg]: expects the target [tg] to point at an instruction,
