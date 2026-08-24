@@ -137,15 +137,6 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
 (*                             File input                                     *)
 (******************************************************************************)
 
-let update_use_resources_with_models_flag (ast: trm): unit =
-  let rec check_models_enabled (t: trm) =
-    match t.desc with
-    | Trm_seq (seq, _) -> List.exists check_models_enabled (Mlist.to_list seq)
-    | Trm_predecl (var, _) when var.name = "__OPTITRUST_ENABLE_MODELS" -> true
-    | _ -> false
-  in
-  Flags.use_resources_with_models := check_models_enabled ast
-
 (** A parser should read a filename and return:
    - A header to copy in the produced file (typically a list of '#include' for C)
    - The OptiTrust AST of the rest of the file *)
@@ -178,9 +169,6 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
   in
 
   if not persistant then Unix.unlink ser_filename;
-
-  (* LATER: It is weird to do this here, but we must set this flag before decoding *)
-  update_use_resources_with_models_flag ast;
 
   (* Possibly perform the decoding *)
   let ast = if !Flags.bypass_cfeatures then Scope_computation.infer_var_ids ast else C_encoding.decode_from_c ast in
@@ -723,7 +711,6 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
     step_args = [("extension", the_trace.cur_context.extension) ];
     step_justif = [];
     step_typechecking_mode = !Flags.typechecking_mode;
-    (* step_flag_check_validity = !Flags.check_validity && (not !Flags.use_resources_with_models); *)
     step_valid = false;
     step_tags = [];
     step_debug_msgs = [];
@@ -772,7 +759,6 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
     step_args = [];
     step_justif = [];
     step_typechecking_mode = !Flags.typechecking_mode;
-    (* step_flag_check_validity = !Flags.check_validity && (not !Flags.use_resources_with_models); *)
     step_valid = valid;
     step_tags = tags;
     step_debug_msgs = [];
@@ -959,9 +945,7 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
           then begin
             (*DEBUG: Printf.printf "recompute between steps: %s\n" (step_kind_to_string step.step_kind); *)
             recompute_resources ();
-            if !Flags.use_resources_with_models then
-              (* if models are enabled, typing makes the step valid *)
-              infos.step_valid <- true
+            infos.step_valid <- true
           end
   end;
   (* Save the ast_after and its style *)
@@ -979,7 +963,7 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
   if not (is_kind_preserving_code step.step_kind)
     then make_substeps_chained step;
   (* Check that [Flags.check_validity] is like at the start of the step *)
-  if not on_error && (!Flags.typechecking_mode <> infos.step_typechecking_mode) (* (!Flags.check_validity && (not !Flags.use_resources_with_models)) <> infos.step_flag_check_validity *)
+  if not on_error && (!Flags.typechecking_mode <> infos.step_typechecking_mode)
     then raise (TraceFailure "At finalize_step, Flags.check_validity is not same as when step was opened.");
   (* Set the validity flag if it is not already set, in particular
      if the step is an identity step, or if all substeps are valid.

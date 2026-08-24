@@ -662,30 +662,6 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
   let instrs, _ = trm_inv ~error trm_seq_inv body in
   let (rest, moved_instrs) = Mlist.extract span.start span.stop instrs in
 
-  (* Deprecated loop *)
-  (* if !Flags.check_validity && not !Flags.use_resources_with_models then begin
-    Mlist.iteri (fun i instr ->
-      if is_free_var_in_trm range.index instr then
-        (* NOTE: would be checked by var ids anyway *)
-        trm_fail instr "Loop_basic.move_out: instruction uses loop index";
-      (* TODO: assert_dup_instr_redundant on group of instrs at once *)
-      Resources.assert_dup_instr_redundant i (Mlist.length instrs - 1) body;
-    ) moved_instrs;
-
-    begin match empty_range with
-    | Generate_if -> ()
-    | Arithmetically_impossible -> failwith "Arithmetically_impossible is not implemented yet"
-    | Produced_resources_uninit_after ->
-      if not contract.strict then failwith "Need the for loop contract to be strict";
-      let instr_usage = Resources.compute_usage_of_instrs moved_instrs in
-      let invariant_written_by_instr = List.filter (Resource_set.(linear_usage_filter instr_usage keep_written)) contract.invariant.linear in
-      List.iter (fun (_, f) -> if not (Resource_formula.is_formula_uninit f) then trm_fail body "The instruction cannot be moved out because it consumes resources that are not uninitialized after the loop (and the loop range could be empty)"
-      ) invariant_written_by_instr
-    end;
-
-    Trace.justif "instructions from following iterations are redundant with first iteration"
-  end; *)
-
   let generate_if = (empty_range = Generate_if) in
   let contract =
     if generate_if || not contract.strict then

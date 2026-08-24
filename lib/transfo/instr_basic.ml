@@ -62,18 +62,6 @@ let%transfo move ?(mark_moved : mark = no_mark)
       let seq, swapped_after = Mlist.split mid_index seq in
       let untouched_before, swapped_before = Mlist.split ~left_bias:true before_index seq in
 
-      (* Yanni : Deprecated condition - We always use resources with models now *)
-      (* if !Flags.check_validity && not !Flags.use_resources_with_models then begin
-        let usage_before = Resources.compute_usage_of_instrs swapped_before in
-        let usage_after = Resources.compute_usage_of_instrs swapped_after in
-        let ctx = [
-          path_error_context (p_seq @ [Dir_before dest_index]);
-          path_error_context p
-        ] in
-        Resources.assert_usages_commute ctx usage_before usage_after;
-        Trace.justif "resources commute"
-      end; *)
-
       let (moved_beg, moved_end) = span_marks mark_moved in
       trm_seq_helper ~annot:t_seq.annot ?result (
         [TrmMlist untouched_before] @

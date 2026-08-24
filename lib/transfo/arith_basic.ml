@@ -46,7 +46,7 @@ let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : 
           simpl_t
         end else begin
         let open Resource_formula in
-        if t != simpl_t && !Flags.use_resources_with_models && not (is_formula t) then begin
+        if t != simpl_t && not (is_formula t) then begin
           let typ = Option.unsome ~error:"expected type" t.typ in
           let res = Resources.after_trm t in
           begin match Var_map.find_opt Resource_set.var_result res.aliases with

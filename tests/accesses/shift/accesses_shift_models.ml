@@ -4,7 +4,6 @@ open Prelude
 (* let _ = Flags.check_validity := true *)
 let _ = Flags.typechecking_mode := Flags.ProofPreserving
 let _ = Flags.recompute_resources_between_steps := true
-let _ = Flags.use_resources_with_models := true
 (* let _ = Flags.preserve_specs_only := true *)
 
 let _ = Run.script_cpp (fun _ -> (* ()

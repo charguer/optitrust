@@ -64,31 +64,27 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
         Pattern.when_ (address_matches addr);
         let new_get =
           f_get (trm_get (trm_add_mark mark_handled_addresses addr)) in
-        if !Flags.use_resources_with_models then begin
-          let old_res_after = Resources.after_trm t in
-          let (old_value_after,mem_typ) =
-            Option.unsome ~error:"could not find old value" (List.find_map (fun (_, formula) ->
-              Pattern.pattern_match_opt formula [
-                Pattern.(formula_points_to !__ !__ !__) (fun addr value mem_typ () ->
-                  Pattern.when_ (address_matches addr);
-                  (value,mem_typ)
-                )
-              ]
-            ) old_res_after.linear) in
+        let old_res_after = Resources.after_trm t in
+        let (old_value_after,mem_typ) =
+          Option.unsome ~error:"could not find old value" (List.find_map (fun (_, formula) ->
+            Pattern.pattern_match_opt formula [
+              Pattern.(formula_points_to !__ !__ !__) (fun addr value mem_typ () ->
+                Pattern.when_ (address_matches addr);
+                (value,mem_typ)
+              )
+            ]
+          ) old_res_after.linear) in
 
-          let typ = Option.unsome ~error:"expected type" new_get.typ in
-          let tmp_get = new_var "get" in
-          let tmp_get_const = new_var "getc" in
-          let v = new_var "v" in
-          let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~typ ~by:(f_cancel old_value_after) (formula_fun [v, typ] (formula_points_to ~mem_typ (trm_var tmp_get) (trm_var v))))) in
-          trm_add_cstyle RewriteSequence (trm_seq_helper ~result:tmp_get_const [
-            Trm (trm_let_mut (tmp_get, typ) new_get);
-            Trm maintain_res;
-            Trm (trm_let (tmp_get_const, typ) (trm_get (trm_var tmp_get)))
-          ])
-        end else begin
-          new_get
-        end
+        let typ = Option.unsome ~error:"expected type" new_get.typ in
+        let tmp_get = new_var "get" in
+        let tmp_get_const = new_var "getc" in
+        let v = new_var "v" in
+        let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~typ ~by:(f_cancel old_value_after) (formula_fun [v, typ] (formula_points_to ~mem_typ (trm_var tmp_get) (trm_var v))))) in
+        trm_add_cstyle RewriteSequence (trm_seq_helper ~result:tmp_get_const [
+          Trm (trm_let_mut (tmp_get, typ) new_get);
+          Trm maintain_res;
+          Trm (trm_let (tmp_get_const, typ) (trm_get (trm_var tmp_get)))
+        ])
       );
       Pattern.(trm_set !__ !__) (fun addr value () ->
         Pattern.when_ (address_matches addr);
@@ -105,32 +101,25 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
         let new_t =
           trm_set (trm_add_mark mark_handled_addresses tvar)
             (f_set (trm_apps (trm_binop typ binop) [new_get; new_val])) in
+        let old_res_after = Resources.after_trm t in
+        let (tvar_model, tval_model, mem_typ) =
+          Option.unsome ~error:"could not find old value" (List.find_map (fun (_, formula) ->
+            Pattern.pattern_match_opt formula [
+              Pattern.(formula_points_to !__ (trm_binop binop !__ !__) !__) (fun addr tvar_model tval_model mem_typ () ->
+                Pattern.when_ (address_matches addr);
+                (tvar_model, tval_model, mem_typ)
+              )
+            ]
+          ) old_res_after.linear) in
 
-        if !Flags.use_resources_with_models then begin
-          (* tvar binop= tval
-             tvar ~~> tvar_model binop tval_model *)
-          let old_res_after = Resources.after_trm t in
-          let (tvar_model, tval_model, mem_typ) =
-            Option.unsome ~error:"could not find old value" (List.find_map (fun (_, formula) ->
-              Pattern.pattern_match_opt formula [
-                Pattern.(formula_points_to !__ (trm_binop binop !__ !__) !__) (fun addr tvar_model tval_model mem_typ () ->
-                  Pattern.when_ (address_matches addr);
-                  (tvar_model, tval_model, mem_typ)
-                )
-              ]
-            ) old_res_after.linear) in
-
-          let v = new_var "v" in
-          let typ = Option.unsome ~error:"expected type" new_get.typ in
-          let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~typ ~by:(f_cancel tvar_model) (formula_fun [v, typ] (formula_points_to ~mem_typ tvar (f_set (trm_apps (trm_binop typ binop) [(trm_var v); tval_model])))))) in
-          trm_seq_helper ~braces:false [
-            Trm new_t;
-            (* tvar ~~> f_set (tvar_model_to_norm binop tval_model) *)
-            Trm maintain_res;
-          ]
-        end else begin
-          new_t
-        end
+        let v = new_var "v" in
+        let typ = Option.unsome ~error:"expected type" new_get.typ in
+        let maintain_res = Resource_trm.(ghost (ghost_rewrite_linear ~typ ~by:(f_cancel tvar_model) (formula_fun [v, typ] (formula_points_to ~mem_typ tvar (f_set (trm_apps (trm_binop typ binop) [(trm_var v); tval_model])))))) in
+        trm_seq_helper ~braces:false [
+          Trm new_t;
+          (* tvar ~~> f_set (tvar_model_to_norm binop tval_model) *)
+          Trm maintain_res;
+        ]
       );
       Pattern.(formula_points_to !__ !__ !__) (fun addr value mem_typ () ->
         Pattern.when_ (address_matches addr);

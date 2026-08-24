@@ -1426,7 +1426,6 @@ and formula_to_doc ?(prec : int = 0) style (f: formula): document =
       let addr = trm_add_cstyle ResourceFormula addr in
       let formula = trm_add_cstyle ResourceFormula formula in
       let mem_typ = trm_add_cstyle ResourceFormula mem_typ in
-      Pattern.when_ (!Flags.use_resources_with_models);
       Pattern.pattern_match mem_typ [
         Pattern.(trm_specific_var ~ignore_unset_id:true mem_typ_any_var) (fun () -> decorate_trm style addr ^^ blank 1 ^^ string "~~>" ^^ blank 1 ^^ trm_to_doc style formula);
         Pattern.__ (fun () -> decorate_trm style addr ^^ blank 1 ^^ string "~~>" ^^ string "[" ^^ (trm_to_doc style mem_typ) ^^ string "]" ^^ blank 1 ^^ trm_to_doc style formula)

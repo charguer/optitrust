@@ -152,7 +152,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       in aux frac
     in
     let process_one_cell ~(fold : bool) wrap_cell (is_ro, loc) =
-      let model loc = wrap_cell (formula_cell ~mem_typ:Resource_formula.mem_typ_any loc) in
+      let model loc = wrap_cell (formula_uninit_cell ~mem_typ:Resource_formula.mem_typ_any loc) in
       if is_ro then begin
         let fracs = List.map (fun _ -> new_frac ()) field_list in
         let folded_res = List.map (fun (frac_var, _) ->
@@ -185,7 +185,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
     let process_one_item ~(fold : bool) =
       process_matching_resource_item (fun wrap is_ro c -> process_one_cell ~fold wrap (is_ro, c)) (fun () -> [])
     in
-    let (unfolds, folds) = if (* !Flags.check_validity *) Flags.annotated () then begin
+    let (unfolds, folds) = if Flags.proof_preserving () then begin
       let (res_start, res_stop) = Resources.around_instrs span_instrs in
       let unfolds = List.concat_map (process_one_item ~fold:false) res_start.linear in
       let folds = List.concat_map (process_one_item ~fold:true) res_stop.linear in
@@ -202,9 +202,9 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
               let new_formula = match formula_read_only_inv formula with
               | Some { frac; formula } ->
                 let new_frac = fracs_map_split_frac fracs_map sf field_list frac in
-                formula_read_only ~frac:new_frac (wrap (formula_cell ~mem_typ:Resource_formula.mem_typ_any (trm_struct_access ~field_typ:ty ~struct_typ loc sf)))
+                formula_read_only ~frac:new_frac (wrap (formula_uninit_cell ~mem_typ:Resource_formula.mem_typ_any (trm_struct_access ~field_typ:ty ~struct_typ loc sf)))
               | None when is_formula_uninit formula -> wrap (formula_uninit_cell ~mem_typ:Resource_formula.mem_typ_any (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
-              | None -> wrap (formula_cell ~mem_typ:Resource_formula.mem_typ_any (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
+              | None -> wrap (formula_uninit_cell ~mem_typ:Resource_formula.mem_typ_any (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
               in
               (new_anon_hyp (), new_formula)
             ) field_list

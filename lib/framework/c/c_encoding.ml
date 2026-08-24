@@ -1265,7 +1265,7 @@ let rec encode_contract (style: style) (t: trm): trm =
       seq_push (trm_apps (trm_var __pure) []) body
     | FunSpecContract contract ->
       let used_vars = fun_contract_used_vars contract in
-      let preserves_clause = if !Flags.use_resources_with_models then __preserves else __modifies in
+      let preserves_clause = __preserves in
       let pre_pure, pre_linear, post_linear, body =
         push_common_clauses ~reads_clause:__reads ~preserves_clause ~writes_clause:__writes contract.pre.pure contract.pre.linear contract.post.linear body
       in
@@ -1289,7 +1289,7 @@ let rec encode_contract (style: style) (t: trm): trm =
   | Trm_for (range, mode, body0, contract) ->
     let body = encode_contract style body0 in
     let used_vars = loop_contract_used_vars contract in
-    let preserves_clause = if !Flags.use_resources_with_models then __xpreserves else __xmodifies in
+    let preserves_clause = __xpreserves in
     let loop_ghosts, pre_linear, post_linear, body =
       push_common_clauses ~reads_clause:__xreads ~preserves_clause ~writes_clause:__xwrites
         contract.loop_ghosts contract.iter_contract.pre.linear contract.iter_contract.post.linear body
@@ -1303,7 +1303,7 @@ let rec encode_contract (style: style) (t: trm): trm =
       push_common_clauses ~force:true ~reads_clause:__sreads ~preserves_clause:__sreads
         loop_ghosts contract.parallel_reads contract.parallel_reads body
     in
-    let spreserves_clause = if !Flags.use_resources_with_models then __spreserves else __smodifies in
+    let spreserves_clause = __spreserves in
     let body = push_named_formulas spreserves_clause ~used_vars contract.invariant.linear body in
     let body = push_named_formulas __srequires ~used_vars contract.invariant.pure body in
     let body = push_named_formulas __requires ~used_vars loop_ghosts body in

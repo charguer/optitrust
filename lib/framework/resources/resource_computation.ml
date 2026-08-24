@@ -324,8 +324,6 @@ let rec compute_pure_typ (env: pure_env) ?(typ_hint: typ option) (t: trm): typ =
       let mem_typ_check mem_typ_var (cont: unit -> unit) = let mem_typ = compute_pure_typ env mem_typ_var in if not (Trm_unify.are_same_trm mem_typ typ_mem_type) then failwith "In '%s': hardware type '%s' is not recognized" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string mem_typ_var) else cont () in
       Pattern.pattern_match repr [
         Pattern.(trm_uninit_cell !__) (fun mem_typ () -> mem_typ_check mem_typ (fun () -> ()));
-        Pattern.(trm_cell !__) (fun mem_typ () -> mem_typ_check mem_typ (fun () ->
-          Pattern.when_ (not !Flags.use_resources_with_models)));
         Pattern.(trm_apps1 (trm_cell !__) !__) (fun mem_typ model () -> mem_typ_check mem_typ (fun () ->
           let model_typ = compute_pure_typ env model in
           if not (Trm_unify.are_same_trm val_typ model_typ) then failwith "In '%s': pointer '%s' of type '%s' cannot point to a value '%s' of type '%s'" (Ast_to_c.ast_to_string t) (Ast_to_c.ast_to_string ptr) (Ast_to_c.typ_to_string ptr_typ) (Ast_to_c.ast_to_string model) (Ast_to_c.typ_to_string model_typ)
@@ -1283,7 +1281,7 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
     | Unop_address ->
       failwith "Address operator should have been eliminated at encoding phase"
 
-    | Unop_pre_incr | Unop_pre_decr | Unop_post_incr | Unop_post_decr when (!Flags.use_resources_with_models) ->
+    | Unop_pre_incr | Unop_pre_decr | Unop_post_incr | Unop_post_decr ->
       if not (is_typ_numeric typ) then failwith "Cannot apply unary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
       let dest_var = new_hyp "dest" in
       let value_var = new_hyp "value" in
@@ -1302,14 +1300,14 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
       } in
       typ_fun [typ_ptr typ] typ, { args = [dest_var]; contract; inverse = None }
 
-    | Unop_pre_incr | Unop_pre_decr | Unop_post_incr | Unop_post_decr ->
+    (* | Unop_pre_incr | Unop_pre_decr | Unop_post_incr | Unop_post_decr ->
       if not (is_typ_numeric typ) then failwith "Cannot apply unary %s on a non numeric type" (Ast_to_c.ast_to_string (trm_prim typ prim));
       let dest_var = new_hyp "dest" in
       let contract = {
         pre = Resource_set.make ~pure:[(dest_var, typ_ptr typ)] ~linear:[new_anon_hyp (), formula_cell_var ~mem_typ:mem_typ_any dest_var] ();
         post = Resource_set.make ~pure:[var_result, typ] ~linear:[new_anon_hyp (), formula_cell_var ~mem_typ:mem_typ_any dest_var] ()
       } in
-      typ_fun [typ_ptr typ] typ, { args = [dest_var]; contract; inverse = None }
+      typ_fun [typ_ptr typ] typ, { args = [dest_var]; contract; inverse = None } *)
 
     | Unop_struct_access field ->
       let fields_typ = match Option.bind (typ_var_inv typ) (fun record_name -> Var_map.find_opt record_name struct_fields) with
@@ -1351,12 +1349,9 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
       let typ = typ_var vartyp in
       let arg_var = new_hyp "p" in
       let model_var = new_hyp "v" in
-      let pre_model, post_aliases =
-        if !Flags.use_resources_with_models then
-          [model_var, typ], (Var_map.singleton var_result (trm_var model_var))
-        else
-          [], Var_map.empty
-      in
+      let pre_model = [model_var, typ] in
+      let post_aliases = (Var_map.singleton var_result (trm_var model_var)) in
+
       let frac_var = new_hyp "f" in
       let ro_cell = formula_read_only ~frac:(trm_var frac_var) (formula_points_to ~mem_typ:mem_typ_any (trm_var arg_var) (trm_var model_var)) in
       (* With C++ syntax: template<typename T> T get(T* p) { __reads("p ~> Cell"); } *)
@@ -1420,7 +1415,7 @@ let find_prim_spec typ prim struct_fields : typ * fun_spec_resource =
     *)
     let dest_var = new_hyp "dest" in
     let model_var = new_hyp "dest_val" in
-    let pre_model = if !Flags.use_resources_with_models then [model_var, typ] else [] in
+    let pre_model = [model_var, typ] in
     let operand_var = new_hyp "operand" in
     let contract = { (* TODO: other hardware types allocated on stack? *)
       pre = Resource_set.make ~pure:((dest_var, typ_ptr typ) :: (operand_var, typ) :: pre_model) ~linear:[new_anon_hyp (), formula_points_to ~mem_typ:mem_typ_any (trm_var dest_var) (trm_var model_var)] ();

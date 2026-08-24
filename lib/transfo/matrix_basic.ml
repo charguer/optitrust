@@ -346,7 +346,7 @@ let%transfo local_name_tile
         mark_dims mark_accesses mark_indices mark_alloc mark_load mark_unload !ret_var tile local_var dims elem_ty indices uninit_pre uninit_post
         model_before model_after
       ) p;
-      if (* !Flags.check_validity *) Flags.annotated () then begin
+      (* if Flags.annotated () then begin
         Resources.ensure_computed ();
         if not !Flags.use_resources_with_models then begin
           let p = resolve_target_exactly_one [cMark m] in
@@ -368,7 +368,7 @@ let%transfo local_name_tile
           else
             Trace.justif "resources do not mention replaced variable after transformation"
         end
-      end
+      end *)
     )) tg
   )
 
