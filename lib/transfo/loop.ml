@@ -104,7 +104,7 @@ let%transfo move_out_bis
     Resources.make_strict_loop_contracts [];
     let loop_mark = next_mark () in
     Loop_basic.move_out ~loop_mark [cPath seq_path; Constr_depth (DepthAt 0); tSpan [tFirst] [cMarkSpanStop mark_moved]];
-    if (* !Flags.check_validity *) Flags.annotated () then Resources.loop_minimize [cMark loop_mark];
+    if Flags.proof_preserving () then Resources.loop_minimize [cMark loop_mark];
   ) tg)
 
 (* TODO: redundant with 'hoist' *)
