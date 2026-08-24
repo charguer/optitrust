@@ -2,8 +2,7 @@ open Prelude
 open Target
 
 (* DEBUG flags *)
-
-let debug_transform = true
+let debug_transform = false
 
 type transform_ret = {
   typedvar : (var * typ option) option ref;

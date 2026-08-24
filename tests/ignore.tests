@@ -104,6 +104,32 @@ accesses/shift/accesses_shift.ml
 accesses/scale/accesses_scale_doc.ml
 accesses/scale/accesses_scale.ml
 
+## not models-compatible
+variable/elim_reuse/variable_elim_reuse_doc.ml
+variable/elim_reuse/variable_elim_reuse.ml
+resources/ghost_pure/ghost_pure_move_all_upwards.ml
+resources/ghost_pair/ghost_pair_minimize.ml
+resources/ghost_pair/ghost_pair_intro_elim_lambda.ml
+resources/ghost_pair/ghost_pair_intro_elim.ml
+resources/ghost_pair/ghost_pair_distribute.ml
+resources/ghost/ghost_embed_loop.ml
+resources/contracts/set_contract.ml
+resources/contracts/detach_loop_ro_focus.ml
+resources/arbitrary_fracs/specialize_arbitrary_fracs.ml
+record/to_variables/record_to_variables.ml
+matrix/simpl/matrix_simpl_doc.ml
+matrix/simpl/matrix_simpl.ml
+matrix/local_name_tile/matrix_local_name_tile_doc.ml
+matrix/local_name_tile/matrix_local_name_tile_basic_doc.ml
+loop/unroll/loop_unroll.ml
+loop/tile/loop_tile.ml
+loop/move/loop_move.ml
+loop/fission/loop_fission.ml
+instr/move/instr_move_in_seq.ml
+arith/sort/arith_sort.ml
+
+
+
 # BROKEN TRANSFO TO FIX
 specialize/function_defs/specialize_function_defs_doc.ml
 specialize/function_defs/specialize_function_defs.ml

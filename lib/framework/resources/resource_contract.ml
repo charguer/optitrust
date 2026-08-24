@@ -90,6 +90,11 @@ let rec desugar_formula (formula: formula): formula =
           let args, model = List.unlast args in
           let size, mem = List.unlast args in
           formula_matrix var ~mem_typ:(mem) size ~model
+        else if f.name = sprintf "UninitMatrix%d" (List.length args) then
+          formula_uninit_matrix ~mem_typ:(mem_typ_any) var args
+        else if f.name = sprintf "UninitMatrix%dOf" (List.length args - 1) then
+          let size, mem = List.unlast args in
+          formula_uninit_matrix ~mem_typ:(mem) var size
         else raise Pattern.Next
       );
     (* Allow using operators / and - in first argument of RO(_,_) while normally they are reserved for integers *)
