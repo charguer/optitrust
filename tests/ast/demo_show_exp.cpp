@@ -6,7 +6,7 @@ int main() {
   x--;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("x ~> Cell");
+    __spreserves("x ~> Cell");
     /*@mymark2, mymark1*/ x /*mymark2, mymark1@*/++;
   }
 }
@@ -22,7 +22,7 @@ AST:
   x--;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("x ~> Cell");
+    __spreserves("x ~> Cell");
     x++;
   }
 }

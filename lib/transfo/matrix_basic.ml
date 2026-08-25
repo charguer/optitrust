@@ -629,10 +629,9 @@ let simpl_access_of_access_on (t : trm) : trm =
 
    TODO: should this be in another file?
    *)
-let%transfo simpl_access_of_access ?(indepth:bool =false )(tg : target) : unit =
+let%transfo simpl_access_of_access ?(indepth:bool=false) (tg : target) : unit =
   Trace.justif_always_correct ();
   Trace.tag_simpl_access ();
-
   Target.apply_at_target_paths (maybe_trm_bottom_up_try indepth simpl_access_of_access_on) tg
 
 (* internal *)

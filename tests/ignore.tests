@@ -107,6 +107,7 @@ accesses/scale/accesses_scale.ml
 ## not models-compatible
 variable/elim_reuse/variable_elim_reuse_doc.ml
 variable/elim_reuse/variable_elim_reuse.ml
+resources/contracts/loop_minimize.ml
 resources/ghost_pure/ghost_pure_move_all_upwards.ml
 resources/ghost_pair/ghost_pair_minimize.ml
 resources/ghost_pair/ghost_pair_intro_elim_lambda.ml
@@ -117,6 +118,7 @@ resources/contracts/set_contract.ml
 resources/contracts/detach_loop_ro_focus.ml
 resources/arbitrary_fracs/specialize_arbitrary_fracs.ml
 record/to_variables/record_to_variables.ml
+record/set_explicit/record_set_explicit_basic.ml
 matrix/simpl/matrix_simpl_doc.ml
 matrix/simpl/matrix_simpl.ml
 matrix/local_name_tile/matrix_local_name_tile_doc.ml
@@ -125,6 +127,7 @@ loop/unroll/loop_unroll.ml
 loop/tile/loop_tile.ml
 loop/move/loop_move.ml
 loop/fission/loop_fission.ml
+loop/reorder_at/loop_reorder_at_doc.ml
 instr/move/instr_move_in_seq.ml
 arith/sort/arith_sort.ml
 

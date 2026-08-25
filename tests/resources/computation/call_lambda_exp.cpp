@@ -19,8 +19,8 @@ void f() {
   int x = 0;
   int y = 0;
   [&](int* a) -> void {
-    __modifies("a ~> Cell");
-    __modifies("&x ~> Cell");
+    __preserves("a ~> Cell");
+    __preserves("&x ~> Cell");
     x += 1;
     *a += 1;
   }(&y);
