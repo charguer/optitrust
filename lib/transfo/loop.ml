@@ -155,16 +155,10 @@ let%transfo hoist_alloc_loop_list
       Variable_basic.inline ~mark [cMark mark_tmp_var];
       Target.iter (fun p_nested ->
         let p = p_nested |> Path.parent in
-        (* Transfo_debug.path "p_nested" p_nested;
-        Transfo_debug.path "p" p; *)
         Matrix_basic.simpl_access_of_access (target_of_path p);
-        (* Show.At.trm ~msg:"t@p" (target_of_path p);
-        Show.At.trm ~msg:"t@p" (target_of_path (p @ [Dir_arg_nth 1])); *)
         Matrix_basic.simpl_index_add (target_of_path (p @ [Dir_arg_nth 1]));
         Arith.(simpl_rec gather_rec (target_of_path (p @ [Dir_arg_nth 1])));
-      (* [cInContracts] is needed because [Variable_basic.inline] substitutes into
-         formulas too, so the nested accesses it introduces also live in contracts. *)
-      ) [nbAny; cInContracts; cMark mark]
+      ) [nbAny; cMark mark]
     in
     let rec hoist_aux name_template (i : int) =
       let more_hoists = i + 1 <= (List.length loops) in
