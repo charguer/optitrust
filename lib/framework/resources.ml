@@ -12,8 +12,10 @@ let required_for_check () : unit =
   if Flags.proof_preserving () then ensure_computed ()
 
 let justif_correct (why : string) : unit =
-  ensure_computed ();
-  Trace.justif (sprintf "resources are correct: %s" why)
+  if Flags.proof_preserving () then begin
+    ensure_computed ();
+    Trace.justif (sprintf "resources are correct: %s" why)
+  end
 
 
 
