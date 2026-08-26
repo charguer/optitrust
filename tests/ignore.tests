@@ -19,7 +19,6 @@ record/set_explicit/record_set_explicit_doc.ml
 record/set_explicit/record_set_explicit.ml
 matrix/local_name_tile/matrix_local_name_tile_basic.ml
 matrix/local_name_tile/matrix_local_name_tile.ml
-matrix/elim_mops/matrix_elim_mops.ml
 matrix/delete/matrix_delete.ml
 loop/unroll_first_iterations/loop_unroll_first_iterations_doc.ml
 loop/unroll_first_iterations/loop_unroll_first_iterations.ml
@@ -27,7 +26,7 @@ loop/unroll/loop_unroll_basic.ml
 loop/split_range/loop_split_range_doc.ml
 loop/split_range/loop_split_range.ml
 loop/shift_range/loop_shift_range_basic.ml
-loop/reorder_at/loop_reorder_at.ml
+loop/reorder_at/loop_reorder_at_novalues.ml
 loop/rename_index/loop_rename_index.ml
 loop/moveout/loop_moveout_alloc_basic.ml
 loop/hoist/loop_hoist_basic.ml
@@ -123,6 +122,7 @@ matrix/simpl/matrix_simpl_doc.ml
 matrix/simpl/matrix_simpl.ml
 matrix/local_name_tile/matrix_local_name_tile_doc.ml
 matrix/local_name_tile/matrix_local_name_tile_basic_doc.ml
+matrix/elim_mops/matrix_elim_mops.ml
 loop/unroll/loop_unroll.ml
 loop/tile/loop_tile.ml
 loop/move/loop_move.ml
@@ -130,7 +130,7 @@ loop/fission/loop_fission.ml
 loop/reorder_at/loop_reorder_at_doc.ml
 instr/move/instr_move_in_seq.ml
 arith/sort/arith_sort.ml
-variable/variable_local_name.ml
+variable/local_name/variable_local_name.ml
 
 # BROKEN TRANSFO TO FIX
 specialize/function_defs/specialize_function_defs_doc.ml

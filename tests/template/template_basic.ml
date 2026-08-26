@@ -1,7 +1,6 @@
 open Optitrust
 open Prelude
 
-(* let _ = Flags.check_validity := true *)
 let _ = Flags.typechecking_mode := Flags.ProofPreserving
 let _ = Flags.recompute_resources_between_steps := true
 
