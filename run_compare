@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+#
+# Run one or more unit tests, then open meld on the ones whose output differs
+# from the expected output.
+#
+# Test selection is fuzzy: give a fragment of the test name (or nothing at all)
+# and pick from the `.ml` files under `tests/`.
+#
+# Usage:
+#   ./run_compare                   # pick interactively among all tests
+#   ./run_compare fusion            # fuzzy query; runs directly if one match
+#   ./run_compare loop reord        # several fuzzy terms, all must match
+#   ./run_compare -dump-trace fus   # dashed arguments are forwarded to ./tester
+#   ./run_compare tests/loop/fusion/loop_fusion.ml   # explicit path, no picker
+#
+# In the interactive picker, Tab marks several tests and Enter confirms.
+# This script may be called from any folder.
+
+set -uo pipefail
+
+ROOT=$(cd "$(dirname "$0")" && pwd)
+
+# Split the arguments: dashed ones are options for `./tester`, the others make
+# up the initial query of the fuzzy finder.
+FLAGS=()
+QUERY=()
+for arg in "$@"; do
+  case "${arg}" in
+    -*) FLAGS+=("${arg}") ;;
+    *)  QUERY+=("${arg}") ;;
+  esac
+done
+
+# ---------------------------------------------------------------------------
+# Select the tests to run
+
+# An existing path is used as such, bypassing the fuzzy finder. It is resolved
+# before moving to the root, so that it may be relative to the caller's folder.
+SELECTED=()
+if [ ${#QUERY[@]} -eq 1 ] && [ -f "${QUERY[0]}" ]; then
+  SELECTED=("$(realpath --relative-to="${ROOT}" "${QUERY[0]}")")
+fi
+
+cd "${ROOT}"
+
+if [ ${#SELECTED[@]} -eq 0 ]; then
+  if ! command -v fzf > /dev/null; then
+    echo "run_compare: fzf is required for fuzzy selection; install it, or pass a path to a test" >&2
+    exit 1
+  fi
+  # '--select-1' runs directly when the query matches exactly one test
+  mapfile -t SELECTED < <(
+    find tests -name '*.ml' -and -not -name '*_with_lines.ml' | sort | \
+    fzf --multi --select-1 --exit-0 --query "${QUERY[*]}" \
+        --prompt 'test> ' --height 60% --reverse \
+        --preview 'cat {}' --preview-window 'right,55%')
+  if [ ${#SELECTED[@]} -eq 0 ]; then
+    echo "run_compare: no test selected" >&2
+    exit 1
+  fi
+fi
+
+printf 'run_compare: selected %s\n' "${SELECTED[@]}"
+
+# ---------------------------------------------------------------------------
+# Run the tests
+#
+# `./tester run` exits with a nonzero status as soon as one test is not a
+# success, hence the guard.
+
+./tester run "${FLAGS[@]}" "${SELECTED[@]}" || true
+
+# ---------------------------------------------------------------------------
+# Open meld on the selected tests whose output is wrong
+#
+# The run above has just rewritten `wrong.tests` and its siblings at the root.
+# Only the intersection with the selection is considered, to avoid reopening
+# tests left over from a previous run.
+
+# contains <file.tests> <test> : whether <test> is listed in <file.tests>
+contains() {
+  local file="$1" test="$2" line
+  [ -f "${file}" ] || return 1
+  while IFS= read -r line; do
+    [ "${line#./}" = "${test#./}" ] && return 0
+  done < "${file}"
+  return 1
+}
+
+WRONG=()
+for test in "${SELECTED[@]}"; do
+  contains "wrong.tests" "${test}" && WRONG+=("${test}")
+done
+
+if [ ${#WRONG[@]} -gt 0 ]; then
+  ./tester meld "${WRONG[@]}"
+  exit 0
+fi
+
+# Nothing to compare: report why, for each selected test
+for test in "${SELECTED[@]}"; do
+  if contains "success.tests" "${test}"; then
+    echo "run_compare: ${test}: success, nothing to compare"
+  elif contains "missing_exp.tests" "${test}"; then
+    echo "run_compare: ${test}: no expected output yet, run './tester addexp' to create it"
+  elif contains "failed.tests" "${test}"; then
+    echo "run_compare: ${test}: execution failed, no output to compare"
+  elif contains "ignored.tests" "${test}"; then
+    echo "run_compare: ${test}: ignored, see the 'ignore.tests' files"
+  else
+    echo "run_compare: ${test}: not executed"
+  fi
+done

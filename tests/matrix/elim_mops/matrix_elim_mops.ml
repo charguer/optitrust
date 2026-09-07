@@ -1,4 +1,3 @@
-(* Deprecated *)
 open Optitrust
 open Prelude
 
