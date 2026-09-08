@@ -2,9 +2,8 @@ open Optitrust
 open Prelude
 open Target
 
-let _ = Flags.check_validity := false
-let _ = Flags.pretty_matrix_notation := true
-let _ = Flags.recompute_resources_between_steps := false
+let _ = Flags.typechecking_mode := Flags.ProofRepairing
+let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp (fun _ ->
   !! Resources.ensure_computed ();

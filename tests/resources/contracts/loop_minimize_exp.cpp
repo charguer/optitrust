@@ -1,12 +1,12 @@
 #include <optitrust.h>
 
 void unused_modifies(float* M1, float* M2, int n) {
-  __modifies("M1 ~> Matrix1(n)");
-  __modifies("M2 ~> Matrix1(n)");
+  __preserves("M1 ~> Matrix1(n)");
+  __preserves("M2 ~> Matrix1(n)");
   float c = 0.f;
   for (int i = 0; i < n; i++) {
     __strict();
-    __smodifies("&c ~> Cell");
+    __spreserves("&c ~> Cell");
     __xreads("&M1[MINDEX1(n, i)] ~> Cell");
     c += M1[MINDEX1(n, i)];
   }
@@ -18,7 +18,7 @@ void unused_reads(float* M1, float* M2, int n) {
   float c = 0.f;
   for (int i = 0; i < n; i++) {
     __strict();
-    __smodifies("&c ~> Cell");
+    __spreserves("&c ~> Cell");
     __xreads("&M1[MINDEX1(n, i)] ~> Cell");
     c += M1[MINDEX1(n, i)];
   }
@@ -39,23 +39,23 @@ void produced_uninit_used_ro(int* t2) {
   }
   for (int i = 0; i < 10; i++) {
     __strict();
-    __xmodifies("&t2[MINDEX1(10, i)] ~> UninitCell");
+    __xpreserves("&t2[MINDEX1(10, i)] ~> UninitCell");
     t2[MINDEX1(10, i)] = 2;
   }
 }
 
 void nested_loops(float* M1, float* M2, int n) {
-  __modifies("M1 ~> Matrix2(n, n)");
-  __modifies("M2 ~> Matrix2(n, n)");
+  __preserves("M1 ~> Matrix2(n, n)");
+  __preserves("M2 ~> Matrix2(n, n)");
   float c = 0.f;
   for (int i = 0; i < n; i++) {
     __strict();
-    __smodifies("&c ~> Cell");
+    __spreserves("&c ~> Cell");
     __xreads("for j in 0..n -> &M1[MINDEX2(n, n, i, j)] ~> Cell");
     float acc = 0.f;
     for (int j = 0; j < n; j++) {
       __strict();
-      __smodifies("&acc ~> Cell");
+      __spreserves("&acc ~> Cell");
       __xreads("&M1[MINDEX2(n, n, i, j)] ~> Cell");
       acc += M1[MINDEX2(n, n, i, j)];
     }
@@ -69,7 +69,7 @@ void seq_modifies_into_par_reads() {
   int acc = 0;
   for (int i = 0; i < 100; i++) {
     __strict();
-    __smodifies("&acc ~> Cell");
+    __spreserves("&acc ~> Cell");
     __sreads("&x ~> Cell");
     acc += x;
   }

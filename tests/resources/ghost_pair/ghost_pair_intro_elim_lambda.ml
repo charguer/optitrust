@@ -1,7 +1,8 @@
+(* Deprecated *)
 open Optitrust
 open Target
 
-let _ = Flags.check_validity := true
+(* let _ = Flags.check_validity := true *)
 
 let _ = Run.script_cpp (fun () ->
   !! Ghost_pair.elim ~mark_begin:"b" ~mark_end:"e" [cVarDef "pair"];

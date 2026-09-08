@@ -1,10 +1,10 @@
+(* Deprecated *)
 open Optitrust
 open Prelude
 
 let _ =
-  Flags.pretty_matrix_notation := true;
   Flags.print_optitrust_syntax := true;
-  Flags.check_validity := false
+  (* Flags.check_validity := false *)
 
 let reconstruct_seq (lbefore : trm mlist) (t : trm) (lafter : trm mlist) : trm =
   let new_lbefore = Mlist.push_back t lbefore in

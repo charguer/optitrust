@@ -22,6 +22,7 @@ let insert_copy (name : string) (tg : Target.target) : unit =
   (* FIXME: #advanced-scoping-check , deal with typedef names *)
   Nobrace_transfo.remove_after (fun _ -> Target.apply_at_target_paths (Typedef_core.insert_copy_of name) tg)
 
+(* TODO : depreciate transformation *)
 (** [insert name td_body]: expects target [tg] to point at a relative location inside a sequence
     then it will insert a typedef declaration on that location.
     [name] - is the new type name while

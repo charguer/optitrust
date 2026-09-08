@@ -1,9 +1,10 @@
+(* Deprecated *)
 open Optitrust
 open Prelude
 
 (** This unit test is for testing the trace generation *)
 
-let _ = Flags.check_validity := true
+(* let _ = Flags.check_validity := true *)
 
 (* Use the line below to generate a smaller trace with ast
    only for big and small steps

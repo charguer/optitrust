@@ -93,7 +93,7 @@ let%transfo inline ?(resname : string = "")
       Marks.add call_mark (target_of_path p);
       let new_target = cMark call_mark in
 
-      let inline_mark = if !Flags.check_validity then next_mark () else no_mark in
+      let inline_mark = (* if !Flags.check_validity then next_mark () else *) no_mark in
       bind_args ~inline_impure_mark:inline_mark args [new_target];
 
       let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
@@ -138,7 +138,6 @@ let inline_multi = inline ~recurse:true
 let%transfo inline_def ?(vars : rename = AddSuffix "") ?(args : string list = [])
   ?(delete : bool = true) ?(simpl : target -> unit = Variable.default_inline_simpl) (tg : target) : unit
   =
-  Trace.tag_valid_by_composition ();
   Target.iter (fun p ->
     let def_trm = Target.resolve_path p in
     let error = "Function.inline_def: expected function definition" in

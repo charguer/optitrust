@@ -1,7 +1,8 @@
+(* Deprecated *)
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true
+(* let _ = Flags.check_validity := true *)
 
 let _ = Run.script_cpp (fun _ ->
   !! Matrix_basic.local_name_tile

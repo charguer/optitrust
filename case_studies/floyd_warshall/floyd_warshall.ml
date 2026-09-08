@@ -1,8 +1,6 @@
+(* Deprecated *)
 open Optitrust
 open Prelude
-
-(* let _ = Flags.check_validity := true *)
-let _ = Flags.pretty_matrix_notation := true
 
 (*
   1. improve data locality by storing values in contiguous memory allocations.

@@ -1,3 +1,4 @@
+(* Deprecated *)
 
 open Optitrust
 open Target
@@ -9,8 +10,8 @@ open Target
    in the future, we may want to introduce an annotation to allow preserving the presentation
   used by the original code in case it involves a star. *)
 
-let _ = Flags.check_validity := true
-let _ = Flags.recompute_resources_between_steps := true
+(* let _ = Flags.check_validity := true *)
+(* let _ = Flags.recompute_resources_between_steps := true *)
 
 let _ = Run.script_cpp (fun _ ->
   let tLabelSpan label = tSpan [tAfter; cLabel (label ^ "_start")] [tBefore; cLabel (label ^ "_end")] in

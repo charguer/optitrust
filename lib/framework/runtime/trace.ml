@@ -137,15 +137,6 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
 (*                             File input                                     *)
 (******************************************************************************)
 
-let update_use_resources_with_models_flag (ast: trm): unit =
-  let rec check_models_enabled (t: trm) =
-    match t.desc with
-    | Trm_seq (seq, _) -> List.exists check_models_enabled (Mlist.to_list seq)
-    | Trm_predecl (var, _) when var.name = "__OPTITRUST_ENABLE_MODELS" -> true
-    | _ -> false
-  in
-  Flags.use_resources_with_models := check_models_enabled ast
-
 (** A parser should read a filename and return:
    - A header to copy in the produced file (typically a list of '#include' for C)
    - The OptiTrust AST of the rest of the file *)
@@ -178,9 +169,6 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
   in
 
   if not persistant then Unix.unlink ser_filename;
-
-  (* LATER: It is weird to do this here, but we must set this flag before decoding *)
-  update_use_resources_with_models_flag ast;
 
   (* Possibly perform the decoding *)
   let ast = if !Flags.bypass_cfeatures then Scope_computation.infer_var_ids ast else C_encoding.decode_from_c ast in
@@ -318,7 +306,7 @@ type step_infos = {
   mutable step_exectime : float; (* seconds *)
   mutable step_name : string;
   mutable step_args : (string * string) list;
-  mutable step_flag_check_validity : bool; (* state of flag check_validity at start; must be the same at end *)
+  mutable step_typechecking_mode : Flags.typechecking_mode;
   mutable step_valid : bool;
   mutable step_justif : string list; (* accumulated in reverse order during the step *)
   mutable step_tags : string list; (* accumulated in reverse order during the step *)
@@ -722,7 +710,7 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
     step_name = "";
     step_args = [("extension", the_trace.cur_context.extension) ];
     step_justif = [];
-    step_flag_check_validity = !Flags.check_validity && (not !Flags.use_resources_with_models);
+    step_typechecking_mode = !Flags.typechecking_mode;
     step_valid = false;
     step_tags = [];
     step_debug_msgs = [];
@@ -770,7 +758,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
     step_name = name;
     step_args = [];
     step_justif = [];
-    step_flag_check_validity = !Flags.check_validity && (not !Flags.use_resources_with_models);
+    step_typechecking_mode = !Flags.typechecking_mode;
     step_valid = valid;
     step_tags = tags;
     step_debug_msgs = [];
@@ -794,7 +782,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
   step
 
 (** [change_step] helps creating a [Step_change] during [finalize]. *)
-let change_step ~(ast_before:trm) ~(style:output_style) ~(ast_after:trm) ~(time_start : float) ~(step_exectime : float) ~(flag_check_validity:bool) : step_tree =
+let change_step ~(ast_before:trm) ~(style:output_style) ~(ast_after:trm) ~(time_start : float) ~(step_exectime : float) ~(typechecking_mode:Flags.typechecking_mode) : step_tree =
   let infos = {
     step_id = next_step_id();
     step_script = "";
@@ -804,7 +792,8 @@ let change_step ~(ast_before:trm) ~(style:output_style) ~(ast_after:trm) ~(time_
     step_name = "Changed AST directly";
     step_args = [];
     step_justif = [];
-    step_flag_check_validity = flag_check_validity;
+    step_typechecking_mode = typechecking_mode;
+    (* step_flag_check_validity = flag_check_validity; *)
     step_valid = false;
     step_tags = [];
     step_debug_msgs = [];
@@ -876,11 +865,11 @@ let tag_simpl_access () : unit =
   tag "simpl";
   tag "simpl_access"
 
-(** [without_substep_validity_checks f] executes [f] with
+(** [wrap_proof_repairing f] executes [f] with
     the flag [check_validity] temporarily set to false.
     Only for internal use; user scripts should use the [trustme] function. *)
-let without_substep_validity_checks (f: unit -> 'a): 'a =
-  Flags.with_flag Flags.check_validity false f
+let wrap_proof_repairing (f: unit -> 'a): 'a =
+  Flags.with_flag Flags.typechecking_mode Flags.ProofRepairing f
 
 (** [make_substeps_chained step] Finalize the list of substeps of [step],
     by inserting [Step_change] steps where the ast was modified directly
@@ -888,7 +877,8 @@ let without_substep_validity_checks (f: unit -> 'a): 'a =
     by applying the series of substep, each substep starting from the same
     physical ast as the one produced by the previous step. *)
 let make_substeps_chained (step:step_tree) : unit =
-  let flag_check_validity = step.step_infos.step_flag_check_validity in
+  (* let flag_check_validity = step.step_infos.step_flag_check_validity in *)
+  let typechecking_mode = step.step_infos.step_typechecking_mode in
   let style = step.step_style_before in
   let before (s:step_tree) : trm =
     s.step_ast_before in
@@ -905,7 +895,7 @@ let make_substeps_chained (step:step_tree) : unit =
     if before substep != !cur_ast then begin
       let changestep = change_step ~ast_before:(!cur_ast) ~ast_after:(before substep)
         ~time_start:(!cur_time) ~step_exectime:(time_start substep -. !cur_time)
-        ~flag_check_validity ~style in
+        ~typechecking_mode ~style in
         (* or style:(Style.default_custom_style()) *)
       Tools.ref_list_add newsubrev changestep;
     end;
@@ -920,7 +910,7 @@ let make_substeps_chained (step:step_tree) : unit =
   if step.step_sub <> [] && !cur_ast != step.step_ast_after then begin
     let changestep = change_step ~ast_before:(!cur_ast) ~ast_after:step.step_ast_after
         ~time_start:(!cur_time) ~step_exectime:(time_stop step -. !cur_time)
-        ~flag_check_validity ~style in
+        ~typechecking_mode ~style in
     Tools.ref_list_add newsubrev changestep;
   end;
   step.step_sub <- List.rev !newsubrev
@@ -954,9 +944,7 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
           then begin
             (*DEBUG: Printf.printf "recompute between steps: %s\n" (step_kind_to_string step.step_kind); *)
             recompute_resources ();
-            if !Flags.use_resources_with_models then
-              (* if models are enabled, typing makes the step valid *)
-              infos.step_valid <- true
+            infos.step_valid <- true
           end
   end;
   (* Save the ast_after and its style *)
@@ -974,13 +962,13 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
   if not (is_kind_preserving_code step.step_kind)
     then make_substeps_chained step;
   (* Check that [Flags.check_validity] is like at the start of the step *)
-  if not on_error && (!Flags.check_validity && (not !Flags.use_resources_with_models)) <> infos.step_flag_check_validity
-    then raise (TraceFailure "At finalize_step, Flags.check_validity is not same as when step was opened.");
+  if not on_error && (!Flags.typechecking_mode <> infos.step_typechecking_mode)
+    then raise (TraceFailure "At finalize_step, Flags.typechecking_mode is not same as when step was opened.");
   (* Set the validity flag if it is not already set, in particular
      if the step is an identity step, or if all substeps are valid.
      (they have previously been ensured to form a chain).
      A [Step_trustme] is always considered invalid. *)
-  if !Flags.check_validity then begin
+  if (* !Flags.check_validity *) Flags.annotated () then begin
     if step.step_kind = Step_trustme
       then step.step_infos.step_valid <- false
     else if not infos.step_valid
@@ -1166,7 +1154,7 @@ and recompute_resources ?(missing_types = false) (): unit =
     typing_step ~name:"Resource recomputation" (recompute_resources_on_ast ~missing_types)
 
 and recompute_resources_on_ast ?(missing_types = false) () : unit =
-  if not !Flags.resource_typing_enabled then failwith "Cannot compute resources when resource typing is disabled";
+  if (* not !Flags.resource_typing_enabled *) Flags.semantics_preserving () then failwith "Cannot compute resources when resource typing is disabled";
   let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
   (* Compute a typed AST *)
 
@@ -1646,7 +1634,8 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
       "script_line", Json.(optionof int) (if i.step_script_line = Some (-1) then None else i.step_script_line);
         (* TODO: avoid use of -1 for undef line *)
       "args", Json.(listof (fun (k,v) -> Json.obj_quoted_keys ["name", str k; "value",str v])) i.step_args;
-      "check_validity", Json.bool i.step_flag_check_validity;
+      (* "check_validity", Json.bool i.step_flag_check_validity; *)
+      "typechecking_mode", Json.str (Flags.typechecking_mode_to_string i.step_typechecking_mode);
       "isvalid", Json.bool i.step_valid;
         (* TODO: at the moment, we assume that a justification item means is-valid *)
       "justif", Json.(listof str) i.step_justif;
@@ -2018,12 +2007,12 @@ let check_recover_original () : unit =
     temporarily set to false. The string [msg] is stored in the
     [name] field of the step. It is intended to be a human-readable
     summary of what the transformation [f] intends to perform,
-    and why it is preserves the semantics of the program. *)
+    and why it preserves the semantics of the program. *)
 let trustme (name : string) (f: unit -> 'a): 'a =
   (* TODO: figure out whether the call to [step] should be inside or outside
-     of the call to [without_substep_validity_checks] *)
+     of the call to [wrap_proof_repairing] *)
   step ~valid:false ~kind:Step_trustme ~name:("TRUSTME: " ^ name) (fun () ->
-    without_substep_validity_checks f)
+    wrap_proof_repairing f)
 
 
 (******************************************************************************)

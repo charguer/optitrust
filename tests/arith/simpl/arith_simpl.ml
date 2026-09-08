@@ -1,8 +1,8 @@
 open Optitrust
 open Target
 
-let _ = Flags.check_validity := true
-let _ = Flags.recompute_resources_between_steps := true
+(* let _ = Flags.check_validity := true *)
+(* let _ = Flags.recompute_resources_between_steps := true *)
 
 let _ = Run.script_cpp (fun _ ->
   (* TODO: split this files into one file for each type of simplification *)

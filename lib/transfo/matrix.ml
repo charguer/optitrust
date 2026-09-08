@@ -2,6 +2,7 @@ open Prelude
 open Target
 include Matrix_basic
 
+(* TODO : depreciate transformation *)
 (** [biject fun_bij tg]: expects the target [tg] to point at at a matrix declaration , then it will search for all its
     acccesses and replace MINDEX with  [fun_bij]. *)
 let%transfo biject (fun_bij : var) (tg : target) : unit =
@@ -102,6 +103,7 @@ let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(ac
   - (2) should start from replaced bottom leaf instead of top scope target? *)
 let simpl_void_loops = Loop.delete_all_void
 
+(* TODO : depreciate transformation *)
 (** [elim]: eliminates the matrix [var] defined in at the declaration targeted by [tg].
   All reads from [var] must be eliminated The values of [var] must only be read locally, i.e. directly after being written.
   *)
@@ -123,6 +125,7 @@ let%transfo elim ?(simpl : target -> unit = simpl_void_loops) (tg : target) : un
 (* TODO: local_name_tile ~shift_to_zero *)
 (* + shift_to_zero ~nest_of *)
 
+(* TODO : depreciate transformation *)
 (** [inline_constant]: expects [tg] to target a matrix definition,
    then first uses [Matrix.elim_mops] on all reads before attempting
    to use [Arrays.inline_constant].
@@ -136,6 +139,7 @@ let%transfo inline_constant ?(simpl : target -> unit = Arith.default_simpl) ~(de
     simpl [nbAny; cMark mark_accesses];
   )) tg
 
+(* TODO : depreciate transformation *)
 (** [elim_constant]: expects [tg] to target a matrix definition,
    then first uses [Matrix.elim_mops] on all reads before attempting
    to use [Arrays.elim_constant].
@@ -234,6 +238,7 @@ let%transfo local_name_tile
     end
   ) tg)
 
+(* TODO : depreciate transformation *)
 (** same as {!local_name_tile} but with target [tg] pointing at an instruction within a sequence,
    introduces the local name for the rest of the sequence. *)
 let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : string list = [])
@@ -247,6 +252,7 @@ let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : string lis
     Sequence.elim [cMark mark];
   ) tg)
 
+(* TODO : depreciate transformation *)
 let%transfo storage_folding ~(dim : int) ~(size : trm)
   ?(kind : storage_folding_kind = ModuloIndices) (tg : target) : unit =
   Trace.tag_valid_by_composition ();

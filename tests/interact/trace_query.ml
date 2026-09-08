@@ -1,7 +1,8 @@
+(* Deprecated *)
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true
+(* let _ = Flags.check_validity := true *)
 let _ = Flags.execution_mode := Execution_mode_full_trace
 
 let _ = Run.script_cpp ~filename:"interact_traceview.cpp" (fun _ ->

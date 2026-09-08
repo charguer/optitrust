@@ -1,8 +1,8 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true (* FIXME: this flag behaviour needs to be cleaned up *)
-let _ = Flags.pretty_matrix_notation := false
+(* let _ = Flags.check_validity := true  *)
+let _ = Flags.typechecking_mode := Flags.ProofPreserving
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_script

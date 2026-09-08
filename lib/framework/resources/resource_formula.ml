@@ -208,28 +208,14 @@ module PatternPre = struct
   let trm_uninit_cell_noid f_mem_typ = (trm_apps1 (trm_var_with_name var_uninit_cell_of.name) f_mem_typ)
 end
 
-let formula_cell ~mem_typ (addr: trm): formula =
-  if !Flags.use_resources_with_models then
-    failwith "formula_cell cannot be used when models are enabled";
-  formula_repr addr (trm_cell ~mem_typ ())
-
 let formula_points_to ~mem_typ (addr: trm) (value: formula): formula =
-  if !Flags.use_resources_with_models then
-    formula_repr addr (trm_apps ~annot:formula_annot (trm_cell ~mem_typ ()) [value])
-  else
-    formula_cell ~mem_typ addr
-
+  formula_repr addr (trm_apps ~annot:formula_annot (trm_cell ~mem_typ ()) [value])
 
 let formula_cell_inv (t: formula): (trm * mem_typ) option =
   let open Option.Monad in
   let* addr, repr = formula_repr_inv t in
   Pattern.pattern_match_opt repr [
-    PatternPre.(trm_cell !__) (fun mem_typ () ->
-      Pattern.when_ (not !Flags.use_resources_with_models);
-      (addr,mem_typ)
-    );
     PatternPre.(trm_apps1 (trm_cell !__) __) (fun mem_typ () ->
-      Pattern.when_ (!Flags.use_resources_with_models);
       (addr,mem_typ)
     );
   ]
@@ -238,17 +224,10 @@ let formula_points_to_inv (t: formula): (trm * formula * mem_typ) option =
   let open Option.Monad in
   let* addr, repr = formula_repr_inv t in
   Pattern.pattern_match_opt repr [
-    PatternPre.(trm_cell !__) (fun mem_typ () ->
-      Pattern.when_ (not !Flags.use_resources_with_models);
-      (* We need to return a model that will be ignored anyway. *)
-      (addr, trm_cell ~mem_typ (), mem_typ)
-    );
     PatternPre.(trm_apps1 (trm_cell !__) !__) (fun mem_typ model () ->
-      Pattern.when_ (!Flags.use_resources_with_models);
       (addr, model, mem_typ)
     )
   ]
-
 
 let formula_uninit_cell ?(mem_typ = mem_typ_any) (addr: trm): formula =
   formula_repr addr (trm_uninit_cell ~mem_typ ())
@@ -363,18 +342,11 @@ let formula_reorder_dims_patch ~mem_typ ?(init=true) (m:trm) (dims : trm list) (
     indices dims inner_trm
 
 let formula_matrix ~mem_typ (m: trm) ?(model: formula option) ?(init=true) (dims: trm list) : formula =
-  if !Flags.use_resources_with_models then
-    let model = Option.unsome_or_else model (fun () -> failwith "Providing a model to formula_matrix is mandatory when models are enabled") in
-    formula_custom_repr_matrix (fun indices -> trm_apps (trm_cell ~mem_typ ()) [trm_apps model (List.map trm_var indices)]) m dims
-  else
-    let cell = if init then fun _ -> (trm_cell ~mem_typ ()) else fun _  -> (trm_uninit_cell ~mem_typ ()) in
-    formula_custom_repr_matrix cell m dims
+  let model = Option.unsome_or_else model (fun () -> failwith "Providing a model to formula_matrix is mandatory when models are enabled") in
+  formula_custom_repr_matrix (fun indices -> trm_apps (trm_cell ~mem_typ ()) [trm_apps model (List.map trm_var indices)]) m dims
 
 let formula_uninit_matrix ~mem_typ (m: trm) (dims: trm list) : formula =
   formula_custom_repr_matrix (fun _ -> (trm_uninit_cell ~mem_typ ())) m dims
-
-let formula_cell_var ~mem_typ ?(typ : typ option) (x: var): formula =
-  formula_cell ~mem_typ (trm_var ?typ:(Option.map typ_ptr typ) x)
 
 let formula_uninit_cell_var ~mem_typ ?(typ : typ option) (x: var): formula =
   formula_uninit_cell ~mem_typ (trm_var ?typ:(Option.map typ_ptr typ) x)
@@ -540,9 +512,7 @@ let rec raw_formula_uninit (formula: formula): formula =
     Pattern.(trm_apps2 (trm_var_with_name var_desyncgroup.name) !__ (trm_fun (pair !__ __ ^:: nil) __ !__ __)) (fun bound idx sub () -> formula_desyncgroup idx bound (raw_formula_uninit sub));
     Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_apps (trm_var !(check (fun v -> String.starts_with ~prefix:"Matrix" v.name))) !__ __ __)) (fun addr matrix_repr matrix_args () ->
       let size_and_mem =
-        if !Flags.use_resources_with_models then
-          fst (List.unlast matrix_args)
-        else matrix_args
+        fst (List.unlast matrix_args)
       in
       formula_repr addr (trm_apps (trm_var (toplevel_var ("Uninit" ^ matrix_repr.name))) size_and_mem));
     Pattern.(trm_apps2 (trm_var_with_name var_repr.name) __ (trm_apps (trm_var (check (fun v -> String.starts_with ~prefix:"UninitMatrix" v.name))) __ __ __)) (fun () -> formula);
@@ -615,12 +585,7 @@ let formula_matrix_inv (f: formula): (trm * trm list * (trm option) * mem_typ) o
   let* location, repr = formula_repr_inv inner_formula in
   let* model,mem_typ = Pattern.pattern_match_opt repr [
     Pattern.(trm_uninit_cell !__) (fun mem_typ () -> None, mem_typ);
-    Pattern.(trm_cell !__) (fun mem_typ () ->
-      Pattern.when_ (not !Flags.use_resources_with_models);
-      Some (trm_cell ~mem_typ ()), mem_typ
-    );
     Pattern.(trm_apps1 (trm_cell !__) (trm_apps !__ !__ __ __)) (fun mem_typ model args () ->
-      Pattern.when_ (!Flags.use_resources_with_models);
       Pattern.when_ (has_matching_indices args indices);
       Some (model), mem_typ
     )

@@ -1,6 +1,7 @@
 open Prelude
 include Record_basic
 
+(* TODO : depreciate transformation *)
 (** [split_fields]: an extension to [Record_basic.split_fields].
   It takes as argument ~(typ : typ) instead of ~(typ : typvar).
    *)

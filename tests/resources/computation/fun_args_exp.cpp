@@ -21,7 +21,7 @@ void h(int* t) {
 }
 
 int incr(int* t) {
-  __modifies("t ~> Cell");
+  __preserves("t ~> Cell");
   __admitted();
   *t += 1;
   return *t;

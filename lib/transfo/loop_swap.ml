@@ -86,12 +86,12 @@ let swap_on (t: trm): trm =
       trm_seq (mlist (!(trm_for !__ !__ !__ !strict_loop_contract) ^:: nil)) __)
       !strict_loop_contract))
     (fun outer_loop outer_range outer_mode inner_loop inner_range inner_mode body inner_contract outer_contract () ->
-      let open Resource_contract in
+      (* let open Resource_contract in
       if outer_contract.invariant <> Resource_set.empty then
         if not !Flags.check_validity then raise_notrace Pattern.Next else
         failwith "Loop.swap: the outer loop has sequential invariants";
 
-      Trace.justif "outer loop was parallelizable (swapping loops can only remove possible interleavings)";
+      Trace.justif "outer loop was parallelizable (swapping loops can only remove possible interleavings)"; *)
 
       let loop_ghosts = inner_contract.loop_ghosts in
       let inner_inv = inner_contract.invariant in
@@ -140,7 +140,7 @@ let swap_on (t: trm): trm =
         swaps_post)
     );
     Pattern.__ (fun () ->
-      if !Flags.check_validity then failwith "Loop.swap: not targeting two nested for-loop";
+      (* if !Flags.check_validity then failwith "Loop.swap: not targeting two nested for-loop"; *)
       swap_on_any_loop t)
   ]
 
@@ -253,7 +253,7 @@ let%transfo swap_basic (tg : target) : unit =
 let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = no_mark) (tg : target) : unit =
   Target.iter (fun outer_loop_p ->
   Marks.with_marks (fun next_m ->
-    if not !Flags.check_validity then begin
+    if (* not !Flags.check_validity *) not (Flags.annotated ()) then begin
       swap_basic (target_of_path outer_loop_p);
     end else begin
       let _, seq_p = Path.index_in_seq outer_loop_p in

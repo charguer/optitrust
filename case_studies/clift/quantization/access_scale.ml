@@ -1,8 +1,9 @@
+(* Deprecated *)
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true
-let _ = Flags.recompute_resources_between_steps := true
+(* let _ = Flags.check_validity := true *)
+(* let _ = Flags.recompute_resources_between_steps := true *)
 
 let insert_max_tab_on (tab : typed_var) (size : trm) (i : int) (t : trm) : trm =
   let v, typ = tab in

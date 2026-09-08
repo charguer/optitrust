@@ -1,7 +1,7 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := true
+let _ = Flags.typechecking_mode := Flags.ProofPreserving
 
 let _ = Run.script_cpp (fun _ ->
   !! Variable.local_name ~var:"a" ~local_var:"x" [cFunBody "ok1"; cFor "i"];

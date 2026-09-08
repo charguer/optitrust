@@ -1,7 +1,8 @@
+(* Deprecated *)
 open Optitrust
 open Target
 
-let _ = Flags.check_validity := true
+(* let _ = Flags.check_validity := true *)
 
 let _ = Run.script_cpp ( fun _ ->
   !! Loop.fusion_targets [cFunBody "f"; multi cFor ["i"; "j"]];

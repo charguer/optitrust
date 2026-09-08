@@ -41,11 +41,12 @@ let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : 
   Trace.without_resource_computation_between_steps (fun () ->
     Target.apply_at_target_paths (fun t ->
       let f_postprocess (t: trm) (simpl_t: trm): trm =
-        if not !Flags.check_validity then begin
+        (* Yanni : This is a case where we should not delete the effect, since arithmetic simplifications should be different depending on the annotation flag. *)
+        if not (Flags.proof_preserving ()) then begin
           simpl_t
         end else begin
         let open Resource_formula in
-        if t != simpl_t && !Flags.use_resources_with_models && not (is_formula t) then begin
+        if t != simpl_t && not (is_formula t) then begin
           let typ = Option.unsome ~error:"expected type" t.typ in
           let res = Resources.after_trm t in
           begin match Var_map.find_opt Resource_set.var_result res.aliases with

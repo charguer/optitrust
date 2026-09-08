@@ -1,3 +1,4 @@
+(* Deprecated *)
 open Optitrust
 open Target
 
@@ -6,7 +7,7 @@ open Target
    takes a target and resolves it to several (consecutive!) items within a same sequence,
    then return the path to the sequence, a start position and a number of items. *)
 
-let _ = Flags.check_validity := true
+(* let _ = Flags.check_validity := true *)
 
 let _ = Run.script_cpp (fun _ ->
   !! Sequence.intro ~on:[cVarDef "a"] ();

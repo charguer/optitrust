@@ -45,6 +45,7 @@ let unroll_index_vars_from_array_reads (tg : target) : unit =
 (* FIXME: should be equal to arith default? *)
 let default_inline_constant_simpl tg = Arith.(simpl_surrounding_expr (fun x -> compute (gather x))) (nbAny :: tg)
 
+(* TODO : depreciate transformation *)
 (** [inline_constant] expects the target [decl] to point at a constant array literal declaration, and resolves all accesses targeted by [tg], that must be at constant indices.
 For every variable in non-constant indices, this transformation will attempt unrolling the corresponding for loop.
   *)
@@ -58,6 +59,7 @@ let%transfo inline_constant ?(mark_accesses : mark = no_mark) ~(decl : target) ?
     Arrays_basic.inline_constant ~mark_accesses ~decl [nbMulti; cMark m]
   )
 
+(* TODO : depreciate transformation *)
 (** [elim_constant] expects the target [tg] to point at a constant array literal declaration, and resolves all its accesses, that must be at constant indices. Then, eliminates the array declaration.
   *)
 let%transfo elim_constant ?(mark_accesses : mark = no_mark) (tg : target) : unit =

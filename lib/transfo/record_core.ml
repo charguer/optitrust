@@ -27,19 +27,19 @@ let set_explicit_on (t : trm) : trm =
       | _ -> trm_fail t (sprintf "could not get the declaration of typedef for %s" (var_to_string tid))
     in
     let field_list = Internal.get_field_list struct_def in
-    let check_pure = if !Flags.check_validity then (fun name x ->
+    (* let check_pure = if !Flags.check_validity then (fun name x ->
       if Resources.trm_is_pure x then Trace.justif (sprintf "duplicated %s is pure" name)
     ) else (fun name x ->
       ()
-    ) in
+    ) in *)
     (* already checked by set contract:
        check_pure "lhs" lt; *)
-    if !Flags.check_validity then Trace.justif "duplicated terms are pure";
+    (* if !Flags.check_validity then Trace.justif "duplicated terms are pure"; *)
     (* clause is Reads or Writes *)
     let unfold_cells clause_locs =
       let open Resource_formula in
       let open Resource_contract in
-      if !Flags.check_validity then begin
+      if Flags.annotated () then begin
         let make_admitted pure linear1 linear2 =
           Resource_trm.ghost_admitted {
             pre = Resource_set.make ~pure ~linear:linear1 ();
@@ -52,11 +52,11 @@ let set_explicit_on (t : trm) : trm =
               let with_fresh_fracs () =
                 let frac_var, frac_ghost = new_frac () in
                 let folded_res =
-                  formula_read_only ~frac:(trm_var frac_var) (formula_cell ~mem_typ:mem_typ_any loc)
+                  formula_read_only ~frac:(trm_var frac_var) (formula_uninit_cell ~mem_typ:mem_typ_any loc)
                 in
                 let unfolded_res =
                   formula_read_only ~frac:(trm_var frac_var)
-                    (formula_cell ~mem_typ:mem_typ_any (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
+                    (formula_uninit_cell ~mem_typ:mem_typ_any (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
                 in
                 let wand = formula_wand unfolded_res folded_res in
                 let folded_linear = [(new_anon_hyp (), folded_res)] in
@@ -74,10 +74,10 @@ let set_explicit_on (t : trm) : trm =
              trm_seq_nobrace_nomarks per_field_folds)
           | Writes ->
             let folded_linear = [(
-              new_anon_hyp (), formula_cell ~mem_typ:mem_typ_any loc
+              new_anon_hyp (), formula_uninit_cell ~mem_typ:mem_typ_any loc
             )] in
             let unfolded_linear = List.map (fun (sf, ty) ->
-              (new_anon_hyp (), formula_cell ~mem_typ:mem_typ_any (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
+              (new_anon_hyp (), formula_uninit_cell ~mem_typ:mem_typ_any (trm_struct_access ~field_typ:ty ~struct_typ loc sf))
             ) field_list in
             let make_uninit = List.map resource_item_uninit in
             (make_admitted [] (make_uninit folded_linear) (make_uninit unfolded_linear),
@@ -107,7 +107,7 @@ let set_explicit_on (t : trm) : trm =
       (unfold_cells [Writes,lt], set_one)
     | _ ->  (* other cases are included here *)
       (* lt = rt --> lt.f = rt.f *)
-      check_pure "rhs" rt;
+      (* check_pure "rhs" rt; *)
       let set_one i (sf, ty) =
         trm_set (trm_struct_access ~field_typ:ty ~struct_typ lt sf) (trm_struct_get ~field_typ:ty ~struct_typ rt sf)
       in
@@ -434,7 +434,7 @@ let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field 
       Pattern.pattern_match inner_r [
         Pattern.(formula_cell (trm_specific_var var) !__) (fun mem_typ () ->
           List.map (fun (f, f_typ, v) ->
-            (new_anon_hyp (), maybe_ro (formula_cell ~mem_typ (trm_var ~typ:(typ_ptr f_typ) v)))
+            (new_anon_hyp (), maybe_ro (formula_uninit_cell ~mem_typ (trm_var ~typ:(typ_ptr f_typ) v)))
           ) fields
         );
         Pattern.(formula_uninit_cell (trm_specific_var var) !__) (fun mem_typ () ->
