@@ -3,7 +3,6 @@ open Optitrust
 open Prelude
 
 let _ =
-  Flags.pretty_matrix_notation := true;
   Flags.print_optitrust_syntax := true;
   (* Flags.check_validity := false *)
 

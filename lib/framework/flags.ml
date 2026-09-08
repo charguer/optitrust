@@ -26,7 +26,7 @@ let dump_ast_details : bool ref = ref false
   MALLOC2(n, m, sizeof(T)) --> malloc(sizeof(T[n][m]))
   x[MINDEX2(n, m, i, j)] --> x[i;j]
    *)
-let pretty_matrix_notation : bool ref = ref false
+(* let pretty_matrix_notation : bool ref = ref false *)
 
 (* whether to display includes AST or not. *)
 let display_includes : bool ref = ref false
@@ -401,7 +401,6 @@ let reset_flags_to_default () : unit =
   disable_stringreprs := false;
   debug_stringreprs := false;
   use_light_diff := false;
-  pretty_matrix_notation := false;
   display_includes := false;
   stop_on_first_resource_error := true;
   (* resource_typing_enabled := true; *)

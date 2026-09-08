@@ -865,11 +865,10 @@ let tag_simpl_access () : unit =
   tag "simpl";
   tag "simpl_access"
 
-(* Yanni : might change this flag to [Flags.ProofRepairing] instead *)
-(** [without_substep_validity_checks f] executes [f] with
+(** [wrap_proof_repairing f] executes [f] with
     the flag [check_validity] temporarily set to false.
     Only for internal use; user scripts should use the [trustme] function. *)
-let without_substep_validity_checks (f: unit -> 'a): 'a =
+let wrap_proof_repairing (f: unit -> 'a): 'a =
   Flags.with_flag Flags.typechecking_mode Flags.ProofRepairing f
 
 (** [make_substeps_chained step] Finalize the list of substeps of [step],
@@ -964,7 +963,7 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
     then make_substeps_chained step;
   (* Check that [Flags.check_validity] is like at the start of the step *)
   if not on_error && (!Flags.typechecking_mode <> infos.step_typechecking_mode)
-    then raise (TraceFailure "At finalize_step, Flags.check_validity is not same as when step was opened.");
+    then raise (TraceFailure "At finalize_step, Flags.typechecking_mode is not same as when step was opened.");
   (* Set the validity flag if it is not already set, in particular
      if the step is an identity step, or if all substeps are valid.
      (they have previously been ensured to form a chain).
@@ -2008,12 +2007,12 @@ let check_recover_original () : unit =
     temporarily set to false. The string [msg] is stored in the
     [name] field of the step. It is intended to be a human-readable
     summary of what the transformation [f] intends to perform,
-    and why it is preserves the semantics of the program. *)
+    and why it preserves the semantics of the program. *)
 let trustme (name : string) (f: unit -> 'a): 'a =
   (* TODO: figure out whether the call to [step] should be inside or outside
-     of the call to [without_substep_validity_checks] *)
+     of the call to [wrap_proof_repairing] *)
   step ~valid:false ~kind:Step_trustme ~name:("TRUSTME: " ^ name) (fun () ->
-    without_substep_validity_checks f)
+    wrap_proof_repairing f)
 
 
 (******************************************************************************)

@@ -6,9 +6,8 @@ let _ = Flags.typechecking_mode := Flags.ProofPreserving
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
-let _ = Flags.pretty_matrix_notation := false
 
-let stage_ok = fun i -> i = 5
+let stage_ok = fun i -> true (* i = 1 *)
 
 let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   (* Hoist global memories *)
@@ -92,7 +91,7 @@ let _ = Run.script_cpp_stage (stage_ok) (fun () ->
 let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   !! Marks.add "kernel_sequence" [cSeq ~instrs_pred:(Target.target_list_one_st [cCall "kernel_launch"]) ()];
   (* TODO: have to disable resource checking temporarily because placement of ghost trips up printer *)
-  !! Trace.without_substep_validity_checks (fun () ->
+  !! Trace.wrap_proof_repairing (fun () ->
     Trace.without_resource_computation_between_steps (fun () ->
       Instr.move ~dest:[tFirst; cMark "kernel_sequence"] [cCall "kernel_launch"];
       Resources.ensure_computed ();

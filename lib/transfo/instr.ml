@@ -272,13 +272,6 @@ let%transfo move ~(dest : target) (tg : target) : unit =
       path_fail dest_path "Instr.move: Unsupported move outside the sequence when checking validity";
     move_in_seq ~dest:[dBefore i] (target_of_path p)
   ) tg
-  (* DEPRECATED : can not handle empty spans *)
-  (* Target.iter (fun p ->
-    let tg_trm = Target.resolve_path p in
-    Marks.add "instr_move_out" (target_of_path p);
-    Sequence_basic.insert tg_trm dest;
-    Instr_basic.delete [cMark "instr_move_out"]) tg *)
-
 
 (** [move_out tg]: moves the instruction targeted by [tg], just before its surrounding sequence. *)
 let%transfo move_out (tg : target) : unit =

@@ -19,7 +19,7 @@ let _ = Run.script_cpp (fun () ->
     Loop_basic.hoist [cVarDef "w"]);
   *)
 
-  (* without_substep_validity_checks (fun () -> *)
+  (* wrap_proof_repairing (fun () -> *)
   (* FIXME: handle div operator
   !! Loop_basic.hoist ~name:"yn" [cFunBody "f"; cVarDef "y"];
   !! Loop_basic.hoist ~name:"ym" [cFunBody "f"; cVarDef "yn"];
@@ -34,7 +34,7 @@ let _ = Run.script_cpp (fun () ->
   !! step_backtrack (fun () ->
     let mark = Mark.next () in
     (* FIXME: div op, "yn"; "ym"; "y"; *)
-    without_substep_validity_checks (fun () ->
+    wrap_proof_repairing (fun () ->
       (* FIXME: better inline justifs *)
       Variable_basic.inline ~mark [nbMulti; cVarDefs ["x"; "z"; "sum"]];
     );

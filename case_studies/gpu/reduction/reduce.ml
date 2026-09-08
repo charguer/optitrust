@@ -2,7 +2,6 @@ open Optitrust
 open Prelude
 
 let _ = Flags.typechecking_mode := Flags.ProofPreserving
-let _ = Flags.pretty_matrix_notation := false
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := None (* Some Flags.Steps_important *)
@@ -118,7 +117,7 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   (* Mask writing of final result to only 1 thread *)
   !! Loop_basic.intro_loop_single_on ~index:"ti_f" (trm_int tpb) [tAfter; cFor "i" ~body:[cFor "t"]] [tAfter; occLast; cArrayWrite "d_partial_sums"];
   (* Inline tile read result *)
-  !! Trace.without_substep_validity_checks (fun () -> Trace.without_resource_computation_between_steps (fun () -> Instr.move ~dest:[tAfter; cVarDef "out_sum"] [cVarDef ~regexp:true "sum_temp_.*"]));
+  !! Trace.wrap_proof_repairing (fun () -> Trace.without_resource_computation_between_steps (fun () -> Instr.move ~dest:[tAfter; cVarDef "out_sum"] [cVarDef ~regexp:true "sum_temp_.*"]));
   !! Variable.inline [cVarDef "out_sum"];
   (* Don't need to write 0 at the start anymore *)
   !! Instr.delete ~nb_extra:2 [occFirst; tSpanAround [cArrayWrite "d_partial_sums"]];
@@ -182,7 +181,7 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   bounds is illegal, but this is just a pure constant, so it can be inlined as a quick fix to the problem. *)
   !! Variable.inline [cVarDef ~regexp:true "N.+"];
   !! Flags.recompute_resources_between_steps := false;
-  !! Trace.without_substep_validity_checks (fun () ->
+  !! Trace.wrap_proof_repairing (fun () ->
     Instr.move ~dest:[tFirst; cMark "kernel_sequence"] [cCall "kernel_launch"];
     Trace.generate_cuda ~check_expected:true ();
   )

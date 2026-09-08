@@ -5,8 +5,7 @@ open Prelude
 
 let _ =
   (* Flags.check_validity := false; *)
-  Flags.detailed_resources_in_trace := false;
-  Flags.pretty_matrix_notation := true
+  Flags.detailed_resources_in_trace := false
 
 let chunk_len = 512
 let f = cFunDef "generate_prompt_proc"
