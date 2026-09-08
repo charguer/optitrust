@@ -620,7 +620,7 @@ let discover_dependencies
     (** [t] is none of the above, explore the child terms. *)
     | Trm_apps (f, args) ->
        List.fold_left (fun (ins, inouts, dam) item ->
-           main ins inouts dam 0 call `In iao item
+           main ins inouts dam 0 call access iao item
          ) (ins, inouts, dam) (f :: args)
     | Trm_array { items; _ } ->
        List.fold_left (fun (ins, inouts, dam) item ->
