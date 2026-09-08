@@ -43,7 +43,6 @@ type style = {
   print_types: bool;
   optitrust_syntax: bool; (* print "set(p,v)" instead of "p=v", and print "array_access(t,i)" etc *)
   c_alloc: bool; (* print "malloc(sizeof(int))" instead of "new int" *)
-  pretty_matrix_notation: bool; (* print t[MINDEX(n,m,a,b)] as t[a;b] *)
   pretty_fraction_notation: bool; (* print 1-1/2 instead of __frac_sub(__full,__frac_div(__full, 2)) *)
   commented_pragma: bool; (* comment out pragram lines, for better tabulation by clang-format *)
   hide_seq: bool; (* hide the content of sequences with {...},  used to avoid weird matches with stringrepr *)
@@ -61,7 +60,6 @@ let default_style () : style = {
   print_types = false;
   optitrust_syntax = !Flags.print_optitrust_syntax;
   c_alloc = true;
-  pretty_matrix_notation = !Flags.pretty_matrix_notation;
   pretty_fraction_notation = true;
   commented_pragma = !Flags.use_clang_format;
   hide_seq = false;
@@ -79,7 +77,6 @@ let style_for_stringrepr : style = {
   print_types = false;
   optitrust_syntax = false;
   c_alloc = true;
-  pretty_matrix_notation = false;
   pretty_fraction_notation = true;
   commented_pragma = false;
   hide_seq = true;
@@ -97,7 +94,6 @@ let style_for_reparse : style = {
   print_types = false;
   optitrust_syntax = false;
   c_alloc = false;
-  pretty_matrix_notation = false;
   pretty_fraction_notation = false;
   commented_pragma = false;
   hide_seq = false;
@@ -115,7 +111,6 @@ let style_for_varids : style = {
   print_types = false;
   optitrust_syntax = false;
   c_alloc = true;
-  pretty_matrix_notation = false;
   pretty_fraction_notation = true;
   commented_pragma = false;
   hide_seq = false;
@@ -133,7 +128,6 @@ let style_for_types : style = {
   optitrust_syntax = true;
   c_alloc = false;
   print_types = true;
-  pretty_matrix_notation = false;
   pretty_fraction_notation = true;
   commented_pragma = false;
   hide_seq = false;
@@ -150,7 +144,6 @@ let style_for_cuda : style = {
   print_types = false;
   optitrust_syntax = false;
   c_alloc = false;
-  pretty_matrix_notation = false;
   pretty_fraction_notation = false;
   commented_pragma = false;
   hide_seq = false;
@@ -631,11 +624,6 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
               string "{...}"
             else if trm_is_mainfile t then
               let header = if style.lower_to_cuda then string "\n#include <optitrust_gpu_cuda.cuh>\n" else empty in
-              let header =
-                if style.pretty_matrix_notation
-                  then header ^^ (string "// NOTE: using pretty matrix notation") ^^ hardline
-                  else header
-                in
                 header ^^ (separate (twice hardline) dl)
             else
               let dinstrs = match result with
@@ -1084,12 +1072,7 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) ~(print_struct_init_
             string "(" ^^ d1 ^^ (may_annot_typ style ty (string "[+]")) ^^ d2 ^^ string ")"
           | Binop_array_access | Binop_array_get ->
             let bracketed_trm t = brackets (decorate_trm style ~prec:0 t) in
-            d1 ^^ if not style.pretty_matrix_notation then
-              bracketed_trm (t2)
-            else begin match Matrix_trm.mindex_inv t2 with
-            | None -> bracketed_trm (t2)
-            | Some (_dims, indices) -> separate empty (List.map bracketed_trm indices)
-            end
+            d1 ^^ bracketed_trm (t2)
           | _ ->
             let is_formula = (trm_has_cstyle ResourceFormula f) in
             let op_d = binop_to_doc ~formula:is_formula style op in
