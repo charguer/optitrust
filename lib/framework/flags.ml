@@ -142,9 +142,9 @@ let aux_file_compare = ref (fun (f1: string) (f2: string) -> true)
 (* Start of new flags *)
 
 type typechecking_mode =
-  | SemanticsPreserving (* equivalent to `resource_typing_enabled = false && check_validity = false` *)
-  | ProofRepairing (* equivalent to `check_validity = false` *)
-  | ProofPreserving (* equivalent to `check_validity := true && preserve_specs_only = false` *)
+  | SemanticsPreserving
+  | ProofRepairing
+  | ProofPreserving
 
 (** [typechecking_mode]: Defines the verification guarantee of the input code for transformations and typechecking. *)
 let typechecking_mode : typechecking_mode ref = ref ProofRepairing (* Should later on be changed to ProofPreserving *)
