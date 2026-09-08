@@ -1136,7 +1136,7 @@ end = struct
          let lva = aliasing aliases ll in
          List.iter (fun (_, tg, _) ->
              let nli = Apac_miscellaneous.typ_get_nli ty in
-             if nli > 0 then
+             if nli > 1 then
                begin
                  let alias : lvar = { v = v; l = String.empty } in
                  if !Apac_flags.verbose then
