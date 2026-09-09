@@ -11,4 +11,4 @@
  (channel
   (name 'guix-apac)
   (url "https://gitlab.com/apac-compiler/guix-apac.git")
-  (commit "9e1cdfa752c886a16c3621228be8c517812f1f5d")))
+  (commit "c090c26853558c2ed8d1cb38f5d5956622cc5531")))
