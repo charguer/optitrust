@@ -18,7 +18,14 @@ let _ = if part = 1 then Run.script_cpp (fun () ->
   !! Loop.tile (int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
   !! Variable.local_name ~var:"s" ~local_var:"t" [tSpanSeq [cForBody "bi"]];
 
+  (* New: *)
+  (* let factor = trm_get (trm_find_var "s" []) in
+  !! Accesses.shift_var ~simpl:Arith.gather_rec ~inv:true ~factor [cFor "bi"; cVarDef "t"];
+ *)
+  (* /// *)
+
   (* DEPRECATED? !! Sequence_basic.insert (trm_let (new_var "d", typ_f32) (trm_get (trm_find_var "s" []))) [tFirst; cForBody "bi"]; *)
+  (* Old *)
   !! (
     Variable.insert ~name:"d" ~typ:typ_f32 ~value:(trm_get (trm_find_var "s" [])) [cForBody "bi"; tFirst];
 

@@ -17,6 +17,9 @@ let%transfo std ?(arith_simpl : (Arith.expr -> Arith.expr) list = [Arith.gather_
   Arith.(simpl_rec gather_rec) [];
   Arith.(simpl_rec compute) [];
   Arith.(simpl2_rec sort) [];
+  (* Flatten the rewrite sequences introduced by the arithmetic simplifications above,
+     so that the simplified expressions are visible in the generated code. *)
+  Sequence.clear_ghost_sequences [];
   Resources.delete_annots [];
   Loop.delete_all_void []
 
