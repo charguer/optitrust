@@ -19,30 +19,19 @@ let _ = if part = 1 then Run.script_cpp (fun () ->
   !! Variable.local_name ~var:"s" ~local_var:"t" [tSpanSeq [cForBody "bi"]];
 
   (* New: *)
-  (* let factor = trm_get (trm_find_var "s" []) in
+  let factor = trm_get (trm_find_var "s" []) in
   !! Accesses.shift_var ~simpl:Arith.gather_rec ~inv:true ~factor [cFor "bi"; cVarDef "t"];
- *)
+
   (* /// *)
 
   (* DEPRECATED? !! Sequence_basic.insert (trm_let (new_var "d", typ_f32) (trm_get (trm_find_var "s" []))) [tFirst; cForBody "bi"]; *)
   (* Old *)
-  !! (
+  (* !! (
     Variable.insert ~name:"d" ~typ:typ_f32 ~value:(trm_get (trm_find_var "s" [])) [cForBody "bi"; tFirst];
-
-  (* at this line, the output is the equivalent of dot0_gen.cpp,
-    beware that "==" needs to be replaced with "=." and all the "__is_true" must be removed;
-    some +. and + need to be fixed
-    ----> LATER: tweak display so that the output of _after.cpp is exactly  dot0.cpp *)
-(* )
-
-(* Part 2: *)
-let _ = if part = 2 then Run.script_cpp ~filename:"vv1.cpp" (fun () ->
-*)
-  (* Why nbMulti? !! Accesses.shift_var ~inv:true ~factor:(trm_find_var "d" []) [nbMulti; cVarDef "t"]; *)
-    Accesses.shift_var ~inv:true ~factor:(trm_find_var "d" []) [cFor "bi"; cVarDef "t"];
+    Accesses.shift_var ~simpl:(fun x -> x) ~inv:true ~factor:(trm_find_var "d" []) [cFor "bi"; cVarDef "t"];
     Variable.inline [cVarDef "d"];
     Arith.simpl_surrounding_expr Arith.gather_rec [nbMulti; cVar "s"];
-  );
+  ); *)
 (* )
 
 (* Part 3: *)

@@ -44,9 +44,20 @@ Marks.with_marks (fun next_mark ->
   ) tg
 )
 
-(** Like [transform_arith], but targeting a variable declaration instead of a scope. *)
-let%transfo transform_arith_var ~(op:transform_arith_op) ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) ?(array_base : trm option) (tg : target) : unit =
-  transform_var (Accesses_basic.transform_arith ~op ~inv ~factor ~mark) ?array_base tg
+(** Like [transform_arith], but targeting a variable declaration instead of a scope.
+Works by instantiating a temporary constant variable, that will is inserted then inlined.
+Known limitations :
+  - Expects the shift factor to be of type float32, which is far from being true all the time. There is no way for the moment to compute on the fly the type of the factor, maybe add it as an argument?
+  - Fails on empty target
+  - Only works with the smallest scope available. The function removes the last argument of the target, the rest of the list is used as the root, and scope for the temporary variable *)
+let%transfo transform_arith_var ~(simpl:Arith.expr -> Arith.expr) ~(op:transform_arith_op) ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) ?(array_base : trm option) (tg : target) : unit =
+  let (root, last) = List.unlast tg in
+  let name = fresh_var_name () in
+  Variable.insert ~name ~typ:typ_f32 ~value:factor (root@[dBody; tFirst]);
+  transform_var (Accesses_basic.transform_arith ~op ~inv ~factor:(trm_find_var name []) ~mark) ?array_base tg ;
+  Variable.inline ~simpl:(fun tg -> Arith.simpl_surrounding_expr simpl (nbMulti::tg)) [cVarDef name]
+  (*
+  Arith.simpl_surrounding_expr simpl ~indepth:true (nbMulti::root)  *)(* (nbMulti::[]) *) (* root *) (* tg *)
 
 (* TODO %transfo *)
 let scale_var = transform_arith_var ~op:Transform_arith_mul
