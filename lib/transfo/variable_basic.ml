@@ -252,7 +252,7 @@ let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ~(name : st
 let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : target) : unit =
   Target.reparse_after ~reparse (
     Target.iter (fun p ->
-      if (* !Flags.check_validity *) Flags.annotated () then begin
+      if Flags.annotated () then begin
         let instr_p, expr_p = Path.path_in_instr p (Trace.ast ()) in
         Nobrace_transfo.remove_after (fun () -> (* FIXME: handle no brace in scope and typing to remove more lazily? *)
         Target.apply_at_path (fun instr_t ->

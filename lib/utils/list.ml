@@ -90,6 +90,12 @@ let rec chop_after (x : 'a) (xs : 'a list) : 'a list =
   | [] -> []
   | y::tl -> if y = x then [] else y:: chop_after x tl
 
+(** [until f xs]: gets a boolean predicate [f] and a list [xs], returns the first sublist [x::xs] such that [x] verifies [f].
+  If no element verify [f], or if [xs] is empty, the function returns the empty list *)
+let rec until (f : 'a -> bool) (xs : 'a list) : 'a list =
+  match xs with
+  | [] -> []
+  | x :: xs -> if f x then x :: xs else until f xs
 
 (** [insert_sublist_at i l' l]: inserts the elements of [l'] at [l] starting from index [i].
      The index [i] should be in the range [0] to [length l], inclusive.

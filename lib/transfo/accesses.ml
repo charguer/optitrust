@@ -1,6 +1,8 @@
 open Prelude
 include Accesses_basic
 
+let debug_accesses = false
+
 type transform_typ = address_pattern: compiled_pattern -> ?mark_to_prove : mark -> ?mark_preprocess: mark -> ?mark_postprocess: mark -> target -> unit
 
 (** Applies the [Accesses_basic.transform] on a set of targets guided by a variable:
@@ -44,9 +46,49 @@ Marks.with_marks (fun next_mark ->
   ) tg
 )
 
-(** Like [transform_arith], but targeting a variable declaration instead of a scope. *)
-let%transfo transform_arith_var ~(op:transform_arith_op) ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) ?(array_base : trm option) (tg : target) : unit =
-  transform_var (Accesses_basic.transform_arith ~op ~inv ~factor ~mark) ?array_base tg
+(* Yanni : move later for factorization. *)
+let clear_until_seq_instr (p : path) =
+  let filter_seq d =
+  match d with
+  | Dir.Dir_seq_nth _ -> true
+  | _ -> false
+  in
+  List.rev (List.until filter_seq (List.rev p))
+
+let find_common_seq_instr (ps : path list) (tg : target) =
+match ps with
+  | [] -> failwith "Accesses.find_common_seq_instr : the target %s leads to no path in the current AST" (target_to_string tg)
+  | p1::ps ->
+    let common_ancestor = List.fold_left
+    (fun common_ancestor p ->
+      if debug_accesses then Printf.printf "In find_common_seq_instr; \n comparing common_ancestor = %s \n and p = %s \n" (Dir.path_to_string common_ancestor) (Dir.path_to_string p);
+        let (p, _, _) = Path.split_common_prefix common_ancestor p in
+        Printf.printf "And resulted in %s \n" (Dir.path_to_string p); p)
+    p1 ps in
+    clear_until_seq_instr common_ancestor
+
+
+(** Like [transform_arith], but targeting a variable declaration instead of a scope.
+Works by instantiating a temporary constant variable, that will is inserted then inlined.
+Known limitations :
+  - Fails on empty target
+  - Generates a lot of [rewrite_sequences], and there is (for the moment) no safe way of removing them. *)
+let%transfo transform_arith_var ?(simpl:Arith.expr -> Arith.expr = fun x -> x) ~(op:transform_arith_op) ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) ?(array_base : trm option) (tg : target) : unit =
+  let name = fresh_var_name () in
+  Marks.with_fresh_mark (fun m ->
+    (* let (root, _last) = List.unlast tg in
+    if debug_accesses then Printf.printf "targets inside transform_arith_var : \n tg = %s \n root = %s \n" (Target.target_to_string tg) (Target.target_to_string root); *)
+    (* Marks.add m tg; *)
+    let paths = ref [] in
+    Target.iter (fun p -> paths := p::!paths) tg;
+    let common_ancestor = find_common_seq_instr !paths tg in
+    Variable.insert ~name ~value:factor (tBefore::(target_of_path common_ancestor));
+    (* Not sure about the rest though *)
+    transform_var (Accesses_basic.transform_arith ~op ~inv ~factor:(trm_find_var name []) ~mark) ?array_base tg ;
+    Variable.inline ~simpl:(fun tg -> Arith.simpl_surrounding_expr simpl (nbMulti::tg)) [cVarDef name]
+      )
+  (*
+  Arith.simpl_surrounding_expr simpl ~indepth:true (nbMulti::root)  *)(* (nbMulti::[]) *) (* root *) (* tg *)
 
 (* TODO %transfo *)
 let scale_var = transform_arith_var ~op:Transform_arith_mul
