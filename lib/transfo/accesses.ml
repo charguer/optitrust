@@ -71,9 +71,8 @@ match ps with
 (** Like [transform_arith], but targeting a variable declaration instead of a scope.
 Works by instantiating a temporary constant variable, that will is inserted then inlined.
 Known limitations :
-  - Expects the shift factor to be of type float32, which is far from being true all the time. There is no way for the moment to compute on the fly the type of the factor, maybe add it as an argument?
   - Fails on empty target
-  - Only works with the smallest scope available. The function removes the last argument of the target, the rest of the list is used as the root, and scope for the temporary variable *)
+  - Generates a lot of [rewrite_sequences], and there is (for the moment) no safe way of removing them. *)
 let%transfo transform_arith_var ?(simpl:Arith.expr -> Arith.expr = fun x -> x) ~(op:transform_arith_op) ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) ?(array_base : trm option) (tg : target) : unit =
   let name = fresh_var_name () in
   Marks.with_fresh_mark (fun m ->
