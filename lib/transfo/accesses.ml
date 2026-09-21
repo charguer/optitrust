@@ -67,7 +67,6 @@ match ps with
     p1 ps in
     clear_until_seq_instr common_ancestor
 
-
 (** Like [transform_arith], but targeting a variable declaration instead of a scope.
 Works by instantiating a temporary constant variable, that will is inserted then inlined.
 Known limitations :
@@ -75,18 +74,13 @@ Known limitations :
   - Generates a lot of [rewrite_sequences], and there is (for the moment) no safe way of removing them. *)
 let%transfo transform_arith_var ?(simpl:Arith.expr -> Arith.expr = fun x -> x) ~(op:transform_arith_op) ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) ?(array_base : trm option) (tg : target) : unit =
   let name = fresh_var_name () in
-  Marks.with_fresh_mark (fun m ->
-    (* let (root, _last) = List.unlast tg in
-    if debug_accesses then Printf.printf "targets inside transform_arith_var : \n tg = %s \n root = %s \n" (Target.target_to_string tg) (Target.target_to_string root); *)
-    (* Marks.add m tg; *)
-    let paths = ref [] in
-    Target.iter (fun p -> paths := p::!paths) tg;
-    let common_ancestor = find_common_seq_instr !paths tg in
-    Variable.insert ~name ~value:factor (tBefore::(target_of_path common_ancestor));
-    (* Not sure about the rest though *)
-    transform_var (Accesses_basic.transform_arith ~op ~inv ~factor:(trm_find_var name []) ~mark) ?array_base tg ;
-    Variable.inline ~simpl:(fun tg -> Arith.simpl_surrounding_expr simpl (nbMulti::tg)) [cVarDef name]
-      )
+  let paths = ref [] in
+  Target.iter (fun p -> paths := p::!paths) tg;
+  let common_ancestor = find_common_seq_instr !paths tg in
+  Variable.insert ~name ~value:factor (tBefore::(target_of_path common_ancestor));
+  transform_var (Accesses_basic.transform_arith ~op ~inv ~factor:(trm_find_var name []) ~mark) ?array_base tg ;
+  Variable.inline ~simpl:(fun tg -> Arith.simpl_surrounding_expr simpl (nbMulti::tg)) [cVarDef name]
+
   (*
   Arith.simpl_surrounding_expr simpl ~indepth:true (nbMulti::root)  *)(* (nbMulti::[]) *) (* root *) (* tg *)
 
