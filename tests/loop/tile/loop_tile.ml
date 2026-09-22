@@ -9,7 +9,7 @@ let _ = Run.script_cpp (fun _ ->
   *)
   !! Resources.ensure_computed ();
 
-  Flags.typechecking_mode := Unverified;
+  Flags.typechecking_mode := Flags.SemanticsPreserving;
 
   !! Loop_basic.tile (trm_int 2) ~index:"b${id}" ~bound:TileDivides [cFunDef "f"; cFor "x"];
   !! Loop_basic.tile (trm_int 2) ~bound:TileBoundMin [cFunDef "f"; cFor "y"];

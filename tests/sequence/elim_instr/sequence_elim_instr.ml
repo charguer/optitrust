@@ -2,7 +2,7 @@
 open Optitrust
 open Target
 
-let _ = Flags.typechecking_mode := Unverified
+let _ = Flags.typechecking_mode := Flags.SemanticsPreserving;
 
 let _ = Run.script_cpp ( fun _ ->
 

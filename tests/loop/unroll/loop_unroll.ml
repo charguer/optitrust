@@ -5,7 +5,7 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Loop.unroll [nbMulti; cFunBody "iter_contract_ro"; cFor "x"];
 
-  Flags.typechecking_mode := Unverified;
+  Flags.typechecking_mode := Flags.SemanticsPreserving;
 
   !! Loop.unroll [cFor "i"];
   !! Loop.unroll [cFor "j"];
