@@ -46,7 +46,7 @@ Marks.with_marks (fun next_mark ->
   ) tg
 )
 
-(* Yanni : move later for factorization. *)
+(* Yanni : move later in 'Path' for factorization. *)
 let clear_until_seq_instr (p : path) =
   let filter_seq d =
   match d with

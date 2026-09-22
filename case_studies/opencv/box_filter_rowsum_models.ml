@@ -41,6 +41,7 @@ let _ = Run.script_cpp (fun () ->
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anyw"
     ["w", int 3; "w", int 5] [cFunBody "rowSum"; cFor "i"];
   !! Loop.unroll ~simpl:no_simpl [nbMulti; cMark "w"; cFor "k"];
+  (* Reduce.unroll [nbMulti; cMark "w"; cFor "k"] *) (* Diff *)
   (* TODO: Reduce.unroll [nbMulti; cMark "w"; cFor "k"]
      + Loop.unroll
      + Instr.gather_targets
@@ -54,8 +55,8 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.shift_range (StartAtZero) ~simpl:no_simpl [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
   !! Loop.scale_range ~factor:(trm_find_var "cn" []) ~simpl:no_simpl [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
 
-  !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anycn" ~simpl:custom_specialize_simpl
-    ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "anyw"; cFor "c"];
+  !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anycn" ~simpl:no_simpl (* custom_specialize_simpl *)
+    [(* "cn", int 1;  *) "cn", int 3; "cn", int 4] [cMark "anyw"; cFor "c"]; (* Diff *)
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
 
   !! Target.foreach [nbMulti; cMark "cn"] (fun c ->

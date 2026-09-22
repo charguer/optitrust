@@ -425,7 +425,7 @@ let compute_and_unify_typ (env: pure_env) (t: trm) (expected_typ: typ) (evar_ctx
     let actual_typ = compute_pure_typ env ~typ_hint:expected_typ t in
     raise_mismatching_type t actual_typ expected_typ evar_ctx
 
-let pure_goal_solver: (resource_item -> unification_ctx -> unification_ctx option) ref = ref (fun formula evar_ctx -> None)
+let pure_goal_solver: (resource_item -> unification_ctx -> unification_ctx option) ref = ref (* (fun formula evar_ctx -> Some evar_ctx) *) (fun formula evar_ctx -> None)
 
 (** [unify_pure (x, formula) env evar_ctx] unifies the given [formula] with one of the resources in [env.res].
 

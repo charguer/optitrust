@@ -258,6 +258,10 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
         Target.apply_at_path (fun instr_t ->
           let res_before = Resources.before_trm instr_t in
           let res_after = Resources.after_trm instr_t in
+          if debug_transfo then Printf.printf "in Variable_basic.subst : \n instr_t = %s \n res_before = %s \n res_after = %s\n"
+            (Ast_to_c.ast_to_string instr_t)
+            (Resource_computation.resource_set_to_string res_before)
+            (Resource_computation.resource_set_to_string res_after);
           let g = Resource_trm.may_ghost_intro_alias subst put res_before in
           let filter (_, f) = is_free_var_in_trm subst f in
           let res_filter = Resource_set.filter
@@ -267,6 +271,7 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
           let res_after_touched = res_filter res_after in
           let res_before_changed = Resource_set.subst_var subst put res_before_touched in
           let res_after_changed = Resource_set.subst_var subst put res_after_touched in
+          if debug_transfo then Printf.printf "in Variable_basic.subst : \n res_before_changed = %s \n res_after_changed = %s\n" (Resource_computation.resource_set_to_string res_before_changed) (Resource_computation.resource_set_to_string res_after_changed);
           (* NOTE: #equiv-rewrite
           these ghosts assume that all affected code typechecks with the substitution applied to the entire resource context, this is not always true, it might be necessary to forget the substitution on resources consumed by function calls, and learn the substitution on resources produced by function calls.
           This is a general problem for any equivalence rewrite, in particular for arithmetic simplification. *)
