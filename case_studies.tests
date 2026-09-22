@@ -1,2 +1,3 @@
-case_studies/matmul/matmul.ml
-case_studies/harris/harris.ml
+case_studies/matmul/matmul_models.ml
+case_studies/dot_product/dot.ml
+case_studies/opencv/box_filter_rowsum_models.ml

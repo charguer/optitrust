@@ -40,7 +40,7 @@ let%transfo unfold ?(mark : mark = no_mark) ~(at : target) (tg : target) : unit 
 *)
 let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : target) : unit =
   (* if !Flags.check_validity then Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *) *)
-  (* if !Flags.use_resources_with_models then Resources.ensure_computed (); *)
+  if Flags.annotated () then Resources.ensure_computed ();
   Target.iter (fun p ->
     let (p_seq, p_local, index) = Internal.get_instruction_in_surrounding_sequence p in
     assert (p_local = []);
@@ -245,11 +245,6 @@ let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ~(name : st
   Target.reparse_after ~reparse (Target.iter (fun p ->
     let (p_seq, i) = Path.extract_last_dir_before p in
     Target.apply_at_path (Variable_core.insert_at i const name typ value) p_seq;
-    (* if !Flags.check_validity then begin (* NOTE: same as instruction insertion *)
-      Resources.ensure_computed ();
-      Resources.assert_instr_effects_shadowed (p_seq @ [Dir_seq_nth i]);
-      Trace.justif "nothing modified by the instruction is observed later"
-    end *)
   )) tg
 
 (** [subst ~subst ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the
@@ -257,7 +252,7 @@ let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ~(name : st
 let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : target) : unit =
   Target.reparse_after ~reparse (
     Target.iter (fun p ->
-      if (* !Flags.check_validity *) Flags.annotated () then begin
+      if Flags.annotated () then begin
         let instr_p, expr_p = Path.path_in_instr p (Trace.ast ()) in
         Nobrace_transfo.remove_after (fun () -> (* FIXME: handle no brace in scope and typing to remove more lazily? *)
         Target.apply_at_path (fun instr_t ->

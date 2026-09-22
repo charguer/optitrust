@@ -346,7 +346,7 @@ let%transfo local_name_tile
         mark_dims mark_accesses mark_indices mark_alloc mark_load mark_unload !ret_var tile local_var dims elem_ty indices uninit_pre uninit_post
         model_before model_after
       ) p;
-      if (* !Flags.check_validity *) Flags.annotated () then begin
+      (* if Flags.annotated () then begin
         Resources.ensure_computed ();
         if not !Flags.use_resources_with_models then begin
           let p = resolve_target_exactly_one [cMark m] in
@@ -368,7 +368,7 @@ let%transfo local_name_tile
           else
             Trace.justif "resources do not mention replaced variable after transformation"
         end
-      end
+      end *)
     )) tg
   )
 
@@ -610,10 +610,10 @@ let simpl_index_add_on (t : trm) : trm =
    For correctness, size and index expressions must be pure.
    *)
 let%transfo simpl_index_add (tg : target) : unit =
-  Resources.justif_correct "arguments are reproducible";
   Trace.tag_simpl_access ();
   Target.apply_at_target_paths simpl_index_add_on tg;
-  Scope.infer_var_ids () (* Needed because we generate MINDEX variables by name *)
+  Scope.infer_var_ids (); (* Needed because we generate MINDEX variables by name *)
+  Resources.justif_correct "arguments are reproducible"
 
 let simpl_access_of_access_on (t : trm) : trm =
   let error = "Matrix_basic.simpl_access_of_access_on: expected nested array accesses" in
@@ -629,10 +629,9 @@ let simpl_access_of_access_on (t : trm) : trm =
 
    TODO: should this be in another file?
    *)
-let%transfo simpl_access_of_access ?(indepth:bool =false )(tg : target) : unit =
+let%transfo simpl_access_of_access ?(indepth:bool=false) (tg : target) : unit =
   Trace.justif_always_correct ();
   Trace.tag_simpl_access ();
-
   Target.apply_at_target_paths (maybe_trm_bottom_up_try indepth simpl_access_of_access_on) tg
 
 (* internal *)
@@ -745,7 +744,7 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
   let new_dims = List.take_last copy_dims dims in
 
   let res_pattern_before, res_pattern_after =
-    if !Flags.resource_typing_enabled then
+    if (* !Flags.resource_typing_enabled *) Flags.annotated () then
       let find_matrix_res_pattern res_list =
         let open Resource_formula in
         let var_access_fn = new_var "access" in

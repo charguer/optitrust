@@ -26,7 +26,7 @@ let dump_ast_details : bool ref = ref false
   MALLOC2(n, m, sizeof(T)) --> malloc(sizeof(T[n][m]))
   x[MINDEX2(n, m, i, j)] --> x[i;j]
    *)
-let pretty_matrix_notation : bool ref = ref false
+(* let pretty_matrix_notation : bool ref = ref false *)
 
 (* whether to display includes AST or not. *)
 let display_includes : bool ref = ref false
@@ -125,36 +125,11 @@ let set_optilambda_repr repr =
    This allows for the propagation of the backtrace. *)
 let stop_on_first_resource_error = ref true
 
-(* TODO Yanni : reevaluate *)
-(** [resource_typing_enabled]: if false, never attempt typing resources and never introduce ghosts. *)
-let resource_typing_enabled = ref true
-
-(* TODO Yanni : reevaluate *)
-(** [check_validity]: perform validation of transformations *)
-(* let check_validity = ref false *)
-
-(* TODO Yanni : reevaluate *)
-(** [preserve_specs_only]: allow code transformation that preserve the specification without necessarily preserving the semantics
-    TODO: update code which was also using check_validity for this purpose *)
-(* Deprecated *)
-(* let preserve_specs_only = ref false *)
-
-(* TODO Yanni : reevaluate *)
-(** [disable_resource_typing ()] should be called when using OptiTrust without resources. *)
-(* Deprecated *)
-(* let disable_resource_typing () =
-  resource_typing_enabled := false;
-  check_validity := false *)
-
 (** [reparse_between_step]: always reparse between two steps *)
 let reparse_between_steps = ref false
 
 (** [recompute_resources_between_steps]: always recompute resources between two steps *)
 let recompute_resources_between_steps = ref false
-
-(* TODO Yanni : depreciate - should always be true *)
-(** [use_resources_with_models]: use resources of the form "p ~~> v" instead of "p ~> Cell". In the long term, this flag should disappear as we should be able to unify those two modes into one, using clever syntactic sugar and unification features. *)
-let use_resources_with_models = ref false
 
 (** [ignore_serialized] disables the read of serialized AST saved after parsing *)
 let ignore_serialized = ref false
@@ -167,25 +142,26 @@ let aux_file_compare = ref (fun (f1: string) (f2: string) -> true)
 (* Start of new flags *)
 
 type typechecking_mode =
-  | Unverified (* equivalent to `resource_typing_enabled = false && check_validity = false` *)
-  | Annotated (* equivalent to `check_validity = false` *)
-  | AnnotatedAndVerified (* equivalent to `check_validity := true && preserve_specs_only = false` *)
+  | SemanticsPreserving
+  | ProofRepairing
+  | ProofPreserving
 
 (** [typechecking_mode]: Defines the verification guarantee of the input code for transformations and typechecking. *)
-let typechecking_mode : typechecking_mode ref = ref Annotated (* Should later on be changed to AnnotatedAndVerified *)
+let typechecking_mode : typechecking_mode ref = ref ProofRepairing (* Should later on be changed to ProofPreserving *)
 
-let unverified () : bool = !typechecking_mode = Unverified
-let annotated () : bool = (!typechecking_mode = Annotated) || (!typechecking_mode = AnnotatedAndVerified)
-let only_annotated () : bool = (!typechecking_mode = Annotated)
-let annotated_and_verified () : bool = !typechecking_mode = AnnotatedAndVerified
+let semantics_preserving () : bool = !typechecking_mode = SemanticsPreserving
+let annotated () : bool = (!typechecking_mode = ProofRepairing) || (!typechecking_mode = ProofPreserving)
+let proof_repairing () : bool = (!typechecking_mode = ProofRepairing)
+let proof_preserving () : bool = !typechecking_mode = ProofPreserving
 
 (* Expected to be a temporary function, to be used in [trace.ml] where there is a [flag_check_validity] flag *)
-let match_typechecking_mode (flag_check_validity : bool) = if flag_check_validity then AnnotatedAndVerified else Unverified
+(* Deprecated: unused, [trace.ml] now stores [typechecking_mode] directly *)
+(* let match_typechecking_mode (flag_check_validity : bool) = if flag_check_validity then ProofPreserving else SemanticsPreserving *)
 
 let typechecking_mode_to_string = function
-  | Unverified -> "Unverivied"
-  | Annotated -> "Annotated"
-  | AnnotatedAndVerified -> "AnnotatedAndVerified"
+  | SemanticsPreserving -> "SemanticsPreserving"
+  | ProofRepairing -> "ProofRepairing"
+  | ProofPreserving -> "ProofPreserving"
 
 (* End of new flags *)
 
@@ -425,12 +401,11 @@ let reset_flags_to_default () : unit =
   disable_stringreprs := false;
   debug_stringreprs := false;
   use_light_diff := false;
-  pretty_matrix_notation := false;
   display_includes := false;
   stop_on_first_resource_error := true;
-  resource_typing_enabled := true;
+  (* resource_typing_enabled := true; *)
   (* TO be modified when the code is clean: *)
-  typechecking_mode := Annotated;
+  typechecking_mode := ProofRepairing;
   reparse_between_steps := false;
   recompute_resources_between_steps := false;
   save_steps := None;

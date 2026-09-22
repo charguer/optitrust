@@ -1,7 +1,6 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.pretty_matrix_notation := true
 let f = cFunDef "generate_prompt_proc"
 
 let _ =

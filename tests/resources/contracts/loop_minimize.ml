@@ -6,6 +6,7 @@ open Resources
 (*let _ = Flags.resource_errors_as_warnings := true*)
 (* let _ = Flags.check_validity := true *)
 (* let _ = Flags.recompute_resources_between_steps := true *)
+let _ = Flags.typechecking_mode := Flags.SemanticsPreserving
 
 let _ = Run.script_cpp (fun () ->
     !! loop_minimize [cFunBody "unused_modifies"; cFor "i"];

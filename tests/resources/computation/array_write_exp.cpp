@@ -10,6 +10,6 @@ void f() {
 }
 
 void g(float* t) {
-  __modifies("&t[0] ~> Cell");
+  __preserves("&t[0] ~> Cell");
   t[0] = 0.f;
 }

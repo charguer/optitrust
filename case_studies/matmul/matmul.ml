@@ -2,7 +2,6 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.pretty_matrix_notation := true
 
 (* Reproducing a TVM schedule for matrix multiplication:
    1. improve data locality by blocking the computation of C and preloading B with a packed memory layout

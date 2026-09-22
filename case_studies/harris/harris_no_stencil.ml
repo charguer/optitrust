@@ -1,8 +1,6 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.pretty_matrix_notation := true
-
 module Image = struct
   let loop_align_stop_extend_start ~(start : trm) ~(stop : trm) (tg : target) : unit =
     Loop.shift (StopAt stop) tg;

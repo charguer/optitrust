@@ -80,6 +80,10 @@ let%transfo elim ?(resname : string = "") (tg : target) : unit =
       )
     ) tg
 
+(** [clear_ghost_sequences tg]: expects the target [tg] to point at any term, and flattens every "rewrite sequence" that occurs inside it. *)
+let%transfo clear_ghost_sequences (tg : target) : unit =
+  Target.apply_at_target_paths Gpu_trm.trm_seq_rewrite_flatten tg
+
 (** [apply ~start ~stop ~nb f]: invokes [f mark] where the [mark] is attached to a temporary sequence created
    by [Sequence.intro ~start ~stop ~nb]. This sequence is eliminated immediately afterwards. *)
 let apply ?(start : target = []) ?(stop : target = []) ?(nb : int = 0) (f : mark -> unit) : unit =

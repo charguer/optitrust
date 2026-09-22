@@ -8,13 +8,14 @@ let ensure_computed = Trace.recompute_resources
 (* TODO: avoid recomputing all resources for validity checks.
    TODO: required_for_check_at path; for on-demand computation. *)
 let required_for_check () : unit =
-  (* Yanni : should require the AnnotatedAndVerified typechecking mode *)
-  if Flags.annotated_and_verified () then ensure_computed ()
+  (* Yanni : should require the ProofPreserving typechecking mode *)
+  if Flags.proof_preserving () then ensure_computed ()
 
 let justif_correct (why : string) : unit =
-  (* if !Flags.check_validity then begin *)
-  if Flags.annotated () then ensure_computed ();
-  Trace.justif (sprintf "resources are correct: %s" why)
+  if Flags.proof_preserving () then begin
+    ensure_computed ();
+    Trace.justif (sprintf "resources are correct: %s" why)
+  end
 
 
 
@@ -329,11 +330,12 @@ let loop_minimize_on (t: trm): trm =
   trm_like ~old:t (trm_for range ~mode ~contract:new_contract body)
 
 (** [loop_minimize]: minimize linear invariants of a loop contract *)
-let%transfo loop_minimize (*?(indepth : bool = false)*) (tg: target) : unit =
-  ensure_computed ();
-  (* TODO: Perform minimization recursively when indepth is true. *)
-  Target.apply_at_target_paths loop_minimize_on tg;
-  justif_correct "only changed loop contracts"
+let%transfo loop_minimize (tg: target) : unit =
+  if Flags.proof_preserving () then begin
+    Target.apply_at_target_paths loop_minimize_on tg;
+    justif_correct "only changed loop contracts"
+  end else
+    Tools.warn "used Resources.loop_minimize without proof preservation"
 
 (* TODO : depreciate transformation *)
 let%transfo fix_types_in_contracts (_u: unit): unit =

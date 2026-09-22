@@ -6,7 +6,7 @@ int main() {
   x--;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __smodifies("&x ~> Cell");
+    __spreserves("x ~> Cell");
     /*@mymark2, mymark1*/ x /*mymark2, mymark1@*/++;
   }
 }
@@ -19,9 +19,9 @@ fun main(): int {
   letmut b;
   letmut x = 3;
   x--;
-  for<seq> i in 0..3 {
-    strict;
-    spreserves x ~> CellOf(Any);
+  for (int i = 0; i < 3; i++) {
+    __strict();
+    __spreserves("x ~> Cell");
     x++;
   };
 }

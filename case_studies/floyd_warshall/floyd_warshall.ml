@@ -2,9 +2,6 @@
 open Optitrust
 open Prelude
 
-(* let _ = Flags.check_validity := true *)
-let _ = Flags.pretty_matrix_notation := true
-
 (*
   1. improve data locality by storing values in contiguous memory allocations.
     - note: requires inserting conditional updates for correctness, should this be done before hoisting?

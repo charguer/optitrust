@@ -42,11 +42,11 @@ let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : 
     Target.apply_at_target_paths (fun t ->
       let f_postprocess (t: trm) (simpl_t: trm): trm =
         (* Yanni : This is a case where we should not delete the effect, since arithmetic simplifications should be different depending on the annotation flag. *)
-        if not (* !Flags.check_validity *) (Flags.annotated_and_verified ()) then begin
+        if not (Flags.proof_preserving ()) then begin
           simpl_t
         end else begin
         let open Resource_formula in
-        if t != simpl_t && !Flags.use_resources_with_models && not (is_formula t) then begin
+        if t != simpl_t && not (is_formula t) then begin
           let typ = Option.unsome ~error:"expected type" t.typ in
           let res = Resources.after_trm t in
           begin match Var_map.find_opt Resource_set.var_result res.aliases with
@@ -136,13 +136,11 @@ let%transfo simplify ?(indepth : bool = false) (tg : target) : unit =
 let constr =
   cPrimPredCall is_prim_arith
 
-(* TODO : depreciate transformation *)
 (** [clear_nosimpl tg]: clears all the marks on all the instructions that where
     skipped by the simplifier *)
 let%transfo clear_nosimpl (tg : target) : unit =
   Marks.remove Arith_core.mark_nosimpl [nbMulti; cMark Arith_core.mark_nosimpl]
 
-(* TODO : depreciate transformation *)
 (** [nosimplf tg]: mark all the instructions targeted by [tg] as "__arith_core_nosimpl" *)
 let%transfo nosimpl (tg : target) : unit =
   Marks.add Arith_core.mark_nosimpl tg

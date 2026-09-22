@@ -82,19 +82,17 @@ let rec desugar_formula (formula: formula): formula =
   (* With incremental var-id resolution we could heavily simplify this *)
   Pattern.pattern_match formula [
     Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_apps (trm_var !__) !__ __ __)) (fun var f args () ->
-        if !Flags.use_resources_with_models && f.name = sprintf "Matrix%d" (List.length args - 1) then
+        if f.name = sprintf "Matrix%d" (List.length args - 1) then
           let size, model = List.unlast args in
           formula_matrix var ~mem_typ:(mem_typ_any) size ~model
         (* Note: MatrixNOf (i.e. sugar for matrices of different cell types) only works in models mode, although cell types in general work in shape mode. *)
-        else if !Flags.use_resources_with_models && f.name = sprintf "Matrix%dOf" (List.length args - 2) then
+        else if f.name = sprintf "Matrix%dOf" (List.length args - 2) then
           let args, model = List.unlast args in
           let size, mem = List.unlast args in
           formula_matrix var ~mem_typ:(mem) size ~model
-        else if not (!Flags.use_resources_with_models) && f.name = sprintf "Matrix%d" (List.length args) then
-          formula_matrix var ~mem_typ:(mem_typ_any) args
         else if f.name = sprintf "UninitMatrix%d" (List.length args) then
           formula_uninit_matrix ~mem_typ:(mem_typ_any) var args
-        else if !Flags.use_resources_with_models && f.name = sprintf "UninitMatrix%dOf" (List.length args - 1) then
+        else if f.name = sprintf "UninitMatrix%dOf" (List.length args - 1) then
           let size, mem = List.unlast args in
           formula_uninit_matrix ~mem_typ:(mem) var size
         else raise Pattern.Next
@@ -127,10 +125,7 @@ let rec encode_formula (formula: formula): formula =
     formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "UninitMatrix%d%s" (List.length dims) ext))) (dims @ mt_args))
   | Some (m, dims, Some model, mem_typ) -> (* TODO: handle other hardware types *)
     let ext,mt_args = matrix_sugar_ext mem_typ in
-    if !Flags.use_resources_with_models then
       formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "Matrix%d%s" (List.length dims) ext))) (dims @ mt_args @ [model]))
-    else
-      formula_repr m (trm_apps (trm_var (toplevel_var (sprintf "Matrix%d%s" (List.length dims) ext))) (dims @ mt_args))
   | None -> trm_map encode_formula formula
 
 let push_read_only_fun_contract_res ((name, formula): resource_item) (contract: fun_contract): fun_contract =

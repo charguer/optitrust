@@ -16,7 +16,7 @@ void matrix_free(float* p) {
 }
 
 void matrix_copy(float* src, float* dst, int n, int m) {
-  __modifies("dst ~> Matrix2(n, m)");
+  __preserves("dst ~> Matrix2(n, m)");
   __reads("src ~> Matrix2(n, m)");
   __admitted();
   memcpy(dst, src, n * m * sizeof(float));

@@ -1,8 +1,6 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.pretty_matrix_notation := true
-
 (* TODO: generalize *)
 let%transfo simpl_mins ?(simpl : target -> unit = Arith.default_simpl) (tg : target) : unit =
   Scope.infer_var_ids ();

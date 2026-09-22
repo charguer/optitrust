@@ -57,7 +57,7 @@ let ghost_swap (outer_range: loop_range) inner_range (_, formula) =
 
   into:
 
-    // stars_j
+    // stars_j R(j) * V
     // stars_j SR(j,0) * stars_j UR(j) * stars_j stars_k PR(j,k) * stars_j FR(j) * SV(0) * UV * stars_k PV(k) * FV
     ghost rewrite stars_j stars_k PR(j,k)
                 = stars_k stars_j PR(j,k)

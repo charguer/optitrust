@@ -108,7 +108,7 @@ let%transfo move_out_bis
     Resources.make_strict_loop_contracts [];
     let loop_mark = next_mark () in
     Loop_basic.move_out ~loop_mark [cPath seq_path; Constr_depth (DepthAt 0); tSpan [tFirst] [cMarkSpanStop mark_moved]];
-    if (* !Flags.check_validity *) Flags.annotated () then Resources.loop_minimize [cMark loop_mark];
+    if Flags.proof_preserving () then Resources.loop_minimize [cMark loop_mark];
   ) tg)
 
 (* TODO: redundant with 'hoist' *)
@@ -159,11 +159,7 @@ let%transfo hoist_alloc_loop_list
       Variable_basic.inline ~mark [cMark mark_tmp_var];
       Target.iter (fun p_nested ->
         let p = p_nested |> Path.parent in
-        (* Transfo_debug.path "p_nested" p_nested;
-        Transfo_debug.path "p" p; *)
         Matrix_basic.simpl_access_of_access (target_of_path p);
-        (* Show.At.trm ~msg:"t@p" (target_of_path p);
-        Show.At.trm ~msg:"t@p" (target_of_path (p @ [Dir_arg_nth 1])); *)
         Matrix_basic.simpl_index_add (target_of_path (p @ [Dir_arg_nth 1]));
         Arith.(simpl_rec gather_rec (target_of_path (p @ [Dir_arg_nth 1])));
       ) [nbAny; cMark mark]
@@ -189,7 +185,7 @@ let%transfo hoist_alloc_loop_list
         let next_name = Tools.string_subst "${i}" (string_of_int i) name_template in
         Trace.without_resource_computation_between_steps (fun () ->
           Loop_basic.hoist ~name:next_name ~mark_alloc ~mark_free ~mark_tmp_var [cMark mark_alloc];
-          if inline then Trace.without_substep_validity_checks (fun () -> Flags.with_flag Flags.use_resources_with_models false simpl_hoist_tmp_var);
+          if inline then Trace.wrap_proof_repairing simpl_hoist_tmp_var
         )
         );
       end

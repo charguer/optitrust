@@ -5,11 +5,11 @@ void ok1() {
   int a = 0;
   for (int j = 0; j < 10; j++) {
     __strict();
-    __smodifies("&a ~> Cell");
+    __spreserves("&a ~> Cell");
     int x = a;
     for (int i = 0; i < j; i++) {
       __strict();
-      __smodifies("&x ~> Cell");
+      __spreserves("&x ~> Cell");
       x++;
     }
     a = x;
@@ -31,11 +31,11 @@ void ko1() {
   int& b = a;
   for (int j = 0; j < 10; j++) {
     __strict();
-    __smodifies("&a ~> Cell");
+    __spreserves("&a ~> Cell");
     int x = a;
     for (int i = 0; i < j; i++) {
       __strict();
-      __smodifies("&x ~> Cell");
+      __spreserves("&x ~> Cell");
       x++;
       b++;
     }
@@ -68,8 +68,6 @@ void ok3() {
   __pure();
   int a = 0;
   for (int i = 0; i < 10; i++) {
-    __strict();
-    __smodifies("&a ~> Cell");
     int x = a;
     x++;
     a = x;
