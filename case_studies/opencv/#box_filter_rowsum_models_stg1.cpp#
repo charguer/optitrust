@@ -1,0 +1,645 @@
+#include <optitrust_models.h>
+
+
+
+
+
+  __ghost_ret plus1 ()  {
+  __requires("n: int");
+  __requires("np1: int");
+  __requires("(np1 = n + 1)");
+  __ensures("eq: (np1 = n + 1)");
+}
+
+  void rowSum (int w, int* s, int* d, int n, int cn)  {
+  __requires("S: int * int -> int");
+  __requires("(w >= 0)");
+  __requires("(n >= 1)");
+  __requires("(cn >= 0)");
+  __writes("d ~> Matrix2(n, cn, fun (i: int) (c: int) -> reduce_int_sum(i, i + w, fun k -> S(k, c)))");
+  __reads("s ~> Matrix2(n + w - 1, cn, S)");
+  if (w == 3) /*@w*/{
+    __ghost(assert_alias, "x := w, y := 3");
+    __ghost([&] ()   {
+      __requires("(w >= 0)");
+      __requires("(w = 3)");
+      __consumes("_RO(#_4, s ~> Matrix2(n + w - 1, cn, S))");
+      __ensures("(3 >= 0)");
+      __ensures("(3 = 3)");
+      __produces("_RO(#_4, s ~> Matrix2(n + 3 - 1, cn, S))");
+      __admitted();
+    });
+    __ghost(assume, "P := (n >= 0)");
+    __ghost(assume, "P := (cn >= 0)");
+    __ghost(group_collapse, "n := n, m := cn, items := fun (i: int) (c: int) -> &d[MINDEX2(n, cn, i, c)] ~> UninitCell");
+     for (int ic = 0; ic < n * cn; ic++) {
+      __strict();
+      __sreads("s ~> Matrix2(n + 3 - 1, cn, S)");
+      __xwrites("&d[MINDEX2(n, cn, ic / cn, ic % cn)] ~~> reduce_int_sum(ic / cn, ic / cn + 3, fun k -> S(k, ic % cn))");
+      __ghost(assume, "P := in_range(ic / cn, 0..n)");
+      __ghost(assume, "P := in_range(ic % cn, 0..cn)");
+      int sum = 0;
+      __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_empty(ic / cn, fun k -> S(k, ic % cn))");
+      __ghost(assume, "P := in_range(ic / cn, (ic / cn)..(ic / cn + 3))");
+      __ghost(assume, "P := in_range(ic / cn + 1, (ic / cn)..(ic / cn + 3))");
+      __ghost(assume, "P := in_range(ic / cn + 2, (ic / cn)..(ic / cn + 3))");
+      __ghost(assume, "P := in_range(ic / cn, 0..(n + 3 - 1))");
+      const __ghost_fn focus = __ghost_begin(ro_matrix2_focus, "matrix := s, i := ic / cn, j := ic % cn");
+      sum += s[MINDEX2(({__rewrite_sequence; ({
+        int arith_res = n + 2;
+        __ghost([&] ()   {
+          __requires("res: int");
+          __consumes("&arith_res ~~> res");
+          __produces("&arith_res ~~> n + 3 - 1");
+          __admitted();
+        });
+        const int arith_res1 = arith_res;
+        arith_res1;
+      });}), cn, ({__rewrite_sequence; ({
+        int arith_res = ic / cn;
+        __ghost([&] ()   {
+          __requires("res: int");
+          __consumes("&arith_res ~~> res");
+          __produces("&arith_res ~~> ic / cn");
+          __admitted();
+        });
+        const int arith_res21 = arith_res;
+        arith_res21;
+      });}), ({__rewrite_sequence; ({
+        int arith_res = ic % cn;
+        __ghost([&] ()   {
+          __requires("res: int");
+          __consumes("&arith_res ~~> res");
+          __produces("&arith_res ~~> ic % cn");
+          __admitted();
+        });
+        const int arith_res22 = arith_res;
+        arith_res22;
+      });}))];
+      __ghost_end(focus);
+      __ghost(in_range_bounds, "x := ic / cn, a := ic / cn", "k_ge_i <- lower_bound");
+      __ghost(plus1, "n := ic / cn, np1 := ic / cn + 1", "kp1 <- eq");
+      __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_add_right(ic / cn, ic / cn, fun k -> S(k, ic % cn), k_ge_i, ic / cn + 1, kp1)");
+      __ghost(rewrite_linear, "from := ic / cn + 1, to := ic / cn + 1, inside := fun (k: int) -> &sum ~~> reduce_int_sum(ic / cn, k, fun k0 -> S(k0, ic % cn))");
+      __ghost(assume, "P := in_range(ic / cn + 1, 0..(n + 3 - 1))");
+      const __ghost_fn focus3 = __ghost_begin(ro_matrix2_focus, "matrix := s, i := ic / cn + 1, j := ic % cn");
+      sum += s[MINDEX2(({__rewrite_sequence; ({
+        int arith_res = n + 2;
+        __ghost([&] ()   {
+          __requires("res: int");
+          __consumes("&arith_res ~~> res");
+          __produces("&arith_res ~~> n + 3 - 1");
+          __admitted();
+        });
+        const int arith_res1 = arith_res;
+        arith_res1;
+      });}), cn, ({__rewrite_sequence; ({
+        int arith_res = ic / cn + 1;
+        __ghost([&] ()   {
+          __requires("res: int");
+          __consumes("&arith_res ~~> res");
+          __produces("&arith_res ~~> ic / cn + 1");
+          __admitted();
+        });
+        const int arith_res23 = arith_res;
+        arith_res23;
+      });}), ({__rewrite_sequence; ({
+        int arith_res = ic % cn;
+        __ghost([&] ()   {
+          __requires("res: int");
+          __consumes("&arith_res ~~> res");
+          __produces("&arith_res ~~> ic % cn");
+          __admitted();
+        });
+        const int arith_res24 = arith_res;
+        arith_res24;
+      });}))];
+      __ghost_end(focus3);
+      __ghost(in_range_bounds, "x := ic / cn + 1, a := ic / cn", "k_ge_i4 <- lower_bound");
+      __ghost(plus1, "n := ic / cn + 1, np1 := ic / cn + 1 + 1", "kp15 <- eq");
+      __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_add_right(ic / cn, ic / cn + 1, fun k -> S(k, ic % cn), k_ge_i4, ic / cn + 1 + 1, kp15)");
+      __ghost(rewrite_linear, "from := ic / cn + 1 + 1, to := ic / cn + 2, inside := fun (k: int) -> &sum ~~> reduce_int_sum(ic / cn, k, fun k0 -> S(k0, ic % cn))");
+      __ghost(assume, "P := in_range(ic / cn + 2, 0..(n + 3 - 1))");
+      const __ghost_fn focus6 = __ghost_begin(ro_matrix2_focus, "matrix := s, i := ic / cn + 2, j := ic % cn");
+      sum += s[MINDEX2(({__rewrite_sequence; ({
+        int arith_res = n + 2;
+        __ghost([&] ()   {
+          __requires("res: int");
+          __consumes("&arith_res ~~> res");
+          __produces("&arith_res ~~> n + 3 - 1");
+          __admitted();
+        });
+        const int arith_res1 = arith_res;
+        arith_res1;
+      });}), cn, ({__rewrite_sequence; ({
+        int arith_res = ic / cn + 2;
+        __ghost([&] ()   {
+          __requires("res: int");
+          __consumes("&arith_res ~~> res");
+          __produces("&arith_res ~~> ic / cn + 2");
+          __admitted();
+        });
+        const int arith_res25 = arith_res;
+        arith_res25;
+      });}), ({__rewrite_sequence; ({
+        int arith_res = ic % cn;
+        __ghost([&] ()   {
+          __requires("res: int");
+          __consumes("&arith_res ~~> res");
+          __produces("&arith_res ~~> ic % cn");
+          __admitted();
+        });
+        const int arith_res26 = arith_res;
+        arith_res26;
+      });}))];
+      __ghost_end(focus6);
+      __ghost(in_range_bounds, "x := ic / cn + 2, a := ic / cn", "k_ge_i7 <- lower_bound");
+      __ghost(plus1, "n := ic / cn + 2, np1 := ic / cn + 2 + 1", "kp18 <- eq");
+      __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_add_right(ic / cn, ic / cn + 2, fun k -> S(k, ic % cn), k_ge_i7, ic / cn + 2 + 1, kp18)");
+      __ghost(rewrite_linear, "from := ic / cn + 2 + 1, to := ic / cn + 3, inside := fun (k: int) -> &sum ~~> reduce_int_sum(ic / cn, k, fun k0 -> S(k0, ic % cn))");
+      d[MINDEX2(n, cn, ({__rewrite_sequence; ({
+        int arith_res = ic / cn;
+        __ghost([&] ()   {
+          __requires("res: int");
+          __consumes("&arith_res ~~> res");
+          __produces("&arith_res ~~> ic / cn");
+          __admitted();
+        });
+        const int arith_res27 = arith_res;
+        arith_res27;
+      });}), ({__rewrite_sequence; ({
+        int arith_res = ic % cn;
+        __ghost([&] ()   {
+          __requires("res: int");
+          __consumes("&arith_res ~~> res");
+          __produces("&arith_res ~~> ic % cn");
+          __admitted();
+        });
+        const int arith_res28 = arith_res;
+        arith_res28;
+      });}))] = sum;
+    }
+    __ghost(group_uncollapse, "n := n, m := cn, items := fun (i: int) (c: int) -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i + 3, fun k -> S(k, c))");
+    __ghost([&] ()   {
+      __requires("(3 >= 0)");
+      __requires("(3 = 3)");
+      __consumes("_RO(#_4, s ~> Matrix2(n + 3 - 1, cn, S))");
+      __consumes("for i in 0..n -> for c in 0..cn -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i + 3, fun k -> S(k, c))");
+      __ensures("(w >= 0)");
+      __ensures("(w = 3)");
+      __produces("_RO(#_4, s ~> Matrix2(n + w - 1, cn, S))");
+      __produces("for i in 0..n -> for c in 0..cn -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i + w, fun k -> S(k, c))");
+      __admitted();
+    });
+  }/*w@*/
+  else {
+    if (w == 5) /*@w*/{
+      __ghost(assert_alias, "x := w, y := 5");
+      __ghost([&] ()   {
+        __requires("(w >= 0)");
+        __requires("__is_false(w = 3)");
+        __requires("(w = 5)");
+        __consumes("_RO(#_4, s ~> Matrix2(n + w - 1, cn, S))");
+        __ensures("(5 >= 0)");
+        __ensures("__is_false(5 = 3)");
+        __ensures("(5 = 5)");
+        __produces("_RO(#_4, s ~> Matrix2(n + 5 - 1, cn, S))");
+        __admitted();
+      });
+      __ghost(assume, "P := (n >= 0)");
+      __ghost(assume, "P := (cn >= 0)");
+      __ghost(group_collapse, "n := n, m := cn, items := fun (i: int) (c: int) -> &d[MINDEX2(n, cn, i, c)] ~> UninitCell");
+       for (int ic = 0; ic < n * cn; ic++) {
+        __strict();
+        __sreads("s ~> Matrix2(n + 5 - 1, cn, S)");
+        __xwrites("&d[MINDEX2(n, cn, ic / cn, ic % cn)] ~~> reduce_int_sum(ic / cn, ic / cn + 5, fun k -> S(k, ic % cn))");
+        __ghost(assume, "P := in_range(ic / cn, 0..n)");
+        __ghost(assume, "P := in_range(ic % cn, 0..cn)");
+        int sum = 0;
+        __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_empty(ic / cn, fun k -> S(k, ic % cn))");
+        __ghost(assume, "P := in_range(ic / cn, (ic / cn)..(ic / cn + 5))");
+        __ghost(assume, "P := in_range(ic / cn + 1, (ic / cn)..(ic / cn + 5))");
+        __ghost(assume, "P := in_range(ic / cn + 2, (ic / cn)..(ic / cn + 5))");
+        __ghost(assume, "P := in_range(ic / cn + 3, (ic / cn)..(ic / cn + 5))");
+        __ghost(assume, "P := in_range(ic / cn + 4, (ic / cn)..(ic / cn + 5))");
+        __ghost(assume, "P := in_range(ic / cn, 0..(n + 5 - 1))");
+        const __ghost_fn focus = __ghost_begin(ro_matrix2_focus, "matrix := s, i := ic / cn, j := ic % cn");
+        sum += s[MINDEX2(({__rewrite_sequence; ({
+          int arith_res = n + 4;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> n + 5 - 1");
+            __admitted();
+          });
+          const int arith_res2 = arith_res;
+          arith_res2;
+        });}), cn, ({__rewrite_sequence; ({
+          int arith_res = ic / cn;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> ic / cn");
+            __admitted();
+          });
+          const int arith_res29 = arith_res;
+          arith_res29;
+        });}), ({__rewrite_sequence; ({
+          int arith_res = ic % cn;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> ic % cn");
+            __admitted();
+          });
+          const int arith_res30 = arith_res;
+          arith_res30;
+        });}))];
+        __ghost_end(focus);
+        __ghost(in_range_bounds, "x := ic / cn, a := ic / cn", "k_ge_i <- lower_bound");
+        __ghost(plus1, "n := ic / cn, np1 := ic / cn + 1", "kp1 <- eq");
+        __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_add_right(ic / cn, ic / cn, fun k -> S(k, ic % cn), k_ge_i, ic / cn + 1, kp1)");
+        __ghost(rewrite_linear, "from := ic / cn + 1, to := ic / cn + 1, inside := fun (k: int) -> &sum ~~> reduce_int_sum(ic / cn, k, fun k0 -> S(k0, ic % cn))");
+        __ghost(assume, "P := in_range(ic / cn + 1, 0..(n + 5 - 1))");
+        const __ghost_fn focus9 = __ghost_begin(ro_matrix2_focus, "matrix := s, i := ic / cn + 1, j := ic % cn");
+        sum += s[MINDEX2(({__rewrite_sequence; ({
+          int arith_res = n + 4;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> n + 5 - 1");
+            __admitted();
+          });
+          const int arith_res2 = arith_res;
+          arith_res2;
+        });}), cn, ({__rewrite_sequence; ({
+          int arith_res = ic / cn + 1;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> ic / cn + 1");
+            __admitted();
+          });
+          const int arith_res31 = arith_res;
+          arith_res31;
+        });}), ({__rewrite_sequence; ({
+          int arith_res = ic % cn;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> ic % cn");
+            __admitted();
+          });
+          const int arith_res32 = arith_res;
+          arith_res32;
+        });}))];
+        __ghost_end(focus9);
+        __ghost(in_range_bounds, "x := ic / cn + 1, a := ic / cn", "k_ge_i10 <- lower_bound");
+        __ghost(plus1, "n := ic / cn + 1, np1 := ic / cn + 1 + 1", "kp111 <- eq");
+        __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_add_right(ic / cn, ic / cn + 1, fun k -> S(k, ic % cn), k_ge_i10, ic / cn + 1 + 1, kp111)");
+        __ghost(rewrite_linear, "from := ic / cn + 1 + 1, to := ic / cn + 2, inside := fun (k: int) -> &sum ~~> reduce_int_sum(ic / cn, k, fun k0 -> S(k0, ic % cn))");
+        __ghost(assume, "P := in_range(ic / cn + 2, 0..(n + 5 - 1))");
+        const __ghost_fn focus12 = __ghost_begin(ro_matrix2_focus, "matrix := s, i := ic / cn + 2, j := ic % cn");
+        sum += s[MINDEX2(({__rewrite_sequence; ({
+          int arith_res = n + 4;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> n + 5 - 1");
+            __admitted();
+          });
+          const int arith_res2 = arith_res;
+          arith_res2;
+        });}), cn, ({__rewrite_sequence; ({
+          int arith_res = ic / cn + 2;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> ic / cn + 2");
+            __admitted();
+          });
+          const int arith_res33 = arith_res;
+          arith_res33;
+        });}), ({__rewrite_sequence; ({
+          int arith_res = ic % cn;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> ic % cn");
+            __admitted();
+          });
+          const int arith_res34 = arith_res;
+          arith_res34;
+        });}))];
+        __ghost_end(focus12);
+        __ghost(in_range_bounds, "x := ic / cn + 2, a := ic / cn", "k_ge_i13 <- lower_bound");
+        __ghost(plus1, "n := ic / cn + 2, np1 := ic / cn + 2 + 1", "kp114 <- eq");
+        __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_add_right(ic / cn, ic / cn + 2, fun k -> S(k, ic % cn), k_ge_i13, ic / cn + 2 + 1, kp114)");
+        __ghost(rewrite_linear, "from := ic / cn + 2 + 1, to := ic / cn + 3, inside := fun (k: int) -> &sum ~~> reduce_int_sum(ic / cn, k, fun k0 -> S(k0, ic % cn))");
+        __ghost(assume, "P := in_range(ic / cn + 3, 0..(n + 5 - 1))");
+        const __ghost_fn focus15 = __ghost_begin(ro_matrix2_focus, "matrix := s, i := ic / cn + 3, j := ic % cn");
+        sum += s[MINDEX2(({__rewrite_sequence; ({
+          int arith_res = n + 4;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> n + 5 - 1");
+            __admitted();
+          });
+          const int arith_res2 = arith_res;
+          arith_res2;
+        });}), cn, ({__rewrite_sequence; ({
+          int arith_res = ic / cn + 3;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> ic / cn + 3");
+            __admitted();
+          });
+          const int arith_res35 = arith_res;
+          arith_res35;
+        });}), ({__rewrite_sequence; ({
+          int arith_res = ic % cn;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> ic % cn");
+            __admitted();
+          });
+          const int arith_res36 = arith_res;
+          arith_res36;
+        });}))];
+        __ghost_end(focus15);
+        __ghost(in_range_bounds, "x := ic / cn + 3, a := ic / cn", "k_ge_i16 <- lower_bound");
+        __ghost(plus1, "n := ic / cn + 3, np1 := ic / cn + 3 + 1", "kp117 <- eq");
+        __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_add_right(ic / cn, ic / cn + 3, fun k -> S(k, ic % cn), k_ge_i16, ic / cn + 3 + 1, kp117)");
+        __ghost(rewrite_linear, "from := ic / cn + 3 + 1, to := ic / cn + 4, inside := fun (k: int) -> &sum ~~> reduce_int_sum(ic / cn, k, fun k0 -> S(k0, ic % cn))");
+        __ghost(assume, "P := in_range(ic / cn + 4, 0..(n + 5 - 1))");
+        const __ghost_fn focus18 = __ghost_begin(ro_matrix2_focus, "matrix := s, i := ic / cn + 4, j := ic % cn");
+        sum += s[MINDEX2(({__rewrite_sequence; ({
+          int arith_res = n + 4;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> n + 5 - 1");
+            __admitted();
+          });
+          const int arith_res2 = arith_res;
+          arith_res2;
+        });}), cn, ({__rewrite_sequence; ({
+          int arith_res = ic / cn + 4;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> ic / cn + 4");
+            __admitted();
+          });
+          const int arith_res37 = arith_res;
+          arith_res37;
+        });}), ({__rewrite_sequence; ({
+          int arith_res = ic % cn;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> ic % cn");
+            __admitted();
+          });
+          const int arith_res38 = arith_res;
+          arith_res38;
+        });}))];
+        __ghost_end(focus18);
+        __ghost(in_range_bounds, "x := ic / cn + 4, a := ic / cn", "k_ge_i19 <- lower_bound");
+        __ghost(plus1, "n := ic / cn + 4, np1 := ic / cn + 4 + 1", "kp120 <- eq");
+        __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_add_right(ic / cn, ic / cn + 4, fun k -> S(k, ic % cn), k_ge_i19, ic / cn + 4 + 1, kp120)");
+        __ghost(rewrite_linear, "from := ic / cn + 4 + 1, to := ic / cn + 5, inside := fun (k: int) -> &sum ~~> reduce_int_sum(ic / cn, k, fun k0 -> S(k0, ic % cn))");
+        d[MINDEX2(n, cn, ({__rewrite_sequence; ({
+          int arith_res = ic / cn;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> ic / cn");
+            __admitted();
+          });
+          const int arith_res39 = arith_res;
+          arith_res39;
+        });}), ({__rewrite_sequence; ({
+          int arith_res = ic % cn;
+          __ghost([&] ()   {
+            __requires("res: int");
+            __consumes("&arith_res ~~> res");
+            __produces("&arith_res ~~> ic % cn");
+            __admitted();
+          });
+          const int arith_res40 = arith_res;
+          arith_res40;
+        });}))] = sum;
+      }
+      __ghost(group_uncollapse, "n := n, m := cn, items := fun (i: int) (c: int) -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i + 5, fun k -> S(k, c))");
+      __ghost([&] ()   {
+        __requires("(5 >= 0)");
+        __requires("__is_false(5 = 3)");
+        __requires("(5 = 5)");
+        __consumes("_RO(#_4, s ~> Matrix2(n + 5 - 1, cn, S))");
+        __consumes("for i in 0..n -> for c in 0..cn -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i + 5, fun k -> S(k, c))");
+        __ensures("(w >= 0)");
+        __ensures("__is_false(w = 3)");
+        __ensures("(w = 5)");
+        __produces("_RO(#_4, s ~> Matrix2(n + w - 1, cn, S))");
+        __produces("for i in 0..n -> for c in 0..cn -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i + w, fun k -> S(k, c))");
+        __admitted();
+      });
+    }/*w@*/
+    else /*@anyw*/{
+      __ghost(swap_groups, "outer_range := 0..n, inner_range := 0..cn, items := fun (i: int) (c: int) -> &d[MINDEX2(n, cn, i, c)] ~> UninitCell");
+       for (int c = 0; c < cn; c++) {
+        __strict();
+        __sreads("s ~> Matrix2(n + w - 1, cn, S)");
+        __xwrites("for i in 0..n -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i + w, fun k -> S(k, c))");
+        __ghost(to_prove, "P := is_subrange(0..(0 + 1), 0..n)");
+        __ghost(group_split, "start := 0, stop := n, step := 1, split := 0 + 1, items := fun (i: int) -> &d[MINDEX2(n, cn, i, c)] ~> UninitCell");
+        __ghost(assume, "P := in_range(0, 0..(0 + 1))");
+        __ghost([&] ()   {
+          __consumes("for i in 0..(0 + 1) -> &d[MINDEX2(n, cn, i, c)] ~> UninitCell");
+          __produces("&d[MINDEX2(n, cn, 0, c)] ~> UninitCell");
+          __admitted();
+          __with("justif := unroll");
+        });
+        __ghost(assume, "P := in_range(0, 0..n)");
+        int sum = 0;
+        __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_empty(0, fun k -> S(k, c))");
+        __ghost([&] ()   {
+          __consumes("&sum ~~> reduce_int_sum(0, 0, fun k0 -> S(k0, c))");
+          __produces("&sum ~~> reduce_int_sum(0, 0 - - 0, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        __ghost([&] ()   {
+          __preserves("&sum ~~> reduce_int_sum(0, 0 - - 0, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        __ghost(to_prove, "P := (cn != 0)");
+        __ghost([&] ()   {
+          __consumes("&sum ~~> reduce_int_sum(0, 0 - - 0, fun k0 -> S(k0, c))");
+          __produces("&sum ~~> reduce_int_sum(0, exact_div(0, cn) - - 0, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        __ghost([&] ()   {
+          __preserves("&sum ~~> reduce_int_sum(0, exact_div(0, cn) - - 0, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+         for (int k = 0; k < cn * (0 + w - 0); k += cn) {
+          __strict();
+          __spreserves("&sum ~~> reduce_int_sum(0, exact_div(k, cn) - - 0, fun k0 -> S(k0, c))");
+          __sreads("s ~> Matrix2(n + w - 1, cn, S)");
+          __ghost(assume, "P := in_range(exact_div(k, cn), 0..(0 + w - 0))");
+          __ghost(assume, "P := in_range(exact_div(k, cn) - - 0, 0..(0 + w))");
+          __ghost(assume, "P := in_range(exact_div(k, cn) - - 0, 0..(n + w - 1))");
+          const __ghost_fn focus = __ghost_begin(ro_matrix2_focus, "matrix := s, i := exact_div(k, cn) - - 0, j := c");
+          sum += s[MINDEX2(n + w - 1, cn, exact_div(k, cn) - - 0, c)];
+          __ghost_end(focus);
+          __ghost(in_range_bounds, "x := exact_div(k, cn) - - 0, a := 0", "k_ge_i <- lower_bound");
+          __ghost(plus1, "n := exact_div(k, cn) - - 0, np1 := exact_div(k, cn) - - 0 + 1", "kp1 <- eq");
+          __ghost(rewrite_linear, "inside := fun v -> &sum ~~> v, by := reduce_int_sum_add_right(0, exact_div(k, cn) - - 0, fun k -> S(k, c), k_ge_i, exact_div(k, cn) - - 0 + 1, kp1)");
+          __ghost([&] ()   {
+            __consumes("&sum ~~> reduce_int_sum(0, exact_div(k, cn) - - 0 + 1, fun k0 -> S(k0, c))");
+            __produces("&sum ~~> reduce_int_sum(0, exact_div(k, cn) + 1 - - 0, fun k0 -> S(k0, c))");
+            __admitted();
+          });
+          __ghost([&] ()   {
+            __consumes("&sum ~~> reduce_int_sum(0, exact_div(k, cn) + 1 - - 0, fun k0 -> S(k0, c))");
+            __produces("&sum ~~> reduce_int_sum(0, exact_div((k + cn), cn) - - 0, fun k0 -> S(k0, c))");
+            __admitted();
+          });
+        }
+        __ghost([&] ()   {
+          __preserves("&sum ~~> reduce_int_sum(0, exact_div(cn * (0 + w - 0), cn) - - 0, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        __ghost([&] ()   {
+          __consumes("&sum ~~> reduce_int_sum(0, exact_div(cn * (0 + w - 0), cn) - - 0, fun k0 -> S(k0, c))");
+          __produces("&sum ~~> reduce_int_sum(0, 0 + w - 0 - - 0, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        __ghost([&] ()   {
+          __preserves("&sum ~~> reduce_int_sum(0, 0 + w - 0 - - 0, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        __ghost([&] ()   {
+          __consumes("&sum ~~> reduce_int_sum(0, 0 + w - 0 - - 0, fun k0 -> S(k0, c))");
+          __produces("&sum ~~> reduce_int_sum(0, 0 + w, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        d[MINDEX2(n, cn, 0, c)] = sum;
+        __ghost([&] ()   {
+          __consumes("&d[MINDEX2(n, cn, 0, c)] ~~> reduce_int_sum(0, 0 + w, fun k -> S(k, c))");
+          __produces("for i in 0..(0 + 1) -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i + w, fun k -> S(k, c))");
+          __admitted();
+          __with("justif := roll");
+        });
+        __ghost(to_prove, "P := (/*@__1033*/0/*__1033@*/ = 0 + 1 - 1)", "H <- H");
+        __ghost(to_prove, "P := (/*@__1033*/0/*__1033@*/ + w = 0 + 1 + w - 1)", "H42 <- H");
+        __ghost(rewrite_linear, "inside := fun (v: int) -> &sum ~~> reduce_int_sum(v, /*@__1033*/0/*__1033@*/ + w, fun k0 -> S(k0, c)), by := H");
+        __ghost(rewrite_linear, "inside := fun (v: int) -> &sum ~~> reduce_int_sum(0 + 1 - 1, v, fun k0 -> S(k0, c)), by := H42");
+        __ghost(group_shift, "start := 0 + 1, stop := n, step := 1, items := fun (i: int) -> &d[MINDEX2(n, cn, i, c)] ~> UninitCell, shift := - (0 + 1), new_start := 0, new_stop := n - (0 + 1)");
+        __ghost([&] ()   {
+          __consumes("&sum ~~> reduce_int_sum(0 + 1 - 1, 0 + 1 + w - 1, fun k0 -> S(k0, c))");
+          __produces("&sum ~~> reduce_int_sum(0 - - (0 + 1) - 1, 0 - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        __ghost([&] ()   {
+          __preserves("for __TMP_1 in 0..(n - (0 + 1)) -> &d[MINDEX2(n, cn, __TMP_1 - - (0 + 1), c)] ~> UninitCell");
+          __admitted();
+          __with("justif := arith_simpl");
+        });
+        __ghost([&] ()   {
+          __preserves("&sum ~~> reduce_int_sum(0 - - (0 + 1) - 1, 0 - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        __ghost(to_prove, "P := (cn != 0)");
+        __ghost(group_scale, "stop := n - (0 + 1), step := 1, items := fun (i: int) -> &d[MINDEX2(n, cn, i - - (0 + 1), c)] ~> UninitCell, factor := cn, new_step := cn, new_stop := cn * (n - (0 + 1))");
+        __ghost([&] ()   {
+          __consumes("&sum ~~> reduce_int_sum(0 - - (0 + 1) - 1, 0 - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+          __produces("&sum ~~> reduce_int_sum(exact_div(0, cn) - - (0 + 1) - 1, exact_div(0, cn) - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        __ghost([&] ()   {
+          __preserves("for __TMP_2 in range(0, cn * (n - (0 + 1)), cn) -> &d[MINDEX2(n, cn, exact_div(__TMP_2, cn) - - (0 + 1), c)] ~> UninitCell");
+          __admitted();
+          __with("justif := arith_simpl");
+        });
+        __ghost([&] ()   {
+          __preserves("&sum ~~> reduce_int_sum(exact_div(0, cn) - - (0 + 1) - 1, exact_div(0, cn) - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+         for (int i = 0; i < cn * (n - (0 + 1)); i += cn) {
+          __strict();
+          __spreserves("&sum ~~> reduce_int_sum(exact_div(i, cn) - - (0 + 1) - 1, exact_div(i, cn) - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+          __sreads("s ~> Matrix2(n + w - 1, cn, S)");
+          __xwrites("&d[MINDEX2(n, cn, exact_div(i, cn) - - (0 + 1), c)] ~~> reduce_int_sum(exact_div(i, cn) - - (0 + 1), exact_div(i, cn) - - (0 + 1) + w, fun k0 -> S(k0, c))");
+          __ghost(assume, "P := in_range(exact_div(i, cn), 0..(n - (0 + 1)))");
+          __ghost(assume, "P := in_range(exact_div(i, cn) - - (0 + 1), (0 + 1)..n)");
+          __ghost(to_prove, "P := in_range(exact_div(i, cn) - - (0 + 1) - 1, 0..(n + w - 1))");
+          __ghost(to_prove, "P := in_range(c, 0..cn)");
+          const __ghost_fn __ghost_pair_1 = __ghost_begin(ro_matrix2_focus, "matrix := s, i := exact_div(i, cn) - - (0 + 1) - 1, j := c");
+          __ghost(to_prove, "P := in_range(exact_div(i, cn) - - (0 + 1) + w - 1, 0..(n + w - 1))");
+          __ghost(to_prove, "P := in_range(c, 0..cn)");
+          const __ghost_fn __ghost_pair_2 = __ghost_begin(ro_matrix2_focus, "matrix := s, i := exact_div(i, cn) - - (0 + 1) + w - 1, j := c");
+          sum += s[MINDEX2(n + w - 1, cn, exact_div(i, cn) - - (0 + 1) + w - 1, c)] - s[MINDEX2(n + w - 1, cn, exact_div(i, cn) - - (
+            0 + 1) - 1, c)];
+          __ghost_end(__ghost_pair_2);
+          __ghost_end(__ghost_pair_1);
+          __ghost(to_prove, "P := (exact_div(i, cn) - - (0 + 1) + w - 1 >= exact_div(i, cn) - - (0 + 1) - 1)", "H <- H");
+          __ghost(to_prove, "P := (exact_div(i, cn) - - (0 + 1) + 1 - 1 = exact_div(i, cn) - - (0 + 1) - 1 + 1)", "H43 <- H");
+          __ghost(to_prove, "P := (exact_div(i, cn) - - (0 + 1) + 1 + w - 1 = exact_div(i, cn) - - (0 + 1) + w - 1 + 1)", "H44 <- H");
+          __ghost(rewrite_linear, "inside := fun (v: int) -> &sum ~~> v, by := reduce_int_sum_slide(exact_div(i, cn) - - (0 + 1) - 1, exact_div(i, cn) - - (0 + 1) + w - 1, exact_div(i, cn) - - (0 + 1) + 1 - 1, exact_div(i, cn) - - (0 + 1) + 1 + w - 1, fun k0 -> S(k0, c), H, H43, H44)");
+          d[MINDEX2(n, cn, exact_div(i, cn) - - (0 + 1), c)] = sum;
+          __ghost(to_prove, "P := (exact_div(i, cn) - - (0 + 1) + 1 - 1 = exact_div(i, cn) - - (0 + 1))", "H45 <- H");
+          __ghost(to_prove, "P := (exact_div(i, cn) - - (0 + 1) + 1 + w - 1 = exact_div(i, cn) - - (0 + 1) + w)", "H46 <- H");
+          __ghost(rewrite_linear, "inside := fun (v: int) -> &d[MINDEX2(n, cn, exact_div(i, cn) - - (0 + 1), c)] ~~> reduce_int_sum(v, exact_div(i, cn) - - (0 + 1) + 1 + w - 1, fun k0 -> S(k0, c)), by := H45");
+          __ghost(rewrite_linear, "inside := fun (v: int) -> &d[MINDEX2(n, cn, exact_div(i, cn) - - (0 + 1), c)] ~~> reduce_int_sum(exact_div(i, cn) - - (0 + 1), v, fun k0 -> S(k0, c)), by := H46");
+          __ghost([&] ()   {
+            __consumes("&sum ~~> reduce_int_sum(exact_div(i, cn) - - (0 + 1) + 1 - 1, exact_div(i, cn) - - (0 + 1) + 1 + w - 1, fun k0 -> S(k0, c))");
+            __produces("&sum ~~> reduce_int_sum(exact_div(i, cn) + 1 - - (0 + 1) - 1, exact_div(i, cn) + 1 - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+            __admitted();
+          });
+          __ghost([&] ()   {
+            __consumes("&sum ~~> reduce_int_sum(exact_div(i, cn) + 1 - - (0 + 1) - 1, exact_div(i, cn) + 1 - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+            __produces("&sum ~~> reduce_int_sum(exact_div((i + cn), cn) - - (0 + 1) - 1, exact_div((i + cn), cn) - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+            __admitted();
+          });
+        }
+        __ghost([&] ()   {
+          __preserves("for __TMP_2 in range(0, cn * (n - (0 + 1)), cn) -> &d[MINDEX2(n, cn, exact_div(__TMP_2, cn) - - (0 + 1), c)] ~~> reduce_int_sum(exact_div(__TMP_2, cn) - - (0 + 1), exact_div(__TMP_2, cn) - - (0 + 1) + w, fun k0 -> S(k0, c))");
+          __admitted();
+          __with("justif := arith_simpl");
+        });
+        __ghost([&] ()   {
+          __preserves("&sum ~~> reduce_int_sum(exact_div(cn * (n - (0 + 1)), cn) - - (0 + 1) - 1, exact_div(cn * (n - (0 + 1)), cn) - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        __ghost([&] ()   {
+          __consumes("&sum ~~> reduce_int_sum(exact_div(cn * (n - (0 + 1)), cn) - - (0 + 1) - 1, exact_div(cn * (n - (0 + 1)), cn) - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+          __produces("&sum ~~> reduce_int_sum(n - (0 + 1) - - (0 + 1) - 1, n - (0 + 1) - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        __ghost(group_unscale, "stop := n - (0 + 1), step := 1, items := fun (i: int) -> &d[MINDEX2(n, cn, i - - (0 + 1), c)] ~~> reduce_int_sum(i - - (0 + 1), i - - (0 + 1) + w, fun k0 -> S(k0, c)), factor := cn, new_step := cn, new_stop := cn * (n - (0 + 1))");
+        __ghost([&] ()   {
+          __preserves("for __TMP_1 in 0..(n - (0 + 1)) -> &d[MINDEX2(n, cn, __TMP_1 - - (0 + 1), c)] ~~> reduce_int_sum(__TMP_1 - - (0 + 1), __TMP_1 - - (0 + 1) + w, fun k0 -> S(k0, c))");
+          __admitted();
+          __with("justif := arith_simpl");
+        });
+        __ghost([&] ()   {
+          __preserves("&sum ~~> reduce_int_sum(n - (0 + 1) - - (0 + 1) - 1, n - (0 + 1) - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        __ghost([&] ()   {
+          __consumes("&sum ~~> reduce_int_sum(n - (0 + 1) - - (0 + 1) - 1, n - (0 + 1) - - (0 + 1) + w - 1, fun k0 -> S(k0, c))");
+          __produces("&sum ~~> reduce_int_sum(n - 1, n + w - 1, fun k0 -> S(k0, c))");
+          __admitted();
+        });
+        __ghost(group_unshift, "start := 0 + 1, stop := n, step := 1, items := fun (i: int) -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i + w, fun k0 -> S(k0, c)), shift := - (0 + 1), new_start := 0, new_stop := n - (0 + 1)");
+        __ghost(group_join, "start := 0, stop := n, step := 1, split := 0 + 1, items := fun (i: int) -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i + w, fun k -> S(k, c))");
+      }
+      __ghost(swap_groups, "outer_range := 0..cn, inner_range := 0..n, items := fun (c: int) (i: int) -> &d[MINDEX2(n, cn, i, c)] ~~> reduce_int_sum(i, i + w, fun k -> S(k, c))");
+    }/*anyw@*/
+  }
+}

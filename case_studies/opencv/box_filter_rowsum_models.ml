@@ -37,6 +37,7 @@ let no_simpl = Arith.do_nothing
   )
 *)
 (* #end : see [box_filter_rowsum_models_end] for the transformations applied after model erasure. *)
+
 let _ = Run.script_cpp (fun () ->
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anyw"
     ["w", int 3; "w", int 5] [cFunBody "rowSum"; cFor "i"];
@@ -55,8 +56,8 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.shift_range (StartAtZero) ~simpl:no_simpl [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
   !! Loop.scale_range ~factor:(trm_find_var "cn" []) ~simpl:no_simpl [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
 
-  !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anycn" ~simpl:no_simpl (* custom_specialize_simpl *)
-    [(* "cn", int 1;  *) "cn", int 3; "cn", int 4] [cMark "anyw"; cFor "c"]; (* Diff *)
+  !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anycn" ~simpl:Arith.nosimpl
+    ["cn", int 1;  "cn", int 3; "cn", int 4] [cMark "anyw"; cFor "c"];
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
 
   !! Target.foreach [nbMulti; cMark "cn"] (fun c ->

@@ -1231,12 +1231,11 @@ let compute_wexpr_prod ~(typ : typ_builtin) ?(loc) (wes:wexprs) : wexpr =
     let denum = wes_prod wes_neg in
     if denum = 0 then loc_fail loc (Printf.sprintf "compute_wexpr_prod: exact integer division by zero: %d / %d" num denum);
     if num mod denum <> 0 then
-      (1, expr_prod ?loc ~typ [(1, expr_int ?loc ~typ num); (-1, expr_int ?loc ~typ denum)])
-    else begin
-      let n = num / denum in
+      loc_fail loc (Printf.sprintf "compute_wexpr_prod: exact integer division is not exact: %d / %d" num denum);
+    let n = num / denum in
       (1, expr_int ~typ n)
     end
-  end else begin
+  else begin
     let f = List.fold_left (fun acc (w,e) ->
       check_expr_typ_eq typ (Option.unsome e.expr_typ);
       acc *. match e.expr_desc with

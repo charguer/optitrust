@@ -1,8 +1,7 @@
-(* Deprecated *)
 open Optitrust
 open Target
 
-(* let _ = Flags.check_validity := true *)
+let _ = Flags.typechecking_mode := ProofPreserving
 
 let _ = Run.script_cpp (fun _ ->
 
