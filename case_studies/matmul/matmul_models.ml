@@ -5,7 +5,7 @@ open Prelude
 let _ = Flags.typechecking_mode := Flags.ProofPreserving
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
-let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
+let _ = Flags.save_ast_for_steps := Some Flags.Steps_script
 
 
 (* let _ = Flags.report_exectime := true *)
@@ -30,5 +30,5 @@ let _ = Run.script_cpp (fun () ->
     [cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "k"];
   !! Loop.simd [nbMulti; cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "j"];
   !! Loop.parallel [nbMulti; cFunBody ""; cStrict; cFor ""];
-  !! Loop.unroll ~simpl:Arith.do_nothing [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
+  !! Loop.unroll ~simpl:Arith.no_simpl [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
 )

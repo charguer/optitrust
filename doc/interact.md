@@ -12,11 +12,11 @@ in the instructions from `INSTALL.md`. For example, `F6` runs the task named
 
 ## Description of a task
 
-The project file `.vscode/tasks.json` describes the tasks. Consider e.g. 
+The project file `.vscode/tasks.json` describes the tasks. Consider e.g.
 "view diff". This task executes a script `tools/view_results.sh`.
-The argument provided to the script is "step_diff" to indicate what result 
+The argument provided to the script is "step_diff" to indicate what result
 we want to visualize, and the path of the current script as well as the cursor
-line are passed to the script. 
+line are passed to the script.
 
 ```json
       {
@@ -38,7 +38,7 @@ line are passed to the script.
           "${lineNumber}"
         ]
       },
-```      
+```
 
 Note: the option "-i" is to allow launching GUI tasks, it might not be stricly
 necessary if the "run_action" wrapper uses a auxiliary "watcher" process.
@@ -64,7 +64,7 @@ The html file is then opened using the script `tools/open_in_browser.sh`.
 
 ## Purpose and working of open_trace
 
-The script `tools/open_trace.sh` is meant to open an interactive trace. 
+The script `tools/open_trace.sh` is meant to open an interactive trace.
 If the mode "standalone-full-trace" is used, the trace is computed a standalone trace, following the same approach as for "open_diff".
 
 However, the typical usage, which scales up better, is to produce a webpage using only the meta-data describing the steps in the trace. The rendering of each individual step is computed only on-demand, by means of a client-server interaction.
@@ -76,7 +76,7 @@ The script `open_trace.sh` first compiles the server (to ensure that its binary 
 Then, the script `open_trace.sh` opens the webpage at the URL: `http://localhost:6775/myscript_trace.html`, assuming `myscript.ml` to be the user script.
 
 The implementation of the server is found in `tools/trace_server/trace_server.ml`.
-The serialization of the trace is performed in the function `dump_full_trace_to_js`, 
+The serialization of the trace is performed in the function `dump_full_trace_to_js`,
 when the flag `Flags.request_serialized_trace` is set, as is the case in mode "full_trace".
 
 ## Purpose and working of open_in_browser
@@ -94,9 +94,9 @@ Due to VScode sandboxing, in most set-ups, the VScode tasks are generally unable
 
 The `run_action.sh` script implements tooling to work around limitations of VScode, which executes tasks in a sandbox, hence is not able to properly execute features such as launching an external browser or running "xdotool" for giving the focus to a given window. This limitations are especially visible when VScode and/or the brower is installed using Snap, but even with a direct binary installation, VScode performs some form of sandboxing.
 
-The script `run_action.sh` takes as argument a command line to execute, and writes this command line into a temporary file named `action.sh`. 
+The script `run_action.sh` takes as argument a command line to execute, and writes this command line into a temporary file named `action.sh`.
 
-Independently, the OptiTrust user needs to execute a script named `watch.sh` that runs in the background. It is launched by means of the command `./watcher.sh`, which is just a shorthand for `./.vscode/watch.sh`. This script waits to observe modifications to the file `action.sh` (using the "inotify" tooling). When the script detects a change, it executes the command line found in `action.sh`. 
+Independently, the OptiTrust user needs to execute a script named `watch.sh` that runs in the background. It is launched by means of the command `./watcher.sh`, which is just a shorthand for `./.vscode/watch.sh`. This script waits to observe modifications to the file `action.sh` (using the "inotify" tooling). When the script detects a change, it executes the command line found in `action.sh`.
 
 The output of that script is captured in a file named `action_out.txt`, whose contents is then reported as output of `action.sh`. This way, the user obtains the feedback of the requested command in the integrated terminal of VScode.
 

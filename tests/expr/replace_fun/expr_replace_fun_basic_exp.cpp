@@ -4,7 +4,7 @@ int f(int x) {
 }
 
 int f1(int x) {
-  int y = -1;
+  int y = (-1);
   return y + x;
 }
 

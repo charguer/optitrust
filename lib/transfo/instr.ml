@@ -193,7 +193,8 @@ let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : 
           span
         else
           match Trace.step_backtrack_on_failure (fun () ->
-            Instr_basic.move ~dest:[dAfter span.stop] (tg_span span)
+            Instr_basic.move ~dest:[dAfter span.stop] (tg_span span);
+            Resources.ensure_computed ();
           ) with
           | Success () ->
             move_downwards_with_deps { start = span.start + 1; stop = span.stop + 1 } dest
@@ -208,7 +209,8 @@ let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : 
           span
         else
           match Trace.step_backtrack_on_failure (fun () ->
-            Instr_basic.move ~dest:[dBefore (span.start - 1)] (tg_span span)
+            Instr_basic.move ~dest:[dBefore (span.start - 1)] (tg_span span);
+            Resources.ensure_computed ();
           ) with
           | Success () ->
             move_upwards_with_deps { start = span.start - 1; stop = span.stop - 1 } dest

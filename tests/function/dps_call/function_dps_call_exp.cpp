@@ -2,7 +2,7 @@ int f(int x) {
   if (x > 0) {
     return x;
   } else {
-    return -x;
+    return (-x);
   }
 }
 
@@ -10,7 +10,7 @@ void f_dps(int x, int* res) {
   if (x > 0) {
     *res = x;
   } else {
-    *res = -x;
+    *res = (-x);
   }
 }
 
@@ -18,7 +18,7 @@ int g(int x, int y) {
   if (x > 0) {
     return x + y;
   } else {
-    return -x + y;
+    return (-x) + y;
   }
 }
 
@@ -26,7 +26,7 @@ void g_dps(int x, int y, int* res) {
   if (x > 0) {
     *res = x + y;
   } else {
-    *res = -x + y;
+    *res = (-x) + y;
   }
 }
 

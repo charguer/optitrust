@@ -46,7 +46,7 @@ let init_detach_on (t : trm) : trm =
     | Some init -> init
     | _ -> trm_fail t "init_detach_on: can't detach an uninitialized or constant declaration"
   in
-  let var_decl = trm_let_mut_uninit ~annot:t.annot (x, Option.unsome ~error:"expected init type" init.typ) in
+  let var_decl = trm_let_mut_uninit ~annot:t.annot (x, Option.unsome ~error:"expected init type" (typ_ptr_inv tx)) in
   (* Check if variable was declared as a reference *)
   let var_assgn = trm_set (trm_var ~typ:tx x) init in
   trm_seq_nobrace_nomarks [var_decl; var_assgn]

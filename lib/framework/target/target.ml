@@ -154,7 +154,7 @@ let dAfter (i : int) : constr =
 
 (** [dSeqNth]: matches the instruction with index [n] on a sequence. *)
 let dSeqNth (n : int) : constr =
-    Constr_dir (Dir_seq_nth n)
+  Constr_dir (Dir_seq_nth n)
 
 (** [dCond]: matches a condition. *)
 let dCond : constr =
@@ -231,7 +231,6 @@ let dEnumConstVal : enum_const_dir = Enum_const_val
 let dArg (n : int) : constr =
   Constr_dir (Dir_arg_nth n)
 
-
 (** [string_to_rexp regexp substr s trmKind]:  transforms a string into a regular expression
     used to match ast nodes based on their code representation.
     [string_to_rexp] - denotes a flag to tell if the string entered is a regular epxression or no
@@ -293,6 +292,11 @@ let sExprRegexp ?(substr : bool = true) (s : string) : constr =
 
 let cPred (p : trm -> bool) : constr =
   Constr_pred p
+
+let cKind (k : trm_kind) (tg : target) : constr =
+  Constr_kind (k, tg)
+
+let cInstr : target -> constr = cKind TrmKind_Instr
 
 (** [cInclude s]: matches include directives. *)
 let cInclude (s : string) : constr =
@@ -667,6 +671,9 @@ let cEnum ?(name : string = "") ?(substr : bool = false) ?(constants : (string *
 let cSeq ?(instrs : targets = []) ?(instrs_pred:target_list_pred = target_list_pred_default) () : constr =
   Constr_seq (combine_args instrs instrs_pred)
 
+let cSeqContaining (inner_tg : target) : constr =
+  Constr_seq (target_list_one_st inner_tg)
+
 (** [cVar ~regexp ~substr ~trmkind ~typ ~typ_pred name]: matches variable occurrences
     [regepx] - match based on regexp
     [substr] - match partially
@@ -678,6 +685,9 @@ let cVar ?(regexp : bool = false) ?(substr : bool = false) ?(typ : string = "")
   let c = Constr_var ro in
   if typ = "" && typ_pred == typ_constraint_default then c else (* this line is just an optimization. *)
   Constr_target (with_type ~typ ~typ_pred [c])
+
+let cVars (vars : string list) : constr =
+  cOr (List.map (fun v -> [cVar v]) vars)
 
 let cVarId (var : var) : constr =
   Constr_pred (fun t ->

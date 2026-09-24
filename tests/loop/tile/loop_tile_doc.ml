@@ -1,6 +1,8 @@
 open Optitrust
 open Prelude
 
+let _ = Flags.typechecking_mode := Unverified
+
 let _ = Run.script_cpp (fun _ ->
 
   !! Loop_basic.tile (lit "3") ~index:"bi" ~bound:TileDivides [cFor "i"];

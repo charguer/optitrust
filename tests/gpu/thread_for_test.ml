@@ -9,7 +9,8 @@ let _ = Run.script_cpp (fun _ ->
   !! Resources.ensure_computed ();
   (* Verify that removing sync causes typing error *)
   !! Trace.resource_error_expected (fun _ ->
-    Instr.delete [occFirst; cTopFunDef "sync_required"; cCall "blocksync"];
-    Resources.ensure_computed ());
+    Instr.delete [occFirst; cTopFunDef "sync_required"; cCall "blocksync"]);
+  !! Trace.resource_error_expected (fun _ ->
+    Instr.delete [occFirst; cTopFunDef "sync_required_write_after_read"; cCall "blocksync"]);
   !! Trace.generate_cuda ~check_expected:true ();
 )

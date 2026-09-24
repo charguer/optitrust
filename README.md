@@ -18,10 +18,11 @@ If you are interested in a demo, please get in touch with @charguer.
 # Steps for using OptiTrust
 
 - See `INSTALL.md` for installation procedure, to set up the right version of OCaml/Clang/ClangML and configure VSCode/Codium, in particular.
+- See `tools/vscode-optitrust/README.md` to set up the new VSCode extension (still being refined).
 - See `INSTALL_EXTRA.md` for a list of additional useful tools for program optimization.
 - See `VSCODE_CUSTOMIZE.md` for useful tips for using VScode or VScodium.
 - Read the text below for high level comments on the organization of the repository.
-- Check out `case_studies/matmul/matmul_check.ml` and `matmul_check.cpp` to begin with---to produce a full trace you may need a lot of RAM.
+- Check out `case_studies/dot_product/dot.ml` and `dot.cpp` to begin with---to produce a full trace you may need a lot of RAM.
 
 # Overview of the implementation
 
@@ -58,6 +59,8 @@ In the `tests` and `case_studies` folders, for each unit test and each case stud
 - `.ml`: contains the transformation script, each transformation step starts with `!!`; on this file the user can request via the shortcut a "diff" for a step or a "trace".
 - `_out.cpp` (not committed): contains the optimized code, produced when executing the `.ml` script.
 - `_exp.cpp`: is a git-versioned copy of `_out.cpp`; the tester claims success if the `_out.cpp` matches the `_exp.cpp`; if legitimate changes are applied to the test, the `_exp.cpp` file should be manually updated to match the `_out.cpp` file (e.g., using `cp` or using the dedicated `./tester fixexp` command).
+
+TODO: update paragraphs below
 
 When producing a trace (see shortcuts in `INSTALL.md`), the trace opens in a browser. In the trace display, on a given step, there are options to control the display:
 - mode: `diff` between before-step and after-step, `code before` and `code after` for seeing the code in full before or after the step. If the diff for a step is empty, only the code is displayed.

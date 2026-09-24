@@ -278,7 +278,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
   let tl, _ = trm_inv trm_seq_inv t_seq in
   let tl1, _, tl2 = Mlist.split_on_marks index tl in
   let fst_contract, snd_contract =
-    (* if not !Flags.check_validity then
+    (* if not (!Flags.check_validity || !Flags.use_resources_with_models) then
       empty_loop_contract, empty_loop_contract
     else *)
       let open Resource_formula in
@@ -343,6 +343,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
           | None -> acc
         ) Var_set.empty tl1
       in
+      (* DEBUG Printf.printf "bound_in_tl1: %s\n" (vars_to_string (Var_set.elements bound_in_tl1)); *)
       let split_res_comm = List.filter (fun (h, formula) ->
           Var_set.disjoint (trm_free_vars formula) bound_in_tl1
         ) split_res_comm
@@ -360,12 +361,17 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
             failwith "The resources at split point depend on the variable %s created before in the sequence" (var_to_string x)
         | Some Ensured when
           Var_map.mem x usage_after_tl1 &&
+          (* (not (Var_set.mem x bound_in_tl1)) && *)
           Var_set.disjoint (trm_free_vars f) bound_in_tl1 ->
+            (* DEBUG Printf.printf "%s\n" (Resource_computation.named_formula_to_string (x, f)); *)
             true
         | _ -> false
         ) split_res.pure
       in
       let middle_iter_contract = Resource_set.copy (Resource_set.make ~pure:tl1_ensured ~linear:split_res_comm ()) in
+
+      (* DEBUG
+      Printf.printf "middle_iter_contract: %s\n" (Resource_computation.resource_set_to_string middle_iter_contract); *)
 
       let fst_contract = {
         loop_ghosts = contract.loop_ghosts;
@@ -415,6 +421,7 @@ let fission_on (mark_loops : mark) (mark_between_loops : mark) (index : int) (t 
    writes in first loop after index i. *)
 let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : mark = no_mark) (tg : target) : unit =
   (* TODO: figure out best nobrace/iter/resource interleaving *)
+  if Flags.annotated_and_verified () then Resources.ensure_computed ();
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun p_before ->
       let (p_seq, split_i) = Path.extract_last_dir_before p_before in
@@ -422,7 +429,6 @@ let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : 
       (* DEBUG: let debug_p = Path.parent p_loop in
       Show.res ~msg:"res1" ~ast:(get_trm_at_exn (target_of_path debug_p))
       ); *)
-      Resources.required_for_check ();
       apply_at_path (fission_on mark_loops mark_between_loops split_i) p_loop;
     ) tg
   );
@@ -610,7 +616,7 @@ let%transfo fusion ?(upwards : bool = true) (tg : target) : unit =
     let (index, p_seq) = Path.index_in_seq p in
     Resources.required_for_check ();
     Target.apply_at_path (fusion_on index upwards) p_seq;
-    Resources.required_for_check ();
+    (* Resources.required_for_check (); *)
   ) tg;
   Resources.justif_correct "loop resources where successfully merged"
 
@@ -1449,27 +1455,6 @@ let ghost_group_intro_one item =
 let ghost_group_elim_one item =
   Resource_trm.ghost (ghost_call (ghost_var_group_elim_one) (["item", item]))
 
-(* TODO: move elsewhere *)
-let var_formula_If = toplevel_var "If"
-let formula_If (cond: formula) (h: formula) = (trm_apps ~annot:Resource_formula.formula_annot ~typ:typ_hprop (trm_var var_formula_If) [cond; h])
-
-let ghost_var_if_false_hprop_rewrite = toplevel_var "if_false_hprop_rewrite"
-let ghost_var_if_true_hprop_elim = toplevel_var "if_true_hprop_elim"
-let ghost_var_if_true_hprop_intro = toplevel_var "if_true_hprop_intro"
-let ghost_var_if_false_hprop_drop = toplevel_var "if_false_hprop_drop"
-
-let ghost_if_false_hprop_rewrite ?b from into =
-  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_false_hprop_rewrite) (["b",b; "H",Some from; "H2",Some into]))
-
-let ghost_if_false_hprop_drop ?b h =
-  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_false_hprop_drop) (["b",b; "H",Some h]))
-
-let ghost_if_true_hprop_elim ?b ?hp h =
-  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_true_hprop_elim) (["b",b; "HP",hp; "H",Some h]))
-
-let ghost_if_true_hprop_intro ?b ?hp h =
-  Resource_trm.ghost (Resource_trm.ghost_call_opt_args (ghost_var_if_true_hprop_intro) (["b",b; "HP",hp; "H",Some h]))
-
 (* LATER: refactor with other loop/if transfos such as expand_range, fold, etc.
   modify those to support contracts/models like this one. *)
 let%transfo intro_loop_single_on ?(index: string = "t") (bound: trm) (start_tg: target) (stop_tg: target) =
@@ -1546,18 +1531,18 @@ let%transfo intro_loop_single_on ?(index: string = "t") (bound: trm) (start_tg: 
       let if_cond_proof_var = new_var (fresh_var_name ~prefix:"Hcond" ()) in
 
       let then_elim_ghosts = List.map (fun (_,f) ->
-        ghost_if_true_hprop_elim ~hp:(trm_var if_cond_proof_var) f
+        Resource_trm.ghost_if_true_hprop_elim ~hp:(trm_var if_cond_proof_var) f
       ) !before in
       let then_intro_ghosts = List.map (fun (_,f) ->
-        ghost_if_true_hprop_intro ~hp:(trm_var if_cond_proof_var) f
+        Resource_trm.ghost_if_true_hprop_intro ~hp:(trm_var if_cond_proof_var) f
       ) !after in
       assert (List.length !before >= List.length !after); (* only one case handled for now *)
       let before_rewrite,before_drop = List.split_at (List.length !after) !before in
       let else_ghosts = List.map2 (fun (_,f1) (_,f2) ->
-        ghost_if_false_hprop_rewrite f1 f2
+        Resource_trm.ghost_if_false_hprop_rewrite f1 f2
       ) before_rewrite !after in
       let else_ghosts = else_ghosts @ (List.map (fun (_,f) ->
-        ghost_if_false_hprop_drop f) before_drop) in
+        Resource_trm.ghost_if_false_hprop_drop f) before_drop) in
 
       let assert_if_cond = Resource_trm.ghost_assert if_cond_proof_var
         (formula_eq ~typ:typ_int (trm_var range.index) (trm_int 0)) in

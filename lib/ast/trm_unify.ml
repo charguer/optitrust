@@ -55,6 +55,8 @@ let rec unfold_if_resolved_evar (t : trm) (evar_ctx : 'a unification_ctx) :
         | None -> (trm_apps fn args, evar_ctx))
   | _ -> (t, evar_ctx)
 
+let hole_var = toplevel_var "hole"
+
 (** [normalize_trm t evar_ctx]: tries to normalize [t], aiming to match
     equivalent trms with different syntax Performs the following normalisations:
     - normalize mindex :
@@ -156,9 +158,9 @@ and trm_unify (t_left : trm) (t_right : trm)
   let res =
     match (t_left.desc, t_right.desc) with
     (* -- FIXME: hole hack *)
-    | _, Trm_var h when String.starts_with ~prefix:"__hole" h.name ->
+    | _, Trm_apps (h, [t], [], []) when trm_is_var ~var:hole_var h ->
       Some evar_ctx
-    | Trm_var h, _ when String.starts_with ~prefix:"__hole" h.name ->
+    | Trm_apps (h, [t], [], []), _ when trm_is_var ~var:hole_var h ->
       Some evar_ctx
     (* -- *)
     | Trm_var x_left, Trm_var x_right when var_eq x_left x_right ->
