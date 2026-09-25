@@ -421,7 +421,7 @@ let fission_on (mark_loops : mark) (mark_between_loops : mark) (index : int) (t 
    writes in first loop after index i. *)
 let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : mark = no_mark) (tg : target) : unit =
   (* TODO: figure out best nobrace/iter/resource interleaving *)
-  if Flags.annotated_and_verified () then Resources.ensure_computed ();
+  if Flags.proof_preserving () then Resources.ensure_computed ();
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun p_before ->
       let (p_seq, split_i) = Path.extract_last_dir_before p_before in
