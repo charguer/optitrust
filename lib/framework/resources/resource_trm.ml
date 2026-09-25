@@ -217,6 +217,29 @@ let ghost_in_range_extend x r1 r2 =
 
 (* let var_ghost_subrange_to_group_in_range = toplevel_var "subrange_to_group_in_range" *)
 
+let var_ghost_unwrap_singleton_desyncgroup = toplevel_var "unwrap_singleton_desyncgroup"
+
+let ghost_unwrap_singleton_desyncgroup ?(formula : formula option) () =
+  ghost (ghost_call_opt_args var_ghost_unwrap_singleton_desyncgroup ["H", formula])
+
+let ghost_var_if_false_hprop_rewrite = toplevel_var "if_false_hprop_rewrite"
+let ghost_var_if_true_hprop_elim = toplevel_var "if_true_hprop_elim"
+let ghost_var_if_true_hprop_intro = toplevel_var "if_true_hprop_intro"
+let ghost_var_if_false_hprop_drop = toplevel_var "if_false_hprop_drop"
+
+let ghost_if_false_hprop_rewrite ?b from into =
+  ghost (ghost_call_opt_args (ghost_var_if_false_hprop_rewrite) (["b",b; "H",Some from; "H2",Some into]))
+
+let ghost_if_false_hprop_drop ?b h =
+  ghost (ghost_call_opt_args (ghost_var_if_false_hprop_drop) (["b",b; "H",Some h]))
+
+let ghost_if_true_hprop_elim ?b ?hp h =
+  ghost (ghost_call_opt_args (ghost_var_if_true_hprop_elim) (["b",b; "HP",hp; "H",Some h]))
+
+let ghost_if_true_hprop_intro ?b ?hp h =
+  ghost (ghost_call_opt_args (ghost_var_if_true_hprop_intro) (["b",b; "HP",hp; "H",Some h]))
+
+
 let var_arbitrary = toplevel_var "arbitrary"
 let var_admit = toplevel_var "admit"
 

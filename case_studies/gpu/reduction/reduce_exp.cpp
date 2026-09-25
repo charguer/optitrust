@@ -588,7 +588,7 @@ float reduce(float* arr, int N) {
     __ghost(
         rewrite_linear,
         "from := exact_div(N, 512), to := MSIZE1(exact_div(N, 512)), inside := "
-        "fun (sz: int) -> for i in 0..sz -> for i1 in 0..256 -> "
+        "fun (sz: int) -> desync_for i in ..sz -> for i1 in 0..256 -> "
         "&tile[MINDEX2(sz, 256, DMINDEX1(sz, i), i1)] ~> UninitCellOf(SMem)");
     __smem_free1(tile, 256);
     __ghost(give_smem_token, "tok_sz := sizeof(float) * 256");

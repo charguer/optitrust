@@ -12,19 +12,18 @@ int main() {
 }
 /*
 CAPTURED STDOUT:
-AST:
+AST: include "../../include/optitrust.h";
 
-
-
-  int main ()  {
-  int  a,  b;
-  int x = 3;
+fun main(): int {
+  letmut a;
+  letmut b;
+  letmut x = 3;
   x--;
   for (int i = 0; i < 3; i++) {
     __strict();
     __spreserves("x ~> Cell");
     x++;
-  }
+  };
 }
 for-trm-internal-desc: Trm_for (seq,
   i,

@@ -147,7 +147,7 @@ Follow to the next section to test that your OptiTrust installation works.
 
 ## OptiTrust setup
 
-### Install precommit hooks
+### DEPRECATED: Install precommit hooks
 
 This command configures git to automatically run unit tests between commits. It can be ignored if you just want to try OptiTrust without contributing, and you have not downloaded the source files through git.
 
@@ -204,6 +204,7 @@ may want to add into your `~/.bashrc` the line:
 ```
 (or use `sudo ln -s /usr/bin/codium /usr/bin/code`).
 
+NEW : there is now a VSCode extension that can be installed by following the instructions in `tools/vscode-optitrust/README.md`.
 
 ### Direnv setup for automatic Nix shell activation in VSCode (experimental)
 
@@ -221,6 +222,8 @@ Once installed, when you open the OptiTrust repo in VScode, you should first be 
 
 --------------------------------------------------------------------------------
 ## Browser installation
+
+NOTE: not necessary if you use the new VSCode extension.
 
 NOTE: If you're using the Nix shell, don't try to install a browser in the Nix environment, install it on the system as you would normally.
 
@@ -280,6 +283,8 @@ Open the extension pannel (`ctrl+shift+x`) and look for the "Ocaml platform" ext
 Alternatively, use the quick open prompt (`ctrl+p`), then paste `ext install ocamllabs.ocaml-platform`.
 
 ### Install the OptiTrust shortcuts for VSCode
+
+NOTE: not necessary if you use the new VSCode extension setup.
 
 In VSCode, open the file `~/.config/Code/User/keybindings.json`.
 For VSCodium, this file is located at `~/.config/VSCodium/User/keybindings.json`.
@@ -510,6 +515,8 @@ After a dozen seconds, you should see the full transformation trace for the
 matrix-multiply case study.
 
 ### Viewing keyboard shortcuts
+
+TODO: check if still relevant to the new VSCode extension setup.
 
 It may not be easy at first to recall all the shortcuts. Besides using a sticker
 at the bottom of your screen, you can use the command `./shortcuts.sh` to display

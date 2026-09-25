@@ -138,7 +138,9 @@ void test(int* t) {
     for (int j = 0; j < 10; j++) {
       __strict();
       __smodifies("&x ~> Cell");
+      __smodifies("AutoFree(&x, &x ~> UninitCell)");
       __smodifies("&s ~> Cell");
+      __smodifies("AutoFree(&s, &s ~> UninitCell)");
       __smodifies("&t[MINDEX1(10, i)] ~> UninitCell");
       __sreads("&a ~> Cell");
       __sreads("&b ~> Cell");
