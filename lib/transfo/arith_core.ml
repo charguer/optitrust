@@ -248,7 +248,7 @@ let check_deletable (e : expr) : unit =
    - eliminates products and sums with a single expression of weight one
    - eliminates products and sums with an empty list
    - eliminates deletable elements with weight zero
-   - eliminates +0 is sums and *1 in products
+   - eliminates +0 in sums and *1 in products
    - simplifies interger-division by 1
    - simplifies modulo operations applied to zero
    - simplifies binary shifting operations by zero
@@ -819,14 +819,14 @@ let rec same_expr (a : expr) (b : expr) : bool =
     match (a, b) with
     | (Expr_int a, Expr_int b) -> a = b
     | (Expr_float a, Expr_float b) -> a = b
-    | (Expr_atom (a,_puritya), Expr_atom (b,_purityb)) -> a = b
+    | (Expr_atom (a,purity_a), Expr_atom (b,purity_b)) -> purity_a.redundant && purity_b.redundant && a = b
     | (Expr_sum a, Expr_sum b) | (Expr_prod a, Expr_prod b) ->
        List.for_all2 same_wexprs a b
     | (Expr_binop (op1, a1, a2), Expr_binop (op2, b1, b2)) ->
        (op1 = op2) && (same_expr a1 b1) && (same_expr a2 b2)
     | _ -> false
-  and same_wexprs ((a_id, a_e) : wexpr) ((b_id, b_e) : wexpr) : bool =
-    (a_id = b_id) && (same_expr a_e b_e)
+  and same_wexprs ((a_w, a_e) : wexpr) ((b_w, b_e) : wexpr) : bool =
+    (a_w = b_w) && (same_expr a_e b_e)
   in
   same_desc a.expr_desc b.expr_desc
 

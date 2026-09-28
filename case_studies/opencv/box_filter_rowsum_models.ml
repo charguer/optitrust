@@ -34,10 +34,12 @@ module Reduce = Reduce_models
 *)
 (* #end : see [box_filter_rowsum_models_end] for the transformations applied after model erasure. *)
 
-let _ = Run.script_cpp (fun () ->
+let stage_ok = fun i -> (* i = 2 *) true
+
+let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anyw"
     ["w", int 3; "w", int 5] [cFunBody "rowSum"; cFor "i"];
-  !! Loop.unroll ~simpl:no_simpl [nbMulti; cMark "w"; cFor "k"];
+  !! Loop.unroll ~simpl:Arith.no_simpl [nbMulti; cMark "w"; cFor "k"];
   (* Reduce.unroll [nbMulti; cMark "w"; cFor "k"] *) (* Diff *)
   (* TODO: Reduce.unroll [nbMulti; cMark "w"; cFor "k"]
      + Loop.unroll
@@ -52,10 +54,9 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.shift_range (StartAtZero) ~simpl:Arith.no_simpl [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
   !! Loop.scale_range ~factor:(trm_find_var "cn" []) ~simpl:Arith.no_simpl [nbMulti; cMark "anyw"; cFors ["k"; "i"]];
 
-  !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anycn" ~simpl:Arith.nosimpl
+  !! Specialize.variable_multi ~mark_then:fst ~mark_else:"anycn" ~simpl:Arith.no_simpl
     ["cn", int 1;  "cn", int 3; "cn", int 4] [cMark "anyw"; cFor "c"];
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
-
   !! Target.foreach [nbMulti; cMark "cn"] (fun c ->
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i"];
     Instr.gather_targets [c; cStrict; cArrayWrite "d"];
