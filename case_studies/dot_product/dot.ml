@@ -8,7 +8,7 @@ let _ = Flags.save_ast_for_steps := Some Flags.Steps_all (*Steps_important*)
 
 let int = trm_int
 
-let _ =Run.script_cpp (fun () ->
+let _ = Run.script_cpp (fun () ->
   !! Loop.tile (int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
   !! Variable.local_name ~var:"s" ~local_var:"t" [tSpanSeq [cForBody "bi"]];
 
