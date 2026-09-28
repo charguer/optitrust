@@ -87,7 +87,6 @@ let inline_constant_on (array_var : var) (array_vals : trm list) (mark_accesses 
   | _ -> trm_fail index error
   end
 
-(* TODO : depreciate transformation *)
 (** [inline_constant] expects the target [decl] to point at a constant array literal declaration, and resolves all accesses targeted by [tg], that must be at constant indices.
   *)
 let%transfo inline_constant ?(mark_accesses : mark = no_mark) ~(decl : target) (tg : target) : unit =
