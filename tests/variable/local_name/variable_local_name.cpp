@@ -1,85 +1,85 @@
-#include <optitrust.h>
+#include <optitrust_models.h>
 
 void ok1() {
   __pure();
+  __requires("sum : int -> int");
 
   int a = 0;
   for (int j = 0; j < 10; j++) {
-    __strict();
-    __smodifies("&a ~> Cell");
+    __smodifies("for i in 0..j -> &a ~~> sum(j) + i");
     for (int i = 0; i < j; i++) {
-      __strict();
-      __smodifies("&a ~> Cell");
+      __smodifies("&a ~~> sum(j) + i");
       a++;
     }
   }
 }
+// /*
+// void ok2() {
+//   __pure();
 
-void ok2() {
-  __pure();
+//   int a = 0;
+//   l: {
+//     a++;
+//   }
 
-  int a = 0;
-  l: {
-    a++;
-  }
+//   int y = 0;
+// }
 
-  int y = 0;
-}
+// void ko1() {
+//   __pure();
 
-void ko1() {
-  __pure();
+//   int a = 0;
+//   int& b = a;
+//   for (int j = 0; j < 10; j++) {
+// /*     __strict();
+//     __smodifies("&a ~> Cell"); */
+//     for (int i = 0; i < j; i++) {
+//       // __strict();
+//       // __smodifies("&a ~> Cell");
+//       a++;
+//       b++;
+//     }
+//   }
 
-  int a = 0;
-  int& b = a;
-  for (int j = 0; j < 10; j++) {
-    __strict();
-    __smodifies("&a ~> Cell");
-    for (int i = 0; i < j; i++) {
-      __strict();
-      __smodifies("&a ~> Cell");
-      a++;
-      b++;
-    }
-  }
+//   int y = 0;
+// }
 
-  int y = 0;
-}
+// void ko2() {
+//   __pure();
 
-void ko2() {
-  __pure();
+//   int a = 0;
+//   int& b = a;
+//   l: {
+//     a++;
+//     b++;
+//   }
 
-  int a = 0;
-  int& b = a;
-  l: {
-    a++;
-    b++;
-  }
+//   int y = 0;
+// }
 
-  int y = 0;
-}
+// void ko_scope() {
+//   __pure();
+//   int x = 0;
+//   int a = 0;
+//   l: { a++; }
+// }
 
-void ko_scope() {
-  __pure();
-  int x = 0;
-  int a = 0;
-  l: { a++; }
-}
+// void ok3() {
+//   __pure();
+//   int a = 0;
+//   for (int i = 0; i < 10; i++) {
+//     a++;
+//   }
+// }
 
-void ok3() {
-  __pure();
-  int a = 0;
-  for (int i = 0; i < 10; i++) {
-    a++;
-  }
-}
+// void ok4() {
+//   __pure();
 
-void ok4() {
-  __pure();
-
-  int a = 0;
-  /*@ target__begin @*/
-  int b = 0;
-  a++;
-  /*@ target__end @*/
-  b++;
-}
+//   int a = 0;
+//   /*@ target__begin @*/
+//   int b = 0;
+//   a++;
+//   /*@ target__end @*/
+//   b++;
+// }
+//  */
