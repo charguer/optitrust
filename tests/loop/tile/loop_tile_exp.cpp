@@ -1,4 +1,4 @@
-#include <optitrust.h>
+#include <optitrust_models.h>
 #include <stdio.h>
 
 void f() {
@@ -43,20 +43,22 @@ void f() {
 }
 
 void matrix_copy(int* D, int* S) {
-  __modifies("D ~> Matrix1(1024)");
-  __reads("S ~> Matrix1(1024)");
+  __requires("model: int -> int");
+  __preserves("D ~> Matrix1(1024, model)");
+  __reads("S ~> Matrix1(1024, model)");
   __ghost(assert_prop, "P := (1024 = 256 * 4)", "tile_div_check_i <- proof");
   __ghost(tile_divides,
           "div_check := tile_div_check_i, items := fun (i: int) -> "
-          "&D[MINDEX1(1024, i)] ~> Cell");
+          "&D[MINDEX1(1024, i)] ~~> model(i)");
   for (int bi = 0; bi < 256; bi++) {
     __strict();
-    __sreads("S ~> Matrix1(1024)");
-    __xmodifies("for i in 0..4 -> &D[MINDEX1(1024, bi * 4 + i)] ~> Cell");
+    __sreads("S ~> Matrix1(1024, model)");
+    __xpreserves(
+        "for i in 0..4 -> &D[MINDEX1(1024, bi * 4 + i)] ~~> model(bi * 4 + i)");
     for (int i = 0; i < 4; i++) {
       __strict();
-      __sreads("S ~> Matrix1(1024)");
-      __xmodifies("&D[MINDEX1(1024, bi * 4 + i)] ~> Cell");
+      __sreads("S ~> Matrix1(1024, model)");
+      __xpreserves("&D[MINDEX1(1024, bi * 4 + i)] ~~> model(bi * 4 + i)");
       __ghost(tiled_index_in_range,
               "tile_index := bi, index := i, div_check := tile_div_check_i");
       const __ghost_fn focus =
@@ -67,5 +69,5 @@ void matrix_copy(int* D, int* S) {
   }
   __ghost(untile_divides,
           "div_check := tile_div_check_i, items := fun (i: int) -> "
-          "&D[MINDEX1(1024, i)] ~> Cell");
+          "&D[MINDEX1(1024, i)] ~~> model(i)");
 }

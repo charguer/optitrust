@@ -124,7 +124,6 @@ matrix/local_name_tile/matrix_local_name_tile_doc.ml
 matrix/local_name_tile/matrix_local_name_tile_basic_doc.ml
 matrix/elim_mops/matrix_elim_mops.ml
 loop/unroll/loop_unroll.ml
-loop/tile/loop_tile.ml
 loop/move/loop_move.ml
 loop/fission/loop_fission.ml
 loop/reorder_at/loop_reorder_at_doc.ml

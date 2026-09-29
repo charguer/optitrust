@@ -1,6 +1,8 @@
 open Optitrust
 open Prelude
 
+let _ = Flags.typechecking_mode := ProofPreserving
+
 let _ = Run.script_cpp (fun _ ->
   !! Resources.ensure_computed ();
   !! Loop_basic.tile (trm_int 4) ~bound:TileDivides [cFunDef "matrix_copy"; cFor "i"];

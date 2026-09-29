@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <optitrust.h>
+#include <optitrust_models.h>
 
 void f() {
   int s1 = 0;
@@ -32,13 +32,14 @@ void f() {
 }
 
 void matrix_copy(int* D, int* S) {
-  __modifies("D ~> Matrix1(1024)");
-  __reads("S ~> Matrix1(1024)");
+  __requires("model: int -> int");
+  __modifies("D ~> Matrix1(1024, model)");
+  __reads("S ~> Matrix1(1024, model)");
 
   for (int i = 0; i < 1024; ++i) {
     __strict();
-    __xmodifies("&D[MINDEX1(1024, i)] ~> Cell");
-    __sreads("S ~> Matrix1(1024)");
+    __xmodifies("&D[MINDEX1(1024, i)] ~~> model(i)"); /* Might be source of error? */
+    __sreads("S ~> Matrix1(1024, model)");
     __GHOST_BEGIN(focus, ro_matrix1_focus, "S, i");
     D[MINDEX1(1024, i)] = S[MINDEX1(1024, i)];
     __GHOST_END(focus);
