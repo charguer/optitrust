@@ -1333,7 +1333,12 @@ let simplify_at_node (f_atom : trm -> trm) (f : arith_transfo) (f_postprocess : 
   (* let expr3 = normalize expr2 in
   if debug then Tools.debug "Expr after normalization: %s" (expr_to_string atoms expr3); *)
   (* Copying by hand the context of t, prone to breaking... *)
-  let simpl_t = {(expr_to_trm atoms2 expr2) with ctx = t.ctx} in
+  let simpl_t = (* { *)expr_to_trm atoms2 expr2 (* with ctx = t.ctx} *) in
+  if debug then Tools.debug "Original expression resources before:\n%s\nafter:\n%s"
+    (Resource_computation.resource_set_opt_to_string t.ctx.ctx_resources_before)
+    (Resource_computation.resource_set_opt_to_string t.ctx.ctx_resources_after);
+  if debug then Tools.debug "Modified expression resources after:\n%s"
+    (Resource_computation.resource_set_opt_to_string simpl_t.ctx.ctx_resources_after);
   (* The expr_to_trm function creates a term with no resources, which are needed by ProofPreserving mode *)
   f_postprocess t simpl_t
   )
