@@ -10,4 +10,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl gather) [cVarInit "c"];
   !! Arith_basic.(simpl expand) [cVarInit "d"];
 
+  !! Sequence.clear_ghost_sequences [];
 )

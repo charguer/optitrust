@@ -5,7 +5,7 @@ open Typ
 open Contextualized_error
 
 (* debug flags *)
-let debug = true
+let debug = false
 let debug_rec = false
 
 (* [debug_without_inlined_atoms] controls the behavior of [expr_to_string] *)
