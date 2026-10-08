@@ -1,4 +1,4 @@
-#include <optitrust.h>
+#include <optitrust_models.h>
 
 void f() {
   __pure();

@@ -1,8 +1,7 @@
-(* Deprecated *)
 open Optitrust
 open Target
 
-(* let _ = Flags.check_validity := true *)
+let _ = Flags.typechecking_mode := ProofPreserving
 
 let _ = Run.script_cpp (fun _ ->
 
@@ -11,4 +10,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl gather) [cVarInit "c"];
   !! Arith_basic.(simpl expand) [cVarInit "d"];
 
+  !! Sequence.clear_ghost_sequences [];
 )
