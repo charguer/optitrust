@@ -5,7 +5,7 @@ open Typ
 open Contextualized_error
 
 (* debug flags *)
-let debug = false
+let debug = true
 let debug_rec = false
 
 (* [debug_without_inlined_atoms] controls the behavior of [expr_to_string] *)
@@ -615,14 +615,12 @@ let get_purity (t : trm) : purity =
       deletable = true }
   end else begin
     let noinfo () = { redundant = false; deletable = false } in
-    if not (* !Flags.check_validity *) (Flags.proof_preserving ()) then begin
+    if not (Flags.proof_preserving ()) then begin
       (* Second, if resources are never computed, don't try to read resources *)
       noinfo()
     end else begin
       try
         (* Else, try resource-based criteria *)
-        (* LATER Yanni : Resource functions should be the one looking up the flags :
-  The resource computation functions will compute the asked property iff the annotations are considered verified `Flags.proof_preserving ()` *)
         let redundant = Resources.is_not_self_interfering t in
         let deletable = Resources.is_deletable t in
         { redundant; deletable }
@@ -1334,7 +1332,9 @@ let simplify_at_node (f_atom : trm -> trm) (f : arith_transfo) (f_postprocess : 
   if debug then Tools.debug "Expr after transformation: %s" (expr_to_string atoms1 expr2);
   (* let expr3 = normalize expr2 in
   if debug then Tools.debug "Expr after normalization: %s" (expr_to_string atoms expr3); *)
-  let simpl_t = expr_to_trm atoms2 expr2 in
+  (* Copying by hand the context of t, prone to breaking... *)
+  let simpl_t = {(expr_to_trm atoms2 expr2) with ctx = t.ctx} in
+  (* The expr_to_trm function creates a term with no resources, which are needed by ProofPreserving mode *)
   f_postprocess t simpl_t
   )
   with e ->
