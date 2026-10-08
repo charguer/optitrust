@@ -33,8 +33,6 @@ loop/hoist/loop_hoist_basic.ml
 loop/collapse/loop_collapse.ml
 instr/gather/instr_gather.ml
 function/elim_infix_ops/function_elim_infix_ops.ml
-arith/simpl/arith_simpl_doc.ml
-arith/simpl/arith_simpl.ml
 loop/hoist/loop_hoist.ml
 loop/hoist_expr/loop_hoist_expr.ml
 
@@ -133,6 +131,9 @@ arith/sort/arith_sort.ml
 variable/local_name/variable_local_name.ml
 ast/demo_show.ml
 instr/gather/instr_gather_doc.ml
+
+# NEEDS CHANGE IN RESOURCE COMPUTATION
+arith/simpl/arith_simpl.ml
 
 # BROKEN TRANSFO TO FIX
 specialize/function_defs/specialize_function_defs_doc.ml
