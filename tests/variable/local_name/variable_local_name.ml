@@ -4,13 +4,13 @@ open Prelude
 let _ = Flags.typechecking_mode := Flags.ProofPreserving
 
 let _ = Run.script_cpp (fun _ ->
-  !! Variable.local_name ~var:"a" ~local_var:"x" [cFunBody "ok1"; cFor "i"];
-  (* !! Variable.local_name ~var:"a" ~local_var:"x" [cFunBody "ok2"; cLabel "l"];
+  (* !! Variable.local_name ~var:"a" ~local_var:"x" [cFunBody "ok1"; cFor "i"]; *)
+  !! Variable.local_name ~var:"a" ~local_var:"x" [cFunBody "ok2"; cLabel "l"];
 
   (* !! Trace.resource_error_expected (fun () -> *)
   !! Variable.local_name ~var:"a" ~local_var:"x" [cFunBody "ko1"; cFor "i"];
   (* ); *)
-  !! Trace.resource_error_expected (fun () ->
+  (* !! Trace.resource_error_expected (fun () ->
     Variable.local_name ~var:"b" ~local_var:"x" [cFunBody "ko1"; cFor "i"];
   );
   !! Trace.resource_error_expected (fun () ->
