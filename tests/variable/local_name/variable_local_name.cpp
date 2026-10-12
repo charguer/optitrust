@@ -34,10 +34,15 @@ void ok2() {
 }
 
 void ko1() {
+  // __pure();
   int a = 0;
   int& b = a;
   for (int j = 0; j < 10; j++) {
+    // __strict();
+    // __smodifies("&a ~> Cell");
     for (int i = 0; i < j; i++) {
+      // __strict();
+      // __smodifies("&a ~> Cell");
       a++;
       b++;
     }
