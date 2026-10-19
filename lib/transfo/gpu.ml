@@ -18,6 +18,7 @@ let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
     | _ -> failwith "Gpu.convert_tail_thread_for: loops should contain only 0 or 1" in
     let leaf_t = (target_of_path leaf_p) in
     (* Don't want to have __xreads in a thread for because you can't resynchronize fractions. *)
+    (* We might do the opposite now *)
     Resources.detach_loop_ro_focus leaf_t;
     if convert then
       seq_for_to_magicthread_for ~barrier_mark leaf_t;

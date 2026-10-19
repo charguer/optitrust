@@ -506,6 +506,48 @@ let%transfo detach_loop_ro_focus (tg: target): unit =
   );
   justif_correct "only changed loop contracts"
 
+let ghost_ro_fork_group = toplevel_var "ro_fork_group"
+let ghost_ro_join_group = toplevel_var "ro_join_group"
+
+(** [shared_to_exclusive_reads_on ~mark_fork ~mark_join t] turns every shared read [RO(_, H)] of the loop [t] into an exclusive read of the
+    fraction [F] of [H] that is available before the loop: the loop gets surrounded by [ro_fork_group] and [ro_join_group] ghosts on [H]
+    (marked with [mark_fork] and [mark_join]), and each iteration preserves [RO(F / range_count(r), H)] where [r] is the loop range. *)
+let shared_to_exclusive_reads_on ?(mark_fork = no_mark) ?(mark_join = no_mark) (t: trm): trm =
+  let range, mode, body, contract = trm_inv ~error:"shared_to_exclusive_reads_on: not a for loop" trm_for_inv t in
+  if not contract.strict then trm_fail t "shared_to_exclusive_reads_on: expected a strict loop contract";
+  let available = (before_trm t).linear in
+  let loop_range = formula_loop_range range in
+
+  let shared_to_excl (contract, forks, joins) (name, formula) =
+    let { frac = frac_ghost; formula = h } = formula_read_only_inv_all formula in
+    let available_frac = List.find_map (fun (_, candidate) ->
+      let { frac; formula = h' } = formula_read_only_inv_all candidate in
+      if Trm_unify.are_same_trm h h' then Some frac else None) available in
+    let frac = Option.unsome_or_else available_frac (fun () ->
+      trm_fail t (sprintf "shared_to_exclusive_reads_on: no read-only permission on %s is available before the loop" (Resource_computation.formula_to_string h))) in
+    let ghost_args = ["f", frac; "H", h; "r", loop_range] in
+    let fork = trm_add_mark mark_fork (Resource_trm.ghost (ghost_call ghost_ro_fork_group ghost_args)) in
+    let join = trm_add_mark mark_join (Resource_trm.ghost (ghost_call ghost_ro_join_group ghost_args)) in
+    let iter_formula = formula_read_only ~frac:(formula_frac_div frac (formula_range_count loop_range)) h in
+    let loop_ghosts = List.filter (fun (x, _) -> not (is_free_var_in_trm x frac_ghost)) contract.loop_ghosts in
+    let contract = { contract with loop_ghosts; iter_contract = push_fun_contract_clause Preserves (name, iter_formula) contract.iter_contract } in
+    (contract, fork :: forks, join :: joins)
+  in
+
+  let contract, forks, joins = List.fold_left shared_to_excl (contract, [], []) contract.parallel_reads in
+  let contract = { contract with parallel_reads = [] } in
+  let new_loop = trm_like ~old:t (trm_for range ~mode ~contract body) in
+  Nobrace.trm_seq_nomarks (List.rev forks @ new_loop :: joins)
+
+(** [shared_to_exclusive_reads tg] expects [tg] to point at for loops with strict contracts, and transforms all their shared reads (sreads)
+    into exclusive reads (xreads) using {!shared_to_exclusive_reads_on}. *)
+let%transfo shared_to_exclusive_reads ?(mark_fork: mark = no_mark) ?(mark_join: mark = no_mark) (tg: target): unit =
+  ensure_computed ();
+  Nobrace_transfo.remove_after (fun () ->
+    Target.apply_at_target_paths (shared_to_exclusive_reads_on ~mark_fork ~mark_join) tg
+  );
+  justif_correct "only changed loop contracts and inserted read-only forks and joins"
+
 
 let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
   let t_seq, result = trm_inv trm_seq_inv t in
