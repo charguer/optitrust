@@ -340,6 +340,21 @@ let formula_sync_inv (t: trm): (trm * formula) option =
   | Some ({ desc = Trm_var v }, [mem_fn; res]) when var_eq v var_sync -> Some (mem_fn, res)
   | _ -> None
 
+(** [Desync(H)] is a permission on [H] held by threads that are not synchronized.
+    It is meant to be used under a read-only wrapper: fractions of [_RO(f, Desync(H))] can be split and joined
+    like those of [_RO(f, H)], but [H] cannot be recovered before a synchronization barrier. *)
+let var_desync = toplevel_var "Desync"
+
+let trm_desync = trm_var var_desync
+
+let formula_desync (res: formula) =
+  trm_apps ~annot:formula_annot trm_desync [res]
+
+let formula_desync_inv (t: trm): formula option =
+  match trm_apps_inv t with
+  | Some ({ desc = Trm_var v }, [res]) when var_eq v var_desync -> Some res
+  | _ -> None
+
 (*let var_into_uninit = toplevel_var "_Uninit"
 let trm_into_uninit = trm_var var_into_uninit
 let formula_into_uninit (inner_formula: formula): formula =
@@ -465,6 +480,9 @@ module Pattern = struct
       k
     | None -> raise Next
 
+  let formula_desync f_res =
+    trm_apps1 (trm_specific_var var_desync) f_res
+
   let formula_If f_cond f_h k t =
     match formula_If_inv t with
     | Some (cond, h) ->
@@ -585,6 +603,7 @@ let formula_desyncgroup_range (range: loop_range) : formula -> formula =
 let rec formula_has_desyncgroups (f: formula): bool =
   Pattern.pattern_match f [
     Pattern.(formula_desyncgroup __ __ __) (fun () -> true);
+    Pattern.(formula_desync __) (fun () -> true);
     Pattern.(formula_group __ __ !__) (fun body () -> formula_has_desyncgroups body);
     Pattern.(formula_read_only __ !__) (fun inner () -> formula_has_desyncgroups inner);
     Pattern.(__) (fun () -> false)

@@ -77,6 +77,17 @@ let fun_contract_copy (contract : fun_contract) : fun_contract =
 (* TODO: remove or replace with better mechanism. hint to maximize instantiated fraction. *)
 let _Full = toplevel_var "_Full"
 
+(** Allow using operators / and - on fractions while normally they are reserved for integers *)
+let rec desugar_frac (f: formula): formula =
+  Pattern.pattern_match f [
+    Pattern.(trm_sub !__ !__) (fun frac1 frac2 () ->
+      formula_frac_sub (desugar_frac frac1) (desugar_frac frac2));
+    Pattern.(trm_trunc_div !__ !__) (fun base divisor () ->
+      formula_frac_div (desugar_frac base) divisor);
+    Pattern.(trm_int (eq 1)) (fun () -> full_frac);
+    Pattern.__ (fun () -> f)
+  ]
+
 let rec desugar_formula (formula: formula): formula =
   (* Warning: this function can be called on formulas with unresolved variable ids, therefore, we need to invert it by name *)
   (* With incremental var-id resolution we could heavily simplify this *)
@@ -97,18 +108,7 @@ let rec desugar_formula (formula: formula): formula =
           formula_uninit_matrix ~mem_typ:(mem) var size
         else raise Pattern.Next
       );
-    (* Allow using operators / and - in first argument of RO(_,_) while normally they are reserved for integers *)
     Pattern.(trm_apps2 (trm_var_with_name var_read_only.name) !__ !__) (fun frac hprop () ->
-        let rec desugar_frac f =
-          Pattern.pattern_match f [
-            Pattern.(trm_sub !__ !__) (fun frac1 frac2 () ->
-              formula_frac_sub (desugar_frac frac1) (desugar_frac frac2));
-            Pattern.(trm_trunc_div !__ !__) (fun base divisor () ->
-              formula_frac_div (desugar_frac base) divisor);
-            Pattern.(trm_int (eq 1)) (fun () -> full_frac);
-            Pattern.__ (fun () -> f)
-          ]
-        in
         formula_read_only ~frac:(desugar_frac frac) (desugar_formula hprop)
       );
     Pattern.__ (fun () -> trm_map desugar_formula formula)
