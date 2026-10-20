@@ -1272,10 +1272,11 @@ let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): uni
   let _ = check_resource_set_types ~pure_ctx contract.post in
   ()
 
-(* [sync_simplification res]: eagerly simplify any Sync(fM, H) permissions in [res],
-  turning DesyncGroups to Groups. Simplification gets stuck if a term of the form
-    p ~~>[M] v is encountered in H and M does not satisfy the memory type predicate fM.
-  If [magic] is true, fM is not checked (works on any kind of Cell). *)
+(** [sync_simplification res]: eagerly simplify any Sync(fM, H) permissions in [res],
+  turning DesyncGroups to Groups, and removing any [Desync] wrapper. Simplification
+  gets stuck if a term of the form p ~~>[M] v is encountered in H and M does not
+  satisfy the memory type predicate fM. If [magic] is true, fM is not checked
+  (works on any kind of Cell). *)
 let sync_simplification ?(magic = false) (res: resource_set): resource_set =
   let find_mem_fn_proof (mem_fn: trm) (mem: trm) =
     let proof_type = trm_apps mem_fn [mem] in
