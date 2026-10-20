@@ -982,45 +982,6 @@ __GHOST(desync_untile_divides) {
   __admitted();
 }
 
-/* ---- Desynchronized read-only permissions ---- */
-
-// Weakens a read-only permission into one held by unsynchronized threads.
-// Only a synchronization barrier turns Desync(H) back into H.
-__GHOST(ro_desync_intro) {
-  __requires("f: _Fraction, H: HProp");
-  __consumes("_RO(f, H)");
-  __produces("_RO(f, Desync(H))");
-  __admitted();
-}
-
-// ro_join_group under Desync.
-__GHOST(ro_desync_join_group) {
-  __requires("f: _Fraction, H: HProp, n: int");
-  __consumes("_RO(f / range_count(0..n), for _ in 0..n -> Desync(H))");
-  __produces("_RO(f, Desync(H))");
-  __admitted();
-}
-
-// Forgets which thread holds which part of a desynchronized read-only group:
-// this is sound because no fraction of Desync(H) can be used before a barrier,
-// which synchronizes every thread.
-__GHOST(ro_desync_group) {
-  __requires("f: _Fraction, n: int, items: int -> HProp");
-  __consumes("_RO(f, desync_for i in ..n -> items(i))");
-  __produces("_RO(f, Desync(for i in 0..n -> items(i)))");
-  __admitted();
-}
-
-// Same as ro_desync_join_group, forgetting which thread holds which fraction:
-// this is sound because no fraction of Desync(H) can be used before a barrier,
-// which synchronizes every thread.
-__GHOST(ro_desync_join_desyncgroup) {
-  __requires("f: _Fraction, H: HProp, n: int");
-  __consumes("_RO(f / range_count(0..n), desync_for _ in ..n -> Desync(H))");
-  __produces("_RO(f, Desync(H))");
-  __admitted();
-}
-
 __GHOST(singleton_mindex_simplify) {
   __requires("T: Type, H: ptr(T) -> HProp, p: ptr(T)");
   __consumes("H(&p[MINDEX1(MSIZE0(), DMINDEX1(MSIZE0(), 0))])");

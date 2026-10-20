@@ -641,8 +641,6 @@ let specialize_and_extract_evars (res: resource_set) (inst_map: tmap) ~(inst_ctx
     match Var_map.find_opt h !inst_map with
     | Some t_inst ->
       inst_map := Var_map.remove h !inst_map;
-      (* Fraction arguments accept the same sugar as the first argument of _RO *)
-      let t_inst = if Trm_unify.are_same_trm typ typ_frac then desugar_frac t_inst else t_inst in
       evar_ctx := Var_map.add h (Resolved t_inst) (compute_and_unify_typ inst_ctx t_inst typ !evar_ctx);
       false
     | None ->
@@ -1078,17 +1076,6 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
   let new_fracs = ref [] in
   let frame = ref [] in
   let post_modifs = ref Var_map.empty in
-  let post_formulas = List.fold_left (fun post_formulas (hyp, formula) -> Var_map.add hyp formula post_formulas) Var_map.empty linear_post in
-  (* A split read-only resource may come back less initialized, but if it comes back with another formula
-     (e.g. its groups were desynchronized by a thread loop) it must be kept whole. *)
-  let same_base_after hyp base_formula =
-    match Var_map.find_opt hyp post_formulas with
-    | Some formula_after ->
-      let base_after = (formula_read_only_inv_all formula_after).formula in
-      Trm_unify.are_same_trm base_formula base_after ||
-      (try Trm_unify.are_same_trm (formula_uninit base_formula) base_after with CannotTransformIntoUninit _ -> false)
-    | None -> true
-  in
   let filter_linear_pre (hyp, formula) =
     match Var_map.find_opt hyp usage with
     | None ->
@@ -1099,7 +1086,6 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
     | Some Produced -> failwith "minimize_linear_triple: Produced resource %s has the same id as a contract resource" (var_to_string hyp)
     | Some ConsumedFull -> Some (hyp, formula)
     | Some ConsumedUninit -> Some (hyp, formula_uninit formula)
-    | Some SplittedFrac when not (same_base_after hyp (formula_read_only_inv_all formula).formula) -> Some (hyp, formula)
     | Some SplittedFrac ->
       let { frac = frac_before; formula = base_formula } = formula_read_only_inv_all formula in
       let new_hyp = new_anon_hyp () in
@@ -1289,7 +1275,6 @@ let sync_simplification ?(magic = false) (res: resource_set): resource_set =
       formula_If cond (simplify mem_fn h));
     Pattern.(formula_desyncgroup !__ !__ !__) (fun idx bound sub () ->
       formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (simplify mem_fn sub));
-    Pattern.(formula_desync !__) (fun inner () -> simplify mem_fn inner);
     Pattern.(formula_read_only !__ !__) (fun frac inner () ->
       formula_read_only ~frac (simplify mem_fn inner)
     );
@@ -2223,7 +2208,6 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_formula.var_desyncgroup, typ_pure_simple_fun [typ_int; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_threadsctx, typ_pure_simple_fun [typ_range] typ_hprop;
   Resource_formula.var_sync, typ_pure_simple_fun [typ_pure_simple_fun [typ_mem_type] typ_prop; typ_hprop] typ_hprop;
-  Resource_formula.var_desync, typ_pure_simple_fun [typ_hprop] typ_hprop;
   Resource_formula.var_frac, typ_type;
   Resource_formula.var_read_only, typ_pure_simple_fun [Resource_formula.typ_frac; typ_hprop] typ_hprop;
   Resource_formula.var_is_true, typ_pure_simple_fun [typ_bool] typ_prop;
