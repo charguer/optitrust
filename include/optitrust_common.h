@@ -982,6 +982,24 @@ __GHOST(desync_untile_divides) {
   __admitted();
 }
 
+/* ---- Desync_RO ---- */
+
+__GHOST(desyncro_to_desyncgroup) {
+  __requires("t: int, sz : int, f: _Fraction, H: HProp");
+  __preserves("ThreadsCtx(t ..+ sz)");
+  __consumes("Desync_RO(f, H)");
+  __produces("desync_for i in ..sz -> RO(f / sz, H)");
+  __admitted();
+}
+
+__GHOST(desyncgroup_to_desyncro) {
+  __requires("t: int, sz : int, f: _Fraction, H: int -> HProp");
+  __preserves("ThreadsCtx(t ..+ sz)");
+  __produces("desync_for i in ..sz -> RO(f / sz, H)");
+  __consumes("Desync_RO(f, H)");
+  __admitted();
+}
+
 __GHOST(singleton_mindex_simplify) {
   __requires("T: Type, H: ptr(T) -> HProp, p: ptr(T)");
   __consumes("H(&p[MINDEX1(MSIZE0(), DMINDEX1(MSIZE0(), 0))])");

@@ -307,6 +307,19 @@ let formula_desyncgroup_inv (t: trm): (var * trm * formula) option =
     end
   | _ -> None
 
+let var_desync_ro = toplevel_var "Desync_RO"
+let trm_desync_ro = trm_var var_desync_ro
+let formula_desync_ro (frac: formula) (f: formula) =
+  trm_apps ~annot:formula_annot trm_desync_ro [frac; f]
+
+let formula_desyncro_inv (t: trm): (formula * formula) option =
+  match trm_apps_inv t with
+  | Some ({ desc = Trm_var v }, [frac; f]) when var_eq v var_desync_ro ->
+    Some (frac, f)
+  | _ -> None
+
+(* Need to add a ghost to go to/from desync_ro to a desyncgroup *)
+
 let var_formula_If = toplevel_var "If"
 let formula_If (cond: formula) (h: formula) = trm_apps ~annot:formula_annot ~typ:typ_hprop (trm_var var_formula_If) [cond; h]
 
