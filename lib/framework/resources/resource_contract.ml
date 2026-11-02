@@ -56,7 +56,9 @@ type loop_contract_clause_type =
   (** Linear resource items that are preserved across loop iterations but can be freely modified during the iteration. *)
 
   | SharedReads
-  (** Linear resource items that are read in parallel by all loop iterations. *)
+  (** Linear resource items that are read in parallel by all loop iterations.
+      [Desync_RO(H)] is syntactic sugar for a desynchronized shared read of [H]:
+      the loop takes [Desync_RO(f, H)] and its iterations see [Desync_RO(f / n, H)]. *)
 
   | Strict
   (** On loop contracts, do not allow other resources than the one mentionned inside the loop iterations.
@@ -166,7 +168,12 @@ let push_loop_contract_clause (clause: loop_contract_clause_type)
   | SharedReads ->
     let name, formula = res in
     let frac_var, frac_ghost = new_frac () in
-    let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
+    (* Variable ids may not be resolved yet, therefore match [Desync_RO] by name *)
+    let ro_formula = Pattern.pattern_match formula [
+      Pattern.(trm_apps1 (trm_var_with_name var_desync_ro.name) !__) (fun formula () ->
+        formula_desync_ro (trm_var frac_var) formula);
+      Pattern.__ (fun () -> formula_read_only ~frac:(trm_var frac_var) formula)
+    ] in
     { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; parallel_reads = (name, ro_formula) :: contract.parallel_reads }
   | Strict -> failwith "Strict should never appear with resources inside"
 
@@ -189,8 +196,12 @@ let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: 'clause_t
 
 let parallel_reads_inside_loop range par_reads =
 List.map (fun (x, formula) ->
-    let { frac; formula } = formula_read_only_inv_all formula in
-    (x, formula_read_only ~frac:(formula_frac_div frac (formula_range_count (formula_loop_range range))) formula)
+    let iter_frac frac = formula_frac_div frac (formula_range_count (formula_loop_range range)) in
+    match formula_desync_ro_inv formula with
+    | Some (frac, formula) -> (x, formula_desync_ro (iter_frac frac) formula)
+    | None ->
+      let { frac; formula } = formula_read_only_inv_all formula in
+      (x, formula_read_only ~frac:(iter_frac frac) formula)
   ) par_reads
 
 (****************************** GPU thread for handling ***************************************)
@@ -310,7 +321,11 @@ let [@warning "-11"] get_loop_contract_generators res loop_mode range contract: 
     let post = grp_apply_fn range contract.iter_contract.post in
     let post = match loop_mode with
     | Sequential | Parallel -> Resource_set.add_linear_list contract.parallel_reads post
-    | GpuThread | MagicThread -> Resource_set.union (Resource_set.desyncgroup_range range (Resource_set.make ~linear:par_reads_inside ())) post in
+    | GpuThread | MagicThread ->
+      (* The iterations' [Desync_RO(f / n, H)] together form [Desync_RO(f, H)] for the outer ThreadsCtx *)
+      let desync_reads, sync_reads = List.partition (fun (_, formula) -> Option.is_some (formula_desync_ro_inv formula)) contract.parallel_reads in
+      let post = Resource_set.add_linear_list desync_reads post in
+      Resource_set.union (Resource_set.desyncgroup_range range (Resource_set.make ~linear:(parallel_reads_inside_loop range sync_reads) ())) post in
     let post = Resource_set.union invariant_after post in
     { pre; post } in
 

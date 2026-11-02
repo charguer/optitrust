@@ -312,7 +312,7 @@ let trm_desync_ro = trm_var var_desync_ro
 let formula_desync_ro (frac: formula) (f: formula) =
   trm_apps ~annot:formula_annot trm_desync_ro [frac; f]
 
-let formula_desyncro_inv (t: trm): (formula * formula) option =
+let formula_desync_ro_inv (t: trm): (formula * formula) option =
   match trm_apps_inv t with
   | Some ({ desc = Trm_var v }, [frac; f]) when var_eq v var_desync_ro ->
     Some (frac, f)
@@ -478,6 +478,14 @@ module Pattern = struct
       k
     | None -> raise Next
 
+  let formula_desync_ro f_frac f_formula k t =
+    match formula_desync_ro_inv t with
+    | Some (frac, formula) ->
+      let k = f_frac k frac in
+      let k = f_formula k formula in
+      k
+    | None -> raise Next
+
   let formula_If f_cond f_h k t =
     match formula_If_inv t with
     | Some (cond, h) ->
@@ -598,6 +606,7 @@ let formula_desyncgroup_range (range: loop_range) : formula -> formula =
 let rec formula_has_desyncgroups (f: formula): bool =
   Pattern.pattern_match f [
     Pattern.(formula_desyncgroup __ __ __) (fun () -> true);
+    Pattern.(formula_desync_ro __ __) (fun () -> true);
     Pattern.(formula_group __ __ !__) (fun body () -> formula_has_desyncgroups body);
     Pattern.(formula_read_only __ !__) (fun inner () -> formula_has_desyncgroups inner);
     Pattern.(__) (fun () -> false)

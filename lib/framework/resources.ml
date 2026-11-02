@@ -489,22 +489,78 @@ let detach_loop_ro_focus_on (t: trm): trm =
     };
     parallel_reads = new_par_reads @ contract.parallel_reads
   } in
-  let new_body = Nobrace.mark body in
   let new_body = List.fold_right (fun (_, formula) ->
     let { formula } = Option.get (formula_read_only_inv formula) in
     let i = new_var range.index.name in
     let items = formula_fun [i, typ_int] (trm_subst_var range.index (trm_var i) formula) in
-    Resource_trm.ghost_scope (ghost_call ghost_ro_group_focus ["i", (trm_var range.index); "items", items])) iter_reads new_body
+    Resource_trm.ghost_scope (ghost_call ghost_ro_group_focus ["i", (trm_var range.index); "items", items])) iter_reads body
   in
   let new_body = trm_like ~old:body new_body in
   trm_like ~old:t (trm_for range ~mode ~contract new_body)
 
 (** [detach_loop_ro_focus tg] transforms all the ressources that are in a reads clause (xreads) into a resource in a par_read (sreads) clause with a focus around the loop body. *)
 let%transfo detach_loop_ro_focus (tg: target): unit =
+  Target.apply_at_target_paths detach_loop_ro_focus_on tg
+
+let desync_parallel_reads_on (t: trm): trm =
+  let range, mode, body, contract = trm_inv ~error:"desync_parallel_reads_on: not a for loop" trm_for_inv t in
+  let to_desync_ro ((x, f) : resource_item) : resource_item =
+    match formula_read_only_inv f with
+    | Some { frac; formula} -> (x, formula_desync_ro frac formula)
+    | _ -> match formula_desync_ro_inv f with
+      | Some (frac, formula) -> (x, f)
+      | _ -> failwith "desync_parallel_reads_on: expected a RO or a Desync_RO clause."
+  in
+  let contract = { contract with
+    parallel_reads = List.map to_desync_ro contract.parallel_reads
+  } in
+  trm_like ~old:t (trm_for range ~mode ~contract body)
+
+(** [desync_parallel_reads tg] transforms all the sreads clauses into a desynchronized version *)
+let%transfo desync_parallel_reads (tg: target): unit =
+  Target.apply_at_target_paths desync_parallel_reads_on tg
+
+let ghost_desync_ro_focus = toplevel_var "desync_ro_focus"
+let ghost_desyncro_to_ro = toplevel_var "desyncro_to_ro"
+
+let desync_ro_focus_on (t: trm): trm =
+  (* The body only typechecks with the focus once the sreads clauses are desynchronized, hence the single step *)
+  let t = desync_parallel_reads_on t in
+  let range, mode, body, contract = trm_inv ~error:"desync_ro_focus_on: not a for loop" trm_for_inv t in
+  let new_body = Nobrace.mark body in
+  let new_body = List.fold_right (fun (_, formula) body ->
+    match formula_desync_ro_inv formula with
+    | Some (_, formula) -> Resource_trm.ghost_scope (ghost_call ghost_desync_ro_focus ["H", formula]) body
+    | None -> body) contract.parallel_reads new_body
+  in
+  let new_body = trm_like ~old:body new_body in
+  trm_like ~old:t (trm_for range ~mode ~contract new_body)
+
+(** [desync_ro_focus tg] desynchronizes the sreads clauses of the targeted loops (see {!desync_parallel_reads}),
+  and puts the loop body inside a [desync_ro_focus] ghost pair for each of them, so that the body still sees an ordinary [_RO].
+  The ghost does not check the ThreadsCtx: it is meant for the innermost magic thread loop,
+  and {!check_desync_ro_focus_on} replaces it with [desyncro_to_ro] once the loop becomes a GPU thread loop. *)
+let%transfo desync_ro_focus (tg: target): unit =
   Nobrace_transfo.remove_after (fun () ->
-    Target.apply_at_target_paths detach_loop_ro_focus_on tg
+    Target.apply_at_target_paths desync_ro_focus_on tg
   );
-  justif_correct "only changed loop contracts"
+  justif_correct "only added ghosts"
+
+(** [check_desync_ro_focus_on t] replaces the unchecked [desync_ro_focus] ghosts in the body of the loop [t]
+  with [desyncro_to_ro], which checks that the loop iterations run on a single thread.
+  The ghosts of nested loops are left to these loops. *)
+let check_desync_ro_focus_on (t: trm): trm =
+  let range, mode, body, contract = trm_inv ~error:"check_desync_ro_focus_on: not a for loop" trm_for_inv t in
+  let rec aux t =
+    match Resource_trm.ghost_begin_inv t with
+    | Some (pair_var, ghost_call) when (match trm_var_inv ghost_call.ghost_fn with Some f -> var_eq f ghost_desync_ro_focus | None -> false) ->
+      trm_like ~old:t (Resource_trm.ghost_begin pair_var { ghost_call with ghost_fn = trm_var ghost_desyncro_to_ro })
+    | _ ->
+      match t.desc with
+      | Trm_for _ -> t
+      | _ -> trm_map aux t
+  in
+  trm_like ~old:t (trm_for range ~mode ~contract (aux body))
 
 
 let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =

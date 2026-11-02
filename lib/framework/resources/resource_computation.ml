@@ -482,6 +482,10 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       (fun inner_formula idx range inner_formula_candidate () ->
         formula_group idx range (may_coerce_desyncgroup inner_formula_candidate inner_formula)
       );
+      Pattern.((formula_desync_ro __ !__) ^* (formula_read_only !__ !__))
+      (fun inner_formula frac inner_formula_candidate () ->
+        formula_desync_ro frac (may_coerce_desyncgroup inner_formula_candidate inner_formula)
+      );
       Pattern.((formula_read_only __ !__) ^* (formula_read_only !__ !__))
       (fun inner_formula frac inner_formula_candidate () ->
         formula_read_only ~frac (may_coerce_desyncgroup inner_formula_candidate inner_formula)
@@ -554,6 +558,35 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
     ) res evar_ctx
   in
 
+  let unify_and_take_or_split_desync_read_only
+    (hyp: var) ~(frac_var: var) (formula: formula)
+    (res: linear_resource_set)
+    (evar_ctx: unification_ctx)
+    ~(pure_ctx: pure_env): used_resource_item * linear_resource_set * unification_ctx =
+    (* Used by {!subtract_linear_resource_item} in the case where [formula] is a desynchronized
+       read-only resource [Desync_RO(frac_var, formula)] with an unknown fraction [frac_var].
+       An existing [Desync_RO(g, H)] is taken whole, since desynchronized fractions are never joined back.
+       Otherwise, a fraction of a synchronized [RO(g, H)] is carved out and desynchronized, leaving [RO(g - f, H)]. *)
+    try
+      extract (fun (h, formula_candidate) ->
+        let* _ = formula_desync_ro_inv formula_candidate in
+        let* evar_ctx = trm_unify (formula_desync_ro (trm_var frac_var) formula) formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
+        Some ({ hyp; inst_by = Formula_inst.inst_hyp h; used_formula = formula_candidate }, None, evar_ctx)
+      ) res evar_ctx
+    with Not_found ->
+      let new_frac, _ = new_frac () in
+      let evar_ctx = Var_map.add frac_var (Resolved (trm_var new_frac)) evar_ctx in
+      extract (fun (h, formula_candidate) ->
+        if Option.is_some (formula_desync_ro_inv formula_candidate) then None else
+        let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
+        let formula_candidate = may_coerce_desyncgroup formula_candidate formula in
+        let* evar_ctx = trm_unify formula formula_candidate evar_ctx (try_compute_and_unify_typ pure_ctx) in
+        Some (
+          { hyp; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_desync_ro (trm_var new_frac) formula_candidate },
+          Some (h, formula_read_only ~frac:(formula_frac_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
+      ) res evar_ctx
+  in
+
   let formula, evar_ctx = unfold_if_resolved_evar formula evar_ctx in
   Pattern.pattern_match formula [
     (* special case where _Full disables split_frac. *)
@@ -574,6 +607,13 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       | _ ->
         (* Other cases: match the exact fraction *)
         unify_and_remove_linear (x, formula) ~uninit:false res evar_ctx ~pure_ctx
+    );
+    (* same for a desynchronized RO, which can also be carved out of a synchronized RO. *)
+    Pattern.(formula_desync_ro (trm_var !__) !__) (fun frac_var desync_formula () ->
+      match Var_map.find_opt frac_var evar_ctx with
+      | Some Unknown _ when split_frac ->
+        unify_and_take_or_split_desync_read_only x ~frac_var desync_formula res evar_ctx ~pure_ctx
+      | _ -> raise Pattern.Next
     );
     Pattern.__ (fun () ->
       unify_and_remove_linear (x, formula) ~uninit:(is_formula_uninit formula) res evar_ctx ~pure_ctx)
@@ -1259,7 +1299,8 @@ let check_fun_contract_types ~(pure_ctx: pure_env) (contract: fun_contract): uni
   ()
 
 (** [sync_simplification res]: eagerly simplify any Sync(fM, H) permissions in [res],
-  turning DesyncGroups to Groups, and removing any [Desync] wrapper. Simplification
+  turning DesyncGroups to Groups, [Desync_RO] to [_RO], and joining read-only groups whose
+  items do not depend on the index. Simplification
   gets stuck if a term of the form p ~~>[M] v is encountered in H and M does not
   satisfy the memory type predicate fM. If [magic] is true, fM is not checked
   (works on any kind of Cell). *)
@@ -1268,6 +1309,14 @@ let sync_simplification ?(magic = false) (res: resource_set): resource_set =
     let proof_type = trm_apps mem_fn [mem] in
     List.find_opt (fun (_,r) -> Trm_unify.are_same_trm proof_type r) res.pure
   in
+  (* [_RO(f / range_count(r), for i in r -> H)] where [H] does not depend on [i] is [_RO(f, H)], as in [ro_join_group]. *)
+  let rec read_only_join_groups ~(frac: formula) (inner: formula) = Pattern.pattern_match (frac, inner) [
+    Pattern.((formula_frac_div !__ (trm_apps1 (trm_specific_var var_range_count) !__)) ^* (formula_group !__ !__ !__))
+    (fun base_frac frac_range idx range body () ->
+      if not (Trm_unify.are_same_trm frac_range range) || Var_set.mem idx (trm_free_vars body) then raise_notrace Pattern.Next;
+      read_only_join_groups ~frac:base_frac body);
+    Pattern.__ (fun () -> formula_read_only ~frac inner)
+  ] in
   let rec simplify (mem_fn: trm) (t: trm) = Pattern.pattern_match t [
     Pattern.(formula_group !__ !__ !__) (fun idx range sub () ->
       formula_group idx range (simplify mem_fn sub));
@@ -1275,8 +1324,10 @@ let sync_simplification ?(magic = false) (res: resource_set): resource_set =
       formula_If cond (simplify mem_fn h));
     Pattern.(formula_desyncgroup !__ !__ !__) (fun idx bound sub () ->
       formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (simplify mem_fn sub));
+    Pattern.(formula_desync_ro !__ !__) (fun frac inner () ->
+      read_only_join_groups ~frac (simplify mem_fn inner));
     Pattern.(formula_read_only !__ !__) (fun frac inner () ->
-      formula_read_only ~frac (simplify mem_fn inner)
+      read_only_join_groups ~frac (simplify mem_fn inner)
     );
     Pattern.(formula_points_to !__ !__ !__) (fun var model mem_typ () ->
       if magic then t else
@@ -1787,7 +1838,13 @@ let rec compute_resources
         in
         let usage_map, res_after = elim_pure_vars arg_ensured_vars usage_map res_after in
         (* TODO: a solution for Sync(...) as a precondition; this only works when it is a postcondition *)
+        let has_sync = List.exists (fun (_, formula) -> Option.is_some (formula_sync_inv formula)) res_after.linear in
         let res_after = sync_simplification res_after in
+        (* Join the resynchronized read-only fractions with the ones that stayed synchronized *)
+        let usage_map, res_after = if not has_sync then usage_map, res_after else
+          let linear, ro_simpl_steps = simplify_read_only_resources ~aliases:res_after.aliases res_after.linear in
+          add_joined_frac_usage ro_simpl_steps usage_map, { res_after with linear }
+        in
         Some usage_map, Some res_after
       with
       | Spec_not_found fn when var_eq fn Trm.var_sizeof ->
@@ -1958,7 +2015,10 @@ let rec compute_resources
           typechecker though because currently it just scans the context for a proof of the
           requested proposition. *)
         let res = sync_simplification ~magic:true res in
-        Some !usage_map, Some res
+        (* Join the resynchronized read-only fractions with the ones that stayed synchronized *)
+        let linear, ro_simpl_steps = simplify_read_only_resources ~aliases:res.aliases res.linear in
+        let usage_map = add_joined_frac_usage ro_simpl_steps !usage_map in
+        Some usage_map, Some { res with linear }
       end
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
     | Trm_for (range, mode, body, contract) ->
@@ -2206,6 +2266,7 @@ let init_ctx = Resource_set.make ~pure:[
   Resource_formula.var_counted_range, typ_pure_simple_fun [typ_int; typ_int] typ_range;
   Resource_formula.var_group, typ_pure_simple_fun [typ_range; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
   Resource_formula.var_desyncgroup, typ_pure_simple_fun [typ_int; typ_pure_simple_fun [typ_int] typ_hprop] typ_hprop;
+  Resource_formula.var_desync_ro, typ_pure_simple_fun [Resource_formula.typ_frac; typ_hprop] typ_hprop;
   Resource_formula.var_threadsctx, typ_pure_simple_fun [typ_range] typ_hprop;
   Resource_formula.var_sync, typ_pure_simple_fun [typ_pure_simple_fun [typ_mem_type] typ_prop; typ_hprop] typ_hprop;
   Resource_formula.var_frac, typ_type;

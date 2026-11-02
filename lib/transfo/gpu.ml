@@ -11,16 +11,24 @@ include Gpu_basic
   It is always assumed that the leaf will be converted. *)
 let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
   let fission_helper tg = Loop.fission tg in
-  let rec aux barrier_mark loops_incl_leaf leaf_p: unit =
+  let rec aux ~(is_leaf: bool) barrier_mark loops_incl_leaf leaf_p: unit =
     let convert,loops = match loops_incl_leaf with
     | 0 :: tl -> false, tl
     | 1 :: tl -> true, tl
     | _ -> failwith "Gpu.convert_tail_thread_for: loops should contain only 0 or 1" in
     let leaf_t = (target_of_path leaf_p) in
     (* Don't want to have __xreads in a thread for because you can't resynchronize fractions. *)
-    Resources.detach_loop_ro_focus leaf_t;
-    if convert then
-      seq_for_to_magicthread_for ~barrier_mark leaf_t;
+    Flags.with_flag Flags.typechecking_mode Flags.ProofRepairing
+    (fun () -> begin
+      Resources.detach_loop_ro_focus leaf_t;
+      if convert then
+        seq_for_to_magicthread_for ~barrier_mark leaf_t;
+    (* Desynchronize the shared reads once the barrier that resynchronizes them is in place.
+       Inside the innermost loop, each thread reads alone: the desynchronized reads become ordinary reads. *)
+      if is_leaf then Resources.desync_ro_focus leaf_t;
+      Resources.desync_parallel_reads leaf_t;
+      end
+    );
     (* assume the barrier mark is already there.. *)
     (* push_work_before [cMark barrier_mark] ... *)
     match loops with
@@ -35,10 +43,10 @@ let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
         remove_loop_around_barrier [cMark barrier_mark];
       );
       let _, next_leaf_p = Path.index_in_surrounding_loop leaf_p in
-      aux barrier_mark loops next_leaf_p
+      aux ~is_leaf:false barrier_mark loops next_leaf_p
     in
   Marks.with_marks (fun next_m ->
-    Target.iter (aux (next_m ()) (1 :: loops)) leaf;
+    Target.iter (aux ~is_leaf:true (next_m ()) (1 :: loops)) leaf;
   )
 
 (** [convert_magic_thread_fors ~patch_steps tg]: convert all loops pointed to by [tg] to thread for from magic thread for.
@@ -51,7 +59,7 @@ let%transfo convert_magic_thread_fors ?(patch_steps: unit -> unit = fun () -> ()
     let error = "Gpu.convert_magic_thread_fors: expected a target to a simple for loop" in
     let range, mode, body, contract = trm_inv ~error trm_for_inv t in
     match mode with
-    | MagicThread -> Loop_core.change_loop_mode_on GpuThread t
+    | MagicThread -> Loop_core.change_loop_mode_on GpuThread (Resources.check_desync_ro_focus_on t)
     | _ ->
       trm_alter t ~desc:(Trm_for (range, mode, body, { contract with strict = false}))
   ) tg;

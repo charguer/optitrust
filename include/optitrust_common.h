@@ -988,15 +988,43 @@ __GHOST(desyncro_to_desyncgroup) {
   __requires("t: int, sz : int, f: _Fraction, H: HProp");
   __preserves("ThreadsCtx(t ..+ sz)");
   __consumes("Desync_RO(f, H)");
-  __produces("desync_for i in ..sz -> RO(f / sz, H)");
+  __produces("_RO(f / sz, desync_for i in ..sz -> H)");
   __admitted();
 }
 
 __GHOST(desyncgroup_to_desyncro) {
-  __requires("t: int, sz : int, f: _Fraction, H: int -> HProp");
+  __requires("t: int, sz : int, f: _Fraction, H: HProp");
   __preserves("ThreadsCtx(t ..+ sz)");
-  __produces("desync_for i in ..sz -> RO(f / sz, H)");
+  __produces("_RO(f / sz, desync_for i in ..sz -> H)");
   __consumes("Desync_RO(f, H)");
+  __admitted();
+}
+
+/* In the innermost thread loop, a desynchronized read is an ordinary read. */
+__GHOST(desyncro_to_ro) {
+  __requires("t: int, f: _Fraction, H: HProp");
+  __preserves("ThreadsCtx(t ..+ MSIZE0())");
+  __consumes("Desync_RO(f, H)");
+  __produces("_RO(f, H)");
+  __admitted();
+}
+
+__GHOST(ro_to_desyncro) {
+  __reverts(desyncro_to_ro);
+  __admitted();
+}
+
+/* Unchecked desyncro_to_ro for the innermost magic thread loop, which has no ThreadsCtx.
+   Gpu.convert_magic_thread_fors replaces it with desyncro_to_ro. */
+__GHOST(desync_ro_focus) {
+  __requires("f: _Fraction, H: HProp");
+  __consumes("Desync_RO(f, H)");
+  __produces("_RO(f, H)");
+  __admitted();
+}
+
+__GHOST(desync_ro_unfocus) {
+  __reverts(desync_ro_focus);
   __admitted();
 }
 

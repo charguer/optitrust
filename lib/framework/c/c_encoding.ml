@@ -1207,7 +1207,8 @@ let rec encode_contract (style: style) (t: trm): trm =
       seq_push tres t) named_formulas t
   in
 
-  let push_common_clauses ?(reads_clause: var option) ~(preserves_clause: var) ?(writes_clause: var option) (pure_with_fracs: resource_item list) (pre_linear: resource_item list) (post_linear: resource_item list) (t: trm): resource_item list * resource_item list * resource_item list * trm =
+  (* If [desync_ro_sugar] is set, [Desync_RO(f, H)] is printed as [Desync_RO(H)] in the reads clause. *)
+  let push_common_clauses ?(reads_clause: var option) ?(desync_ro_sugar = false) ~(preserves_clause: var) ?(writes_clause: var option) (pure_with_fracs: resource_item list) (pre_linear: resource_item list) (post_linear: resource_item list) (t: trm): resource_item list * resource_item list * resource_item list * trm =
     let common_linear, pre_linear, post_linear = Resource_formula.filter_common_resources pre_linear post_linear in
 
     (* FIXME: This turns two reads formulas with a shared id into reads formulas with distinct id.
@@ -1218,15 +1219,20 @@ let rec encode_contract (style: style) (t: trm): trm =
         [], common_linear
       else
         List.partition_map (fun (h, formula) ->
-          match formula_read_only_inv formula with
-          | Some { frac; formula = ro_formula } ->
-            begin match trm_var_inv frac with
+          let read_with_frac frac read_formula =
+            match trm_var_inv frac with
             | Some frac_atom ->
               Hashtbl.add frac_to_remove frac_atom ();
-              Left (h, ro_formula)
-            | None -> Right (h, formula)
-            end
-          | None -> Right (h, formula)) common_linear
+              Either.Left (h, read_formula)
+            | None -> Either.Right (h, formula)
+          in
+          match formula_read_only_inv formula with
+          | Some { frac; formula = ro_formula } -> read_with_frac frac ro_formula
+          | None ->
+            match formula_desync_ro_inv formula with
+            | Some (frac, desync_formula) when desync_ro_sugar ->
+              read_with_frac frac (trm_apps ~annot:formula_annot trm_desync_ro [desync_formula])
+            | _ -> Either.Right (h, formula)) common_linear
     in
 
     let hyp_not_mem_before_pop (hyp, _) =
@@ -1253,7 +1259,7 @@ let rec encode_contract (style: style) (t: trm): trm =
     (pre_pure, pre_linear, post_linear, t)
   in
   let push_common_clauses ?(force=false) = if style.cstyle.print_contract_internal_repr && not force then
-    fun ?reads_clause ~preserves_clause ?writes_clause pure_with_fracs pre_linear post_linear t -> (pure_with_fracs, pre_linear, post_linear, t)
+    fun ?reads_clause ?desync_ro_sugar ~preserves_clause ?writes_clause pure_with_fracs pre_linear post_linear t -> (pure_with_fracs, pre_linear, post_linear, t)
     else push_common_clauses
   in
 
@@ -1300,7 +1306,7 @@ let rec encode_contract (style: style) (t: trm): trm =
     let body = push_named_formulas __xrequires ~used_vars contract.iter_contract.pre.pure body in
     (*List.iter (fun (_, formula) -> if formula_read_only_inv formula = None then failwith "parallel_reads contains non RO resources") contract.parallel_reads;*)
     let loop_ghosts, _, _, body =
-      push_common_clauses ~force:true ~reads_clause:__sreads ~preserves_clause:__sreads
+      push_common_clauses ~force:true ~reads_clause:__sreads ~desync_ro_sugar:true ~preserves_clause:__sreads
         loop_ghosts contract.parallel_reads contract.parallel_reads body
     in
     let spreserves_clause = __spreserves in
