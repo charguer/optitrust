@@ -1,0 +1,15 @@
+key,value
+impls,naiveQwen;tiledQwen;ref;OptiTrust;OptiTrust-simpl
+device,NVIDIA RTX PRO 6000 Blackwell Server Edition
+compute_capability,sm_120
+l2_cache_bytes,134217728
+sm_count,188
+cuda_runtime,13.2
+iters,50
+draws,3
+warmup,10
+l2_flush,1
+tol,1e-06
+total_samples,9000
+timestamp,1793892579
+all_correct,1

@@ -81,7 +81,7 @@ void transpose (float* a, float* b, int W, int H)  {
   OPTIGPU_KERNEL(d_b, d_a, H, W);
   cudaEventRecord(start, 0);
   for (int i = 0; i < NUM_REPS; i++) {
-    OPTIGPU_KERNEL(d_b, d_a, H, W);
+    REF_KERNEL(d_b, d_a, H, W);
   }
 
   cudaEventRecord(stop, 0);
