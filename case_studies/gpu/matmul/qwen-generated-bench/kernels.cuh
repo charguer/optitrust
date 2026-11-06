@@ -302,3 +302,120 @@ __global__ void mmTiled32Reg(float*       __restrict__ c,
 // ===========================================================================
 // ADD MORE KERNELS HERE
 // ===========================================================================
+
+//// BEGIN TUNING PARAMS
+// BM divides rows
+#define BM 32
+// BN divides cols
+#define BN 32
+// BK divides shared
+#define BK 4
+// TM divides BM
+#define TM 8
+// TN divides BN
+#define TN 4
+//// END TUNING PARAMS
+
+#define SIBOEHM6_GRID_DIM(rows, cols) ((rows)/BM * ((cols)/BN))
+// COMMENT: I would usually use blockDim.x,
+//          but this may be helping the compiler more
+#define SIBOEHM6_BLOCK_DIM (BM/TM * (BN/TN))
+
+__global__
+void mmSiboehm6(
+    // float_t alpha,
+    // float_t beta,
+    float_t *gC,
+    const float_t *gA,
+    const float_t *gB,
+    int rows, // m
+    int cols, // n
+    int shared // p
+) {
+    // shared memory cache
+    // many hand written implementations would use:
+    //  __shared__ float_t sA[BM*BK];
+    //  __shared__ float_t sB[BK*BN];
+    // but this leads to less flexibility in allocating shared memory
+    // instead use dynamic shared memory with
+    //   size in bytes == (BM*BK + BK*BN) * (sizeof(float_t))
+    extern __shared__ float_t buffer[];
+    float_t *sA = buffer;
+    float_t *sB = &buffer[BM * BK];
+
+    // thread local cache
+    float_t rAcol[TM];
+    float_t rBrow[TN];
+    float_t rchProd[TM][TN];
+
+    int num_n_tiles = cols / BN;
+    // for each block, jump to beginning of tile row in gA
+    int mrow = blockIdx.x / num_n_tiles;
+    gA += shared * (mrow * BM);
+    // for each block, jump to beginning of tile column in gB
+    int mcol = blockIdx.x % num_n_tiles;
+    gB += mcol * BN;
+    // for each block, jump to the beginnin of the result tile in gC
+    gC += mrow * BM * cols + mcol * BN;
+
+    // row and column for each thread tile within the block tile
+    int threadRow = threadIdx.x / (BN / TN);
+    int threadCol = threadIdx.x % (BN / TN);
+
+    for (int i = 0; i < TM; ++i) {
+        for (int j = 0; j < TN; ++j) {
+          rchProd[i][j] = 0;
+      }
+    }
+    for (int bkIdx = 0; bkIdx < shared; bkIdx += BK) {
+        __syncthreads();
+        // load A vectorized and transposed into shared memory
+        for (int i = 0; i < BM * BK; i += SIBOEHM6_BLOCK_DIM * 4) {
+            int row = (i + threadIdx.x * 4) / BK;
+            int col = (i + threadIdx.x * 4) % BK;
+
+            // COMMENT: Instead of using bkIdx in the indexing, we could make sure
+            //   to advance gA and gB to the next blockTile every iteration.
+            //     gA += BK;
+            //     gB += BK * cols;
+            //   In that case, bkIdx is never used anywhere. I find this unintuitive.
+            float4 tmp = reinterpret_cast<const float4*>(&gA[bkIdx + shared * row + col])[0];
+            sA[(col + 0) * BM + row] = tmp.x;
+            sA[(col + 1) * BM + row] = tmp.y;
+            sA[(col + 2) * BM + row] = tmp.z;
+            sA[(col + 3) * BM + row] = tmp.w;
+        }
+        // load B vectorized into shared memory
+        for (int i = 0; i < BK * BN; i += SIBOEHM6_BLOCK_DIM * 4) {
+            int row = (i + threadIdx.x * 4) / BN;
+            int col = (i + threadIdx.x * 4) % BN;
+
+            reinterpret_cast<float4*>(&sB[row * BN + col])[0] =
+              reinterpret_cast<const float4*>(&gB[cols * bkIdx + cols * row + col])[0];
+        }
+        __syncthreads();
+
+        // compute subproducts per thread tile
+        for (int dotIdx = 0; dotIdx < BK; dotIdx++) {
+            for (int i = 0; i < TM; i++) {
+                rAcol[i] = sA[dotIdx * BM + threadRow * TM + i];
+            }
+            for (int i = 0; i < TN; i++) {
+                rBrow[i] = sB[dotIdx * BN + threadCol * TN + i];
+            }
+            for (int resIdxM = 0; resIdxM < TM; resIdxM++) {
+                for (int resIdxN = 0; resIdxN < TN; resIdxN++)
+                    rchProd[resIdxM][resIdxN] +=
+                        rAcol[resIdxM] * rBrow[resIdxN];
+            }
+        }
+    }
+
+    for (int resIdxM = 0; resIdxM < TM; resIdxM++) {
+        for (int resIdxN = 0; resIdxN < TN; resIdxN++) {
+            float_t *outElem =
+              &gC[(threadRow * TM + resIdxM) * cols + threadCol * TN + resIdxN];
+            outElem[0] = rchProd[resIdxM][resIdxN];
+        }
+    }
+}

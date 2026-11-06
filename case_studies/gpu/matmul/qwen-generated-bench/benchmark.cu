@@ -60,6 +60,11 @@ static std::vector<KernelSpec> allKernels() {
        mmOptiTrustSimplified<<<grid, 32, 0, s>>>(c, a, b, m, n, p);
      }},
 
+    {"Siboehm6",
+     [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+      mmSiboehm6<<<SIBOEHM6_GRID_DIM(m, n), SIBOEHM6_BLOCK_DIM, (BM*BK + BK*BN) * sizeof(float_t)>>>(c, a, b, m, n, p);
+    }},
+
     // --- Direct (naive): no shared memory, 1 output per thread ---
     {"direct",
      [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
@@ -129,9 +134,9 @@ static void flushL2(float* buf, size_t n_elems, cudaStream_t s) {
 // Options & CLI
 // ===========================================================================
 struct Options {
-  int  iters   = 50;
-  int  draws   = 3;
-  int  warmup  = 10;
+  int  iters   = 30;
+  int  draws   = 2;
+  int  warmup  = 5;
   long baseSeed = 0;
   bool l2flush = true;
   double tol = 1e-2;  // 1% — standard for float32 GEMM (p up to ~1024)

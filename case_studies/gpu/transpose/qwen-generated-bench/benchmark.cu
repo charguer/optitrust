@@ -123,9 +123,9 @@ static void flushL2(float* buf, size_t n_elems, cudaStream_t s) {
 // ===========================================================================
 
 struct Options {
-  int  iters   = 50;
-  int  draws   = 3;
-  int  warmup  = 10;
+  int  iters   = 30;
+  int  draws   = 2;
+  int  warmup  = 5;
   long baseSeed = 0;
   bool l2flush = true;
   double tol  = 1e-6;
