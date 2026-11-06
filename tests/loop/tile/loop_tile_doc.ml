@@ -1,7 +1,7 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.typechecking_mode := Unverified
+let _ = Flags.typechecking_mode := SemanticsPreserving
 
 let _ = Run.script_cpp (fun _ ->
 

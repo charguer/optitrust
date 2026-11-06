@@ -18,8 +18,8 @@ __global__ void __kernel0(float* b_gmem, float* a_gmem, float* c_gmem, int p,
   const int __tid =
       blockIdx.x * MSIZE2(exact_div(32, 8), exact_div(32, 4)) + threadIdx.x;
   SharedMemory smem;
-  float* const b_smem = (float*)smem.ptr(MSIZE3(8, 4, 4));
-  float* const a_smem = (float*)smem.ptr(MSIZE3(4, 4, 8));
+  float* const b_smem = (float*)smem.ptr(sizeof(float) * MSIZE3(8, 4, 4));
+  float* const a_smem = (float*)smem.ptr(sizeof(float) * MSIZE3(4, 4, 8));
   const int __ctx_sz_0 = __ctx_sz / (exact_div(m, 32));
   const int __bi0 = __tid % __ctx_sz / __ctx_sz_0;
   const int __ctx_sz_1 = __ctx_sz_0 / (exact_div(n, 32));
