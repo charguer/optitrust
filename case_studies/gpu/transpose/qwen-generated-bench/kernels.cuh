@@ -51,7 +51,7 @@ __global__ void transposeNoBankConflicts(const float *idata, float *odata, int h
   const int __ctx_sz = MSIZE2(exact_div(H, 32), exact_div(W, 32)) * MSIZE2(16, 32);
   const int __tid = blockIdx.x * MSIZE2(16, 32) + threadIdx.x;
   SharedMemory smem;
-  float* const tile = (float*) smem.ptr(MSIZE2(32, 32));
+  float* const tile = (float*) smem.ptr(sizeof(float) * MSIZE2(32, 32));
   const int __ctx_sz_0 = __ctx_sz / (exact_div(H, 32));
   const int __by0 = __tid % __ctx_sz / __ctx_sz_0;
   const int __ctx_sz_1 = __ctx_sz_0 / (exact_div(W, 32));
@@ -88,7 +88,7 @@ __global__ void transposeNoBankConflicts(const float *idata, float *odata, int h
   const int x  = tid % 32;                 // col         [0,32)
 
   SharedMemory smem;
-  float* const tile = (float*) smem.ptr(32 * 32);
+  float* const tile = (float*) smem.ptr(sizeof(float) * 32 * 32);
 
   for (int j = 0; j < 2; j++) {
     tile[(j * 16 + y) * 32 + x] = d_a[(by * 32 + j * 16 + y) * W + (bx * 32 + x)];

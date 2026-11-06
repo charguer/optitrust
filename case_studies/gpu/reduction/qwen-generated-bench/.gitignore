@@ -1,0 +1,24 @@
+# Build artifacts
+reduction_bench
+*.o
+*.so
+
+# Local backup results
+local-results-*
+
+# Derived / processed outputs (regenerate via `make analyze`)
+summary.csv
+speedup.csv
+verdict.txt
+
+# Figures
+*.pdf
+*.png
+
+# OS / editor junk
+.*.swp
+*.swo
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc

@@ -13,7 +13,7 @@
 #   make GPU_ARCH=sm_121   (GB10,               e.g. DGX Spark / Jetson Thor)
 # (Only use the "a" variant, e.g. sm_120a, if you enable arch-specific
 #  features such as tcgen05 / TMA. A plain transpose needs no "a" suffix.)
-CUDA_HOME ?= /usr/local/cuda-13.2
+CUDA_HOME ?= /usr/local/cuda
 NVCC      ?= $(CUDA_HOME)/bin/nvcc
 GPU_ARCH  ?= sm_120
 

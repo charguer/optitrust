@@ -1,4 +1,47 @@
-#define NUM_REPS 1000
+// kernels.cuh — reduction kernels under study.
+//
+// Each kernel reduces N elements into N/512 partial sums (one per block).
+// The host then sums the partial sums to get the final scalar.
+//
+// Kernel signature (all three kernels):
+//   __global__ void kernel(float* partial_sums, const float* arr, int N)
+//   launched as: kernel<<<N/512, 256, 256*sizeof(float)>>>(d_partial, d_arr, N)
+//
+// To add a new kernel:
+//   1. Write your __global__ function below.
+//   2. Register it in allKernels() in benchmark.cuh.
+#pragma once
+#include "common.h"
+
+#define REDUCE_TPB 256   // threads per block
+#define REDUCE_EPT 2     // elements per thread (512/256)
+#define REDUCE_SMEM (REDUCE_TPB * sizeof(float))
+
+// ===========================================================================
+// PASTE YOUR KERNELS HERE
+// ===========================================================================
+//
+// --- Kernel 0: OptiGPU generated ---
+// __global__ void __kernel0(float* partial_sums, const float* arr, int N) {
+//   ... your OptiGPU kernel body ...
+// }
+//
+// --- Kernel 1: Reference (reduce3) ---
+// __global__ void reduce3_k(float* partial_sums, const float* arr, int N) {
+//   ... your reduce3<float> body ...
+// }
+//
+// --- Kernel 2: Best performing (reduce6) ---
+// __global__ void reduce6_k(float* partial_sums, const float* arr, int N) {
+//   ... your reduce6<float,256,true> body ...
+// }
+//
+// ===========================================================================
+// PLACEHOLDERS — replace with your actual kernels.
+// These are s²e tree-reduction stubs so the build succeeds; they exist
+// only so you can verify the harness works before pasting real code.
+// ===========================================================================
+
 
 #include <cooperative_groups.h>
 namespace cg = cooperative_groups;
@@ -26,7 +69,7 @@ template <class T> struct SharedMemoryUtil
     This version uses n/2 threads --
     it performs the first level of reduction when reading from global memory.
 */
-template <class T> __global__ void reduce3(T *g_odata, T *g_idata, unsigned int n)
+template <class T> __global__ void reduce3(T *g_odata, const T *g_idata, int n)
 {
     // Handle to thread block group
     cg::thread_block cta   = cg::this_thread_block();
@@ -59,7 +102,7 @@ template <class T> __global__ void reduce3(T *g_odata, T *g_idata, unsigned int 
         g_odata[blockIdx.x] = mySum;
 }
 
-template <class T, unsigned int blockSize, bool nIsPow2> __global__ void reduce6(T *g_odata, T *g_idata, unsigned int n)
+template <class T, unsigned int blockSize, bool nIsPow2> __global__ void reduce6(T *g_odata, const T *g_idata, int n)
 {
     // Handle to thread block group
     cg::thread_block cta   = cg::this_thread_block();
@@ -137,11 +180,11 @@ template <class T, unsigned int blockSize, bool nIsPow2> __global__ void reduce6
         g_odata[blockIdx.x] = mySum;
 }
 
-__global__ void __kernel0 (float* d_partial_sums, float* d_arr, int N)  /*@*/{
+__global__ void reduceOptiGPU(float* d_partial_sums, const float* d_arr, int N)  /*@*/{
   const int __ctx_sz = MSIZE1(exact_div(N, 512)) * MSIZE1(256);
   const int __tid = blockIdx.x * MSIZE1(256) + threadIdx.x;
   SharedMemory smem;
-  float* const tile = (float*) smem.ptr(MSIZE1(256));
+  float* const tile = (float*) smem.ptr(sizeof(float) * MSIZE1(256));
   const int __ctx_sz_0 = __ctx_sz / (exact_div(N, 512));
   const int __bi0 = __tid % __ctx_sz / __ctx_sz_0;
   const int __ctx_sz_1 = __ctx_sz_0 / 256;
@@ -176,104 +219,46 @@ __global__ void __kernel0 (float* d_partial_sums, float* d_arr, int N)  /*@*/{
   else {  }
 }/*@*/
 
+__global__ void reduceOptiGPUSimplified(float* __restrict__ d_partial_sums,
+                                        const float*       __restrict__ d_arr,
+                                        int N) {
+    __shared__ float tile[256];
 
- /* __global__ void __kernel0 (float* d_partial_sums, float* d_arr, int N) {
-  const int __ctx_sz = MSIZE1(exact_div(N, 256)) * MSIZE1(128);
-  const int __tid = blockIdx.x * MSIZE1(128) + threadIdx.x;
-  __shared__ float tile[MSIZE1(128)];
-  const int __ctx_sz_0 = __ctx_sz / (exact_div(N, 256));
-  const int __bi0 = __tid % __ctx_sz / __ctx_sz_0;
-  const int __ctx_sz_1 = __ctx_sz_0 / 128;
-  const int __ti1 = __tid % __ctx_sz_0 / __ctx_sz_1;
-  const int __ctx_sz_2 = __ctx_sz_0 / (1 << 7);
-  const int __t2 = __tid % __ctx_sz_0 / __ctx_sz_2;
-  const int __ctx_sz_3 = __ctx_sz_0 / 128;
-  const int __ti_f3 = __tid % __ctx_sz_0 / __ctx_sz_3;
-  tile[MINDEX2(exact_div(N, 256), 128, 0, __ti1)] = 0.f;
-  #pragma unroll
-   for (int i = 0; i < 2; i++) {
-    tile[MINDEX2(exact_div(N, 256), 128, 0, __ti1)] = tile[MINDEX2(exact_div(N, 256), 128, 0, __ti1)] + d_arr[MINDEX1(N, __bi0 * 256 + (
-      __ti1 * 2 + i))];
-  }
-  __syncthreads();
-   for (int s = 64; s > 0; s >>= 1) {
-    if (__t2 < s) {
-      // apparently doing
-      // tile[__t2] = mySum = mySum + tile[s + __t2];
-      // makes about a ~50gb/s difference in throughput..
-      tile[__t2] += tile[s + __t2];
+    const int bid = blockIdx.x;
+    const int tid = threadIdx.x;
+
+    // Each thread accumulates 2 consecutive elements.
+    tile[tid] = d_arr[bid * 512 + tid * 2]
+              + d_arr[bid * 512 + tid * 2 + 1];
+    __syncthreads();
+
+    // Standard tree reduction: 8 levels (2^8 = 256 threads).
+    #pragma unroll
+    for (int s = 128; s > 0; s >>= 1) {
+        if (tid < s)
+            tile[tid] += tile[tid + s];
+        __syncthreads();
     }
+
+    // Thread 0 of each block writes the partial sum.
+    if (tid == 0)
+        d_partial_sums[bid] = tile[0];
+}
+
+__global__ void reduceQwen(float* __restrict__ partial_sums,
+                            const float* __restrict__ arr, int N) {
+  __shared__ float sdata[REDUCE_TPB];
+  int tid = threadIdx.x;
+  int gid = blockIdx.x * REDUCE_TPB * REDUCE_EPT + threadIdx.x * REDUCE_EPT;
+  float val = 0.f;
+  #pragma unroll
+  for (int i = 0; i < REDUCE_EPT; ++i)
+    val += arr[gid + i];
+  sdata[tid] = val;
+  __syncthreads();
+  for (int s = REDUCE_TPB / 2; s > 0; s >>= 1) {
+    if (tid < s) sdata[tid] += sdata[tid + s];
     __syncthreads();
   }
-  if (__ti_f3 == 0) {
-    d_partial_sums[__bi0] = tile[0];
-  }
-} */
-
-
-
-#define OPTIGPU_KERNEL __kernel0
-#define REF_KERNEL reduce3<float>
-#define BEST_KERNEL(tpb) reduce6<float,tpb,true>
-
-float reduce (float* arr, int N, int which_kernel)  {
-  float sum = 0.f;
-  float* const d_arr = __gmem_malloc1<float>(N);
-  memcpy_host_to_device1(d_arr, arr, N);
-  float* const partial_sums = new float[MSIZE1(exact_div(N, 512))];
-  float* const d_partial_sums = __gmem_malloc1<float>(exact_div(N, 512));
-  cudaEvent_t start, stop;
-
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-  switch (which_kernel) {
-    case 0:
-      printf("Running OptiGPU kernel: \n");
-      OPTIGPU_KERNEL<<<MSIZE1(exact_div(N, 512)), MSIZE1(256), sizeof(float) * 256 + 0>>>(d_partial_sums, d_arr, N);
-      break;
-    case 1:
-      printf("Running reduce3 (reference): \n");
-      REF_KERNEL<<<MSIZE1(exact_div(N, 512)), MSIZE1(256), sizeof(float) * 256 + 0>>>(d_partial_sums, d_arr, N);
-      break;
-    case 2:
-      printf("Running reduce6 (best performing): \n");
-      BEST_KERNEL(256)<<<MSIZE1(exact_div(N, 512)), MSIZE1(256), sizeof(float) * 256 + 0>>>(d_partial_sums, d_arr, N);
-      break;
-  }
-
-  cudaEventRecord(start, 0);
-  for (int i = 0; i < NUM_REPS; i++) {
-    switch (which_kernel) {
-      case 0:
-        OPTIGPU_KERNEL<<<MSIZE1(exact_div(N, 512)), MSIZE1(256), sizeof(float) * 256 + 0>>>(d_partial_sums, d_arr, N);
-        break;
-      case 1:
-        REF_KERNEL<<<MSIZE1(exact_div(N, 512)), MSIZE1(256), sizeof(float) * 256 + 0>>>(d_partial_sums, d_arr, N);
-        break;
-      case 2:
-        BEST_KERNEL(256)<<<MSIZE1(exact_div(N, 512)), MSIZE1(256), sizeof(float) * 256 + 0>>>(d_partial_sums, d_arr, N);
-        break;
-    }
-  }
-  cudaEventRecord(stop, 0);
-  cudaEventSynchronize(stop);
-
-  float kernelTime;
-  cudaEventElapsedTime(&kernelTime, start, stop);
-
-  float kernelBandwidth = 1000.0f * ((N + exact_div(N,512)) * sizeof(float)) / (1024 * 1024 * 1024) / (kernelTime / NUM_REPS);
-        printf("Throughput = %.4f GB/s, Time = %.5f ms, "
-               "elements = %u\n",
-               kernelBandwidth,
-               kernelTime / NUM_REPS,
-               N);
-
-  memcpy_device_to_host1(partial_sums, d_partial_sums, exact_div(N, 512));
-  gmem_free(d_partial_sums);
-   for (int bi = 0; bi < exact_div(N, 512); bi++) {
-    sum = partial_sums[MINDEX1(exact_div(N, 512), bi)] + sum;
-  }
-  delete partial_sums;
-  gmem_free(d_arr);
-  return sum;
+  if (tid == 0) partial_sums[blockIdx.x] = sdata[0];
 }
