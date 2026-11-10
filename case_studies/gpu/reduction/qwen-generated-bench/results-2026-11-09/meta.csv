@@ -1,0 +1,15 @@
+key,value
+impls,reduce0;reduce1;reduce2;reduce3;reduce4;reduce5;reduce6;OptiGPU;OptiGPU-simpl;OptiGPU-simpl-mysum;qwen
+device,NVIDIA RTX PRO 6000 Blackwell Server Edition
+compute_capability,sm_120
+l2_cache_bytes,134217728
+sm_count,188
+cuda_runtime,13.5
+iters,30
+draws,2
+warmup,5
+l2_flush,1
+tol,0.001
+total_samples,3960
+timestamp,1794244443
+all_correct,1
