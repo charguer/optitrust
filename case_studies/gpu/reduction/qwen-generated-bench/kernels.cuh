@@ -65,6 +65,93 @@ template <class T> struct SharedMemoryUtil
 
 #include <optitrust_gpu_cuda.cuh>
 
+template <class T> __global__ void reduce0(T *g_odata, const T *g_idata, int n)
+{
+    // Handle to thread block group
+    cg::thread_block cta   = cg::this_thread_block();
+    T               *sdata = SharedMemoryUtil<T>();
+
+    // load shared mem
+    unsigned int tid = threadIdx.x;
+    unsigned int i   = blockIdx.x * blockDim.x + threadIdx.x;
+
+    sdata[tid] = (i < n) ? g_idata[i] : 0;
+
+    cg::sync(cta);
+
+    // do reduction in shared mem
+    for (unsigned int s = 1; s < blockDim.x; s *= 2) {
+        // modulo arithmetic is slow!
+        if ((tid % (2 * s)) == 0) {
+            sdata[tid] += sdata[tid + s];
+        }
+
+        cg::sync(cta);
+    }
+
+    // write result for this block to global mem
+    if (tid == 0)
+        g_odata[blockIdx.x] = sdata[0];
+}
+
+template <class T> __global__ void reduce1(T *g_odata, const T *g_idata, int n)
+{
+    // Handle to thread block group
+    cg::thread_block cta   = cg::this_thread_block();
+    T               *sdata = SharedMemoryUtil<T>();
+
+    // load shared mem
+    unsigned int tid = threadIdx.x;
+    unsigned int i   = blockIdx.x * blockDim.x + threadIdx.x;
+
+    sdata[tid] = (i < n) ? g_idata[i] : 0;
+
+    cg::sync(cta);
+
+    // do reduction in shared mem
+    for (unsigned int s = 1; s < blockDim.x; s *= 2) {
+        int index = 2 * s * tid;
+
+        if (index < blockDim.x) {
+            sdata[index] += sdata[index + s];
+        }
+
+        cg::sync(cta);
+    }
+
+    // write result for this block to global mem
+    if (tid == 0)
+        g_odata[blockIdx.x] = sdata[0];
+}
+
+template <class T> __global__ void reduce2(T *g_odata, const T *g_idata, int n)
+{
+    // Handle to thread block group
+    cg::thread_block cta   = cg::this_thread_block();
+    T               *sdata = SharedMemoryUtil<T>();
+
+    // load shared mem
+    unsigned int tid = threadIdx.x;
+    unsigned int i   = blockIdx.x * blockDim.x + threadIdx.x;
+
+    sdata[tid] = (i < n) ? g_idata[i] : 0;
+
+    cg::sync(cta);
+
+    // do reduction in shared mem
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] += sdata[tid + s];
+        }
+
+        cg::sync(cta);
+    }
+
+    // write result for this block to global mem
+    if (tid == 0)
+        g_odata[blockIdx.x] = sdata[0];
+}
+
 /*
     This version uses n/2 threads --
     it performs the first level of reduction when reading from global memory.
@@ -99,6 +186,106 @@ template <class T> __global__ void reduce3(T *g_odata, const T *g_idata, int n)
 
     // write result for this block to global mem
     if (tid == 0)
+        g_odata[blockIdx.x] = mySum;
+}
+
+template <class T, unsigned int blockSize> __global__ void reduce4(T *g_odata, const T *g_idata, int n)
+{
+    // Handle to thread block group
+    cg::thread_block cta   = cg::this_thread_block();
+    T               *sdata = SharedMemoryUtil<T>();
+
+    // perform first level of reduction,
+    // reading from global memory, writing to shared memory
+    unsigned int tid = threadIdx.x;
+    unsigned int i   = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
+
+    T mySum = (i < n) ? g_idata[i] : 0;
+
+    if (i + blockSize < n)
+        mySum += g_idata[i + blockSize];
+
+    sdata[tid] = mySum;
+    cg::sync(cta);
+
+    // do reduction in shared mem
+    for (unsigned int s = blockDim.x / 2; s > 32; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] = mySum = mySum + sdata[tid + s];
+        }
+
+        cg::sync(cta);
+    }
+
+    cg::thread_block_tile<32> tile32 = cg::tiled_partition<32>(cta);
+
+    if (cta.thread_rank() < 32) {
+        // Fetch final intermediate sum from 2nd warp
+        if (blockSize >= 64)
+            mySum += sdata[tid + 32];
+        // Reduce final warp using shuffle
+        for (int offset = tile32.size() / 2; offset > 0; offset /= 2) {
+            mySum += tile32.shfl_down(mySum, offset);
+        }
+    }
+
+    // write result for this block to global mem
+    if (cta.thread_rank() == 0)
+        g_odata[blockIdx.x] = mySum;
+}
+
+template <class T, unsigned int blockSize> __global__ void reduce5(T *g_odata, const T *g_idata, int n)
+{
+    // Handle to thread block group
+    cg::thread_block cta   = cg::this_thread_block();
+    T               *sdata = SharedMemoryUtil<T>();
+
+    // perform first level of reduction,
+    // reading from global memory, writing to shared memory
+    unsigned int tid = threadIdx.x;
+    unsigned int i   = blockIdx.x * (blockSize * 2) + threadIdx.x;
+
+    T mySum = (i < n) ? g_idata[i] : 0;
+
+    if (i + blockSize < n)
+        mySum += g_idata[i + blockSize];
+
+    sdata[tid] = mySum;
+    cg::sync(cta);
+
+    // do reduction in shared mem
+    if ((blockSize >= 512) && (tid < 256)) {
+        sdata[tid] = mySum = mySum + sdata[tid + 256];
+    }
+
+    cg::sync(cta);
+
+    if ((blockSize >= 256) && (tid < 128)) {
+        sdata[tid] = mySum = mySum + sdata[tid + 128];
+    }
+
+    cg::sync(cta);
+
+    if ((blockSize >= 128) && (tid < 64)) {
+        sdata[tid] = mySum = mySum + sdata[tid + 64];
+    }
+
+    cg::sync(cta);
+
+    cg::thread_block_tile<32> tile32 = cg::tiled_partition<32>(cta);
+
+    if (cta.thread_rank() < 32) {
+        // Fetch final intermediate sum from 2nd warp
+        if (blockSize >= 64)
+            mySum += sdata[tid + 32];
+        // Reduce final warp using shuffle
+        for (int offset = tile32.size() / 2; offset > 0; offset /= 2) {
+            mySum += tile32.shfl_down(mySum, offset);
+        }
+    }
+
+    // write result for this block to global mem
+    if (cta.thread_rank() == 0)
         g_odata[blockIdx.x] = mySum;
 }
 
@@ -244,6 +431,32 @@ __global__ void reduceOptiGPUSimplified(float* __restrict__ d_partial_sums,
     if (tid == 0)
         d_partial_sums[bid] = tile[0];
 }
+
+__global__ void reduceOptiGPUMySum(float* d_partial_sums, const float* d_arr, int N)  /*@*/{
+    __shared__ float tile[256];
+
+    const int bid = blockIdx.x;
+    const int tid = threadIdx.x;
+
+    // Each thread accumulates 2 consecutivemySum elements.
+    float mySum = d_arr[bid * 512 + tid * 2] + d_arr[bid * 512 + tid * 2 + 1];
+    tile[tid] = mySum;
+    __syncthreads();
+
+    // Standard tree reduction: 8 levels (2^8 = 256 threads).
+    #pragma unroll
+    for (int s = 128; s > 0; s >>= 1) {
+        if (tid < s) {
+          mySum += tile[tid + s];
+          tile[tid] = mySum;
+        }
+        __syncthreads();
+    }
+
+    // Thread 0 of each block writes the partial sum.
+    if (tid == 0)
+        d_partial_sums[bid] = mySum;
+}/*@*/
 
 __global__ void reduceQwen(float* __restrict__ partial_sums,
                             const float* __restrict__ arr, int N) {

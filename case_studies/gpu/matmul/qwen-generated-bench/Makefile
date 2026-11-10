@@ -10,7 +10,7 @@ CUDA_HOME ?= /usr/local/cuda
 NVCC      ?= $(CUDA_HOME)/bin/nvcc
 GPU_ARCH  ?= sm_120
 
-NVCCFLAGS := -O3 -std=c++17 -arch=$(GPU_ARCH) \
+NVCCFLAGS := -O3 -std=c++17 -arch=$(GPU_ARCH) -lcublas \
              -lineinfo -Xptxas -O3 -I.
 
 BIN  := mm_bench

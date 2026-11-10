@@ -7,7 +7,7 @@
 #
 # GPU_ARCH must match your device (nvidia-smi / cudaGetDeviceProperties).
 # Default is sm_120 for the NVIDIA RTX PRO 6000 Blackwell (GB202, CC 12.0).
-# Other Blackwell, CUDA 13.2:
+# Other Blackwell, CUDA 13.5:
 #   make GPU_ARCH=sm_100   (datacenter,          e.g. B100 / B200 / GB200)
 #   make GPU_ARCH=sm_120   (consumer/workstation, e.g. RTX 50 / RTX PRO 6000)
 #   make GPU_ARCH=sm_121   (GB10,               e.g. DGX Spark / Jetson Thor)

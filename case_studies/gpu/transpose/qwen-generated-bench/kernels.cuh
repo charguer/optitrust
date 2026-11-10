@@ -99,6 +99,30 @@ __global__ void transposeNoBankConflicts(const float *idata, float *odata, int h
   }
 }
 
+ __global__ void transposeOptiTrustSimplifiedNoConflicts(const float* d_a, float* d_b, int H, int W)  /*@*/{
+  // const int dH = H / 32;
+  const int dW = W / 32;
+
+  // 1D grid of dH*dW blocks, 512 threads each (16×32 logical).
+  const int tid = blockIdx.x * 512 + threadIdx.x;
+  // Decompose linear tid into 4 indices:
+  const int by =  tid / (dW * 512);        // block row   [0, dH)
+  const int bx = (tid % (dW * 512)) / 512; // block col   [0, dW)
+  const int y  = (tid % 512) / 32;         // row-in-half [0,16)
+  const int x  = tid % 32;                 // col         [0,32)
+
+  SharedMemory smem;
+  float* const tile = (float*) smem.ptr(sizeof(float) * 32 * (32 + 1));
+
+  for (int j = 0; j < 2; j++) {
+    tile[(j * 16 + y) * 33 + x] = d_a[(by * 32 + j * 16 + y) * W + (bx * 32 + x)];
+  }
+  __syncthreads();
+  for (int j = 0; j < 2; j++) {
+    d_b[(bx * 32 + j * 16 + y) * H + (by * 32 + x)] = tile[x * 33 + j * 16 + y];
+  }
+}
+
 //// QWEN KERNELS
 
 // ---------------------------------------------------------------------------

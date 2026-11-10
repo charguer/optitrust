@@ -3,7 +3,7 @@
 A small, reproducible harness to compare a naive GPU matrix-transpose kernel
 against a tiled, bank-conflict-free one across representative input sizes.
 
-Target: **CUDA 13.2**, **Blackwell** (default device: RTX PRO 6000 Blackwell, `sm_120`).
+Target: **CUDA 13.5**, **Blackwell** (default device: RTX PRO 6000 Blackwell, `sm_120`).
 
 ## Build & run
 
@@ -13,7 +13,7 @@ Target: **CUDA 13.2**, **Blackwell** (default device: RTX PRO 6000 Blackwell, `s
 
 Quick smoke test: `make check`.
 
-Blackwell arch reference (CUDA 13.2):
+Blackwell arch reference (CUDA 13.5):
 
     sm_100  datacenter           (B100 / B200 / GB200)
     sm_120  consumer/workstation (RTX 50 / GB202 / RTX PRO 6000 Blackwell)

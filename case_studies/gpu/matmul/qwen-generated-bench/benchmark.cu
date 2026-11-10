@@ -34,6 +34,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <cublas_v2.h>
+// cuBLAS handle (single device, created once in main()).
+static cublasHandle_t gCublas = nullptr;
+
 // ===========================================================================
 // Kernel registry
 // ===========================================================================
@@ -47,12 +51,12 @@ struct KernelSpec {
 static std::vector<KernelSpec> allKernels() {
   return {
     // --- OptiTrust (simplified): 32×32 tile, 32 threads, 1D grid ---
-    {"OptiGPU",
+    /*{"OptiGPU",
      [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
        int grid = (m / 32) * (n / 32);
        mmOptiTrust<<<grid, 32, sizeof(float)*(4*4*8 + 8*4*4), s>>>(c, a, b, m, n, p);
      }},
-
+*/
     // --- OptiTrust (simplified): 32×32 tile, 32 threads, 1D grid ---
     {"OptiGPU-simpl",
      [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
@@ -60,9 +64,128 @@ static std::vector<KernelSpec> allKernels() {
        mmOptiTrustSimplified<<<grid, 32, 0, s>>>(c, a, b, m, n, p);
      }},
 
-    {"Siboehm6",
+    {"OptiGPU-2d-1",
      [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
-      mmSiboehm6<<<SIBOEHM6_GRID_DIM(m, n), SIBOEHM6_BLOCK_DIM, (BM*BK + BK*BN) * sizeof(float_t)>>>(c, a, b, m, n, p);
+       int grid = (m / 32) * (n / 32);
+       mmOptiTrust2DBlocktiling_1<<<grid, 32, 0, s>>>(c, a, b, m, n, p);
+     }},
+
+    {"OptiGPU-2d-2",
+     [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+       int grid = (m / 64) * (n / 64);
+       mmOptiTrust2DBlocktiling_2<<<grid, 1024, 0, s>>>(c, a, b, m, n, p);
+     }},
+
+    {"OptiGPU-4x4",
+    [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+      int grid = (m / 32) * (n / 32);
+      mmOptiTrust4x4<<<grid, 64, 0, s>>>(c, a, b, m, n, p);
+    }},
+
+    {"OptiGPU-2x2",
+    [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+      int grid = (m / 32) * (n / 32);
+      mmOptiTrust2x2<<<grid, 256, 0, s>>>(c, a, b, m, n, p);
+    }},
+
+    {"Siboehm6-1",
+     [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+      const int bm = 32;
+      const int bn = 32;
+      const int bk = 4;
+      const int tm = 8;
+      const int tn = 4;
+      cudaFuncSetAttribute(
+        mmSiboehm6<bm, bn , bk, tm, tn>,
+        cudaFuncAttributeMaxDynamicSharedMemorySize,
+        SIBOEHM6_SMEM(bm, bn, bk));
+      mmSiboehm6<bm, bn , bk, tm, tn><<<SIBOEHM6_GRID_DIM(m, n, bm, bn), SIBOEHM6_BLOCK_DIM(bm, bn, tm, tn), SIBOEHM6_SMEM(bm, bn, bk), s>>>(c, a, b, m, n, p);
+    }},
+/*
+    {"Siboehm6-2",
+     [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+      const int bm = 16;
+      const int bn = 16;
+      const int bk = 4;
+      const int tm = 4;
+      const int tn = 4;
+      cudaFuncSetAttribute(
+        mmSiboehm6<bm, bn , bk, tm, tn>,
+        cudaFuncAttributeMaxDynamicSharedMemorySize,
+        SIBOEHM6_SMEM(bm, bn, bk));
+      mmSiboehm6<bm, bn , bk, tm, tn><<<SIBOEHM6_GRID_DIM(m, n, bm, bn), SIBOEHM6_BLOCK_DIM(bm, bn, tm, tn), SIBOEHM6_SMEM(bm, bn, bk), s>>>(c, a, b, m, n, p);
+    }},
+*/
+    {"Siboehm6-3",
+     [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+      const int bm = 128;
+      const int bn = 128;
+      const int bk = 32;
+      const int tm = 4;
+      const int tn = 4;
+      cudaFuncSetAttribute(
+        mmSiboehm6<bm, bn , bk, tm, tn>,
+        cudaFuncAttributeMaxDynamicSharedMemorySize,
+        SIBOEHM6_SMEM(bm, bn, bk));
+      mmSiboehm6<bm, bn , bk, tm, tn><<<SIBOEHM6_GRID_DIM(m, n, bm, bn), SIBOEHM6_BLOCK_DIM(bm, bn, tm, tn), SIBOEHM6_SMEM(bm, bn, bk), s>>>(c, a, b, m, n, p);
+    }},
+
+    {"Siboehm6-4",
+     [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+      const int bm = 128;
+      const int bn = 128;
+      const int bk = 64;
+      const int tm = 4;
+      const int tn = 4;
+      cudaFuncSetAttribute(
+        mmSiboehm6<bm, bn , bk, tm, tn>,
+        cudaFuncAttributeMaxDynamicSharedMemorySize,
+        SIBOEHM6_SMEM(bm, bn, bk));
+      mmSiboehm6<bm, bn , bk, tm, tn><<<SIBOEHM6_GRID_DIM(m, n, bm, bn), SIBOEHM6_BLOCK_DIM(bm, bn, tm, tn), SIBOEHM6_SMEM(bm, bn, bk), s>>>(c, a, b, m, n, p);
+    }},
+
+    {"Siboehm6-5",
+     [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+      const int bm = 128;
+      const int bn = 128;
+      const int bk = 32;
+      const int tm = 8;
+      const int tn = 8;
+      cudaFuncSetAttribute(
+        mmSiboehm6<bm, bn , bk, tm, tn>,
+        cudaFuncAttributeMaxDynamicSharedMemorySize,
+        SIBOEHM6_SMEM(bm, bn, bk));
+      mmSiboehm6<bm, bn , bk, tm, tn><<<SIBOEHM6_GRID_DIM(m, n, bm, bn), SIBOEHM6_BLOCK_DIM(bm, bn, tm, tn), SIBOEHM6_SMEM(bm, bn, bk), s>>>(c, a, b, m, n, p);
+    }},
+
+    {"2DBlocktiling-1",
+     [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+      constexpr int BM = 32, BN = 32, BK = 4, TM = 8, TN = 4;
+      int threads = BM * BN / (TM * TN);          // 1024
+      dim3 block(threads);
+      dim3 grid(n / BN, m / BM);                  // row-major C: x = col tile, y = row tile
+      mm2DBlocktiling<BM, BN, BK, TM, TN>
+        <<<grid, block>>>(c, a, b, m, n, p);
+    }},
+
+    {"2DBlocktiling-2",
+     [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+      constexpr int BM = 64, BN = 64, BK = 32, TM = 2, TN = 2;
+      int threads = BM * BN / (TM * TN);          // 1024
+      dim3 block(threads);
+      dim3 grid(n / BN, m / BM);                  // row-major C: x = col tile, y = row tile
+      mm2DBlocktiling<BM, BN, BK, TM, TN>
+        <<<grid, block>>>(c, a, b, m, n, p);
+    }},
+
+    {"2DBlocktiling-3",
+     [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+      constexpr int BM = 128, BN = 128, BK = 32, TM = 4, TN = 4;
+      int threads = BM * BN / (TM * TN);          // 1024
+      dim3 block(threads);
+      dim3 grid(n / BN, m / BM);                  // row-major C: x = col tile, y = row tile
+      mm2DBlocktiling<BM, BN, BK, TM, TN>
+        <<<grid, block>>>(c, a, b, m, n, p);
     }},
 
     // --- Direct (naive): no shared memory, 1 output per thread ---
@@ -74,7 +197,7 @@ static std::vector<KernelSpec> allKernels() {
      }},
 
     // --- Tiled 16×16: classic CUDA sample ---
-    {"tiled16",
+    /*{"tiled16",
      [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
        dim3 grid(n / TILE16, m / TILE16);
        dim3 block(TILE16, TILE16);
@@ -87,7 +210,7 @@ static std::vector<KernelSpec> allKernels() {
        dim3 grid(n / TILE32, m / TILE32);
        dim3 block(TILE32, TILE32);
        mmTiled32<<<grid, block, 0, s>>>(c, a, b, m, n, p);
-     }},
+     }},*/
 
     // --- Tiled 32×32 register-blocked (2×2 per thread) ---
     {"tiled32reg",
@@ -97,9 +220,36 @@ static std::vector<KernelSpec> allKernels() {
        mmTiled32Reg<<<grid, block, 0, s>>>(c, a, b, m, n, p);
      }},
 
-    // =========================================================================
-    // ADD MORE KERNELS HERE.
-    // =========================================================================
+    {"CUDASample-16",
+     [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+       dim3 grid(n / 16, m / 16);
+       dim3 block(16, 16);
+       mmCUDASample<16><<<grid, block, 0, s>>>(c, a, b, m, n, p);
+     }},
+/*
+    {"CUDASample-32",
+     [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+       dim3 grid(n / 32, m / 32);
+       dim3 block(32, 32);
+       mmCUDASample<32><<<grid, block, 0, s>>>(c, a, b, m, n, p);
+     }},
+*/
+    // --- cuBLAS SGEMM (reference / vendor-optimized) ---
+    {"cublas",
+     [](float* c, const float* a, const float* b, int m, int n, int p, cudaStream_t s) {
+       // Our layout is row-major: A(m×p), B(p×n), C(m×n).
+       // cuBLAS is column-major, so we compute C^T = B^T · A^T:
+       //   C_cm(n×m) = B_cm(n×p, ld=n) · A_cm(p×m, ld=p)
+       const float alpha = 1.0f, beta = 0.0f;
+       cublasSgemm(gCublas,
+                   CUBLAS_OP_N, CUBLAS_OP_N,
+                   n, m, p,
+                   &alpha,
+                   b, n,   // B interpreted as n×p column-major
+                   a, p,   // A interpreted as p×m column-major
+                   &beta,
+                   c, n);  // C interpreted as n×m column-major
+     }},
   };
 }
 
@@ -150,12 +300,12 @@ struct Options {
 // Square sweep + rectangular + tall/skinny.
 static std::vector<Config> defaultSizes() {
   return {
-    {128,128,128},
-    {256,256,256},
+    // {128,128,128},
+    // {256,256,256},
     {512,512,512},
     {1024,1024,1024},
     {2048,2048,2048},
-    // SLOWER TO BENCHMARK, dont do 50 iters etc?: {4096,4096,4096},
+    {4096,4096,4096},
     // SLOWER TO BENCHMARK: {8192,8192,8192},
     // Rectangular
     {1024,2048,512},
@@ -278,6 +428,20 @@ int main(int argc, char** argv) {
 
   GpuTimer timer;
   cudaStream_t stream = 0;
+
+  // cuBLAS handle.
+  {
+    cublasStatus_t st = cublasCreate(&gCublas);
+    if (st != CUBLAS_STATUS_SUCCESS) {
+      fprintf(stderr, "cublasCreate failed: %d\n", (int)st);
+      return 1;
+    }
+    st = cublasSetStream(gCublas, stream);
+    if (st != CUBLAS_STATUS_SUCCESS) {
+      fprintf(stderr, "cublasSetStream failed: %d\n", (int)st);
+      return 1;
+    }
+  }
 
   if (::mkdir(o.outDir.c_str(), 0755) != 0 && errno != EEXIST) {
     fprintf(stderr, "cannot create output dir '%s': %s\n",
@@ -405,6 +569,7 @@ int main(int argc, char** argv) {
 
   samples.close(); corr.close(); meta.close();
   if (flushBuf) CUDA_CHECK(cudaFree(flushBuf));
+  if (gCublas) cublasDestroy(gCublas);
 
   printf("done: %ld samples written to %s/{samples,correctness,meta}.csv\n",
          total_samples, o.outDir.c_str());

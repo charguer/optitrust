@@ -3,7 +3,7 @@
 A reproducible harness to compare multiple GPU reduction kernels against a
 CPU reference across representative input sizes.
 
-Target: **CUDA 13.2**, **Blackwell** (RTX PRO 6000, `sm_120`).
+Target: **CUDA 13.5**, **Blackwell** (RTX PRO 6000, `sm_120`).
 
 ## Build & run
 
@@ -30,7 +30,7 @@ For each N (total elements) and each random draw:
     2^18  =  256K   (  1 MB)
     2^20  =    1M   (  4 MB)
     2^22  =    4M   ( 16 MB)
-    2^24  =   16M   ( 64 MB)   ← your current test size
+    2^24  =   16M   ( 64 MB)
     2^26  =   64M   (256 MB)
     2^28  =  256M   (  1 GB)
     2^30  =    1G   (  4 GB)

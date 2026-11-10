@@ -37,58 +37,90 @@
 // ===========================================================================
 // Kernel registry
 // ===========================================================================
-// Each entry describes one GPU implementation to benchmark.
-// All kernels share the signature:
-//   __global__ void kernel(float* partial_sums, const float* arr, int N)
-//   launched as: kernel<<<N/512, 256, SMEM>>>(d_partial, d_arr, N)
+// Each kernel may have its own grid, block size, and shared-memory size.
+// The harness allocates the largest partial-sum buffer needed and sums
+// exactly ks->grid(N) partials per kernel.
+#define RB 512   // shared block size for reduce0..reduce6
+
 struct KernelSpec {
   const char* name;
-  // The launch lambda encapsulates the <<<>>> syntax so the driver
-  // stays kernel-agnostic.
+  std::function<int(int)> grid;   // number of blocks == number of partial sums
+  int block;
+  int smem;
+  // uniform entry point; each lambda internally uses the kernel's OWN arg order
   std::function<void(float*, const float*, int, cudaStream_t)> launch;
 };
 
+// grid-stride clamp for reduce6
+static int rsClampGrid(int N) {
+  static int maxb = -1;
+  if (maxb < 0) {
+    cudaDeviceProp p;
+    cudaGetDeviceProperties(&p, 0);
+    int bpsm = 0;
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &bpsm, (const void*)reduce6<float, RB, true>, RB, RB * sizeof(float));
+    if (bpsm < 1) bpsm = 4;
+    maxb = p.multiProcessorCount * bpsm;
+  }
+  int full = (N + 2 * RB - 1) / (2 * RB);
+  return full < maxb ? full : maxb;
+}
+
 static std::vector<KernelSpec> allKernels() {
-  auto grid = [](int N) { return N / (REDUCE_TPB * REDUCE_EPT); };
-
   return {
-    // --- OptiGPU generated ---
-    {"OptiGPU",
-     [grid](float* ps, const float* arr, int N, cudaStream_t s) {
-       reduceOptiGPU<<<grid(N), REDUCE_TPB, REDUCE_SMEM, s>>>(ps, arr, N);
-     }},
+    // INPUT-first kernels: note the swapped (arr, ps) inside launch.
+    {"reduce0", [](int N){ return (N + RB - 1) / RB; }, RB, RB*sizeof(float),
+     [](float* ps, const float* a, int N, cudaStream_t s){
+       reduce0<float><<< (N+RB-1)/RB, RB, RB*sizeof(float), s >>>
+         (ps, a, N); }},
 
-    {"OptiGPU-simpl",
-      [grid](float* ps, const float* arr, int N, cudaStream_t s) {
-        reduceOptiGPUSimplified<<<grid(N), REDUCE_TPB, REDUCE_SMEM, s>>>(ps, arr, N);
-    }},
+    {"reduce1", [](int N){ return (N + RB - 1) / RB; }, RB, RB*sizeof(float),
+     [](float* ps, const float* a, int N, cudaStream_t s){
+       reduce1<float><<< (N+RB-1)/RB, RB, RB*sizeof(float), s >>>
+         (ps, a, N); }},
 
-    // --- reference (reduce3) ---
-    {"reduce3",
-     [grid](float* ps, const float* arr, int N, cudaStream_t s) {
-       reduce3<float><<<grid(N), REDUCE_TPB, REDUCE_SMEM, s>>>(ps, arr, N);
-     }},
+    {"reduce2", [](int N){ return (N + RB - 1) / RB; }, RB, RB*sizeof(float),
+     [](float* ps, const float* a, int N, cudaStream_t s){
+       reduce2<float><<< (N+RB-1)/RB, RB, RB*sizeof(float), s >>>
+         (ps, a, N); }},
 
-    // --- best performing (reduce6) ---
-    {"reduce6",
-     [grid](float* ps, const float* arr, int N, cudaStream_t s) {
-       reduce6<float, REDUCE_TPB, true><<<grid(N), REDUCE_TPB, REDUCE_SMEM, s>>>(ps, arr, N);
-     }},
+    // OUTPUT-first
+    {"reduce3", [](int N){ return (N + 2*RB - 1) / (2*RB); }, RB, RB*sizeof(float),
+     [](float* ps, const float* a, int N, cudaStream_t s){
+       reduce3<float><<< (N+2*RB-1)/(2*RB), RB, RB*sizeof(float), s >>>
+         (ps, a, N); }},
 
-    // --- best performing (reduce6) ---
-    {"qwen",
-     [grid](float* ps, const float* arr, int N, cudaStream_t s) {
-       reduceQwen<<<grid(N), REDUCE_TPB, REDUCE_SMEM, s>>>(ps, arr, N);
-     }},
+    // INPUT-first; blockSize == block
+    {"reduce4", [](int N){ return (N + 2*RB - 1) / (2*RB); }, RB, RB*sizeof(float),
+     [](float* ps, const float* a, int N, cudaStream_t s){
+       reduce4<float, RB><<< (N+2*RB-1)/(2*RB), RB, RB*sizeof(float), s >>>
+         (ps, a, N); }},
 
-    // =========================================================================
-    // ADD MORE KERNELS HERE.  One entry per kernel.  Example:
-    //
-    // {"mykernel",
-    //  [grid](float* ps, const float* arr, int N, cudaStream_t s) {
-    //    myKernel<<<grid(N), REDUCE_TPB, REDUCE_SMEM, s>>>(ps, arr, N);
-    //  }},
-    // =========================================================================
+    {"reduce5", [](int N){ return (N + 2*RB - 1) / (2*RB); }, RB, RB*sizeof(float),
+     [](float* ps, const float* a, int N, cudaStream_t s){
+       reduce5<float, RB><<< (N+2*RB-1)/(2*RB), RB, RB*sizeof(float), s >>>
+         (ps, a, N); }},
+
+    // grid-stride: clamped grid, output-first
+    {"reduce6", rsClampGrid, RB, RB*sizeof(float),
+     [](float* ps, const float* a, int N, cudaStream_t s){
+       reduce6<float, RB, true><<< rsClampGrid(N), RB, RB*sizeof(float), s >>>
+         (ps, a, N); }},
+
+    // OptiGPU family + Qwen (output-first, 256 threads, 1 KB smem)
+    {"OptiGPU", [](int N){ return N/512; }, 256, 1024,
+     [](float* ps, const float* a, int N, cudaStream_t s){
+       reduceOptiGPU<<< N/512, 256, 1024, s >>> (ps, a, N); }},
+    {"OptiGPU-simpl", [](int N){ return N/512; }, 256, 1024,
+     [](float* ps, const float* a, int N, cudaStream_t s){
+       reduceOptiGPUSimplified<<< N/512, 256, 1024, s >>> (ps, a, N); }},
+    {"OptiGPU-simpl-mysum", [](int N){ return N/512; }, 256, 1024,
+     [](float* ps, const float* a, int N, cudaStream_t s){
+       reduceOptiGPUMySum<<< N/512, 256, 1024, s >>> (ps, a, N); }},
+    {"qwen", [](int N){ return N/512; }, 256, 1024,
+     [](float* ps, const float* a, int N, cudaStream_t s){
+       reduceQwen<<< N/512, 256, 1024, s >>> (ps, a, N); }},
   };
 }
 
@@ -129,15 +161,15 @@ struct Options {
   int  warmup  = 5;
   long baseSeed = 0;
   bool l2flush = true;
-  double tol  = 1e-3;  // relative tolerance for sum comparison
+  double tol  = 1e-3;
   std::string outDir = "results";
-  std::string impl = "all";  // "all" or comma-separated kernel names
+  std::string impl = "all";
   std::vector<Config> sizes;
   bool hasExplicitSizes = false;
 };
 
 static std::vector<Config> defaultSizes() {
-  // Powers of 2, all multiples of 512 (256 threads × 2 elements).
+  // Powers of 2, all multiples of 512 (required by OptiGPU/Qwen kernels).
   return {
     {262144},    // 2^18  =  256K  (  1 MB)
     {1048576},   // 2^20  =    1M  (  4 MB)
@@ -145,7 +177,6 @@ static std::vector<Config> defaultSizes() {
     {16777216},  // 2^24  =   16M  ( 64 MB)
     {67108864},  // 2^26  =   64M  (256 MB)
     {268435456}, // 2^28  =  256M  (  1 GB)
-    {1073741824} // 2^30  =    1G  (  4 GB)
   };
 }
 
@@ -174,9 +205,8 @@ static void parseArgs(int argc, char** argv, Options& o) {
                               ? list.substr(start)
                               : list.substr(start, c - start);
         int N = std::stoi(tok);
-        if (N % (REDUCE_TPB * REDUCE_EPT) != 0) {
-          fprintf(stderr, "N=%d not a multiple of %d\n",
-                  N, REDUCE_TPB * REDUCE_EPT);
+        if (N % 512 != 0) {
+          fprintf(stderr, "N=%d not a multiple of 512\n", N);
           exit(2);
         }
         o.sizes.push_back({N});
@@ -281,9 +311,6 @@ int main(int argc, char** argv) {
        << "l2_cache_bytes," << prop.l2CacheSize << "\n"
        << "sm_count," << prop.multiProcessorCount << "\n"
        << "cuda_runtime," << cudartStr << "\n"
-       << "threads_per_block," << REDUCE_TPB << "\n"
-       << "elements_per_thread," << REDUCE_EPT << "\n"
-       << "shared_mem_bytes," << REDUCE_SMEM << "\n"
        << "iters," << o.iters << "\n"
        << "draws," << o.draws << "\n"
        << "warmup," << o.warmup << "\n"
@@ -296,9 +323,13 @@ int main(int argc, char** argv) {
 
   for (const Config& cfg : o.sizes) {
     const int N = cfg.N;
-    const int num_blocks = N / (REDUCE_TPB * REDUCE_EPT);
     printf("[size %02d] N=%d  (%.1f MB)\n", size_id, N,
            (double)N * sizeof(float) / (1024.0 * 1024.0));
+
+    // Largest partial-sum buffer any active kernel needs for this N.
+    int num_blocks_max = 0;
+    for (const KernelSpec* k : active)
+      num_blocks_max = std::max(num_blocks_max, k->grid(N));
 
     for (int draw = 0; draw < o.draws; ++draw) {
       std::mt19937 rng((unsigned)(o.baseSeed + draw));
@@ -308,32 +339,31 @@ int main(int argc, char** argv) {
       std::generate(hA.begin(), hA.end(), [&] { return dist(rng); });
 
       float *dA = nullptr, *dPartial = nullptr;
-      CUDA_CHECK(cudaMalloc(&dA, N * sizeof(float)));
-      CUDA_CHECK(cudaMalloc(&dPartial, num_blocks * sizeof(float)));
-      CUDA_CHECK(cudaMemcpy(dA, hA.data(), N * sizeof(float),
+      CUDA_CHECK(cudaMalloc(&dA, (size_t)N * sizeof(float)));
+      CUDA_CHECK(cudaMalloc(&dPartial, (size_t)num_blocks_max * sizeof(float)));
+      CUDA_CHECK(cudaMemcpy(dA, hA.data(), (size_t)N * sizeof(float),
                             cudaMemcpyHostToDevice));
 
       // CPU reference sum (correctness only).
       float ref_sum = reduceRef(hA.data(), N);
 
-      // Bandwidth: read N floats + write num_blocks partial sums.
-      const double bytes = (N + num_blocks) * sizeof(float);
-
       // ---- iterate over all active kernels ----
       for (const KernelSpec* ks : active) {
         auto launch = ks->launch;
+        int nb = ks->grid(N);
+        double bytes = ((double)N + nb) * sizeof(float);
 
-        // Correctness: one run, compare final sum to CPU reference.
+        // Correctness: one run, sum exactly this kernel's partials.
         launch(dPartial, dA, N, stream);
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaStreamSynchronize(stream));
 
-        std::vector<float> hPartial(num_blocks);
+        std::vector<float> hPartial(nb);
         CUDA_CHECK(cudaMemcpy(hPartial.data(), dPartial,
-                              num_blocks * sizeof(float),
+                              (size_t)nb * sizeof(float),
                               cudaMemcpyDeviceToHost));
         float gpu_sum = 0.f;
-        for (int b = 0; b < num_blocks; ++b) gpu_sum += hPartial[b];
+        for (int b = 0; b < nb; ++b) gpu_sum += hPartial[b];
 
         double rel_err = 0.0;
         if (std::fabs(ref_sum) > 1e-30)

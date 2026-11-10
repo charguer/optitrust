@@ -4,7 +4,18 @@ figures, and a similar-vs-different verdict.
 
 Reads:  samples.csv, correctness.csv, meta.csv   (in the results dir)
 Writes: summary.csv, speedup.csv, verdict.txt,
-        speedup.{pdf,png}, bandwidth.{pdf,png}
+        speedup.{pdf,png}, bandwidth.{pdf,png},
+        focused_speedup.{pdf,png}, focused_runtime.{pdf,png},
+        focused_bandwidth.{pdf,png}
+
+Method: per-pair median of base_time/other_time, with a bootstrap CI
+(distribution-free, no normality assumption). Verdict is SIMILAR if the
+CI includes 1.0, DIFFERENT otherwise. Geometric-mean speedup across all
+sizes uses a shape-level bootstrap.
+
+All-kernels figures use median lines. The focused figures compare one
+kernel (focus) against the baseline: speedup as a CI errorbar, runtime
+and bandwidth as grouped box plots. Each is a separate file.
 
 Dependency: numpy required; scipy and matplotlib optional.
 """
@@ -17,7 +28,7 @@ from collections import defaultdict
 
 import numpy as np
 
-BASELINE = "reduce3"  # kernel that speedups are measured against
+BASELINE = "reduce3"
 
 
 def load_samples(path):
@@ -40,6 +51,8 @@ def gbps_arr(g, N, impl):
 
 
 def paired_ratios(g, N, base, other):
+    """Per (draw, sample) ratio base_time / other_time.
+    >1 means other is faster; <1 means base is faster."""
     a = g.get((N, base), {})
     b = g.get((N, other), {})
     common = sorted(set(a) & set(b))
@@ -49,6 +62,7 @@ def paired_ratios(g, N, base, other):
 
 
 def bootstrap_ci(x, stat=np.median, n_boot=2000, ci=0.95, seed=0):
+    """Bootstrap CI on stat(x). Distribution-free (no normality assumption)."""
     x = np.asarray(x, dtype=float)
     if len(x) == 0:
         return (np.nan, np.nan, np.nan)
@@ -63,6 +77,8 @@ def bootstrap_ci(x, stat=np.median, n_boot=2000, ci=0.95, seed=0):
 
 
 def geomean_speedup(g, sizes, base, other, ci=0.95, seed=0):
+    """Geometric mean of per-size median speedups, with a shape-bootstrap CI.
+    Distribution-free: resamples shapes, recomputes geomean each time."""
     per_size = []
     for N in sizes:
         r = paired_ratios(g, N, base, other)
@@ -80,24 +96,27 @@ def geomean_speedup(g, sizes, base, other, ci=0.95, seed=0):
     return (point, np.percentile(boots, 100 * lo), np.percentile(boots, 100 * hi))
 
 
-def paired_pvalue(g, N, base, other):
-    a = g.get((N, base), {})
-    b = g.get((N, other), {})
-    common = sorted(set(a) & set(b))
-    if len(common) < 8:
-        return float("nan")
-    try:
-        from scipy.stats import wilcoxon
-        return wilcoxon([a[ds][0] for ds in common],
-                        [b[ds][0] for ds in common]).pvalue
-    except Exception:
-        return float("nan")
+def set_log2_ticks(ax, sizes):
+    """Set x-axis ticks at log2(N) and label each as 2^k."""
+    ticks = sorted(math.log2(n) for n in sizes)
+    labels = [f"2^{int(k)}" for k in ticks]
+    ax.set_xticks(ticks)
+    ax.set_xticklabels(labels)
+
+
+def size_labels(sizes):
+    """2^k labels for each size, in order (for box-plot x positions)."""
+    return [f"2^{int(math.log2(n))}" for n in sizes]
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", default="results")
-    ap.add_argument("--ci", type=float, default=0.95)
+    ap.add_argument("--ci", type=float, default=0.95,
+                    help="confidence level for bootstrap CI (default 0.95)")
+    ap.add_argument("--focus", default="OptiGPU-simpl-mysum",
+                    help="kernel to highlight in the focused figures "
+                         "(default: OptiGPU-simpl-mysum); pass 'none' to skip")
     args = ap.parse_args()
 
     g = load_samples(os.path.join(args.dir, "samples.csv"))
@@ -147,27 +166,24 @@ def main():
             if len(r) == 0:
                 continue
             est, lo, hi = bootstrap_ci(r, np.median, ci=args.ci)
-            p = paired_pvalue(g, N, base, impl)
-            verdict = "SIMILAR"
-            if (lo > 1.0 or hi < 1.0) or (p != float("nan") and p < (1 - args.ci)):
-                verdict = "DIFFERENT"
+            verdict = "SIMILAR" if (lo <= 1.0 <= hi) else "DIFFERENT"
             speedup_rows.append(dict(
                 N=N, baseline=base, impl=impl,
                 med_us_base=float(np.median(times(g, N, base))),
                 med_us_impl=float(np.median(times(g, N, impl))),
                 med_gbps_impl=float(np.median(gbps_arr(g, N, impl))),
                 med_speedup=est, ci_lo=lo, ci_hi=hi,
-                p=p, verdict=verdict))
+                verdict=verdict))
 
     with open(os.path.join(args.dir, "speedup.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["N", "baseline", "impl", "med_us_baseline",
                     "med_us_impl", "med_gbps_impl", "med_speedup",
-                    "speedup_ci_lo", "speedup_ci_hi", "p", "verdict"])
+                    "speedup_ci_lo", "speedup_ci_hi", "verdict"])
         for r in speedup_rows:
             w.writerow([r["N"], r["baseline"], r["impl"],
                         r["med_us_base"], r["med_us_impl"], r["med_gbps_impl"],
-                        r["med_speedup"], r["ci_lo"], r["ci_hi"], r["p"],
+                        r["med_speedup"], r["ci_lo"], r["ci_hi"],
                         r["verdict"]])
 
     # ---- verdict.txt ----
@@ -179,32 +195,40 @@ def main():
             geom[impl] = geomean_speedup(g, sizes, base, impl, ci=args.ci)
 
         with open(os.path.join(args.dir, "verdict.txt"), "w") as f:
-            f.write(f"Device: {meta.get('device','?')} "
-                    f"({meta.get('compute_capability','?')})\n"
-                    f"Baseline: {base}\n"
-                    f"All correctness checks passed: {all_ok}\n\n")
+            f.write(f"Device: {meta.get('device', '?')} "
+                    f"({meta.get('compute_capability', '?')})\n")
+            f.write(f"Baseline: {base}\n")
+            f.write(f"All correctness checks passed: {all_ok}\n")
+            f.write(f"Criterion: bootstrap CI ({100*args.ci:.0f}%) on "
+                    f"paired median ratio; SIMILAR iff CI includes 1.0\n\n")
             for impl in impls:
                 if impl == base:
                     continue
                 gm, glo, ghi = geom[impl]
-                f.write(f"Geometric-mean speedup of '{impl}' over '{base}': "
-                        f"{gm:.3f} ({100*args.ci:.0f}% CI {glo:.3f}..{ghi:.3f})\n")
+                verdict = "SIMILAR" if (glo <= 1.0 <= ghi) else "DIFFERENT"
+                f.write(f"Geomean speedup '{impl}' vs '{base}': "
+                        f"{gm:.3f} ({100*args.ci:.0f}% CI {glo:.3f}..{ghi:.3f}) "
+                        f"-> {verdict}\n")
             f.write("\n")
-            f.write(f"{'N':>12} {'base_us':>10} {'impl_us':>10} "
-                    f"{'speedup':>8} {'CI':>16} {'p':>7}  verdict\n")
+            hdr = (f"{'N':>10} {'impl':>18} {'med_us':>10} "
+                   f"{'speedup':>8} {'CI':>16}  {'verdict':>9}")
+            f.write(hdr + "\n")
+            f.write("-" * len(hdr) + "\n")
             for r in speedup_rows:
-                f.write(f"{r['N']:>12} {r['med_us_base']:>10.2f} "
-                        f"{r['med_us_impl']:>10.2f} {r['med_speedup']:>8.3f} "
-                        f"{f'({r['ci_lo']:.3f},{r['ci_hi']:.3f})':>16} "
-                        f"{r['p']:>7.4f}  {r['verdict']}\n")
+                f.write(f"{r['N']:>10} {r['impl']:>18} "
+                        f"{r['med_us_impl']:>10.2f} "
+                        f"{r['med_speedup']:>8.3f} "
+                        f"({r['ci_lo']:.3f},{r['ci_hi']:.3f})"
+                        f"  {r['verdict']:>9}\n")
 
         print(f"Baseline: {base}   all_ok: {all_ok}")
         for impl in impls:
             if impl == base:
                 continue
             gm, glo, ghi = geom[impl]
+            verdict = "SIMILAR" if (glo <= 1.0 <= ghi) else "DIFFERENT"
             print(f"  geomean speedup {impl} vs {base}: "
-                  f"{gm:.3f} ({glo:.3f}..{ghi:.3f})")
+                  f"{gm:.3f} ({glo:.3f}..{ghi:.3f}) -> {verdict}")
 
     # ---- figures ----
     try:
@@ -212,7 +236,7 @@ def main():
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
-        # (A) speedup vs N
+        # (A) speedup vs N (median ratio + bootstrap CI, errorbar)
         fig, ax = plt.subplots(figsize=(8, 5))
         for impl in impls:
             if impl == base:
@@ -221,7 +245,7 @@ def main():
             for r in speedup_rows:
                 if r["impl"] != impl:
                     continue
-                xs.append(math.log10(r["N"]))
+                xs.append(math.log2(r["N"]))
                 ys.append(r["med_speedup"])
                 los.append(r["med_speedup"] - r["ci_lo"])
                 his.append(r["ci_hi"] - r["med_speedup"])
@@ -229,36 +253,133 @@ def main():
                 ax.errorbar(xs, ys, yerr=[los, his], fmt="o-",
                            capsize=4, label=impl)
         ax.axhline(1.0, color="grey", ls="--", lw=1, label="no difference")
-        ax.set_yscale("log")
-        ax.set_xlabel("log10(N)")
-        ax.set_ylabel(f"speedup vs {base} (×, log)")
-        ax.set_title("Reduction: median speedup vs problem size")
+        ax.set_xlabel("log2(N)")
+        ax.set_ylabel(f"speedup vs {base}")
+        ax.set_title("Reduction: median speedup per size (paired, bootstrap CI)")
+        set_log2_ticks(ax, sizes)
         ax.legend()
         fig.tight_layout()
         for ext in ("pdf", "png"):
             fig.savefig(os.path.join(args.dir, f"speedup.{ext}"), dpi=150)
         plt.close(fig)
 
-        # (B) bandwidth vs N
+        # (B) bandwidth vs N (median lines)
         fig, ax = plt.subplots(figsize=(8, 5))
         for impl in impls:
             xs, ys = [], []
             for N in sizes:
                 b = gbps_arr(g, N, impl)
                 if len(b):
-                    xs.append(math.log10(N))
+                    xs.append(math.log2(N))
                     ys.append(float(np.median(b)))
             if xs:
                 ax.plot(xs, ys, marker="o", label=impl)
-        ax.set_xlabel("log10(N)")
+        ax.set_xlabel("log2(N)")
         ax.set_ylabel("effective bandwidth (GB/s)")
         ax.set_title("Reduction bandwidth vs problem size")
+        set_log2_ticks(ax, sizes)
         ax.grid(alpha=0.3)
         ax.legend()
         fig.tight_layout()
         for ext in ("pdf", "png"):
             fig.savefig(os.path.join(args.dir, f"bandwidth.{ext}"), dpi=150)
         plt.close(fig)
+
+        # (C) Focused figures: one kernel vs baseline, three SEPARATE plots
+        focus = args.focus
+        if focus in impls:
+            import matplotlib.lines as mlines
+
+            n = len(sizes)
+            pos = {N: i + 1 for i, N in enumerate(sizes)}
+            fp = [i - 0.18 for i in range(1, n + 1)]
+            bp = [i + 0.18 for i in range(1, n + 1)]
+
+            legend = [
+                mlines.Line2D([], [], marker="s", color="none",
+                             markerfacecolor="steelblue", label=focus),
+                mlines.Line2D([], [], marker="s", color="none",
+                             markerfacecolor="lightgrey", label=base),
+            ]
+
+            # --- C1: focused speedup (CI errorbar) ---
+            fig, ax = plt.subplots(figsize=(8, 5))
+            xs, ys, los, his = [], [], [], []
+            for r in speedup_rows:
+                if r["impl"] != focus:
+                    continue
+                xs.append(pos[r["N"]])
+                ys.append(r["med_speedup"])
+                los.append(r["med_speedup"] - r["ci_lo"])
+                his.append(r["ci_hi"] - r["med_speedup"])
+            if xs:
+                ax.errorbar(xs, ys, yerr=[los, his], fmt="o-", capsize=4,
+                           color="steelblue", label=focus)
+            ax.axhline(1.0, color="grey", ls="--", lw=1, label="no difference")
+            ax.set_xticks(range(1, n + 1))
+            ax.set_xticklabels(size_labels(sizes), rotation=45, fontsize=9)
+            ax.set_xlabel("size")
+            ax.set_ylabel(f"speedup vs {base}")
+            ax.set_title(f"{focus} vs {base}: median speedup (bootstrap CI)")
+            ax.legend(loc="upper right")
+            fig.tight_layout()
+            for ext in ("pdf", "png"):
+                fig.savefig(os.path.join(args.dir, f"focused_speedup.{ext}"),
+                            dpi=150)
+            plt.close(fig)
+
+            # --- C2: focused runtime (grouped box plots) ---
+            fig, ax = plt.subplots(figsize=(8, 5))
+            fdata = [times(g, N, focus) for N in sizes if len(times(g, N, focus))]
+            bdata = [times(g, N, base) for N in sizes if len(times(g, N, base))]
+            if fdata:
+                ax.boxplot(fdata, positions=fp, widths=0.34,
+                          patch_artist=True, showfliers=True,
+                          flierprops=dict(marker=".", ms=2, alpha=0.4))
+                ax.boxplot(bdata, positions=bp, widths=0.34,
+                          patch_artist=True, showfliers=True,
+                          flierprops=dict(marker=".", ms=2, alpha=0.4),
+                          medianprops=dict(color="black"))
+                ax.set_xticks(range(1, n + 1))
+                ax.set_xticklabels(size_labels(sizes), rotation=45, fontsize=9)
+                ax.legend(handles=legend, loc="upper right")
+            ax.set_xlabel("size")
+            ax.set_ylabel("runtime (µs)")
+            ax.set_title(f"{focus} vs {base}: runtime (box plot)")
+            fig.tight_layout()
+            for ext in ("pdf", "png"):
+                fig.savefig(os.path.join(args.dir, f"focused_runtime.{ext}"),
+                            dpi=150)
+            plt.close(fig)
+
+            # --- C3: focused bandwidth (grouped box plots) ---
+            fig, ax = plt.subplots(figsize=(8, 5))
+            fdata = [gbps_arr(g, N, focus) for N in sizes
+                     if len(gbps_arr(g, N, focus))]
+            bdata = [gbps_arr(g, N, base) for N in sizes
+                     if len(gbps_arr(g, N, base))]
+            if fdata:
+                ax.boxplot(fdata, positions=fp, widths=0.34,
+                          patch_artist=True, showfliers=True,
+                          flierprops=dict(marker=".", ms=2, alpha=0.4))
+                ax.boxplot(bdata, positions=bp, widths=0.34,
+                          patch_artist=True, showfliers=True,
+                          flierprops=dict(marker=".", ms=2, alpha=0.4),
+                          medianprops=dict(color="black"))
+                ax.set_xticks(range(1, n + 1))
+                ax.set_xticklabels(size_labels(sizes), rotation=45, fontsize=9)
+                ax.legend(handles=legend, loc="upper right")
+            ax.set_xlabel("size")
+            ax.set_ylabel("bandwidth (GB/s)")
+            ax.set_title(f"{focus} vs {base}: bandwidth (box plot)")
+            fig.tight_layout()
+            for ext in ("pdf", "png"):
+                fig.savefig(os.path.join(args.dir, f"focused_bandwidth.{ext}"),
+                            dpi=150)
+            plt.close(fig)
+
+            print("wrote focused_speedup/runtime/bandwidth.{pdf,png}")
+
         print("wrote speedup.{pdf,png}, bandwidth.{pdf,png}")
     except Exception as e:
         print(f"(skipped figures: {e})")

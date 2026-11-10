@@ -32,6 +32,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <cublas_v2.h>
+// cuBLAS handle (single device, created once in main()).
+static cublasHandle_t gCublas = nullptr;
+
 // ===========================================================================
 // Kernel registry
 // ===========================================================================
@@ -85,17 +89,26 @@ static std::vector<KernelSpec> allKernels() {
        transposeOptiTrustSimplified<<<grid, block, sizeof(float) * (32 * 32), s>>>(A, B, H, W);
      }},
 
-    // =========================================================================
-    // ADD MORE KERNELS HERE.  One entry per kernel.  Example:
-    //
-    // {"vectorized",
-    //  [](const float* A, float* B, int H, int W, cudaStream_t s) {
-    //    dim3 grid((W + 255) / 256, (H + 1) / 2); // adjust to your layout
-    //    dim3 block(256, 1);
-    //    transposeVectorized<<<grid, block, 0, s>>>(A, B, H, W);
-    //  }},
-    // =========================================================================
-  };
+    {"OptiTrust-noconflicts",
+     [](const float* A, float* B, int H, int W, cudaStream_t s) {
+       dim3 grid = (H / TILE_DIM) * (W / TILE_DIM);
+       dim3 block(BLOCK_ROWS * TILE_DIM);
+       transposeOptiTrustSimplifiedNoConflicts<<<grid, block, sizeof(float) * (32 * 33), s>>>(A, B, H, W);
+     }},
+
+    {"cublas",
+     [](const float* A, float* B, int H, int W, cudaStream_t s) {
+      float alpha = 1.0f, beta = 0.0f;
+
+      // A is stored W×H in column-major (it's H×W row-major).
+      // We want op(A) = Aᵀ, which gives H×W = m×n.
+      // B is not accessed (beta = 0); we point it at dB harmlessly.
+      cublasSgeam(gCublas,
+          alpha, A, /*lda=*/W, CUBLAS_OP_T,
+          beta,  B, /*ldb=*/H, CUBLAS_OP_N,
+          B,   /*ldc=*/H,
+          /*m=*/H, /*n=*/W);
+    }};
 }
 
 // ===========================================================================
@@ -137,8 +150,11 @@ struct Options {
 
 static std::vector<Config> defaultSizes() {
   return {
-    {512,512},{1024,1024},{2048,2048},{4096,4096},{8192,8192},{16384,16384},
-    {256,2048},{2048,256},{1024,4096},{4096,1024},{256,8192},{8192,256}
+    {512,512},{1024,1024},{2048,2048},{4096,4096},
+    // {8192,8192},
+    // {16384,16384},
+    {256,2048},{2048,256},{1024,4096},{4096,1024},
+    // {256,8192},{8192,256}
   };
 }
 
@@ -256,6 +272,21 @@ int main(int argc, char** argv) {
   GpuTimer timer;
   cudaStream_t stream = 0;
 
+  // cuBLAS handle.
+  {
+    cublasStatus_t st = cublasCreate(&gCublas);
+    if (st != CUBLAS_STATUS_SUCCESS) {
+      fprintf(stderr, "cublasCreate failed: %d\n", (int)st);
+      return 1;
+    }
+    st = cublasSetStream(gCublas, stream);
+    if (st != CUBLAS_STATUS_SUCCESS) {
+      fprintf(stderr, "cublasSetStream failed: %d\n", (int)st);
+      return 1;
+    }
+  }
+
+
   if (::mkdir(o.outDir.c_str(), 0755) != 0 && errno != EEXIST) {
     fprintf(stderr, "cannot create output dir '%s': %s\n",
             o.outDir.c_str(), strerror(errno));
@@ -370,6 +401,7 @@ int main(int argc, char** argv) {
 
   samples.close(); corr.close(); meta.close();
   if (flushBuf) CUDA_CHECK(cudaFree(flushBuf));
+  if (gCublas) cublasDestroy(gCublas);
 
   printf("done: %ld samples written to %s/{samples,correctness,meta}.csv\n",
          total_samples, o.outDir.c_str());
