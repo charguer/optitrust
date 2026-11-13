@@ -4,6 +4,7 @@
 
 # Local backup results
 local-results-*
+optitrust_gpu_cuda.cuh
 
 # Derived / processed outputs (regenerate via `make analyze`)
 summary.csv
