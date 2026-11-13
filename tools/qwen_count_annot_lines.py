@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-count_special_lines.py — Count lines in C/C++ files with four sub-counts:
+qwen_count_annot_lines.py — Count lines in C/C++ files with four sub-counts:
 
-  1. "special"   : lines part of a __-prefixed function call with at least
+  1. "annot"   : lines part of a __-prefixed function call with at least
                    one string-literal argument (may span multiple lines),
                    or __GHOST_END(...) calls (no string required), or
                    const __ghost_fn <name> = __ghost_begin(...);
@@ -11,10 +11,10 @@ count_special_lines.py — Count lines in C/C++ files with four sub-counts:
   4. "remaining" : everything else
 
 Categories are mutually exclusive.
-Priority: special > include > whitespace > remaining.
+Priority: annot > include > whitespace > remaining.
 
 Usage:
-    python3 count_special_lines.py file1.c file2.cpp [more files ...]
+    python3 qwen_count_annot_lines.py file1.c file2.cpp [more files ...]
 """
 
 import sys
@@ -115,7 +115,7 @@ def line_of(line_starts, pos):
 def match_underscore_calls(code, line_starts):
     """
     Find identifiers starting with `__` immediately followed by a
-    parenthesised argument list.  A call is flagged as special if:
+    parenthesised argument list.  A call is flagged as annot if:
       • it contains at least one double-quoted string literal, OR
       • the identifier is exactly `__GHOST_END`.
     Returns the set of 0-based line indices covered.
@@ -166,8 +166,8 @@ def match_underscore_calls(code, line_starts):
             m += 1
 
         if depth == 0:
-            is_special = has_str or func_name == '__GHOST_END'
-            if is_special:
+            is_annot = has_str or func_name == '__GHOST_END'
+            if is_annot:
                 start_ln = line_of(line_starts, i)
                 end_ln = line_of(line_starts, m)
                 matched.update(range(start_ln, end_ln + 1))
@@ -262,37 +262,37 @@ def process_file(path, verbose=False):
     stripped_lines = stripped.split('\n')
 
     # detect each category
-    special = set()
-    special |= match_ghost_fn_declarations(stripped, line_starts)
-    special |= match_underscore_calls(stripped, line_starts)
+    annot = set()
+    annot |= match_ghost_fn_declarations(stripped, line_starts)
+    annot |= match_underscore_calls(stripped, line_starts)
 
     includes = match_include_lines(stripped, line_starts)
     whitespace = match_whitespace_lines(stripped_lines)
 
-    # enforce mutual exclusivity: special > include > whitespace
-    includes -= special
-    whitespace -= special
+    # enforce mutual exclusivity: annot > include > whitespace
+    includes -= annot
+    whitespace -= annot
     whitespace -= includes
 
     # clamp to valid range
-    special = {ln for ln in special if ln < total}
+    annot = {ln for ln in annot if ln < total}
     includes = {ln for ln in includes if ln < total}
     whitespace = {ln for ln in whitespace if ln < total}
 
-    special_count = len(special)
+    annot_count = len(annot)
     include_count = len(includes)
     whitespace_count = len(whitespace)
-    remaining_count = total - special_count - include_count - whitespace_count
+    remaining_count = total - annot_count - include_count - whitespace_count
 
     if verbose:
         for ln in sorted(includes):
             print(f'    {ln + 1:5d}  [include]    {raw_lines[ln]}')
         for ln in sorted(whitespace):
             print(f'    {ln + 1:5d}  [whitespace] (no code)')
-        for ln in sorted(special):
-            print(f'    {ln + 1:5d}  [special]    {raw_lines[ln]}')
+        for ln in sorted(annot):
+            print(f'    {ln + 1:5d}  [annot]    {raw_lines[ln]}')
 
-    return total, special_count, include_count, whitespace_count, remaining_count
+    return total, annot_count, include_count, whitespace_count, remaining_count
 
 
 # ─────────────────────────────────────────────
@@ -300,7 +300,7 @@ def process_file(path, verbose=False):
 # ─────────────────────────────────────────────
 def main():
     ap = argparse.ArgumentParser(
-        description='Count C/C++ lines by category: special, include, '
+        description='Count C/C++ lines by category: annot, include, '
                     'whitespace, remaining.'
     )
     ap.add_argument('files', nargs='+', metavar='FILE',
@@ -309,25 +309,25 @@ def main():
                     help='print the matching lines')
     args = ap.parse_args()
 
-    tot_all = tot_special = tot_include = tot_ws = tot_remaining = 0
+    tot_all = tot_annot = tot_include = tot_ws = tot_remaining = 0
 
     for path in args.files:
         try:
-            total, special, includes, ws, remaining = process_file(
+            total, annot, includes, ws, remaining = process_file(
                 path, args.verbose)
         except OSError as e:
             print(f'error: {e}', file=sys.stderr)
             continue
 
         tot_all += total
-        tot_special += special
+        tot_annot += annot
         tot_include += includes
         tot_ws += ws
         tot_remaining += remaining
 
         print(f'{path}')
         print(f'  total lines        : {total}')
-        print(f'  special lines      : {special}')
+        print(f'  annot lines      : {annot}')
         print(f'  include lines      : {includes}')
         print(f'  whitespace lines   : {ws}')
         print(f'  remaining lines    : {remaining}')
@@ -335,7 +335,7 @@ def main():
 
     print(f'{"=" * 40}')
     print(f'TOTAL  lines     : {tot_all}')
-    print(f'  special        : {tot_special}')
+    print(f'  annot        : {tot_annot}')
     print(f'  include        : {tot_include}')
     print(f'  whitespace     : {tot_ws}')
     print(f'  remaining      : {tot_remaining}')
