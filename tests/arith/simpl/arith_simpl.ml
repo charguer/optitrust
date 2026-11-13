@@ -1,8 +1,9 @@
 open Optitrust
 open Target
 
-(* let _ = Flags.check_validity := true *)
+let _ = Flags.typechecking_mode := Flags.ProofPreserving
 (* let _ = Flags.recompute_resources_between_steps := true *)
+
 
 let _ = Run.script_cpp (fun _ ->
   (* TODO: split this files into one file for each type of simplification *)
@@ -33,8 +34,10 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "re"; dRHS];
   !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "rf"; dRHS];
 
-  !! Arith_basic.(simpl expand_rec) [nbMulti; cWriteVar "eu"; dRHS];
-  !! Arith_basic.(simpl euclidian) [nbMulti; cWriteVar "eu"; dRHS];
+  !! Arith_basic.(simpl (compose [expand_rec; euclidian])) [nbMulti; cWriteVar "eu"; dRHS];
+  (* Broken by the change to rewriteSequenes : A rewrite sequence opacifies the ast inside a sequence. *)
+  (* !! Arith_basic.(simpl expand_rec) [nbMulti; cWriteVar "eu"; dRHS];
+  !! Arith_basic.(simpl euclidian) [nbMulti; cWriteVar "eu"; dRHS]; *)
   !! Arith_basic.(simpl (compose [expand_rec; euclidian; gather_rec])) [nbMulti; cWriteVar "eur"; dRHS];
 
   !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "ci"; dRHS];
@@ -60,13 +63,15 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "f"; dRHS];
 
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "ls"; dRHS];
+  (* Broken transformation : the inside of a loop is never computer with resources. The simplification algorithm asks for "after resources" to make the modification, which do not exist.*)
   !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStop];
   !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStart];
 
   !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "q"; dRHS];
   !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "p"; dRHS];
-  !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "q"; dRHS; cBinop Binop_exact_div]
+  !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "q"; dRHS; cBinop Binop_exact_div];
 
+  !! Sequence.clear_ghost_sequences [];
 )
 
 (* For testing one line, add a line in the source "r = ...;" and use:

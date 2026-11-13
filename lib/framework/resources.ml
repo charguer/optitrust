@@ -8,7 +8,6 @@ let ensure_computed = Trace.recompute_resources
 (* TODO: avoid recomputing all resources for validity checks.
    TODO: required_for_check_at path; for on-demand computation. *)
 let required_for_check () : unit =
-  (* Yanni : should require the ProofPreserving typechecking mode *)
   if Flags.proof_preserving () then ensure_computed ()
 
 let justif_correct (why : string) : unit =
