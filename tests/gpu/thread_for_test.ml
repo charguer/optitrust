@@ -2,7 +2,7 @@ open Optitrust
 open Prelude
 open Target
 
-let _ = Flags.typechecking_mode := Flags.ProofRepairing
+let _ = Flags.typechecking_mode := Flags.ProofPreserving
 let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp (fun _ ->

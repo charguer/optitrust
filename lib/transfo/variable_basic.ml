@@ -1,7 +1,5 @@
 open Prelude
 
-let debug_transfo = true
-
 (** [fold ~at tg]: expects the target [tg] to point at a variable declaration,
       [at] - denotes a target where the folding is done. If empty the folding operation
              is performed on all the ast nodes in the same level as the

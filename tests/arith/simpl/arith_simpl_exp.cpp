@@ -11,7 +11,10 @@ int g(int x) {
 }
 
 int eff(int* p) {
-  __modifies("p ~> Cell");
+  __requires("v: int");
+  __consumes("p ~~> v");
+  __ensures("v2: int");
+  __produces("p ~~> v2");
   return 0;
 }
 
@@ -22,7 +25,10 @@ void simpl_in_depth() {
 }
 
 void reify_with_resources(int* p) {
-  __modifies("p ~> Cell");
+  __requires("v: int");
+  __consumes("p ~~> v");
+  __ensures("v2: int");
+  __produces("p ~~> v2");
   int rei;
   int rej;
   int rek;
@@ -166,7 +172,7 @@ void loop_shift(int x) {
   ls = x;
   for (int ls2 = 2; ls2 < 12; ls2++) {
     __strict();
-    __smodifies("&ls ~> Cell");
+    __smodifies("&ls ~> UninitCell");
     ls = 10;
   }
 }
@@ -215,7 +221,10 @@ void more_ops() {
 }
 
 void impurity(int* p) {
-  __modifies("p ~> Cell");
+  __requires("v: int");
+  __consumes("p ~~> v");
+  __ensures("v2: int");
+  __produces("p ~~> v2");
   int re = 0;
   int rf = 0;
   const int a = 1;
@@ -239,8 +248,7 @@ void alloc() {
   __pure();
   int* const arr = (int*)malloc(MSIZE1(exact_div(1024, 32)) * sizeof(int));
   for (int q = 0; q < exact_div(1024, 32); q++) {
-    __strict();
-    __xwrites("&arr[MINDEX1(exact_div(1024, 32), q)] ~> Cell");
+    __xpreserves("&arr[MINDEX1(exact_div(1024, 32), q)] ~> UninitCell");
     arr[MINDEX1(exact_div(1024, 32), q)] = 0;
   }
   free(arr);
