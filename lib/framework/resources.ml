@@ -500,9 +500,10 @@ let detach_loop_ro_focus_on (t: trm): trm =
 
 (** [detach_loop_ro_focus tg] transforms all the ressources that are in a reads clause (xreads) into a resource in a par_read (sreads) clause with a focus around the loop body. *)
 let%transfo detach_loop_ro_focus (tg: target): unit =
-  Target.apply_at_target_paths detach_loop_ro_focus_on tg
+  Nobrace_transfo.remove_after (fun () ->
+   Target.apply_at_target_paths detach_loop_ro_focus_on tg)
 
-let ghost_desync_ro_focus = toplevel_var "desync_ro_focus"
+(* let ghost_desync_ro_focus = toplevel_var "desync_ro_focus" *)
 let ghost_desyncro_to_ro = toplevel_var "desyncro_to_ro"
 
 let desyncro_to_ro_on (t: trm): trm =
@@ -537,6 +538,7 @@ let%transfo desyncro_to_ro (tg: target): unit =
 *)
 
 (* TODO: delete this ? *)
+(*
 (** [check_desync_ro_focus_on t] replaces the unchecked [desync_ro_focus] ghosts in the body of the loop [t]
   with [desyncro_to_ro], which checks that the loop iterations run on a single thread.
   The ghosts of nested loops are left to these loops. *)
@@ -552,7 +554,7 @@ let check_desync_ro_focus_on (t: trm): trm =
       | _ -> trm_map aux t
   in
   trm_like ~old:t (trm_for range ~mode ~contract (aux body))
-
+*)
 
 let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
   let t_seq, result = trm_inv trm_seq_inv t in

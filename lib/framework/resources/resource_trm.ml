@@ -211,6 +211,15 @@ let var_ghost_group_focus_ro = toplevel_var "group_focus_ro"
 let ghost_group_focus_ro ?(bound_check: trm option) ?(range: trm option) ?(items: trm option) ?(frac: trm option) (i: trm) =
   ghost_call_opt_args var_ghost_group_focus_ro ["i", Some i; "range", range; "items", items; "bound_check", bound_check; "f", frac]
 
+let var_ghost_dro_fork_group = toplevel_var "dro_fork_group"
+let var_ghost_dro_join_group = toplevel_var "dro_join_group"
+
+let ghost_dro_fork_group ~(range: formula) (formula: formula) =
+  ghost_call_opt_args var_ghost_dro_fork_group ["H", Some formula; "r", Some range]
+
+let ghost_dro_join_group ?(range: formula option) (formula: formula) =
+  ghost_call_opt_args var_ghost_dro_join_group ["H", Some formula; "r", range]
+
 let var_ghost_in_range_extend = toplevel_var "in_range_extend"
 let ghost_in_range_extend x r1 r2 =
   ghost_call var_ghost_in_range_extend ["x", x; "r1", r1; "r2", r2]

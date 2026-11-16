@@ -4,48 +4,73 @@ open Flags
 
 include Gpu_basic
 
+let seq_for_desync_parallel_reads_on (t: trm): trm =
+  let (range, mode, body, contract) = trm_inv ~error:"expected for loop" trm_for_inv t in
+  let forked_reads = List.map (fun (h, f) ->
+    let open Resource_formula in
+    let { frac; formula } = trm_inv ~error:"expected read only" formula_read_only_inv f in
+    (new_anon_hyp (), formula_desync_ro frac formula)
+  ) contract.parallel_reads in
+  let new_contract = { contract with
+    parallel_reads = [];
+    iter_contract = {
+      pre = Resource_set.add_linear_list forked_reads contract.iter_contract.pre;
+      post = Resource_set.add_linear_list forked_reads contract.iter_contract.post
+    }
+  } in
+  let forkjoins = List.map (fun (h, f) ->
+    let open Resource_formula in
+    let open Resource_trm in
+    let { frac; formula } = trm_inv ~error:"expected read only" formula_read_only_inv f in
+    let range_formula = formula_loop_range range in
+    let (_, a, b) = ghost_pair (ghost_dro_fork_group ~range:range_formula formula) in
+    (a, b)
+  ) contract.parallel_reads in
+  let (forks, joins) = List.split forkjoins in
+  trm_seq_helper ~braces:false [
+    TrmList forks;
+    Trm (trm_for ~mode ~contract:new_contract range body);
+    TrmList joins;
+  ]
+
 (** [convert_tail_thread_for loops leaf] given a target [leaf] to a loop which is in tail position, convert len([loops]) number of loops
   (also in tail position, except for the last) surrounding it to thread for.
   A loop is in tail position if the only thing proceeding it is a ghost or the end of a surrounding loop.
   The list [loops] is a list containing either 0 or 1: 0 means skip conversion (leave it as sequential for), 1 means convert.
   It is always assumed that the leaf will be converted. *)
 let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
-  let fission_helper tg = Loop.fission tg in
+  (* let fission_helper tg = Loop.fission tg in *)
   let rec aux ~(is_leaf: bool) barrier_mark loops_incl_leaf leaf_p: unit =
     let convert,loops = match loops_incl_leaf with
     | 0 :: tl -> false, tl
     | 1 :: tl -> true, tl
     | _ -> failwith "Gpu.convert_tail_thread_for: loops should contain only 0 or 1" in
-    let leaf_t = (target_of_path leaf_p) in
-    (* Don't want to have __xreads in a thread for because you can't resynchronize fractions. *)
-    Flags.with_flag Flags.typechecking_mode Flags.ProofRepairing
-    (fun () -> begin
-      Resources.detach_loop_ro_focus leaf_t;
-      if convert then
-        seq_for_to_magicthread_for ~one_thread_inside:is_leaf ~barrier_mark leaf_t;
-      (* if is_leaf then Resources.desync_ro_focus leaf_t;
-      Resources.desync_parallel_reads leaf_t; *)
-      end
-    );
+    Target.apply_at_path (if convert
+      then Loop_core.change_loop_mode_on (MagicThread is_leaf)
+      else seq_for_desync_parallel_reads_on
+    ) leaf_p;
     (* assume the barrier mark is already there.. *)
     (* push_work_before [cMark barrier_mark] ... *)
     match loops with
-    | [] -> ()
+    | [] ->
+      Target.apply_at_path (fun t ->
+        trm_seq_nobrace_nomarks [t; Gpu_trm.magic_barrier ()]
+      ) leaf_p
     | _ ->
-      fission_helper [tBefore; cMark barrier_mark];
+      (* fission_helper [tBefore; cMark barrier_mark];
       (try
         remove_loop_around_barrier [cMark barrier_mark];
       with
       | e ->
         fission_helper [tAfter; cMark barrier_mark];
         remove_loop_around_barrier [cMark barrier_mark];
-      );
+      ); *)
       let _, next_leaf_p = Path.index_in_surrounding_loop leaf_p in
       aux ~is_leaf:false barrier_mark loops next_leaf_p
     in
-  Marks.with_marks (fun next_m ->
+  Marks.with_marks (fun next_m -> Nobrace_transfo.remove_after (fun () ->
     Target.iter (aux ~is_leaf:true (next_m ()) (1 :: loops)) leaf;
-  )
+  ))
 
 (** [convert_magic_thread_fors ~patch_steps tg]: convert all loops pointed to by [tg] to thread for from magic thread for.
   [tg] should only point to loops, but it is OK if it points to loops that are not magic thread for, it will just skip those.

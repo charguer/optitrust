@@ -1012,7 +1012,19 @@ __GHOST(ro_to_desyncro) {
   __admitted();
 }
 
-// WARNING: these magic ghosts should not be used in a final GPU proof before codegen
+__GHOST(dro_fork_group) {
+  __requires("f: _Fraction, H: HProp, r: Range");
+  __consumes("Desync_RO(f, H)");
+  __produces("for _ in r -> Desync_RO(f / range_count(r), H)");
+  __admitted();
+}
+
+__GHOST(dro_join_group) {
+  __reverts(dro_fork_group);
+  __admitted();
+}
+
+// DEPRECATED MAGIC GHOSTS
 /* Unchecked desyncro_to_ro for the innermost magic thread loop, which has no ThreadsCtx.
    Gpu.convert_magic_thread_fors replaces it with desyncro_to_ro. */
 __GHOST(magic_desyncro_to_ro) {
