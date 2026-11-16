@@ -666,7 +666,8 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       let dt = decorate_trm style full_loop in
       let dmode = match mode with
       | GpuThread -> string "__threadfor; "
-      | MagicThread -> string "__magic_threadfor;"
+      | MagicThread false -> string "__magic_threadfor;"
+      | MagicThread true -> string "__magic_threadfor_one;"
       | _ -> empty in
       (* prepend mode to loop; prints correct because annotations are cleared in full_loop *)
       dmode ^^ blank 1 ^^ dt

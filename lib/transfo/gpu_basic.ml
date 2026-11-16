@@ -92,7 +92,7 @@ let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: 
 (** [seq_for_to_magicthread_for ~barrier_mark tg]: basic transformation to convert the loop at [tg] to magic thread for.
   It will insert a magic barrier directly after, unless there already is one after.
   If [barrier_mark] is supplied, it will mark the barrier with that mark. *)
-let%transfo seq_for_to_magicthread_for ?(barrier_mark: mark = "") (tg: target) =
+let%transfo seq_for_to_magicthread_for ~(one_thread_inside : bool) ?(barrier_mark: mark = "") (tg: target) =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let seq_ind, p = try (
       let ind, seq_p = Path.index_in_seq p in
@@ -105,14 +105,14 @@ let%transfo seq_for_to_magicthread_for ?(barrier_mark: mark = "") (tg: target) =
       | Some ind ->
         let instrs, ret = trm_inv ~error:"expected seq" trm_seq_inv t in
         let loop = Mlist.nth instrs ind in
-        let instrs = Mlist.replace_at ind (Loop_core.change_loop_mode_on MagicThread loop) instrs in
+        let instrs = Mlist.replace_at ind (Loop_core.change_loop_mode_on (MagicThread one_thread_inside) loop) instrs in
         let instrs = match (Option.bind (Mlist.nth_opt instrs (ind + 1)) Gpu_trm.magic_barrier_inv) with
         | Some _ -> Mlist.replace_at (ind+1) barrier instrs
         | _ -> Mlist.insert_at (ind+1) barrier instrs in
         trm_alter ~desc:(Trm_seq (instrs,ret)) t
       | _ ->
         trm_seq (Mlist.of_list [
-          Loop_core.change_loop_mode_on MagicThread t;
+          Loop_core.change_loop_mode_on (MagicThread one_thread_inside) t;
           barrier
         ])
     ) p
@@ -267,7 +267,7 @@ let fix_distrib_accesses ~(aliases: Var_set.t ref) ?(synced = false) (chop_dims:
         Pattern.(trm_let !__ __ __ ) (fun v () -> trm_map (aux ~alias_binder:v threadfor_depth) t);
         Pattern.(trm_for __ !__ __ __) (fun mode () ->
           let threadfor_depth = begin match mode with
-          | GpuThread | MagicThread -> threadfor_depth + 1
+          | GpuThread | MagicThread _ -> threadfor_depth + 1
           | _ -> threadfor_depth
           end in
           trm_map (aux threadfor_depth) t

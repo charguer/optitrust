@@ -488,11 +488,12 @@ let detach_loop_ro_focus_on (t: trm): trm =
     };
     parallel_reads = new_par_reads @ contract.parallel_reads
   } in
+  let new_body = Nobrace.mark body in
   let new_body = List.fold_right (fun (_, formula) ->
     let { formula } = Option.get (formula_read_only_inv formula) in
     let i = new_var range.index.name in
     let items = formula_fun [i, typ_int] (trm_subst_var range.index (trm_var i) formula) in
-    Resource_trm.ghost_scope (ghost_call ghost_ro_group_focus ["i", (trm_var range.index); "items", items])) iter_reads body
+    Resource_trm.ghost_scope (ghost_call ghost_ro_group_focus ["i", (trm_var range.index); "items", items])) iter_reads new_body
   in
   let new_body = trm_like ~old:body new_body in
   trm_like ~old:t (trm_for range ~mode ~contract new_body)
@@ -501,50 +502,41 @@ let detach_loop_ro_focus_on (t: trm): trm =
 let%transfo detach_loop_ro_focus (tg: target): unit =
   Target.apply_at_target_paths detach_loop_ro_focus_on tg
 
-let desync_parallel_reads_on (t: trm): trm =
-  let range, mode, body, contract = trm_inv ~error:"desync_parallel_reads_on: not a for loop" trm_for_inv t in
-  let to_desync_ro ((x, f) : resource_item) : resource_item =
-    match formula_read_only_inv f with
-    | Some { frac; formula} -> (x, formula_desync_ro frac formula)
-    | _ -> match formula_desync_ro_inv f with
-      | Some (frac, formula) -> (x, f)
-      | _ -> failwith "desync_parallel_reads_on: expected a RO or a Desync_RO clause."
-  in
-  let contract = { contract with
-    parallel_reads = List.map to_desync_ro contract.parallel_reads
-  } in
-  trm_like ~old:t (trm_for range ~mode ~contract body)
-
-(** [desync_parallel_reads tg] transforms all the sreads clauses into a desynchronized version *)
-let%transfo desync_parallel_reads (tg: target): unit =
-  Target.apply_at_target_paths desync_parallel_reads_on tg
-
 let ghost_desync_ro_focus = toplevel_var "desync_ro_focus"
 let ghost_desyncro_to_ro = toplevel_var "desyncro_to_ro"
 
-let desync_ro_focus_on (t: trm): trm =
-  (* The body only typechecks with the focus once the sreads clauses are desynchronized, hence the single step *)
-  let t = desync_parallel_reads_on t in
-  let range, mode, body, contract = trm_inv ~error:"desync_ro_focus_on: not a for loop" trm_for_inv t in
-  let new_body = Nobrace.mark body in
-  let new_body = List.fold_right (fun (_, formula) body ->
-    match formula_desync_ro_inv formula with
-    | Some (_, formula) -> Resource_trm.ghost_scope (ghost_call ghost_desync_ro_focus ["H", formula]) body
-    | None -> body) contract.parallel_reads new_body
-  in
-  let new_body = trm_like ~old:body new_body in
-  trm_like ~old:t (trm_for range ~mode ~contract new_body)
+let desyncro_to_ro_on (t: trm): trm =
+  let range, mode, body, contract = trm_inv ~error:"not a for loop" trm_for_inv t in
+  let ghosts = List.map (fun (_, formula) ->
+    match Resource_formula.formula_desync_ro_inv formula with
+      | Some (frac, inner_formula) ->
+        let (_, a, b) = Resource_trm.ghost_pair (ghost_call ghost_desyncro_to_ro ["H", inner_formula]) in
+        (a, b)
+      | _ -> failwith "expected a RO or a Desync_RO clause."
+  ) contract.parallel_reads in
+  let (dro_to_ro, ro_to_dro) = List.split ghosts in
+  trm_like ~old:t (trm_for range ~mode ~contract (trm_seq_helper [
+    TrmList dro_to_ro;
+    Trm body;
+    TrmList ro_to_dro
+  ]))
 
+let%transfo desyncro_to_ro (tg: target): unit =
+  Target.apply_at_target_paths desyncro_to_ro_on tg
+
+(* TODO: delete this ? *)
 (** [desync_ro_focus tg] desynchronizes the sreads clauses of the targeted loops (see {!desync_parallel_reads}),
   and puts the loop body inside a [desync_ro_focus] ghost pair for each of them, so that the body still sees an ordinary [_RO].
   The ghost does not check the ThreadsCtx: it is meant for the innermost magic thread loop,
   and {!check_desync_ro_focus_on} replaces it with [desyncro_to_ro] once the loop becomes a GPU thread loop. *)
-let%transfo desync_ro_focus (tg: target): unit =
+(* let%transfo desync_ro_focus (tg: target): unit =
   Nobrace_transfo.remove_after (fun () ->
     Target.apply_at_target_paths desync_ro_focus_on tg
   );
   justif_correct "only added ghosts"
+*)
 
+(* TODO: delete this ? *)
 (** [check_desync_ro_focus_on t] replaces the unchecked [desync_ro_focus] ghosts in the body of the loop [t]
   with [desyncro_to_ro], which checks that the loop iterations run on a single thread.
   The ghosts of nested loops are left to these loops. *)

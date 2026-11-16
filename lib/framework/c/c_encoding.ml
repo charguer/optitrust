@@ -1207,6 +1207,7 @@ let rec encode_contract (style: style) (t: trm): trm =
       seq_push tres t) named_formulas t
   in
 
+  (* TODO: revert the desync_ro_sugar changes *)
   (* If [desync_ro_sugar] is set, [Desync_RO(f, H)] is printed as [Desync_RO(H)] in the reads clause. *)
   let push_common_clauses ?(reads_clause: var option) ?(desync_ro_sugar = false) ~(preserves_clause: var) ?(writes_clause: var option) (pure_with_fracs: resource_item list) (pre_linear: resource_item list) (post_linear: resource_item list) (t: trm): resource_item list * resource_item list * resource_item list * trm =
     let common_linear, pre_linear, post_linear = Resource_formula.filter_common_resources pre_linear post_linear in
@@ -1472,7 +1473,9 @@ let rec decode_gpu_sugar (t: trm) : trm =
           | (Trm_var v,Trm_for (range,mode,body,contract)) when (var_has_name "__threadfor" v) ->
             (trm_like ~old:instr (trm_for ~contract ~mode:GpuThread range body)) :: tl
           | (Trm_var v,Trm_for (range,mode,body,contract)) when (var_has_name "__magic_threadfor" v) ->
-            (trm_like ~old:instr (trm_for ~contract ~mode:MagicThread range body)) :: tl
+            (trm_like ~old:instr (trm_for ~contract ~mode:(MagicThread false) range body)) :: tl
+          | (Trm_var v,Trm_for (range,mode,body,contract)) when (var_has_name "__magic_threadfor_one" v) ->
+            (trm_like ~old:instr (trm_for ~contract ~mode:(MagicThread true) range body)) :: tl
           | (Trm_var v,Trm_apps _) when (var_has_name "__device_call" v) ->
             (trm_add_cstyle CudaDevice instr) :: tl
           | (Trm_var v,Trm_seq _) when (var_has_name "__barrier_sequence" v) ->

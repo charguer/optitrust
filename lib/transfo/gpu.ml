@@ -22,11 +22,9 @@ let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
     (fun () -> begin
       Resources.detach_loop_ro_focus leaf_t;
       if convert then
-        seq_for_to_magicthread_for ~barrier_mark leaf_t;
-    (* Desynchronize the shared reads once the barrier that resynchronizes them is in place.
-       Inside the innermost loop, each thread reads alone: the desynchronized reads become ordinary reads. *)
-      if is_leaf then Resources.desync_ro_focus leaf_t;
-      Resources.desync_parallel_reads leaf_t;
+        seq_for_to_magicthread_for ~one_thread_inside:is_leaf ~barrier_mark leaf_t;
+      (* if is_leaf then Resources.desync_ro_focus leaf_t;
+      Resources.desync_parallel_reads leaf_t; *)
       end
     );
     (* assume the barrier mark is already there.. *)
@@ -59,7 +57,8 @@ let%transfo convert_magic_thread_fors ?(patch_steps: unit -> unit = fun () -> ()
     let error = "Gpu.convert_magic_thread_fors: expected a target to a simple for loop" in
     let range, mode, body, contract = trm_inv ~error trm_for_inv t in
     match mode with
-    | MagicThread -> Loop_core.change_loop_mode_on GpuThread (Resources.check_desync_ro_focus_on t)
+    | MagicThread false -> Loop_core.change_loop_mode_on GpuThread t
+    | MagicThread true -> Loop_core.change_loop_mode_on GpuThread (Resources.desyncro_to_ro_on t)
     | _ ->
       trm_alter t ~desc:(Trm_for (range, mode, body, { contract with strict = false}))
   ) tg;

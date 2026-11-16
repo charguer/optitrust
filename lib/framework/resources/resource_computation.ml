@@ -557,7 +557,8 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
         Some (h, formula_read_only ~frac:(formula_frac_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
     ) res evar_ctx
   in
-
+(*
+  (* TODO: delete this ? *)
   let unify_and_take_or_split_desync_read_only
     (hyp: var) ~(frac_var: var) (formula: formula)
     (res: linear_resource_set)
@@ -585,7 +586,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
           { hyp; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_desync_ro (trm_var new_frac) formula_candidate },
           Some (h, formula_read_only ~frac:(formula_frac_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
       ) res evar_ctx
-  in
+  in *)
 
   let formula, evar_ctx = unfold_if_resolved_evar formula evar_ctx in
   Pattern.pattern_match formula [
@@ -609,12 +610,12 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
         unify_and_remove_linear (x, formula) ~uninit:false res evar_ctx ~pure_ctx
     );
     (* same for a desynchronized RO, which can also be carved out of a synchronized RO. *)
-    Pattern.(formula_desync_ro (trm_var !__) !__) (fun frac_var desync_formula () ->
+    (* Pattern.(formula_desync_ro (trm_var !__) !__) (fun frac_var desync_formula () ->
       match Var_map.find_opt frac_var evar_ctx with
       | Some Unknown _ when split_frac ->
         unify_and_take_or_split_desync_read_only x ~frac_var desync_formula res evar_ctx ~pure_ctx
       | _ -> raise Pattern.Next
-    );
+    ); *)
     Pattern.__ (fun () ->
       unify_and_remove_linear (x, formula) ~uninit:(is_formula_uninit formula) res evar_ctx ~pure_ctx)
   ]
@@ -1313,7 +1314,7 @@ let sync_simplification ?(magic = false) (res: resource_set): resource_set =
   let rec read_only_join_groups ~(frac: formula) (inner: formula) = Pattern.pattern_match (frac, inner) [
     Pattern.((formula_frac_div !__ (trm_apps1 (trm_specific_var var_range_count) !__)) ^* (formula_group !__ !__ !__))
     (fun base_frac frac_range idx range body () ->
-      if not (Trm_unify.are_same_trm frac_range range) || Var_set.mem idx (trm_free_vars body) then raise_notrace Pattern.Next;
+      Pattern.when_ ((Trm_unify.are_same_trm frac_range range) && (not (Var_set.mem idx (trm_free_vars body))));
       read_only_join_groups ~frac:base_frac body);
     Pattern.__ (fun () -> formula_read_only ~frac inner)
   ] in

@@ -946,6 +946,7 @@ __AXIOM(shiftr_monotonic, "forall (b: int) (e1: int) (e2: int) (_: e1 <= e2) -> 
 extern const int __rewrite_sequence;
 
 
+// TODO: move ThreadCtx-related ghosts to GPU header ?
 /* ---- DesyncGroup and DMINDEX ghosts ---- */
 
 __GHOST(group_to_desyncgroup) {
@@ -993,10 +994,7 @@ __GHOST(desyncro_to_desyncgroup) {
 }
 
 __GHOST(desyncgroup_to_desyncro) {
-  __requires("t: int, sz : int, f: _Fraction, H: HProp");
-  __preserves("ThreadsCtx(t ..+ sz)");
-  __produces("_RO(f / sz, desync_for i in ..sz -> H)");
-  __consumes("Desync_RO(f, H)");
+  __reverts(desyncro_to_desyncgroup);
   __admitted();
 }
 
@@ -1014,17 +1012,18 @@ __GHOST(ro_to_desyncro) {
   __admitted();
 }
 
+// WARNING: these magic ghosts should not be used in a final GPU proof before codegen
 /* Unchecked desyncro_to_ro for the innermost magic thread loop, which has no ThreadsCtx.
    Gpu.convert_magic_thread_fors replaces it with desyncro_to_ro. */
-__GHOST(desync_ro_focus) {
+__GHOST(magic_desyncro_to_ro) {
   __requires("f: _Fraction, H: HProp");
   __consumes("Desync_RO(f, H)");
   __produces("_RO(f, H)");
   __admitted();
 }
 
-__GHOST(desync_ro_unfocus) {
-  __reverts(desync_ro_focus);
+__GHOST(magic_ro_to_desyncro) {
+  __reverts(magic_desyncro_to_ro);
   __admitted();
 }
 

@@ -24,7 +24,7 @@ void nested(int* a, int* b, int N, int M) {
   __magic_threadfor;
   for (int i = 0; i < N; i++) {
     __strict();
-    __sreads("Desync_RO(b ~> Matrix1(M, B))");
+    __sreads("b ~> Matrix1(M, B)");
     __xconsumes("for j in 0..M -> &a[MINDEX2(N, M, i, j)] ~> UninitCell");
     __xproduces("desync_for j in ..M -> &a[MINDEX2(N, M, i, j)] ~~> B(j)");
     __magic_threadfor;
@@ -48,7 +48,7 @@ void nested_seq(int* a, int* b, int N, int K, int M) {
   __magic_threadfor;
   for (int i = 0; i < N; i++) {
     __strict();
-    __sreads("Desync_RO(b ~> Matrix1(M, B))");
+    __sreads("b ~> Matrix1(M, B)");
     __xconsumes(
         "for k in 0..K -> for j in 0..M -> &a[MINDEX3(N, K, M, i, k, j)] ~> "
         "UninitCell");
@@ -57,7 +57,7 @@ void nested_seq(int* a, int* b, int N, int K, int M) {
         "~~> B(j)");
     for (int k = 0; k < K; k++) {
       __strict();
-      __sreads("Desync_RO(b ~> Matrix1(M, B))");
+      __sreads("b ~> Matrix1(M, B)");
       __xconsumes(
           "for j in 0..M -> &a[MINDEX3(N, K, M, i, k, j)] ~> UninitCell");
       __xproduces(
