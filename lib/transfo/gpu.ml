@@ -23,8 +23,8 @@ let seq_for_desync_parallel_reads_on (t: trm): trm =
     let open Resource_trm in
     let { frac; formula } = trm_inv ~error:"expected read only" formula_read_only_inv f in
     let range_formula = formula_loop_range range in
-    let (_, a, b) = ghost_pair (ghost_dro_fork_group ~range:range_formula formula) in
-    (a, b)
+    (ghost (ghost_dro_fork_group ~range:range_formula formula),
+     ghost (ghost_ro_fork_group ~range:range_formula formula))
   ) contract.parallel_reads in
   let (forks, joins) = List.split forkjoins in
   trm_seq_helper ~braces:false [
@@ -39,32 +39,30 @@ let seq_for_desync_parallel_reads_on (t: trm): trm =
   The list [loops] is a list containing either 0 or 1: 0 means skip conversion (leave it as sequential for), 1 means convert.
   It is always assumed that the leaf will be converted. *)
 let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
-  (* let fission_helper tg = Loop.fission tg in *)
+  let fission_helper tg = Loop.fission tg in
   let rec aux ~(is_leaf: bool) barrier_mark loops_incl_leaf leaf_p: unit =
     let convert,loops = match loops_incl_leaf with
     | 0 :: tl -> false, tl
     | 1 :: tl -> true, tl
     | _ -> failwith "Gpu.convert_tail_thread_for: loops should contain only 0 or 1" in
-    Target.apply_at_path (if convert
-      then Loop_core.change_loop_mode_on (MagicThread is_leaf)
-      else seq_for_desync_parallel_reads_on
-    ) leaf_p;
-    (* assume the barrier mark is already there.. *)
-    (* push_work_before [cMark barrier_mark] ... *)
-    match loops with
-    | [] ->
-      Target.apply_at_path (fun t ->
-        trm_seq_nobrace_nomarks [t; Gpu_trm.magic_barrier ()]
-      ) leaf_p
-    | _ ->
-      (* fission_helper [tBefore; cMark barrier_mark];
+    if not convert then Target.apply_at_path (seq_for_desync_parallel_reads_on) leaf_p;
+    if convert then seq_for_to_magicthread_for ~one_thread_inside:is_leaf ~barrier_mark (target_of_path leaf_p);
+    if not is_leaf then begin
+      fission_helper [tBefore; cMark barrier_mark];
       (try
         remove_loop_around_barrier [cMark barrier_mark];
       with
       | e ->
         fission_helper [tAfter; cMark barrier_mark];
         remove_loop_around_barrier [cMark barrier_mark];
-      ); *)
+      );
+    end;
+    match loops with
+    | [] -> ()
+      (* Target.apply_at_path (fun t ->
+        trm_seq_nobrace_nomarks [t; Gpu_trm.magic_barrier ()]
+      ) leaf_p *)
+    | _ ->
       let _, next_leaf_p = Path.index_in_surrounding_loop leaf_p in
       aux ~is_leaf:false barrier_mark loops next_leaf_p
     in
