@@ -2,6 +2,7 @@ open Prelude
 open Target
 include Arith_core
 
+let debug_simpl = false
 
 (** [show tg] annotates the target with a string describing the reified
     expression that corresponds to the arithmetic term considered. *)
@@ -38,10 +39,10 @@ let ghost_arith_rewrite r1 r2 =
 let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : unit =
   Trace.justif_always_correct ();
   Trace.tag_simpl_arith ();
+  Resources.required_for_check ();
   Trace.without_resource_computation_between_steps (fun () ->
     Target.apply_at_target_paths (fun t ->
       let f_postprocess (t: trm) (simpl_t: trm): trm =
-        (* Yanni : This is a case where we should not delete the effect, since arithmetic simplifications should be different depending on the annotation flag. *)
         if not (Flags.proof_preserving ()) then begin
           simpl_t
         end else begin
@@ -49,6 +50,7 @@ let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : 
         if t != simpl_t && not (is_formula t) then begin
           let typ = Option.unsome ~error:"expected type" t.typ in
           let res = Resources.after_trm t in
+          if debug_simpl then Tools.debug "Ressources after the input term t : \n %s" (Resource_computation.resource_set_to_string res);
           begin match Var_map.find_opt Resource_set.var_result res.aliases with
           | Some t_model ->
             let new_result = new_hyp "res" in

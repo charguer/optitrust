@@ -13,10 +13,12 @@ __device__ void basic(int* a, int N, int M) {
   __reads("KernelParams(bpg, MSIZE2(N, M), smem_sz)");
   __threadfor;
   for (int i = 0; i < N; i++) {
+    __strict();
     __xconsumes("for j in 0..M -> &a[MINDEX2(N, M, i, j)] ~~>[GMem] 0");
     __xproduces("desync_for j in ..M -> &a[MINDEX2(N, M, i, j)] ~~>[GMem] 1");
     __threadfor;
     for (int j = 0; j < M; j++) {
+      __strict();
       __xconsumes("&a[MINDEX2(N, M, i, j)] ~~>[GMem] 0");
       __xproduces("&a[MINDEX2(N, M, i, j)] ~~>[GMem] 1");
       __gmem_set(&a[MINDEX2(N, M, i, j)], 1);

@@ -5,7 +5,7 @@ __global__ void __kernel0(float* d_partial_sums, float* d_arr, int N) /*@*/ {
   const int __ctx_sz = MSIZE1(exact_div(N, 512)) * MSIZE1(256);
   const int __tid = blockIdx.x * MSIZE1(256) + threadIdx.x;
   SharedMemory smem;
-  float* const tile = (float*)smem.ptr(MSIZE1(256));
+  float* const tile = (float*)smem.ptr(sizeof(float) * MSIZE1(256));
   const int __ctx_sz_0 = __ctx_sz / (exact_div(N, 512));
   const int __bi0 = __tid % __ctx_sz / __ctx_sz_0;
   const int __ctx_sz_1 = __ctx_sz_0 / 256;

@@ -1,0 +1,15 @@
+key,value
+impls,OptiGPU-simpl;OptiGPU-2d-1;OptiGPU-2d-2;OptiGPU-4x4;OptiGPU-2x2;Siboehm6-1;Siboehm6-3;Siboehm6-4;Siboehm6-5;2DBlocktiling-1;2DBlocktiling-2;2DBlocktiling-3;direct;tiled32reg;CUDASample-16;cublas
+device,NVIDIA RTX PRO 6000 Blackwell Server Edition
+compute_capability,sm_120
+l2_cache_bytes,134217728
+sm_count,188
+cuda_runtime,13.5
+iters,30
+draws,2
+warmup,5
+l2_flush,1
+tol,0.01
+total_samples,8640
+timestamp,1794328946
+all_correct,1
