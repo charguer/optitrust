@@ -4,7 +4,7 @@ open Flags
 
 include Gpu_basic
 
-let seq_for_desync_parallel_reads_on ~(barrier_mark : mark) (t: trm): trm =
+let seq_for_desync_on ~(barrier_mark : mark) (t: trm): trm =
   let (range, mode, body, contract) = trm_inv ~error:"expected for loop" trm_for_inv t in
   let forked_reads = List.map (fun (h, f) ->
     let open Resource_formula in
@@ -14,7 +14,13 @@ let seq_for_desync_parallel_reads_on ~(barrier_mark : mark) (t: trm): trm =
   let new_contract = { contract with
     parallel_reads = [];
     iter_contract = {
-      pre = Resource_set.add_linear_list forked_reads contract.iter_contract.pre;
+      pre = Resource_set.add_linear_list forked_reads
+        (Resource_set.map ~f_linear:(fun (h, f) ->
+          let open Resource_formula in
+          match formula_read_only_inv f with
+          | Some { frac; formula } -> (h, formula_desync_ro frac formula)
+          | _ -> (h, f)
+        ) contract.iter_contract.pre);
       post = Resource_set.add_linear_list contract.parallel_reads contract.iter_contract.post
     }
   } in
@@ -34,9 +40,9 @@ let seq_for_desync_parallel_reads_on ~(barrier_mark : mark) (t: trm): trm =
     TrmList joins;
   ]
 
-let%transfo seq_for_desync_parallel_reads ~(barrier_mark : mark) (tg: target): unit =
+let%transfo seq_for_desync ~(barrier_mark : mark) (tg: target): unit =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
-    Target.apply_at_path (seq_for_desync_parallel_reads_on ~barrier_mark) p
+    Target.apply_at_path (seq_for_desync_on ~barrier_mark) p
   ) tg)
 
 (** [convert_tail_thread_for loops leaf] given a target [leaf] to a loop which is in tail position, convert len([loops]) number of loops
@@ -54,7 +60,7 @@ let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
       let leaf_m = Marks.add_next_mark_on next_m leaf_p in
       let new_barrier_mark = next_m () in
       if not is_leaf then begin
-        seq_for_desync_parallel_reads ~barrier_mark:new_barrier_mark [cMark leaf_m];
+        seq_for_desync ~barrier_mark:new_barrier_mark [cMark leaf_m];
         Loop.fission ~mark_loops:leaf_m [tBefore; cMark barrier_mark];
         Loop.fission ~mark_loops:leaf_m [tAfter; cMark barrier_mark];
         let paths = Target.resolve_target [nbMulti; cMark leaf_m] in

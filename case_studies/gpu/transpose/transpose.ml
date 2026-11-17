@@ -1,13 +1,12 @@
 open Optitrust
 open Prelude
 
-(* let _ = Flags.check_validity := true *)
 let _ = Flags.typechecking_mode := Flags.ProofPreserving
-let _ = Flags.recompute_resources_between_steps := true
+let _ = Flags.recompute_resources_between_steps := false
 let _ = Flags.disable_stringreprs := true
 let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
 
-let stage_ok = fun i -> true (* i = 1 *)
+let stage_ok = fun i -> i = 3
 
 let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   (* Hoist global memories *)
@@ -28,6 +27,8 @@ let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   are never moved between blocks (later). *)
   !! Loop.hoist_alloc ~dest:[tBefore; cFor "by"] [cVarDef "tile"];
   !! Resources.make_strict_loop_contracts [];
+
+  !! Resources.ensure_computed ();
 )
 
 let _ = Run.script_cpp_stage (stage_ok) (fun () ->
@@ -36,6 +37,8 @@ let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   (* Reorder write loop so both loops use load coalescing *)
   !! Loop.reorder_at ~order:["x"; "y"] [cArrayWrite "d_b"];
   !! Loop.tile (trm_int 16) ~index:"j" ~bound:TileDivides [ occFirst; cFor "x" ~body:[cFor "y"]];
+
+  !! Resources.ensure_computed ();
 )
 
 let _ = Run.script_cpp_stage (stage_ok) (fun () ->
@@ -65,6 +68,8 @@ let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   !! Gpu.convert_magic_thread_fors [nbAny; cFor "by"; cFor "" ];
 
   (* LATER: combination transform to automate most of this (finding nests, converting to real thread for at the end) *)
+
+  !! Resources.ensure_computed ();
 )
 
 let _ = Run.script_cpp_stage (stage_ok) (fun () ->

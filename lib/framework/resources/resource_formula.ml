@@ -522,10 +522,21 @@ let formula_map_under_read_only (f_map: formula -> formula) (formula: formula) =
   match formula_read_only_inv formula with
   | Some { frac; formula } ->
     formula_read_only ~frac (f_map formula)
-  | None -> f_map formula
+  | None ->
+    begin match formula_desync_ro_inv formula with
+    | Some (frac, formula) -> formula_desync_ro frac (f_map formula)
+    | None -> f_map formula
+    end
 
 let formula_read_only_inv_all (formula: formula): read_only_formula =
   Pattern.pattern_match formula [
+    Pattern.(formula_read_only !__ !__) (fun frac formula () -> { frac; formula });
+    Pattern.__ (fun () -> {frac = full_frac; formula})
+  ]
+
+let formula_dro_inv_all (formula: formula): read_only_formula =
+  Pattern.pattern_match formula [
+    Pattern.(formula_desync_ro !__ !__) (fun frac formula () -> { frac; formula });
     Pattern.(formula_read_only !__ !__) (fun frac formula () -> { frac; formula });
     Pattern.__ (fun () -> {frac = full_frac; formula})
   ]

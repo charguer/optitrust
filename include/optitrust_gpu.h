@@ -116,6 +116,15 @@ void blocksync() {
   __produces("Sync(block_sync_mem, H)");
   __admitted();
 }
+// LATER: allow non dro variant to be called with an f evar
+void blocksync_dro() {
+  __requires("H: HProp, f: _Fraction, tpb: int, bpg: int, smem_sz: int, t: int");
+  __reads("KernelParams(bpg, tpb, smem_sz)");
+  __preserves("ThreadsCtx(t ..+ tpb)");
+  __consumes("Desync_RO(f, H)");
+  __produces("Sync(block_sync_mem, Desync_RO(f, H))");
+  __admitted();
+}
 
 // LATER: should take a list of HPROP (and could be merged with kernel_device_end at that point)
 __GHOST(kernel_teardown_sync) {
@@ -123,6 +132,14 @@ __GHOST(kernel_teardown_sync) {
   __reads("KernelTeardownCtx");
   __consumes("H");
   __produces("Sync(block_sync_mem, H)");
+  __admitted();
+}
+// LATER: allow non dro variant to be called with an f evar
+__GHOST(kernel_teardown_sync_dro) {
+  __requires("H: HProp, f: _Fraction");
+  __reads("KernelTeardownCtx");
+  __consumes("Desync_RO(f, H)");
+  __produces("Sync(block_sync_mem, Desync_RO(f, H))");
   __admitted();
 }
 

@@ -43,7 +43,7 @@ let magic_barrier_inv (t: trm): unit option =
   | _ -> None
 
 let barrier_seq (barrier_fn: trm -> trm) (hs: trms): trm =
-  trm_add_cstyle BarrierSequence (trm_seq (Mlist.of_list (List.map barrier_fn hs)))
+  trm_add_cstyle BarrierSequence (trm_seq_nomarks (List.map barrier_fn hs))
 
 let barrier_seq_inv (t: trm): trm option =
   if (not (trm_has_cstyle BarrierSequence t)) then None

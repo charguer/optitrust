@@ -1015,7 +1015,8 @@ __GHOST(ro_to_desyncro) {
 __GHOST(dro_fork_group) {
   __requires("f: _Fraction, H: HProp, r: Range");
   __consumes("Desync_RO(f, H)");
-  __produces("for _ in r -> Desync_RO(f / range_count(r), H)");
+  // __produces("for _ in r -> Desync_RO(f / range_count(r), H)");
+  __produces("Desync_RO(f / range_count(r), for _ in r -> H)");
   __admitted();
 }
 

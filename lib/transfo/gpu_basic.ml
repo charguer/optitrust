@@ -549,10 +549,14 @@ let%transfo insert_barrier (tg: target) =
   Sequence_basic.insert ~reparse:false (magic_barrier ()) tg
 
 let block_sync (t: trm): trm =
-  trm_apps ~ghost_args:[new_var "H", t] (trm_var (toplevel_var "blocksync")) []
+  match Resource_formula.formula_desync_ro_inv t with
+  | Some (_frac, formula) -> trm_apps ~ghost_args:[new_var "H", t] (trm_var (toplevel_var "blocksync_dro")) []
+  | _ -> trm_apps ~ghost_args:[new_var "H", t] (trm_var (toplevel_var "blocksync")) []
 
 let kernel_teardown_sync (t: trm): trm =
-  Resource_trm.ghost (ghost_call (toplevel_var "kernel_teardown_sync") ["H", t])
+  match Resource_formula.formula_desync_ro_inv t with
+  | Some (_frac, formula) -> Resource_trm.ghost (ghost_call (toplevel_var "kernel_teardown_sync_dro") ["H", formula])
+  | _ -> Resource_trm.ghost (ghost_call (toplevel_var "kernel_teardown_sync") ["H", t])
 
 let is_smem_or_gmem (f: formula): bool =
   match (memtype_of_formula f) with
