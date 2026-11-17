@@ -14,12 +14,6 @@
     }                                                                        \
   } while (0)
 
-// One GEMM shape. C(m×n) = A(m×p) · B(p×n).
-// m, n, p must be multiples of the tile size used by each kernel.
-struct Config {
-  int m, n, p;
-};
-
 // Event-based GPU timer. `end()` returns milliseconds.
 struct GpuTimer {
   cudaEvent_t start, stop;
