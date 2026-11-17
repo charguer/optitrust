@@ -235,6 +235,11 @@ type loop_mode =
   | MagicThread of bool    (* Desyncing loop without awareness of real threads *)
 [@@deriving show]
 
+let is_gpu_loop loop_mode =
+  match loop_mode with
+  | GpuThread | MagicThread _ -> true
+  | _ -> false
+
 (** [code_kind]; code kind entered by the user *)
 type code_kind =
   | Lit of string   (* 1, "hello", 1.0, (), true, false *)

@@ -4,7 +4,7 @@ open Flags
 
 include Gpu_basic
 
-let seq_for_desync_parallel_reads_on (t: trm): trm =
+let seq_for_desync_parallel_reads_on ~(barrier_mark : mark) (t: trm): trm =
   let (range, mode, body, contract) = trm_inv ~error:"expected for loop" trm_for_inv t in
   let forked_reads = List.map (fun (h, f) ->
     let open Resource_formula in
@@ -15,7 +15,7 @@ let seq_for_desync_parallel_reads_on (t: trm): trm =
     parallel_reads = [];
     iter_contract = {
       pre = Resource_set.add_linear_list forked_reads contract.iter_contract.pre;
-      post = Resource_set.add_linear_list forked_reads contract.iter_contract.post
+      post = Resource_set.add_linear_list contract.parallel_reads contract.iter_contract.post
     }
   } in
   let forkjoins = List.map (fun (h, f) ->
@@ -24,14 +24,20 @@ let seq_for_desync_parallel_reads_on (t: trm): trm =
     let { frac; formula } = trm_inv ~error:"expected read only" formula_read_only_inv f in
     let range_formula = formula_loop_range range in
     (ghost (ghost_dro_fork_group ~range:range_formula formula),
-     ghost (ghost_ro_fork_group ~range:range_formula formula))
+     ghost (ghost_ro_join_group ~range:range_formula formula))
   ) contract.parallel_reads in
   let (forks, joins) = List.split forkjoins in
   trm_seq_helper ~braces:false [
     TrmList forks;
-    Trm (trm_for ~mode ~contract:new_contract range body);
+    Trm (trm_for ~annot:t.annot ~mode ~contract:new_contract range body);
+    Trm (trm_add_mark barrier_mark (Gpu_trm.magic_barrier ()));
     TrmList joins;
   ]
+
+let%transfo seq_for_desync_parallel_reads ~(barrier_mark : mark) (tg: target): unit =
+  Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
+    Target.apply_at_path (seq_for_desync_parallel_reads_on ~barrier_mark) p
+  ) tg)
 
 (** [convert_tail_thread_for loops leaf] given a target [leaf] to a loop which is in tail position, convert len([loops]) number of loops
   (also in tail position, except for the last) surrounding it to thread for.
@@ -39,35 +45,32 @@ let seq_for_desync_parallel_reads_on (t: trm): trm =
   The list [loops] is a list containing either 0 or 1: 0 means skip conversion (leave it as sequential for), 1 means convert.
   It is always assumed that the leaf will be converted. *)
 let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
-  let fission_helper tg = Loop.fission tg in
-  let rec aux ~(is_leaf: bool) barrier_mark loops_incl_leaf leaf_p: unit =
-    let convert,loops = match loops_incl_leaf with
-    | 0 :: tl -> false, tl
-    | 1 :: tl -> true, tl
-    | _ -> failwith "Gpu.convert_tail_thread_for: loops should contain only 0 or 1" in
-    if not convert then Target.apply_at_path (seq_for_desync_parallel_reads_on) leaf_p;
-    if convert then seq_for_to_magicthread_for ~one_thread_inside:is_leaf ~barrier_mark (target_of_path leaf_p);
-    if not is_leaf then begin
-      fission_helper [tBefore; cMark barrier_mark];
-      (try
-        remove_loop_around_barrier [cMark barrier_mark];
-      with
-      | e ->
-        fission_helper [tAfter; cMark barrier_mark];
-        remove_loop_around_barrier [cMark barrier_mark];
-      );
-    end;
-    match loops with
-    | [] -> ()
-      (* Target.apply_at_path (fun t ->
-        trm_seq_nobrace_nomarks [t; Gpu_trm.magic_barrier ()]
-      ) leaf_p *)
-    | _ ->
-      let _, next_leaf_p = Path.index_in_surrounding_loop leaf_p in
-      aux ~is_leaf:false barrier_mark loops next_leaf_p
-    in
   Marks.with_marks (fun next_m -> Nobrace_transfo.remove_after (fun () ->
-    Target.iter (aux ~is_leaf:true (next_m ()) (1 :: loops)) leaf;
+    let rec aux ~(is_leaf: bool) barrier_mark loops_incl_leaf leaf_p: unit =
+      let convert,loops = match loops_incl_leaf with
+      | 0 :: tl -> false, tl
+      | 1 :: tl -> true, tl
+      | _ -> failwith "Gpu.convert_tail_thread_for: loops should contain only 0 or 1" in
+      let leaf_m = Marks.add_next_mark_on next_m leaf_p in
+      let new_barrier_mark = next_m () in
+      if not is_leaf then begin
+        seq_for_desync_parallel_reads ~barrier_mark:new_barrier_mark [cMark leaf_m];
+        Loop.fission ~mark_loops:leaf_m [tBefore; cMark barrier_mark];
+        Loop.fission ~mark_loops:leaf_m [tAfter; cMark barrier_mark];
+        Instr.delete [cMark leaf_m; cFor ~body:[cMark barrier_mark] ""];
+        Instr.move ~dest:[tAfter; cMark new_barrier_mark] [occLast; cMark leaf_m];
+      end;
+      if convert then seq_for_to_magicthread_for ~one_thread_inside:is_leaf ~barrier_mark:new_barrier_mark [occFirst; cMark leaf_m];
+      match loops with
+      | [] -> ()
+        (* Target.apply_at_path (fun t ->
+          trm_seq_nobrace_nomarks [t; Gpu_trm.magic_barrier ()]
+        ) leaf_p *)
+      | _ ->
+        let _, next_leaf_p = Path.index_in_surrounding_loop leaf_p in
+        aux ~is_leaf:false new_barrier_mark loops next_leaf_p
+    in
+    Target.iter (aux ~is_leaf:true no_mark (1 :: loops)) leaf;
   ))
 
 (** [convert_magic_thread_fors ~patch_steps tg]: convert all loops pointed to by [tg] to thread for from magic thread for.

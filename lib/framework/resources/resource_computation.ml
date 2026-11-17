@@ -480,7 +480,9 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       );
       Pattern.((formula_group __ __ !__) ^* (formula_group !__ !__ !__))
       (fun inner_formula idx range inner_formula_candidate () ->
-        formula_group idx range (may_coerce_desyncgroup inner_formula_candidate inner_formula)
+        formula_map_under_read_only (fun fi ->
+          formula_group idx range fi
+        ) (may_coerce_desyncgroup inner_formula_candidate inner_formula)
       );
       Pattern.((formula_desync_ro __ !__) ^* (formula_read_only !__ !__))
       (fun inner_formula frac inner_formula_candidate () ->
@@ -1320,11 +1322,15 @@ let sync_simplification ?(magic = false) (res: resource_set): resource_set =
   ] in
   let rec simplify (mem_fn: trm) (t: trm) = Pattern.pattern_match t [
     Pattern.(formula_group !__ !__ !__) (fun idx range sub () ->
-      formula_group idx range (simplify mem_fn sub));
+      formula_map_under_read_only (fun fi ->
+        formula_group idx range fi
+      ) (simplify mem_fn sub));
     Pattern.(formula_If !__ !__) (fun cond h () ->
       formula_If cond (simplify mem_fn h));
     Pattern.(formula_desyncgroup !__ !__ !__) (fun idx bound sub () ->
-      formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) (simplify mem_fn sub));
+      formula_map_under_read_only (fun fi ->
+        formula_group idx (formula_range (trm_int 0) bound (trm_int 1)) fi
+      ) (simplify mem_fn sub));
     Pattern.(formula_desync_ro !__ !__) (fun frac inner () ->
       read_only_join_groups ~frac (simplify mem_fn inner));
     Pattern.(formula_read_only !__ !__) (fun frac inner () ->

@@ -93,9 +93,18 @@ let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: 
   It will insert a magic barrier directly after, unless there already is one after.
   If [barrier_mark] is supplied, it will mark the barrier with that mark. *)
 let%transfo seq_for_to_magicthread_for ~(one_thread_inside : bool) ?(barrier_mark: mark = "") (tg: target) =
-  if not one_thread_inside then
-    Target.iter (fun p -> Target.apply_at_path (Loop_core.change_loop_mode_on (MagicThread one_thread_inside)) p) tg
-  else begin
+  if one_thread_inside
+    then Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
+      Target.apply_at_path (fun t ->
+        let barrier = trm_add_mark barrier_mark (Gpu_trm.magic_barrier ()) in
+        trm_seq_nobrace_nomarks [
+          Loop_core.change_loop_mode_on (MagicThread one_thread_inside) t;
+          barrier
+        ]
+      ) p
+    ) tg)
+    else Target.iter (fun p -> Target.apply_at_path (Loop_core.change_loop_mode_on (MagicThread one_thread_inside)) p) tg
+  (* else begin
     Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
       let seq_ind, p = try (
         let ind, seq_p = Path.index_in_seq p in
@@ -121,7 +130,7 @@ let%transfo seq_for_to_magicthread_for ~(one_thread_inside : bool) ?(barrier_mar
           ])
       ) p
     ) tg)
-  end
+  end *)
 
 (* Patching thread for conversion *)
 let ghost_var_rewrite_threadsctx_sz = toplevel_var "rewrite_threadsctx_sz"
@@ -522,7 +531,7 @@ magic_barrier();
 // { for 0..N -> for 0..M -> H }
 ]}
 *)
-let remove_loop_around_barrier (tg: target): unit =
+let%transfo remove_loop_around_barrier (tg: target): unit =
   Target.iter (fun p ->
     let barrier_error = "Gpu_basic.remove_loop_around_barrier: expected magic barrier at target"  in
     let barrier = (Path.resolve_path p (Trace.ast ())) in
