@@ -53,12 +53,13 @@ let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
       | _ -> failwith "Gpu.convert_tail_thread_for: loops should contain only 0 or 1" in
       let leaf_m = Marks.add_next_mark_on next_m leaf_p in
       let new_barrier_mark = next_m () in
+      let ro_join_barrier_mark = next_m () in
       if not is_leaf then begin
         seq_for_desync_parallel_reads ~barrier_mark:new_barrier_mark [cMark leaf_m];
         Loop.fission ~mark_loops:leaf_m [tBefore; cMark barrier_mark];
-        Loop.fission ~mark_loops:leaf_m [tAfter; cMark barrier_mark];
+        Loop.fission ~mark_loops:ro_join_barrier_mark [tAfter; cMark barrier_mark];
         Instr.delete [cMark leaf_m; cFor ~body:[cMark barrier_mark] ""];
-        Instr.move ~dest:[tAfter; cMark new_barrier_mark] [occLast; cMark leaf_m];
+        Instr.move ~dest:[tAfter; cMark new_barrier_mark] [nbAny; cMark ro_join_barrier_mark];
       end;
       if convert then seq_for_to_magicthread_for ~one_thread_inside:is_leaf ~barrier_mark:new_barrier_mark [occFirst; cMark leaf_m];
       match loops with
