@@ -85,6 +85,22 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
           "div_check := tile_div_check_i, items := fun (i: int) -> for j in "
           "0..n -> &c_gmem[MINDEX2(m, n, i, j)] ~> UninitCellOf(GMem)");
   {
+    __ghost(assume,
+            "P := (exact_div(m, 32) * (exact_div(n, 32)) = MSIZE2(exact_div(m, "
+            "32), exact_div(n, 32)))");
+    __ghost(assume,
+            "P := (exact_div(m, 32) * (exact_div(n, 32)) = MSIZE2(exact_div(m, "
+            "32), exact_div(n, 32)))");
+    __ghost(assume,
+            "P := (MSIZE2(exact_div(m, 32), exact_div(n, 32)) = exact_div(m, "
+            "32) * (exact_div(n, 32)))");
+    __ghost(assume,
+            "P := (MSIZE2(exact_div(m, 32), exact_div(n, 32)) = exact_div(m, "
+            "32) * (exact_div(n, 32)))");
+    __ghost(assume,
+            "P := (MSIZE2(exact_div(m, 32), exact_div(n, 32)) * "
+            "MSIZE2(exact_div(32, 8), exact_div(32, 4)) = MSIZE4(exact_div(m, "
+            "32), exact_div(n, 32), exact_div(32, 8), exact_div(32, 4)))");
     kernel_launch(
         MSIZE2(exact_div(m, 32), exact_div(n, 32)),
         MSIZE2(exact_div(32, 8), exact_div(32, 4)),
@@ -94,9 +110,6 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
     __ghost(take_smem_token, "tok_sz := sizeof(float) * (8 * 4 * 4)");
     float* const a_smem = __smem_malloc3<float>(4, 4, 8);
     __with("T := float");
-    __ghost(assume,
-            "P := (MSIZE2(exact_div(m, 32), exact_div(n, 32)) = exact_div(m, "
-            "32) * (exact_div(n, 32)))");
     __ghost(rewrite_linear,
             "from := MSIZE2(exact_div(m, 32), exact_div(n, 32)), to := "
             "exact_div(m, 32) * (exact_div(n, 32)), inside := fun (sz: int) -> "
@@ -119,9 +132,6 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
         "UninitCellOf(SMem), n1 := exact_div(m, 32), n2 := exact_div(n, 32)");
     float* const b_smem = __smem_malloc3<float>(8, 4, 4);
     __with("T := float");
-    __ghost(assume,
-            "P := (MSIZE2(exact_div(m, 32), exact_div(n, 32)) = exact_div(m, "
-            "32) * (exact_div(n, 32)))");
     __ghost(rewrite_linear,
             "from := MSIZE2(exact_div(m, 32), exact_div(n, 32)), to := "
             "exact_div(m, 32) * (exact_div(n, 32)), inside := fun (sz: int) -> "
@@ -148,8 +158,8 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
           "i, j)] ~> UninitCellOf(GMem)");
       __xproduces(
           "for bj in 0..(exact_div(n, 32)) -> for ti in 0..4 -> for j in 0..8 "
-          "-> for i in 0..8 -> for j68 in 0..4 -> &c_gmem[MINDEX2(m, n, bi * "
-          "32 + (ti * 8 + i), bj * 32 + (j * 4 + j68))] ~> UninitCellOf(GMem)");
+          "-> for i in 0..8 -> for j1 in 0..4 -> &c_gmem[MINDEX2(m, n, bi * 32 "
+          "+ (ti * 8 + i), bj * 32 + (j * 4 + j1))] ~> UninitCellOf(GMem)");
       __ghost(assert_prop, "P := (32 = 4 * 8)", "tile_div_check_i1 <- proof");
       {
         __ghost(tile_divides,
@@ -196,17 +206,17 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
               "&c_gmem[MINDEX2(m, n, bi * 32 + (ti * 8 + i), bj * 32 + j)] ~> "
               "UninitCellOf(GMem)");
           __xproduces(
-              "for ti in 0..4 -> for j in 0..8 -> for i in 0..8 -> for j68 in "
+              "for ti in 0..4 -> for j in 0..8 -> for i in 0..8 -> for j1 in "
               "0..4 -> &c_gmem[MINDEX2(m, n, bi * 32 + (ti * 8 + i), bj * 32 + "
-              "(j * 4 + j68))] ~> UninitCellOf(GMem)");
+              "(j * 4 + j1))] ~> UninitCellOf(GMem)");
           for (int ti = 0; ti < 4; ti++) {
             __xconsumes(
                 "for i in 0..8 -> for j in 0..32 -> &c_gmem[MINDEX2(m, n, bi * "
                 "32 + (ti * 8 + i), bj * 32 + j)] ~> UninitCellOf(GMem)");
             __xproduces(
-                "for j in 0..8 -> for i in 0..8 -> for j68 in 0..4 -> "
+                "for j in 0..8 -> for i in 0..8 -> for j1 in 0..4 -> "
                 "&c_gmem[MINDEX2(m, n, bi * 32 + (ti * 8 + i), bj * 32 + (j * "
-                "4 + j68))] ~> UninitCellOf(GMem)");
+                "4 + j1))] ~> UninitCellOf(GMem)");
             {
               for (int i = 0; i < 8; i++) {
                 __xconsumes(
@@ -233,56 +243,70 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
         }
       }
     }
-    __ghost(assume,
-            "P := (MSIZE2(exact_div(m, 32), exact_div(n, 32)) * "
-            "MSIZE2(exact_div(32, 8), exact_div(32, 4)) = MSIZE4(exact_div(m, "
-            "32), exact_div(n, 32), exact_div(32, 8), exact_div(32, 4)))");
     kernel_setup_end();
     __with(
         "grid_sz := MSIZE4(exact_div(m, 32), exact_div(n, 32), exact_div(32, "
         "8), exact_div(32, 4))");
+    __ghost(
+        dro_fork_group,
+        "H := a_gmem ~> Matrix2Of(m, p, GMem, A), r := 0..(exact_div(m, 32))");
+    __ghost(
+        dro_fork_group,
+        "H := b_gmem ~> Matrix2Of(p, n, GMem, B), r := 0..(exact_div(m, 32))");
     __threadfor;
     for (int bi = 0; bi < exact_div(m, 32); bi++) {
-      __sreads("a_gmem ~> Matrix2Of(m, p, GMem, A)");
-      __sreads("b_gmem ~> Matrix2Of(p, n, GMem, B)");
+      __requires("#_6: _Fraction");
+      __requires("#_7: _Fraction");
+      __xconsumes("Desync_RO(#_6, a_gmem ~> Matrix2Of(m, p, GMem, A))");
+      __xconsumes("Desync_RO(#_7, b_gmem ~> Matrix2Of(p, n, GMem, B))");
+      __xproduces(
+          "Desync_RO(#_6 / range_count(0..(exact_div(n, 32))), desync_for bj "
+          "in ..exact_div(n, 32) -> a_gmem ~> Matrix2Of(m, p, GMem, A))");
+      __xproduces(
+          "Desync_RO(#_7 / range_count(0..(exact_div(n, 32))), desync_for bj "
+          "in ..exact_div(n, 32) -> b_gmem ~> Matrix2Of(p, n, GMem, B))");
       __xpreserves(
-          "desync_for _v62 in ..exact_div(n, 32) -> for _v63 in 0..8 -> for "
-          "_v64 in 0..4 -> for _v65 in 0..4 -> &b_smem[MINDEX4(exact_div(m, "
-          "32) * (exact_div(n, 32)), 8, 4, 4, DMINDEX2(exact_div(m, 32), "
-          "exact_div(n, 32), bi, _v62), _v63, _v64, _v65)] ~> "
-          "UninitCellOf(SMem)");
+          "desync_for _v4 in ..exact_div(n, 32) -> for _v5 in 0..8 -> for _v6 "
+          "in 0..4 -> for _v7 in 0..4 -> &b_smem[MINDEX4(exact_div(m, 32) * "
+          "(exact_div(n, 32)), 8, 4, 4, DMINDEX2(exact_div(m, 32), "
+          "exact_div(n, 32), bi, _v4), _v5, _v6, _v7)] ~> UninitCellOf(SMem)");
       __xpreserves(
-          "desync_for _v55 in ..exact_div(n, 32) -> for _v56 in 0..4 -> for "
-          "_v57 in 0..4 -> for _v58 in 0..8 -> &a_smem[MINDEX4(exact_div(m, "
-          "32) * (exact_div(n, 32)), 4, 4, 8, DMINDEX2(exact_div(m, 32), "
-          "exact_div(n, 32), bi, _v55), _v56, _v57, _v58)] ~> "
-          "UninitCellOf(SMem)");
+          "desync_for _v4 in ..exact_div(n, 32) -> for _v5 in 0..4 -> for _v6 "
+          "in 0..4 -> for _v7 in 0..8 -> &a_smem[MINDEX4(exact_div(m, 32) * "
+          "(exact_div(n, 32)), 4, 4, 8, DMINDEX2(exact_div(m, 32), "
+          "exact_div(n, 32), bi, _v4), _v5, _v6, _v7)] ~> UninitCellOf(SMem)");
       __xwrites(
           "desync_for bj in ..exact_div(n, 32) -> desync_for ti in ..4 -> "
           "desync_for tj in ..8 -> for i in 0..8 -> for j in 0..4 -> "
           "&c_gmem[MINDEX2(m, n, bi * 32 + (ti * 8 + i), bj * 32 + (tj * 4 + "
           "j))] ~~>[GMem] reduce_sum(p, fun k -> A(bi * 32 + (ti * 8 + i), k) "
           "*. B(k, bj * 32 + (tj * 4 + j)))");
-      __ghost(assert_prop, "P := (32 = 4 * 8)", "tile_div_check_i170 <- proof");
+      __ghost(dro_fork_group,
+              "H := a_gmem ~> Matrix2Of(m, p, GMem, A), r := 0..(exact_div(n, "
+              "32))");
+      __ghost(dro_fork_group,
+              "H := b_gmem ~> Matrix2Of(p, n, GMem, B), r := 0..(exact_div(n, "
+              "32))");
+      __ghost(assert_prop, "P := (32 = 4 * 8)", "tile_div_check_i13 <- proof");
       __threadfor;
       for (int bj = 0; bj < exact_div(n, 32); bj++) {
-        __sreads("a_gmem ~> Matrix2Of(m, p, GMem, A)");
-        __sreads("b_gmem ~> Matrix2Of(p, n, GMem, B)");
         __xpreserves(
-            "for _v59 in 0..8 -> for _v60 in 0..4 -> for _v61 in 0..4 -> "
+            "for _v1 in 0..8 -> for _v2 in 0..4 -> for _v3 in 0..4 -> "
             "&b_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), 8, 4, 4, "
-            "DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), _v59, _v60, "
-            "_v61)] ~> UninitCellOf(SMem)");
+            "DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), _v1, _v2, "
+            "_v3)] ~> UninitCellOf(SMem)");
         __xpreserves(
-            "for _v52 in 0..4 -> for _v53 in 0..4 -> for _v54 in 0..8 -> "
+            "for _v1 in 0..4 -> for _v2 in 0..4 -> for _v3 in 0..8 -> "
             "&a_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), 4, 4, 8, "
-            "DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), _v52, _v53, "
-            "_v54)] ~> UninitCellOf(SMem)");
+            "DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), _v1, _v2, "
+            "_v3)] ~> UninitCellOf(SMem)");
         __xwrites(
             "desync_for ti in ..4 -> desync_for tj in ..8 -> for i in 0..8 -> "
             "for j in 0..4 -> &c_gmem[MINDEX2(m, n, bi * 32 + (ti * 8 + i), bj "
             "* 32 + (tj * 4 + j))] ~~>[GMem] reduce_sum(p, fun k -> A(bi * 32 "
             "+ (ti * 8 + i), k) *. B(k, bj * 32 + (tj * 4 + j)))");
+        __xreads("a_gmem ~> Matrix2Of(m, p, GMem, A)");
+        __xreads("b_gmem ~> Matrix2Of(p, n, GMem, B)");
         __ghost(rewrite_threadsctx_sz,
                 "from := MSIZE2(exact_div(32, 8), exact_div(32, 4)), to := "
                 "MSIZE2(4, 8)");
@@ -346,7 +370,15 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
             }
           }
         }
+        __ghost(dro_fork_group,
+                "H := a_gmem ~> Matrix2Of(m, p, GMem, A), r := "
+                "0..(exact_div(p, 4))");
+        __ghost(dro_fork_group,
+                "H := b_gmem ~> Matrix2Of(p, n, GMem, B), r := "
+                "0..(exact_div(p, 4))");
         for (int bkIdx = 0; bkIdx < exact_div(p, 4); bkIdx++) {
+          __requires("#_10: _Fraction");
+          __requires("#_11: _Fraction");
           __spreserves(
               "ThreadsCtx(MINDEX3(exact_div(m, 32), exact_div(n, 32), 0, bi, "
               "bj, 0)..+MSIZE2(4, 8))");
@@ -365,26 +397,34 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
               "-> for j in 0..4 -> &sum[MINDEX3(4 * 8, 8, 4, DMINDEX2(4, 8, "
               "ti, tj), i, j)] ~~>[TReg] reduce_sum(bkIdx * 4, fun k0 -> A(bi "
               "* 32 + (ti * 8 + i), k0) *. B(k0, bj * 32 + (tj * 4 + j)))");
-          __sreads("a_gmem ~> Matrix2Of(m, p, GMem, A)");
-          __sreads("b_gmem ~> Matrix2Of(p, n, GMem, B)");
+          __xpreserves("Desync_RO(#_10, a_gmem ~> Matrix2Of(m, p, GMem, A))");
+          __xpreserves("Desync_RO(#_11, b_gmem ~> Matrix2Of(p, n, GMem, B))");
+          __ghost(dro_fork_group,
+                  "H := a_gmem ~> Matrix2Of(m, p, GMem, A), r := 0..4");
           __threadfor;
           for (int ti = 0; ti < 4; ti++) {
-            __sreads("a_gmem ~> Matrix2Of(m, p, GMem, A)");
+            __requires("#_18: _Fraction");
+            __xconsumes("Desync_RO(#_18, a_gmem ~> Matrix2Of(m, p, GMem, A))");
             __xconsumes(
                 "for k in 0..4 -> for i in 0..8 -> "
                 "&a_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), 4, 4, "
                 "8, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), ti, "
                 "k, i)] ~> UninitCellOf(SMem)");
             __xproduces(
+                "Desync_RO(#_18 / range_count(0..4), for k in 0..4 -> a_gmem "
+                "~> Matrix2Of(m, p, GMem, A))");
+            __xproduces(
                 "for k in 0..4 -> desync_for i in ..8 -> "
                 "&a_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), 4, 4, "
                 "8, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), ti, "
                 "k, i)] ~~>[SMem] A(bi * 32 + (ti * 8 + i), bkIdx * 4 + k)");
+            __ghost(dro_fork_group,
+                    "H := a_gmem ~> Matrix2Of(m, p, GMem, A), r := 0..4");
             for (int k = 0; k < 4; k++) {
+              __requires("#_19: _Fraction");
               __spreserves(
                   "ThreadsCtx(MINDEX4(exact_div(m, 32), exact_div(n, 32), 4, "
                   "0, bi, bj, ti, 0)..+MSIZE1(8))");
-              __sreads("a_gmem ~> Matrix2Of(m, p, GMem, A)");
               __xconsumes(
                   "for i in 0..8 -> &a_smem[MINDEX4(exact_div(m, 32) * "
                   "(exact_div(n, 32)), 4, 4, 8, DMINDEX2(exact_div(m, 32), "
@@ -395,6 +435,8 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                   "(exact_div(n, 32)), 4, 4, 8, DMINDEX2(exact_div(m, 32), "
                   "exact_div(n, 32), bi, bj), ti, k, i)] ~~>[SMem] A(bi * 32 + "
                   "(ti * 8 + i), bkIdx * 4 + k)");
+              __xpreserves(
+                  "Desync_RO(#_19, a_gmem ~> Matrix2Of(m, p, GMem, A))");
               __threadfor;
               for (int i = 0; i < 8; i++) {
                 __sreads("a_gmem ~> Matrix2Of(m, p, GMem, A)");
@@ -403,6 +445,8 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                     "4, 8, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, "
                     "bj), ti, k, i)] ~~>[SMem] A(bi * 32 + (ti * 8 + i), bkIdx "
                     "* 4 + k)");
+                __ghost(desyncro_to_ro,
+                        "H := a_gmem ~> Matrix2Of(m, p, GMem, A)");
                 __ghost(assert_prop, "P := (p = exact_div(p, 4) * 4)",
                         "tile_div_check_k35 <- proof");
                 __ghost(tiled_index_in_range,
@@ -410,7 +454,7 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                         "tile_div_check_k35");
                 __ghost(tiled_index_in_range,
                         "tile_index := ti, index := i, div_check := "
-                        "tile_div_check_i170");
+                        "tile_div_check_i13");
                 __ghost(tiled_index_in_range,
                         "tile_index := bi, index := ti * 8 + i, div_check := "
                         "tile_div_check_i");
@@ -426,14 +470,17 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                     __gmem_get(&a_gmem[MINDEX2(m, p, bi * 32 + (ti * 8 + i),
                                                bkIdx * 4 + k)]));
                 __ghost_end(__ghost_pair_6);
+                __ghost(ro_to_desyncro,
+                        "H := a_gmem ~> Matrix2Of(m, p, GMem, A)");
               }
             }
           }
+          __ghost(dro_fork_group,
+                  "H := b_gmem ~> Matrix2Of(p, n, GMem, B), r := 0..8");
           __ghost(rewrite_threadsctx_sz,
                   "from := MSIZE2(4, 8), to := MSIZE2(8, 4)");
           __threadfor;
           for (int tj = 0; tj < 8; tj++) {
-            __sreads("b_gmem ~> Matrix2Of(p, n, GMem, B)");
             __xconsumes(
                 "for k in 0..4 -> for j in 0..4 -> "
                 "&b_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), 8, 4, "
@@ -444,6 +491,7 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                 "&b_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), 8, 4, "
                 "4, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), tj, "
                 "k, j)] ~~>[SMem] B(bkIdx * 4 + k, bj * 32 + (tj * 4 + j))");
+            __xreads("b_gmem ~> Matrix2Of(p, n, GMem, B)");
             __threadfor;
             for (int k = 0; k < 4; k++) {
               __sreads("b_gmem ~> Matrix2Of(p, n, GMem, B)");
@@ -452,15 +500,17 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                   "(exact_div(n, 32)), 8, 4, 4, DMINDEX2(exact_div(m, 32), "
                   "exact_div(n, 32), bi, bj), tj, k, j)] ~~>[SMem] B(bkIdx * 4 "
                   "+ k, bj * 32 + (tj * 4 + j))");
+              __ghost(desyncro_to_ro,
+                      "H := b_gmem ~> Matrix2Of(p, n, GMem, B)");
               __ghost(assert_prop, "P := (p = exact_div(p, 4) * 4)",
-                      "tile_div_check_k3542 <- proof");
+                      "tile_div_check_k354 <- proof");
               __ghost(tiled_index_in_range,
                       "tile_index := bkIdx, index := k, div_check := "
-                      "tile_div_check_k3542");
+                      "tile_div_check_k354");
               __ghost(assert_prop, "P := (n = exact_div(n, 32) * 32)",
-                      "tile_div_check_j713222644 <- proof");
+                      "tile_div_check_j71322266 <- proof");
               __ghost(assert_prop, "P := (32 = 8 * 4)",
-                      "tile_div_check_j214232743 <- proof");
+                      "tile_div_check_j21423275 <- proof");
               for (int j = 0; j < 4; j++) {
                 __sreads("b_gmem ~> Matrix2Of(p, n, GMem, B)");
                 __xwrites(
@@ -470,11 +520,11 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                     "* 4 + j))");
                 __ghost(tiled_index_in_range,
                         "tile_index := tj, index := j, div_check := "
-                        "tile_div_check_j214232743");
+                        "tile_div_check_j21423275");
                 __ghost(tiled_index_in_range,
                         "tile_index := bj, index := tj * 4 + j, div_check := "
-                        "tile_div_check_j713222644");
-                const __ghost_fn __ghost_pair_9 =
+                        "tile_div_check_j71322266");
+                const __ghost_fn __ghost_pair_2 =
                     __ghost_begin(ro_matrix2_focus,
                                   "matrix := b_gmem, i := bkIdx * 4 + k, j := "
                                   "bj * 32 + (tj * 4 + j)");
@@ -485,8 +535,10 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                         tj, k, j)],
                     __gmem_get(&b_gmem[MINDEX2(p, n, bkIdx * 4 + k,
                                                bj * 32 + (tj * 4 + j))]));
-                __ghost_end(__ghost_pair_9);
+                __ghost_end(__ghost_pair_2);
               }
+              __ghost(ro_to_desyncro,
+                      "H := b_gmem ~> Matrix2Of(p, n, GMem, B)");
             }
           }
           __ghost(rewrite_threadsctx_sz,
@@ -501,6 +553,14 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                 "32)), 8, 4, 4, DMINDEX2(exact_div(m, 32), exact_div(n, 32), "
                 "bi, bj), tj, k, j)] ~~>[SMem] B(bkIdx * 4 + k, bj * 32 + (tj "
                 "* 4 + j))");
+            blocksync_dro();
+            __with(
+                "H := desync_for tj in ..8 -> b_gmem ~> Matrix2Of(p, n, GMem, "
+                "B)");
+            blocksync_dro();
+            __with(
+                "H := desync_for ti in ..4 -> for k in 0..4 -> a_gmem ~> "
+                "Matrix2Of(m, p, GMem, A)");
             blocksync();
             __with(
                 "H := desync_for ti in ..4 -> for k in 0..4 -> desync_for i in "
@@ -513,24 +573,40 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                 "H := desync_for ti in ..4 -> desync_for tj in ..8 -> for i in "
                 "0..8 -> for j in 0..4 -> &c_gmem[MINDEX2(m, n, bi * 32 + (ti "
                 "* 8 + i), bj * 32 + (tj * 4 + j))] ~> UninitCellOf(GMem)");
+            blocksync_dro();
+            __with(
+                "H := Free(b_smem, desync_for i in ..MSIZE2(exact_div(m, 32), "
+                "exact_div(n, 32)) -> for j1 in 0..8 -> for j2 in 0..4 -> for "
+                "j3 in 0..4 -> &b_smem[MINDEX4(MSIZE2(exact_div(m, 32), "
+                "exact_div(n, 32)), 8, 4, 4, DMINDEX1(MSIZE2(exact_div(m, 32), "
+                "exact_div(n, 32)), i), j1, j2, j3)] ~> UninitCellOf(SMem))");
+            blocksync_dro();
+            __with(
+                "H := Free(a_smem, desync_for i in ..MSIZE2(exact_div(m, 32), "
+                "exact_div(n, 32)) -> for j1 in 0..4 -> for j2 in 0..4 -> for "
+                "j3 in 0..8 -> &a_smem[MINDEX4(MSIZE2(exact_div(m, 32), "
+                "exact_div(n, 32)), 4, 4, 8, DMINDEX1(MSIZE2(exact_div(m, 32), "
+                "exact_div(n, 32)), i), j1, j2, j3)] ~> UninitCellOf(SMem))");
+            blocksync_dro();
+            __with("H := Free(b_gmem, b_gmem ~> UninitMatrix2Of(p, n, GMem))");
+            blocksync_dro();
+            __with("H := Free(a_gmem, a_gmem ~> UninitMatrix2Of(m, p, GMem))");
+            blocksync_dro();
+            __with("H := Free(c_gmem, c_gmem ~> UninitMatrix2Of(m, n, GMem))");
           } /*sync1@*/
           __ghost(rewrite_threadsctx_sz,
                   "from := MSIZE2(exact_div(32, 8), exact_div(32, 4)), to := "
                   "MSIZE2(8, 4)");
+          __ghost(dro_fork_group,
+                  "H := for tj in 0..8 -> for k in 0..4 -> for j in 0..4 -> "
+                  "&b_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), 8, "
+                  "4, 4, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), "
+                  "tj, k, j)] ~~>[SMem] B(bkIdx * 4 + k, bj * 32 + (tj * 4 + "
+                  "j)), r := 0..4");
           __ghost(rewrite_threadsctx_sz,
                   "from := MSIZE2(8, 4), to := MSIZE2(4, 8)");
           __threadfor;
           for (int ti = 0; ti < 4; ti++) {
-            __sreads(
-                "for ti in 0..4 -> for k in 0..4 -> for i in 0..8 -> "
-                "&a_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), 4, 4, "
-                "8, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), ti, "
-                "k, i)] ~~>[SMem] A(bi * 32 + (ti * 8 + i), bkIdx * 4 + k)");
-            __sreads(
-                "for tj in 0..8 -> for k in 0..4 -> for j in 0..4 -> "
-                "&b_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), 8, 4, "
-                "4, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), tj, "
-                "k, j)] ~~>[SMem] B(bkIdx * 4 + k, bj * 32 + (tj * 4 + j))");
             __xconsumes(
                 "desync_for tj in ..8 -> for i in 0..8 -> for j in 0..4 -> "
                 "&sum[MINDEX3(4 * 8, 8, 4, DMINDEX2(4, 8, ti, tj), i, j)] "
@@ -541,13 +617,16 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                 "&sum[MINDEX3(4 * 8, 8, 4, DMINDEX2(4, 8, ti, tj), i, j)] "
                 "~~>[TReg] reduce_sum((bkIdx + 1) * 4, fun k0 -> A(bi * 32 + "
                 "(ti * 8 + i), k0) *. B(k0, bj * 32 + (tj * 4 + j)))");
-            const __ghost_fn __ghost_pair_12 = __ghost_begin(
-                ro_group_focus,
-                "i := ti, items := fun (ti: int) -> for k in 0..4 -> for i in "
-                "0..8 -> &a_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, "
-                "32)), 4, 4, 8, DMINDEX2(exact_div(m, 32), exact_div(n, 32), "
-                "bi, bj), ti, k, i)] ~~>[SMem] A(bi * 32 + (ti * 8 + i), bkIdx "
-                "* 4 + k)");
+            __xreads(
+                "for tj in 0..8 -> for k in 0..4 -> for j in 0..4 -> "
+                "&b_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), 8, 4, "
+                "4, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), tj, "
+                "k, j)] ~~>[SMem] B(bkIdx * 4 + k, bj * 32 + (tj * 4 + j))");
+            __xreads(
+                "for k in 0..4 -> for i in 0..8 -> "
+                "&a_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), 4, 4, "
+                "8, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), ti, "
+                "k, i)] ~~>[SMem] A(bi * 32 + (ti * 8 + i), bkIdx * 4 + k)");
             __threadfor;
             for (int tj = 0; tj < 8; tj++) {
               __sreads(
@@ -572,7 +651,19 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                   "DMINDEX2(4, 8, ti, tj), i, j)] ~~>[TReg] reduce_sum((bkIdx "
                   "+ 1) * 4, fun k0 -> A(bi * 32 + (ti * 8 + i), k0) *. B(k0, "
                   "bj * 32 + (tj * 4 + j)))");
-              const __ghost_fn __ghost_pair_11 = __ghost_begin(
+              __ghost(desyncro_to_ro,
+                      "H := for tj in 0..8 -> for k in 0..4 -> for j in 0..4 "
+                      "-> &b_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, "
+                      "32)), 8, 4, 4, DMINDEX2(exact_div(m, 32), exact_div(n, "
+                      "32), bi, bj), tj, k, j)] ~~>[SMem] B(bkIdx * 4 + k, bj "
+                      "* 32 + (tj * 4 + j))");
+              __ghost(desyncro_to_ro,
+                      "H := for k in 0..4 -> for i in 0..8 -> "
+                      "&a_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), "
+                      "4, 4, 8, DMINDEX2(exact_div(m, 32), exact_div(n, 32), "
+                      "bi, bj), ti, k, i)] ~~>[SMem] A(bi * 32 + (ti * 8 + i), "
+                      "bkIdx * 4 + k)");
+              const __ghost_fn __ghost_pair_1 = __ghost_begin(
                   ro_group_focus,
                   "i := tj, items := fun (tj: int) -> for k in 0..4 -> for j "
                   "in 0..4 -> &b_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, "
@@ -625,14 +716,14 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                     "exact_div(n, 32), bi, bj), tj, k, j)] ~~>[SMem] B(bkIdx * "
                     "4 + k, bj * 32 + (tj * 4 + j))");
                 __ghost(assert_prop, "P := (p = exact_div(p, 4) * 4)",
-                        "tile_div_check_k354251 <- proof");
+                        "tile_div_check_k3548 <- proof");
                 __ghost(tiled_index_in_range,
                         "tile_index := bkIdx, index := k, div_check := "
-                        "tile_div_check_k354251");
+                        "tile_div_check_k3548");
                 __ghost(assert_prop, "P := (n = exact_div(n, 32) * 32)",
-                        "tile_div_check_j71322264450 <- proof");
+                        "tile_div_check_j713222667 <- proof");
                 __ghost(assert_prop, "P := (32 = 8 * 4)",
-                        "tile_div_check_j21423274349 <- proof");
+                        "tile_div_check_j214232756 <- proof");
                 float* const a_regs = __treg_ref_uninit1_s<float>(8);
                 __with("T := float");
                 for (int i = 0; i < 8; i++) {
@@ -711,13 +802,13 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                             __treg_get(&a_regs[MINDEX1(8, i)]) *
                                 __treg_get(&b_regs[MINDEX1(4, j)]));
                     __ghost(in_range_bounds, "x := bkIdx * 4 + k",
-                            "k_ge_04866 <- lower_bound, #_3567 <- upper_bound");
+                            "k_ge_051 <- lower_bound, #_352 <- upper_bound");
                     __ghost(rewrite_float_linear,
                             "inside := fun v -> &sum[MINDEX3(4 * 8, 8, 4, "
                             "DMINDEX2(4, 8, ti, tj), i, j)] ~~>[TReg] v, by := "
                             "reduce_sum_add_right(bkIdx * 4 + k, fun k -> A(bi "
                             "* 32 + (ti * 8 + i), k) *. B(k, bj * 32 + (tj * 4 "
-                            "+ j)), k_ge_04866)");
+                            "+ j)), k_ge_051)");
                     __ghost(rewrite_linear,
                             "inside := fun (k: int) -> &sum[MINDEX3(4 * 8, 8, "
                             "4, DMINDEX2(4, 8, ti, tj), i, j)] ~~>[TReg] "
@@ -757,11 +848,70 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
                       "32 + (tj * 4 + j))), by := mul_add_factor(bkIdx, 4)");
                 }
               }
-              __ghost_end(__ghost_pair_11);
+              __ghost_end(__ghost_pair_1);
+              __ghost(ro_to_desyncro,
+                      "H := for tj in 0..8 -> for k in 0..4 -> for j in 0..4 "
+                      "-> &b_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, "
+                      "32)), 8, 4, 4, DMINDEX2(exact_div(m, 32), exact_div(n, "
+                      "32), bi, bj), tj, k, j)] ~~>[SMem] B(bkIdx * 4 + k, bj "
+                      "* 32 + (tj * 4 + j))");
+              __ghost(ro_to_desyncro,
+                      "H := for k in 0..4 -> for i in 0..8 -> "
+                      "&a_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), "
+                      "4, 4, 8, DMINDEX2(exact_div(m, 32), exact_div(n, 32), "
+                      "bi, bj), ti, k, i)] ~~>[SMem] A(bi * 32 + (ti * 8 + i), "
+                      "bkIdx * 4 + k)");
             }
-            __ghost_end(__ghost_pair_12);
           }
+          __ghost(rewrite_threadsctx_sz,
+                  "from := MSIZE2(4, 8), to := MSIZE2(exact_div(32, 8), "
+                  "exact_div(32, 4))");
+          /*@sync2*/ __barrier_sequence;
+          {
+            blocksync_dro();
+            __with(
+                "H := desync_for ti in ..4 -> for tj in 0..8 -> for k in 0..4 "
+                "-> for j in 0..4 -> &b_smem[MINDEX4(exact_div(m, 32) * "
+                "(exact_div(n, 32)), 8, 4, 4, DMINDEX2(exact_div(m, 32), "
+                "exact_div(n, 32), bi, bj), tj, k, j)] ~~>[SMem] B(bkIdx * 4 + "
+                "k, bj * 32 + (tj * 4 + j))");
+            blocksync();
+            __with(
+                "H := desync_for ti in ..4 -> for k in 0..4 -> for i in 0..8 "
+                "-> &a_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), 4, "
+                "4, 8, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), "
+                "ti, k, i)] ~~>[SMem] A(bi * 32 + (ti * 8 + i), bkIdx * 4 + "
+                "k)");
+          } /*sync2@*/
+          __ghost(rewrite_threadsctx_sz,
+                  "from := MSIZE2(exact_div(32, 8), exact_div(32, 4)), to := "
+                  "MSIZE2(4, 8)");
+          __ghost(ro_join_group,
+                  "H := for tj in 0..8 -> for k in 0..4 -> for j in 0..4 -> "
+                  "&b_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, 32)), 8, "
+                  "4, 4, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, bj), "
+                  "tj, k, j)] ~~>[SMem] B(bkIdx * 4 + k, bj * 32 + (tj * 4 + "
+                  "j)), r := 0..4");
+          for (int ti = 0; ti < 4; ti++) {
+            __requires("#_18: _Fraction");
+            __xconsumes(
+                "Desync_RO(#_18 / range_count(0..4), for k in 0..4 -> a_gmem "
+                "~> Matrix2Of(m, p, GMem, A))");
+            __xproduces("Desync_RO(#_18, a_gmem ~> Matrix2Of(m, p, GMem, A))");
+            __ghost(dro_join_group,
+                    "H := a_gmem ~> Matrix2Of(m, p, GMem, A), r := 0..4");
+          }
+          __ghost(dro_join_group,
+                  "H := a_gmem ~> Matrix2Of(m, p, GMem, A), r := 0..4");
+          __ghost(dro_join_group,
+                  "H := b_gmem ~> Matrix2Of(p, n, GMem, B), r := 0..8");
         }
+        __ghost(dro_join_group,
+                "H := a_gmem ~> Matrix2Of(m, p, GMem, A), r := "
+                "0..(exact_div(p, 4))");
+        __ghost(dro_join_group,
+                "H := b_gmem ~> Matrix2Of(p, n, GMem, B), r := "
+                "0..(exact_div(p, 4))");
         __threadfor;
         for (int ti = 0; ti < 4; ti++) {
           __xconsumes(
@@ -863,20 +1013,24 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
         "8), exact_div(32, 4))");
     __barrier_sequence;
     {
-      __ghost(
-          kernel_teardown_sync,
-          "H := desync_for bi in ..exact_div(m, 32) -> desync_for bj in "
-          "..exact_div(n, 32) -> for _v59 in 0..8 -> for _v60 in 0..4 -> for "
-          "_v61 in 0..4 -> &b_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, "
-          "32)), 8, 4, 4, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, "
-          "bj), _v59, _v60, _v61)] ~> UninitCellOf(SMem)");
-      __ghost(
-          kernel_teardown_sync,
-          "H := desync_for bi in ..exact_div(m, 32) -> desync_for bj in "
-          "..exact_div(n, 32) -> for _v52 in 0..4 -> for _v53 in 0..4 -> for "
-          "_v54 in 0..8 -> &a_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, "
-          "32)), 4, 4, 8, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, "
-          "bj), _v52, _v53, _v54)] ~> UninitCellOf(SMem)");
+      __ghost(kernel_teardown_sync_dro,
+              "H := desync_for bi in ..exact_div(m, 32) -> desync_for bj in "
+              "..exact_div(n, 32) -> a_gmem ~> Matrix2Of(m, p, GMem, A)");
+      __ghost(kernel_teardown_sync_dro,
+              "H := desync_for bi in ..exact_div(m, 32) -> desync_for bj in "
+              "..exact_div(n, 32) -> b_gmem ~> Matrix2Of(p, n, GMem, B)");
+      __ghost(kernel_teardown_sync,
+              "H := desync_for bi in ..exact_div(m, 32) -> desync_for bj in "
+              "..exact_div(n, 32) -> for _v1 in 0..8 -> for _v2 in 0..4 -> for "
+              "_v3 in 0..4 -> &b_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, "
+              "32)), 8, 4, 4, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, "
+              "bj), _v1, _v2, _v3)] ~> UninitCellOf(SMem)");
+      __ghost(kernel_teardown_sync,
+              "H := desync_for bi in ..exact_div(m, 32) -> desync_for bj in "
+              "..exact_div(n, 32) -> for _v1 in 0..4 -> for _v2 in 0..4 -> for "
+              "_v3 in 0..8 -> &a_smem[MINDEX4(exact_div(m, 32) * (exact_div(n, "
+              "32)), 4, 4, 8, DMINDEX2(exact_div(m, 32), exact_div(n, 32), bi, "
+              "bj), _v1, _v2, _v3)] ~> UninitCellOf(SMem)");
       __ghost(kernel_teardown_sync,
               "H := desync_for bi in ..exact_div(m, 32) -> desync_for bj in "
               "..exact_div(n, 32) -> desync_for ti in ..4 -> desync_for tj in "
@@ -885,6 +1039,30 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
               "reduce_sum(p, fun k -> A(bi * 32 + (ti * 8 + i), k) *. B(k, bj "
               "* 32 + (tj * 4 + j)))");
     }
+    for (int bi = 0; bi < exact_div(m, 32); bi++) {
+      __requires("#_6: _Fraction");
+      __requires("#_7: _Fraction");
+      __xconsumes(
+          "_RO(#_6 / range_count(0..(exact_div(n, 32))), for bj in "
+          "0..(exact_div(n, 32)) -> a_gmem ~> Matrix2Of(m, p, GMem, A))");
+      __xconsumes(
+          "_RO(#_7 / range_count(0..(exact_div(n, 32))), for bj in "
+          "0..(exact_div(n, 32)) -> b_gmem ~> Matrix2Of(p, n, GMem, B))");
+      __xproduces("_RO(#_6, a_gmem ~> Matrix2Of(m, p, GMem, A))");
+      __xproduces("_RO(#_7, b_gmem ~> Matrix2Of(p, n, GMem, B))");
+      __ghost(ro_join_group,
+              "H := a_gmem ~> Matrix2Of(m, p, GMem, A), r := 0..(exact_div(n, "
+              "32))");
+      __ghost(ro_join_group,
+              "H := b_gmem ~> Matrix2Of(p, n, GMem, B), r := 0..(exact_div(n, "
+              "32))");
+    }
+    __ghost(
+        ro_join_group,
+        "H := a_gmem ~> Matrix2Of(m, p, GMem, A), r := 0..(exact_div(m, 32))");
+    __ghost(
+        ro_join_group,
+        "H := b_gmem ~> Matrix2Of(p, n, GMem, B), r := 0..(exact_div(m, 32))");
     for (int bi = 0; bi < exact_div(m, 32); bi++) {
       __xconsumes(
           "for bj in 0..(exact_div(n, 32)) -> for ti in 0..4 -> for tj in 0..8 "
@@ -895,8 +1073,7 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
       __xproduces(
           "for i in 0..32 -> for j in 0..n -> &c_gmem[MINDEX2(m, n, bi * 32 + "
           "i, j)] ~~>[GMem] matmul(A, B, p)(bi * 32 + i, j)");
-      __ghost(assert_prop, "P := (32 = 4 * 8)",
-              "tile_div_check_i17071 <- proof");
+      __ghost(assert_prop, "P := (32 = 4 * 8)", "tile_div_check_i134 <- proof");
       {
         for (int bj = 0; bj < exact_div(n, 32); bj++) {
           __xconsumes(
@@ -986,14 +1163,11 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
           }
         }
         __ghost(untile_divides,
-                "div_check := tile_div_check_i17071, items := fun (i: int) -> "
+                "div_check := tile_div_check_i134, items := fun (i: int) -> "
                 "for j in 0..n -> &c_gmem[MINDEX2(m, n, bi * 32 + i, j)] "
                 "~~>[GMem] matmul(A, B, p)(bi * 32 + i, j)");
       }
     }
-    __ghost(assume,
-            "P := (exact_div(m, 32) * (exact_div(n, 32)) = MSIZE2(exact_div(m, "
-            "32), exact_div(n, 32)))");
     __ghost(
         dmindex2_tile,
         "H := fun (f: int * int -> int) -> desync_for di1 in ..exact_div(m, "
@@ -1015,9 +1189,6 @@ void mm(float* c, float* a, float* b, int m, int n, int p) {
             "-> for i3 in 0..4 -> &b_smem[MINDEX4(sz, 8, 4, 4, DMINDEX1(sz, "
             "i), i1, i2, i3)] ~> UninitCellOf(SMem)");
     __smem_free3(b_smem, 8, 4, 4);
-    __ghost(assume,
-            "P := (exact_div(m, 32) * (exact_div(n, 32)) = MSIZE2(exact_div(m, "
-            "32), exact_div(n, 32)))");
     __ghost(
         dmindex2_tile,
         "H := fun (f: int * int -> int) -> desync_for di1 in ..exact_div(m, "

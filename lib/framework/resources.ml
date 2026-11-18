@@ -331,6 +331,7 @@ let loop_minimize_on (t: trm): trm =
 (** [loop_minimize]: minimize linear invariants of a loop contract *)
 let%transfo loop_minimize (tg: target) : unit =
   if Flags.proof_preserving () then begin
+    ensure_computed ();
     Target.apply_at_target_paths loop_minimize_on tg;
     justif_correct "only changed loop contracts"
   end else

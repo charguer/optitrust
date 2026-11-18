@@ -18,7 +18,7 @@ let%transfo insert ?(reparse : bool = false) (code : trm) (tg : target) : unit =
    we need both H ==> H' and H'' ==> H'. *)
 let%transfo delete ?(nb_extra: int = 0) (tg : target) : unit =
   (* TODO: Manage delete of spans *)
-  Resources.required_for_check ();
+  (* Resources.required_for_check (); *)
   Target.iter (fun p ->
     let p_seq, span = Path.extract_last_dir_span p in
     let span = { span with stop = span.stop + nb_extra } in

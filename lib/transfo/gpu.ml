@@ -40,7 +40,9 @@ let seq_for_desync_on ~(barrier_mark : mark) (t: trm): trm =
     TrmList joins;
   ]
 
-let%transfo seq_for_desync ~(barrier_mark : mark) (tg: target): unit =
+let%transfo seq_for_desync
+  ?(barrier_mark : mark = no_mark)
+  (tg: target): unit =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     Target.apply_at_path (seq_for_desync_on ~barrier_mark) p
   ) tg)
