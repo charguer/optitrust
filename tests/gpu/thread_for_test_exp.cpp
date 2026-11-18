@@ -5,12 +5,13 @@ __device__ void basic(int* a, int N, int M) {
   __requires("A: int * int -> int");
   __requires("bpg: int");
   __requires("smem_sz: int");
+  __requires("f: _Fraction");
   __consumes(
       "for i in 0..N -> for j in 0..M -> &a[MINDEX2(N, M, i, j)] ~~>[GMem] 0");
   __produces(
       "for i in 0..N -> for j in 0..M -> &a[MINDEX2(N, M, i, j)] ~~>[GMem] 1");
+  __preserves("Desync_RO(f, KernelParams(bpg, MSIZE2(N, M), smem_sz))");
   __preserves("ThreadsCtx(MINDEX1(0, 0)..+MSIZE2(N, M))");
-  __reads("KernelParams(bpg, MSIZE2(N, M), smem_sz)");
   __threadfor;
   for (int i = 0; i < N; i++) {
     __strict();
@@ -34,10 +35,11 @@ __device__ void retile_desyncgroups(int* a, int N, int M) {
   __requires("A: int * int -> int");
   __requires("bpg: int");
   __requires("smem_sz: int");
+  __requires("f: _Fraction");
   __consumes("for i in 0..N -> for j in 0..M -> &a[i * M + j] ~~>[GMem] 0");
   __produces("for i in 0..N -> for j in 0..M -> &a[i * M + j] ~~>[GMem] 1 + 1");
+  __preserves("Desync_RO(f, KernelParams(bpg, MSIZE2(N, M), smem_sz))");
   __preserves("ThreadsCtx(MINDEX1(0, 0)..+MSIZE2(N, M))");
-  __reads("KernelParams(bpg, MSIZE2(N, M), smem_sz)");
   __ghost(assume, "P := (MSIZE2(N * M / 32, 32) = N * M)", "eq_retile_1 <- H");
   __ghost(assume, "P := (MSIZE2(N * M / 32, 32) = N * M / 32 * 32)",
           "eq_retile_2 <- H");
@@ -93,13 +95,14 @@ __device__ void sync_required(int* a, int N, int M) {
   __requires("A: int * int -> int");
   __requires("bpg: int");
   __requires("smem_sz: int");
+  __requires("f: _Fraction");
   __consumes(
       "for i in 0..N -> for j in 0..M -> &a[MINDEX2(N, M, i, j)] ~~>[GMem] 0");
   __produces(
       "for i in 0..N -> for j in 0..M -> &a[MINDEX2(N, M, i, j)] ~~>[GMem] 1 + "
       "1");
+  __preserves("Desync_RO(f, KernelParams(bpg, MSIZE2(N, M), smem_sz))");
   __preserves("ThreadsCtx(MINDEX1(0, 0)..+MSIZE2(N, M))");
-  __reads("KernelParams(bpg, MSIZE2(N, M), smem_sz)");
   __ghost(assume, "P := (MSIZE2(N, M) = MSIZE2(M, N))", "msize_commute <- H");
   __threadfor;
   for (int i = 0; i < N; i++) {
@@ -150,13 +153,14 @@ __device__ void sync_required_write_after_read(int* a, int N, int M) {
   __requires("A: int * int -> int");
   __requires("bpg: int");
   __requires("smem_sz: int");
+  __requires("f: _Fraction");
   __consumes(
       "for i in 0..N -> for j in 0..M -> &a[MINDEX2(N, M, i, j)] ~~>[GMem] 0");
   __produces(
       "for i in 0..N -> for j in 0..M -> &a[MINDEX2(N, M, i, j)] ~~>[GMem] 1 + "
       "1");
+  __preserves("Desync_RO(f, KernelParams(bpg, MSIZE2(N, M), smem_sz))");
   __preserves("ThreadsCtx(MINDEX1(0, 0)..+MSIZE2(N, M))");
-  __reads("KernelParams(bpg, MSIZE2(N, M), smem_sz)");
   __ghost(assume, "P := (MSIZE2(N, M) = MSIZE2(M, N))", "msize_commute <- H");
   __threadfor;
   for (int i = 0; i < N; i++) {
@@ -177,7 +181,9 @@ __device__ void sync_required_write_after_read(int* a, int N, int M) {
     for (int j = 0; j < M; j++) {
       __strict();
       __xreads("&a[MINDEX2(N, M, i, j)] ~~>[GMem] 0");
+      __ghost(desyncro_to_ro, "H := &a[MINDEX2(N, M, i, j)] ~~>[GMem] 0");
       __gmem_get(&a[MINDEX2(N, M, i, j)]);
+      __ghost(ro_to_desyncro, "H := &a[MINDEX2(N, M, i, j)] ~~>[GMem] 0");
     }
   }
   blocksync();
@@ -225,10 +231,11 @@ __device__ void write_test1(int* a, int N) {
 __device__ void write_test2(int* a, int N) {
   __requires("bpg: int");
   __requires("smem_sz: int");
+  __requires("f: _Fraction");
   __consumes("for i in 0..N -> &a[i] ~~>[GMem] 0");
   __produces("for i in 0..N -> &a[i] ~~>[GMem] 1");
+  __preserves("Desync_RO(f, KernelParams(bpg, MSIZE1(N), smem_sz))");
   __preserves("ThreadsCtx(MINDEX1(0, 0)..+MSIZE1(N))");
-  __reads("KernelParams(bpg, MSIZE1(N), smem_sz)");
   write_test1(a, N);
   blocksync();
   __with("H := desync_for i in ..N -> &a[i] ~~>[GMem] 1");
@@ -251,14 +258,15 @@ __device__ void read_thread_outer(int* a, int* b, int N) {
   __requires("f: _Fraction");
   __preserves("ThreadsCtx(MINDEX1(0, 0)..+MSIZE1(N))");
   __preserves(
-      "_RO(f / range_count(0..N), desync_for t in ..N -> b ~> Matrix1Of(N, "
-      "GMem, B))");
+      "Desync_RO(f / range_count(0..N), desync_for t in ..N -> b ~> "
+      "Matrix1Of(N, GMem, B))");
   __writes("desync_for i in ..N -> &a[i] ~~>[GMem] reduce_sum(N, B)");
   __threadfor;
   for (int t = 0; t < N; t++) {
     __strict();
     __xwrites("&a[t] ~~>[GMem] reduce_sum(N, B)");
     __xreads("b ~> Matrix1Of(N, GMem, B)");
+    __ghost(desyncro_to_ro, "H := b ~> Matrix1Of(N, GMem, B)");
     __gmem_set(&a[t], 0);
     __ghost(rewrite_linear,
             "inside := fun v -> &a[t] ~~>[GMem] v, by := reduce_sum_empty(B)");
@@ -278,21 +286,23 @@ __device__ void read_thread_outer(int* a, int* b, int N) {
               "inside := fun v -> &a[t] ~~>[GMem] v, by := "
               "reduce_sum_add_right(i, B, i_geq_0)");
     }
+    __ghost(ro_to_desyncro, "H := b ~> Matrix1Of(N, GMem, B)");
   }
 }
 
 __device__ void read_thread_inner(int* a, int* b, int N) {
   __requires("B: int -> int");
-  __requires("f: _Fraction");
+  __requires("g: _Fraction");
   __requires("bpg: int");
   __requires("smem_sz: int");
+  __requires("f: _Fraction");
+  __preserves("Desync_RO(f, KernelParams(bpg, MSIZE1(N), smem_sz))");
   __preserves("ThreadsCtx(MINDEX1(0, 0)..+MSIZE1(N))");
   __preserves(
-      "_RO(f / range_count(0..N), desync_for t in ..N -> b ~> Matrix1Of(N, "
-      "GMem, B))");
+      "Desync_RO(f / range_count(0..N), desync_for t in ..N -> b ~> "
+      "Matrix1Of(N, GMem, B))");
   __writes(
       "desync_for i in ..N -> &a[MINDEX1(N, i)] ~~>[GMem] reduce_sum(N, B)");
-  __reads("KernelParams(bpg, MSIZE1(N), smem_sz)");
   __threadfor;
   for (int t = 0; t < N; t++) {
     __strict();
@@ -306,14 +316,17 @@ __device__ void read_thread_inner(int* a, int* b, int N) {
     __strict();
     __spreserves("ThreadsCtx(MINDEX1(0, 0)..+MSIZE1(N))");
     __spreserves(
+        "Desync_RO(f / range_count(0..N), desync_for t in ..N -> b ~> "
+        "Matrix1Of(N, GMem, B))");
+    __spreserves(
         "desync_for t in ..N -> &a[MINDEX1(N, t)] ~~>[GMem] reduce_sum(i, B)");
-    __sreads("desync_for t in ..N -> b ~> Matrix1Of(N, GMem, B)");
     __threadfor;
     for (int t = 0; t < N; t++) {
       __strict();
       __xconsumes("&a[MINDEX1(N, t)] ~~>[GMem] reduce_sum(i, B)");
       __xproduces("&a[MINDEX1(N, t)] ~~>[GMem] reduce_sum(i + 1, B)");
       __xreads("b ~> Matrix1Of(N, GMem, B)");
+      __ghost(desyncro_to_ro, "H := b ~> Matrix1Of(N, GMem, B)");
       const __ghost_fn focus =
           __ghost_begin(ro_matrix1_focus, "matrix := b, i := i");
       const int va = __gmem_get(&a[MINDEX1(N, t)]);
@@ -324,6 +337,7 @@ __device__ void read_thread_inner(int* a, int* b, int N) {
       __ghost(rewrite_linear,
               "inside := fun v -> &a[MINDEX1(N, t)] ~~>[GMem] v, by := "
               "reduce_sum_add_right(i, B, i_geq_0)");
+      __ghost(ro_to_desyncro, "H := b ~> Matrix1Of(N, GMem, B)");
     }
   }
 }

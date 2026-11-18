@@ -5,7 +5,8 @@ __device;
 void basic(int *a, int N, int M) {
   __requires("A: int * int -> int");
   __requires("bpg: int, smem_sz: int");
-  __reads("KernelParams(bpg, MSIZE2(N,M), smem_sz)");
+  __requires("f: _Fraction");
+  __preserves("Desync_RO(f, KernelParams(bpg, MSIZE2(N,M), smem_sz))");
   __preserves("ThreadsCtx( MINDEX1(0,0) ..+ MSIZE2(N,M) )");
   __consumes("for i in 0..N -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
   __produces("for i in 0..N -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1");
@@ -27,7 +28,8 @@ __device;
 void retile_desyncgroups(int *a, int N, int M) {
   __requires("A: int * int -> int");
   __requires("bpg: int, smem_sz: int");
-  __reads("KernelParams(bpg, MSIZE2(N,M), smem_sz)");
+  __requires("f: _Fraction");
+  __preserves("Desync_RO(f, KernelParams(bpg, MSIZE2(N,M), smem_sz))");
   __preserves("ThreadsCtx(MINDEX1(0,0) ..+ MSIZE2(N,M))");
   __consumes("for i in 0..N -> for j in 0..M -> &a[i * M + j] ~~>[GMem] 0");
   __produces("for i in 0..N -> for j in 0..M -> &a[i * M + j] ~~>[GMem] 1 + 1");
@@ -75,7 +77,8 @@ __device;
 void sync_required(int *a, int N, int M) {
   __requires("A: int * int -> int");
   __requires("bpg: int, smem_sz: int");
-  __reads("KernelParams(bpg, MSIZE2(N,M), smem_sz)");
+  __requires("f: _Fraction");
+  __preserves("Desync_RO(f, KernelParams(bpg, MSIZE2(N,M), smem_sz))");
   __preserves("ThreadsCtx(MINDEX1(0,0) ..+ MSIZE2(N,M))");
   __consumes("for i in 0..N -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
   __produces("for i in 0..N -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1 + 1");
@@ -117,7 +120,8 @@ __device;
 void sync_required_write_after_read(int *a, int N, int M) {
   __requires("A: int * int -> int");
   __requires("bpg: int, smem_sz: int");
-  __reads("KernelParams(bpg, MSIZE2(N,M), smem_sz)");
+  __requires("f: _Fraction");
+  __preserves("Desync_RO(f, KernelParams(bpg, MSIZE2(N,M), smem_sz))");
   __preserves("ThreadsCtx(MINDEX1(0,0) ..+ MSIZE2(N,M))");
   __consumes("for i in 0..N -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
   __produces("for i in 0..N -> for j in 0..M -> &a[MINDEX2(N,M,i,j)] ~~>[GMem] 1 + 1");
@@ -139,7 +143,9 @@ void sync_required_write_after_read(int *a, int N, int M) {
 
     __threadfor; for (int j = 0; j < M; j++) {
       __xreads("&a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
+      __ghost(desyncro_to_ro, "H := &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
       __gmem_get(&a[MINDEX2(N,M,i,j)]);
+      __ghost(ro_to_desyncro, "H := &a[MINDEX2(N,M,i,j)] ~~>[GMem] 0");
     }
   }
 
@@ -177,7 +183,8 @@ void write_test1(int *a, int N) {
 __device;
 void write_test2(int *a, int N) {
   __requires("bpg: int, smem_sz: int");
-  __reads("KernelParams(bpg, MSIZE1(N), smem_sz)");
+  __requires("f: _Fraction");
+  __preserves("Desync_RO(f, KernelParams(bpg, MSIZE1(N), smem_sz))");
   __preserves("ThreadsCtx(MINDEX1(0,0) ..+ MSIZE1(N))");
   __consumes("for i in 0..N -> &a[i] ~~>[GMem] 0");
   __produces("for i in 0..N -> &a[i] ~~>[GMem] 1");
@@ -199,12 +206,13 @@ void read_thread_outer(int *a, int *b, int N) {
   // __consumes("_RO(f, for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i))");
   // __ensures("g: _Fraction");
   // __produces("_RO(f - g, for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i))");
-  __preserves("_RO(f / range_count(0..N), desync_for t in ..N -> for i in 0..N -> &b[MINDEX1(N,i)]~~>[GMem] B(i))");
+  __preserves("Desync_RO(f / range_count(0..N), desync_for t in ..N -> for i in 0..N -> &b[MINDEX1(N,i)]~~>[GMem] B(i))");
 
   __threadfor; for (int t = 0; t < N; t++) {
     __xreads("for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i)");
     __xwrites("&a[t] ~~>[GMem] reduce_sum(N, B)");
 
+    __ghost(desyncro_to_ro, "H := for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i)");
     __gmem_set(&a[t],0);
     __ghost(rewrite_linear, "inside := (fun v -> &a[t] ~~>[GMem] v), by := reduce_sum_empty(B)");
     for (int i = 0; i < N; i++) {
@@ -217,19 +225,21 @@ void read_thread_outer(int *a, int *b, int N) {
       __ghost(in_range_bounds, "i", "i_geq_0 <- lower_bound");
       __ghost(rewrite_linear, "inside := (fun v -> &a[t] ~~>[GMem] v), by := reduce_sum_add_right(i, B, i_geq_0)");
     }
+    __ghost(ro_to_desyncro, "H := for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i)");
   }
 }
 
 __device;
 void read_thread_inner(int *a, int *b, int N) {
-  __requires("B: int -> int, f: _Fraction");
+  __requires("B: int -> int, g: _Fraction");
   __requires("bpg: int, smem_sz: int");
-  __reads("KernelParams(bpg, MSIZE1(N), smem_sz)");
+  __requires("f: _Fraction");
+  __preserves("Desync_RO(f, KernelParams(bpg, MSIZE1(N), smem_sz))");
   __preserves("ThreadsCtx(MINDEX1(0,0) ..+ MSIZE1(N))");
   __writes("desync_for i in ..N -> &a[MINDEX1(N,i)] ~~>[GMem] reduce_sum(N,B)");
   // NOTE: not a __reads because it shouldn't be possible to overwrite the content of b before the reads are done
   // __reads("for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i)");
-  __preserves("_RO(f / range_count(0..N), desync_for t in ..N -> for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i))");
+  __preserves("Desync_RO(f / range_count(0..N), desync_for t in ..N -> for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i))");
 
   __threadfor; for (int t = 0; t < N; t++) {
     __xwrites("&a[MINDEX1(N,t)] ~~>[GMem] reduce_sum(0, B)");
@@ -245,6 +255,7 @@ void read_thread_inner(int *a, int *b, int N) {
       __xproduces("&a[MINDEX1(N,t)] ~~>[GMem] reduce_sum(i+1, B)");
       __xreads("for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i)");
 
+      __ghost(desyncro_to_ro, "H := for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i)");
       __GHOST_BEGIN(focus, ro_matrix1_focus, "b, i");
       const int va = __gmem_get(&a[MINDEX1(N,t)]);
       const int vb = __gmem_get(&b[MINDEX1(N,i)]);
@@ -252,6 +263,7 @@ void read_thread_inner(int *a, int *b, int N) {
       __GHOST_END(focus);
       __ghost(in_range_bounds, "i", "i_geq_0 <- lower_bound");
       __ghost(rewrite_linear, "inside := (fun v -> &a[MINDEX1(N,t)] ~~>[GMem] v), by := reduce_sum_add_right(i, B, i_geq_0)");
+      __ghost(ro_to_desyncro, "H := for i in 0..N -> &b[MINDEX1(N,i)] ~~>[GMem] B(i)");
     }
   }
 }
