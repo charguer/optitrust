@@ -94,6 +94,7 @@ let%transfo create_kernel_launch ?(grid_override: trm list option) ?(setup_end: 
   If [barrier_mark] is supplied, it will mark the barrier with that mark. *)
 let%transfo seq_for_to_magicthread_for ~(one_thread_inside : bool) ?(barrier_mark: mark = "") (tg: target) =
   if one_thread_inside
+    (* For now, add barrier for inner thread for which is treated differently, this may need to change. *)
     then Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
       Target.apply_at_path (fun t ->
         let barrier = trm_add_mark barrier_mark (Gpu_trm.magic_barrier ()) in
@@ -257,7 +258,7 @@ let to_desync_for (tg: target): unit =
 (** [fix_distrib_accesses] fixes distributed dimensions: e.g. if a 4D buffer declared at the kernel level is
   converted to shared memory, and there are 2 dimensions of blocks, then there are now 2 distributed dimensions.
   This function would convert all instances of MINDEX4(...) on that variable to MINDEX3(DMINDEX2(...), ...). *)
-let fix_distrib_accesses ~(aliases: Var_set.t ref) ?(synced = false) (chop_dims: int) (body_span_tg: target) (alloc_tg: target): unit =
+let%transfo fix_distrib_accesses ~(aliases: Var_set.t ref) ?(synced: bool = false) (chop_dims: int) (body_span_tg: target) (alloc_tg: target): unit =
   if chop_dims = 0 then () else begin
 
   let body_seq_path,body_seq_span = Target.resolve_target_span_exactly_one body_span_tg in
@@ -550,8 +551,8 @@ let%transfo insert_barrier (tg: target) =
 
 let block_sync (t: trm): trm =
   match Resource_formula.formula_desync_ro_inv t with
-  | Some (_frac, formula) -> trm_apps ~ghost_args:[new_var "H", t] (trm_var (toplevel_var "blocksync_dro")) []
-  | _ -> trm_apps ~ghost_args:[new_var "H", t] (trm_var (toplevel_var "blocksync")) []
+  | Some (_frac, formula) -> trm_apps ~ghost_args:[new_var "H", formula] (trm_var Gpu_trm.var_blocksync_dro) []
+  | _ -> trm_apps ~ghost_args:[new_var "H", t] (trm_var Gpu_trm.var_blocksync) []
 
 let kernel_teardown_sync (t: trm): trm =
   match Resource_formula.formula_desync_ro_inv t with

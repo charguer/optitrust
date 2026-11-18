@@ -238,7 +238,7 @@ let hoist_on (name : string)
       (* FIXME: need to match inner loop ranges. *)
       Resource_formula.formula_group_range { index = i; start = trm_int 0; direction = DirUp; stop = d; step = trm_step_one () } acc
     ) (List.combine other_indices dims) Resource_formula.(formula_uninit_cell ~mem_typ:Resource_formula.mem_typ_any access) in (* TODO upgrade to multiple mem types (#24) *)
-    new_body_instrs, Resource_contract.push_loop_contract_clause (Exclusive Preserves) (Resource_formula.new_anon_hyp (), new_resource) contract
+    new_body_instrs, Resource_contract.push_loop_contract_clause mode (Exclusive Preserves) (Resource_formula.new_anon_hyp (), new_resource) contract
   else
     new_body_instrs, contract
   in

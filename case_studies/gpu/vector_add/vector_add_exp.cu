@@ -11,11 +11,9 @@
   const int __tid = blockIdx.x * MSIZE1(256) + threadIdx.x;
   const int __ctx_sz_0 = __ctx_sz / N;
   const int __i0 = __tid % __ctx_sz / __ctx_sz_0;
-  {
-    const float va = d_a[MINDEX1(N, __i0)];
-    const float vb = d_b[MINDEX1(N, __i0)];
-    d_c[MINDEX1(N, __i0)] = va + vb;
-  }
+  const float va = d_a[MINDEX1(N, __i0)];
+  const float vb = d_b[MINDEX1(N, __i0)];
+  d_c[MINDEX1(N, __i0)] = va + vb;
 }/*@*/
 
   void vector_add (float* a, float* b, float* c, int N)  {

@@ -1002,7 +1002,7 @@ let extract_fun_spec (seq: trm mlist) : fun_spec * trm mlist =
     | Some c -> FunSpecContract c, seq
 
 
-let extract_loop_contract (seq: trm mlist) : loop_contract * trm mlist =
+let extract_loop_contract (mode: loop_mode) (seq: trm mlist) : loop_contract * trm mlist =
   let enc_contract, seq = extract_encoded_contract_clauses loop_clause_type_inv seq in
   let is_strict = ref false in
   let enc_contract = List.filter (fun (clause_type, _) ->
@@ -1010,7 +1010,7 @@ let extract_loop_contract (seq: trm mlist) : loop_contract * trm mlist =
       (is_strict := true; false)
     else true) enc_contract in
   let start_contract = if !is_strict then empty_strict_loop_contract else empty_loop_contract in
-  parse_contract_clauses start_contract push_loop_contract_clause enc_contract, seq
+  parse_contract_clauses start_contract (push_loop_contract_clause mode) enc_contract, seq
 
 
 let decode_contract (t: trm): trm =
@@ -1031,7 +1031,7 @@ let decode_contract (t: trm): trm =
     assert (contract = empty_loop_contract);
     begin match trm_seq_inv body with
     | Some (body_seq, result) ->
-      let contract, new_body = extract_loop_contract body_seq in
+      let contract, new_body = extract_loop_contract mode body_seq in
       let new_body = Mlist.map aux new_body in
       trm_alter ~desc:(Trm_for (range, mode, trm_seq ?result new_body, contract)) t
     | None -> trm_map aux t

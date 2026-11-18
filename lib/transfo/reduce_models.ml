@@ -79,8 +79,8 @@ let slide_on (available_sum: trm) (a: trm) (b: trm) (w: trm) (f_elem: trm)
     let pi_res r: formula = Resource_formula.formula_points_to ~mem_typ:Resource_formula.mem_typ_any pi r in
     let sum_res r: formula = Resource_formula.formula_points_to ~mem_typ:Resource_formula.mem_typ_any (trm_var sum) r in
     let contract = Resource_contract.(Resource_formula.(empty_loop_contract |>
-      push_loop_contract_clause (Exclusive Writes) (new_anon_hyp (), pi_res (reduce ai' bi' f_elem)) |>
-      push_loop_contract_clause (SharedModifies) (new_anon_hyp (), sum_res (reduce ai bi f_elem))
+      push_loop_contract_clause Sequential (Exclusive Writes) (new_anon_hyp (), pi_res (reduce ai' bi' f_elem)) |>
+      push_loop_contract_clause Sequential (SharedModifies) (new_anon_hyp (), sum_res (reduce ai bi f_elem))
     )) in
     [
       Trm (trm_add_mark mark_alloc (trm_let_mut (sum, typ) available_sum));

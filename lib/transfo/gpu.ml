@@ -50,7 +50,11 @@ let%transfo seq_for_desync ~(barrier_mark : mark) (tg: target): unit =
   A loop is in tail position if the only thing proceeding it is a ghost or the end of a surrounding loop.
   The list [loops] is a list containing either 0 or 1: 0 means skip conversion (leave it as sequential for), 1 means convert.
   It is always assumed that the leaf will be converted. *)
-let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
+let%transfo convert_tail_thread_for
+  ?(one_thread_inside : bool = true)
+  ?(hoist_barrier_inside : bool = false)
+  (loops : int list) (leaf: target) =
+  let one_thread_inside = one_thread_inside && not hoist_barrier_inside in
   Marks.with_marks (fun next_m -> Nobrace_transfo.remove_after (fun () ->
     let rec aux ~(is_leaf: bool) barrier_mark loops_incl_leaf leaf_p: unit =
       let convert,loops = match loops_incl_leaf with
@@ -59,22 +63,30 @@ let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
       | _ -> failwith "Gpu.convert_tail_thread_for: loops should contain only 0 or 1" in
       let leaf_m = Marks.add_next_mark_on next_m leaf_p in
       let new_barrier_mark = next_m () in
-      if not is_leaf then begin
+      let one_thread_inside = is_leaf && one_thread_inside in
+      if one_thread_inside then begin
+        (* For now, don't want to have __xreads in inner thread for,
+           because you can't focus DRO without the ThreadCtx or sreads.
+           Later, could also call [seq_for_desync] here and fix type checking. *)
+        Resources.detach_loop_ro_focus [cMark leaf_m];
+      end else begin
         seq_for_desync ~barrier_mark:new_barrier_mark [cMark leaf_m];
-        Loop.fission ~mark_loops:leaf_m [tBefore; cMark barrier_mark];
-        Loop.fission ~mark_loops:leaf_m [tAfter; cMark barrier_mark];
-        let paths = Target.resolve_target [nbMulti; cMark leaf_m] in
-        begin match paths with
-        | [compute_p; barrier_p] ->
-          (* [cMark leaf_m; cFor ~body:[cMark barrier_mark] ""] *)
-          Instr.delete (target_of_path barrier_p);
-        | [compute_p; barrier_p; ghost_p] ->
-          Instr.move ~dest:[tAfter; cMark new_barrier_mark] (target_of_path ghost_p);
-          Instr.delete (target_of_path barrier_p);
-        | _ -> failwith "should not happen"
+        if not is_leaf || hoist_barrier_inside then begin
+          Loop.fission ~mark_loops:leaf_m [tBefore; cMark barrier_mark];
+          Loop.fission ~mark_loops:leaf_m [tAfter; cMark barrier_mark];
+          let paths = Target.resolve_target [nbMulti; cMark leaf_m] in
+          begin match paths with
+          | [compute_p; barrier_p] ->
+            (* [cMark leaf_m; cFor ~body:[cMark barrier_mark] ""] *)
+            Instr.delete (target_of_path barrier_p);
+          | [compute_p; barrier_p; ghost_p] ->
+            Instr.move ~dest:[tAfter; cMark new_barrier_mark] (target_of_path ghost_p);
+            Instr.delete (target_of_path barrier_p);
+          | _ -> failwith "should not happen"
+          end
         end
       end;
-      if convert then seq_for_to_magicthread_for ~one_thread_inside:is_leaf ~barrier_mark:new_barrier_mark [occFirst; cMark leaf_m];
+      if convert then seq_for_to_magicthread_for ~one_thread_inside ~barrier_mark:new_barrier_mark [occFirst; cMark leaf_m];
       match loops with
       | [] -> ()
         (* Target.apply_at_path (fun t ->
@@ -84,7 +96,12 @@ let%transfo convert_tail_thread_for (loops : int list) (leaf: target) =
         let _, next_leaf_p = Path.index_in_surrounding_loop leaf_p in
         aux ~is_leaf:false new_barrier_mark loops next_leaf_p
     in
-    Target.iter (aux ~is_leaf:true no_mark (1 :: loops)) leaf;
+    Target.iter (fun leaf_p ->
+      let barrier_mark = if hoist_barrier_inside
+        then Marks.add_next_mark next_m [occLast; cTarget (target_of_path leaf_p); cCall "magic_barrier"]
+        else no_mark in
+      aux ~is_leaf:true barrier_mark (1 :: loops) leaf_p
+    ) leaf;
   ))
 
 (** [convert_magic_thread_fors ~patch_steps tg]: convert all loops pointed to by [tg] to thread for from magic thread for.

@@ -46,30 +46,24 @@ void vector_add(float* a, float* b, float* c, int N) {
       __sreads("d_a ~> Matrix1Of(N, GMem, A)");
       __sreads("d_b ~> Matrix1Of(N, GMem, B)");
       __xwrites("&d_c[MINDEX1(N, i)] ~~>[GMem] arr_add(A, B)(i)");
-      const __ghost_fn __ghost_pair_1 =
-          __ghost_begin(desyncro_to_ro, "H := d_a ~> Matrix1Of(N, GMem, A)");
-      const __ghost_fn __ghost_pair_2 =
-          __ghost_begin(desyncro_to_ro, "H := d_b ~> Matrix1Of(N, GMem, B)");
-      {
-        const __ghost_fn focusA =
-            __ghost_begin(ro_matrix1_focus, "matrix := d_a, i := i");
-        const __ghost_fn focusB =
-            __ghost_begin(ro_matrix1_focus, "matrix := d_b, i := i");
-        const float va = __gmem_get(&d_a[MINDEX1(N, i)]);
-        const float vb = __gmem_get(&d_b[MINDEX1(N, i)]);
-        __gmem_set(&d_c[MINDEX1(N, i)], va + vb);
-        __ghost_end(focusA);
-        __ghost_end(focusB);
-      }
-      __ghost_end(__ghost_pair_1);
-      __ghost_end(__ghost_pair_2);
+      __ghost(desyncro_to_ro, "H := d_a ~> Matrix1Of(N, GMem, A)");
+      __ghost(desyncro_to_ro, "H := d_b ~> Matrix1Of(N, GMem, B)");
+      const __ghost_fn focusA =
+          __ghost_begin(ro_matrix1_focus, "matrix := d_a, i := i");
+      const __ghost_fn focusB =
+          __ghost_begin(ro_matrix1_focus, "matrix := d_b, i := i");
+      const float va = __gmem_get(&d_a[MINDEX1(N, i)]);
+      const float vb = __gmem_get(&d_b[MINDEX1(N, i)]);
+      __gmem_set(&d_c[MINDEX1(N, i)], va + vb);
+      __ghost_end(focusA);
+      __ghost_end(focusB);
+      __ghost(ro_to_desyncro, "H := d_a ~> Matrix1Of(N, GMem, A)");
+      __ghost(ro_to_desyncro, "H := d_b ~> Matrix1Of(N, GMem, B)");
     }
     kernel_teardown_begin();
     __with("grid_sz := MSIZE1(N)");
     __barrier_sequence;
     {
-      __ghost(kernel_teardown_sync_dro, "H := d_a ~> Matrix1Of(N, GMem, A)");
-      __ghost(kernel_teardown_sync_dro, "H := d_b ~> Matrix1Of(N, GMem, B)");
       __ghost(kernel_teardown_sync,
               "H := desync_for i in ..N -> &d_c[MINDEX1(N, i)] ~~>[GMem] A(i) "
               "+. B(i)");

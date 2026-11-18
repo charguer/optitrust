@@ -363,13 +363,19 @@ let make_strict_loop_contract_on (t: trm): trm =
   List.iter (fun (x, f) ->
     match Var_map.find_opt x body_res_usage with
     | None -> ()
-    | Some (ConsumedFull | ConsumedUninit) ->
+    | Some (ConsumedFull | ConsumedUninit) when not (is_gpu_loop mode) ->
       lin_invariant := (new_anon_hyp (), f) :: !lin_invariant;
-    | Some (SplittedFrac | JoinedFrac) ->
+    | Some (SplittedFrac | JoinedFrac) when not (is_gpu_loop mode) ->
       let frac, frac_item = new_frac () in
       fracs := frac_item :: !fracs;
       let { formula = f } = formula_read_only_inv_all f in
       parallel_reads := (new_anon_hyp (), formula_read_only ~frac:(trm_var frac) f) :: !parallel_reads
+    | Some (SplittedFrac | JoinedFrac)
+    | Some (ConsumedFull | ConsumedUninit) when is_gpu_loop mode ->
+      let frac, frac_item = new_frac () in
+      fracs := frac_item :: !fracs;
+      let { formula = f } = formula_dro_inv_all f in
+      parallel_reads := (new_anon_hyp (), formula_desync_ro (trm_var frac) f) :: !parallel_reads
     | Some _ -> failwith "Found a usage incompatible with the loop contract frame")
     contract_frame;
 
@@ -417,8 +423,8 @@ let with_desugared_res push_fn clause (x, formula) contract =
 let parse_fun_contract =
   parse_contract_clauses empty_fun_contract (with_desugared_res push_fun_contract_clause)
 
-let parse_loop_contract ~strict =
-  parse_contract_clauses (if strict then empty_strict_loop_contract else empty_loop_contract) (with_desugared_res push_loop_contract_clause)
+let parse_loop_contract ~strict (mode: loop_mode) =
+  parse_contract_clauses (if strict then empty_strict_loop_contract else empty_loop_contract) (with_desugared_res (push_loop_contract_clause mode))
 
 let __pure = Requires, ""
 let __requires (r: string) = Requires, r
@@ -462,13 +468,14 @@ let set_fun_contract_on (contract: fun_contract) (t: trm): trm =
 let%transfo set_fun_contract (contract: unparsed_fun_contract) (tg : Target.target) : unit =
   Target.apply_at_target_paths (set_fun_contract_on (parse_fun_contract contract)) tg
 
-let set_loop_contract_on (contract: loop_contract) (t: trm): trm =
+let set_loop_contract_on (strict:bool) (contract: unparsed_loop_contract) (t: trm): trm =
   let range, mode, body, _ = trm_inv ~error:"Resource.set_loop_contract_on: Expected for loop" trm_for_inv t in
+  let contract = parse_loop_contract ~strict mode contract in
   trm_like ~old:t (trm_for ~contract ~mode range body)
 
 (* TODO : depreciate transformation *)
 let%transfo set_loop_contract ?(strict:bool=true) (contract: unparsed_loop_contract) (tg: Target.target): unit =
-  Target.apply_at_target_paths (set_loop_contract_on (parse_loop_contract ~strict contract)) tg;
+  Target.apply_at_target_paths (set_loop_contract_on strict contract) tg;
   if not strict then begin
     ensure_computed ();
     Target.apply_at_target_paths make_strict_loop_contract_on tg
@@ -505,20 +512,24 @@ let%transfo detach_loop_ro_focus (tg: target): unit =
 
 (* let ghost_desync_ro_focus = toplevel_var "desync_ro_focus" *)
 let ghost_desyncro_to_ro = toplevel_var "desyncro_to_ro"
+let ghost_ro_to_desyncro = toplevel_var "ro_to_desyncro"
 
 let desyncro_to_ro_on (t: trm): trm =
   let range, mode, body, contract = trm_inv ~error:"not a for loop" trm_for_inv t in
+  let instrs, _ = trm_inv ~error:"loop with no body" trm_seq_inv body in
   let ghosts = List.map (fun (_, formula) ->
     match Resource_formula.formula_desync_ro_inv formula with
       | Some (frac, inner_formula) ->
-        let (_, a, b) = Resource_trm.ghost_pair (ghost_call ghost_desyncro_to_ro ["H", inner_formula]) in
+        (* let (_, a, b) = Resource_trm.ghost_pair (ghost_call ghost_desyncro_to_ro ["H", inner_formula]) in *)
+        let a = Resource_trm.ghost (ghost_call ghost_desyncro_to_ro ["H", inner_formula]) in
+        let b = Resource_trm.ghost (ghost_call ghost_ro_to_desyncro ["H", inner_formula]) in
         (a, b)
       | _ -> failwith "expected a RO or a Desync_RO clause."
   ) contract.parallel_reads in
   let (dro_to_ro, ro_to_dro) = List.split ghosts in
   trm_like ~old:t (trm_for range ~mode ~contract (trm_seq_helper [
     TrmList dro_to_ro;
-    Trm body;
+    TrmMlist instrs;
     TrmList ro_to_dro
   ]))
 

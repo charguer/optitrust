@@ -1004,11 +1004,17 @@ __GHOST(desyncro_to_ro) {
   __preserves("ThreadsCtx(t ..+ MSIZE0())");
   __consumes("Desync_RO(f, H)");
   __produces("_RO(f, H)");
+  __produces("Wand(_RO(f, H), Desync_RO(f, H))");
   __admitted();
 }
 
 __GHOST(ro_to_desyncro) {
-  __reverts(desyncro_to_ro);
+  // __reverts(desyncro_to_ro);
+  __requires("t: int, f: _Fraction, H: HProp");
+  __preserves("ThreadsCtx(t ..+ MSIZE0())");
+  __consumes("Wand(_RO(f, H), Desync_RO(f, H))");
+  __consumes("_RO(f, H)");
+  __produces("Desync_RO(f, H)");
   __admitted();
 }
 

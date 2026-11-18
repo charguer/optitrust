@@ -460,6 +460,9 @@ module Pattern = struct
   let formula_read_only f_frac f_formula =
     trm_apps2 (trm_specific_var var_read_only) f_frac f_formula
 
+  let formula_free f_base_ptr f_cells =
+    trm_apps2 (trm_specific_var var_free) f_base_ptr f_cells
+
   let formula_group f_index f_range f_group_body k t =
     match formula_group_inv t with
     | Some (index, range, body) ->

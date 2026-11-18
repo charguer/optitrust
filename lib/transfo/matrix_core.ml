@@ -165,7 +165,7 @@ let pointwise_fors
     let push_clauses clause formulas contract =
       List.fold_left (fun contract formula ->
         let res = (Resource_formula.new_anon_hyp (), formula) in
-        Resource_contract.push_loop_contract_clause clause res contract
+        Resource_contract.push_loop_contract_clause Sequential clause res contract
       ) contract formulas
     in
     let contract = empty_strict_loop_contract

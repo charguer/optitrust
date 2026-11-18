@@ -154,14 +154,17 @@ let push_fun_contract_clause (clause: fun_contract_clause_type)
   | Writes -> { pre = Resource_set.add_linear (resource_item_uninit res) contract.pre ; post = Resource_set.add_linear res contract.post }
   | Modifies | Preserves -> { pre = Resource_set.add_linear res contract.pre ; post = Resource_set.add_linear res contract.post }
 
-let push_loop_contract_clause (clause: loop_contract_clause_type)
+let push_loop_contract_clause (mode: loop_mode) (clause: loop_contract_clause_type)
     (res: resource_item) (contract: loop_contract) =
   match clause with
   | LoopGhosts -> { contract with loop_ghosts = res :: contract.loop_ghosts }
   | Exclusive Reads ->
     let name, formula = res in
     let frac_var, frac_ghost = new_frac () in
-    let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
+    let ro_formula =
+      if is_gpu_loop mode
+      then formula_desync_ro (trm_var frac_var) formula
+      else formula_read_only ~frac:(trm_var frac_var) formula in
     { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; iter_contract = push_fun_contract_clause Preserves (name, ro_formula) contract.iter_contract }
   | Exclusive clause -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
   | InvariantGhosts -> { contract with invariant = Resource_set.push_front_pure res contract.invariant }
@@ -170,7 +173,10 @@ let push_loop_contract_clause (clause: loop_contract_clause_type)
   | SharedReads ->
     let name, formula = res in
     let frac_var, frac_ghost = new_frac () in
-    let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
+    let ro_formula =
+      if is_gpu_loop mode
+      then formula_desync_ro (trm_var frac_var) formula
+      else formula_read_only ~frac:(trm_var frac_var) formula in
     { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; parallel_reads = (name, ro_formula) :: contract.parallel_reads }
   | Strict -> failwith "Strict should never appear with resources inside"
 

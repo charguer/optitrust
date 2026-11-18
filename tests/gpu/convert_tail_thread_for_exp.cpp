@@ -57,7 +57,7 @@ void nested_seq(int* a, int* b, int N, int K, int M) {
         "for k in 0..K -> for j in 0..M -> &a[MINDEX3(N, K, M, i, k, j)] ~> "
         "UninitCell");
     __xproduces(
-        "for k in 0..K -> Desync_RO(#_2 / range_count(0..K), b ~> Matrix1(M, "
+        "Desync_RO(#_2 / range_count(0..K), for k in 0..K -> b ~> Matrix1(M, "
         "B))");
     __xproduces(
         "for k in 0..K -> desync_for j in ..M -> &a[MINDEX3(N, K, M, i, k, j)] "
