@@ -231,7 +231,7 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
 
   !! Resources.ensure_computed ();
   let fully_typed = Trace.ast () in
-  !! Flags.typechecking_mode := Flags.SemanticsPreserving;
+  Flags.typechecking_mode := Flags.SemanticsPreserving;
   !! Resources.delete_annots [cFunBody "mm"];
   !! Loop.delete_all_void [cFunBody "mm"];
   !! Trace.generate_cuda ~check_expected:true ();

@@ -102,7 +102,8 @@ let rec generalize_mem_ops (t: trm): trm = Pattern.pattern_match t [
   Pattern.(trm_apps1 (trm_var (check is_gpu_get_operation)) !__) (fun p () ->
     let p = generalize_mem_ops p in
     trm_get p);
-  Pattern.(trm_prim (check is_any_mem_operation) __) (fun () -> failwith "Host-side memory operations not allowed in device code");
+  Pattern.(trm_prim (check is_any_mem_operation) __) (fun () ->
+    failwith "Host-side memory operations not allowed in device code: %s\n" (Ast_to_c.ast_to_string t));
   Pattern.__ (fun () -> trm_map generalize_mem_ops t)
 ]
 

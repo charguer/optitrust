@@ -479,19 +479,26 @@ let smem_alias_spec (alias_var: var): unit memory_spec = {
 (* Thread register memory specification *)
 let treg_mem_spec ?(alloc_mark="") ?(free_mark="") (chop_dims: int): (trm list * trm list) memory_spec = {
   alloc_handler = (fun alloc_trm -> (
-    let error = "Gpu.convert_to_register_mem: expected target to point to a matrix allocation" in
-    let (array_var, typ_array, typ_alloc, trms, init) = trm_inv ~error (Matrix_trm.let_alloc_inv) alloc_trm in
-    assert (not init); (* LATER: implement CALLOC *)
-    let distrib_dims, real_dims = List.split_at chop_dims trms in
-    let ref_uninit = if chop_dims = 0 then var__treg_ref_uninit_s else var__treg_ref_uninit in
-    let f = trm_add_cstyle (Typ_arguments [typ_alloc]) (trm_var (ref_uninit (List.length real_dims))) in
-    let alloc_instr = trm_apps f real_dims ~ghost_args:[(new_var "T", typ_alloc)] in
-    let instrs = Mlist.of_list (
-      (trm_let (array_var,typ_array) alloc_instr) ::
-      (desync_alloc_ghosts false distrib_dims real_dims array_var (trm_var var_treg))
-    ) in
-    let t = trm_seq_nobrace (Mlist.insert_mark_at (Mlist.length instrs) alloc_mark instrs) in
-    t, (distrib_dims,real_dims), array_var
+    match Matrix_trm.let_alloc_inv alloc_trm with
+    | Some (array_var, typ_array, typ_alloc, trms, init) ->
+      assert (not init); (* LATER: implement CALLOC *)
+      let distrib_dims, real_dims = List.split_at chop_dims trms in
+      let ref_uninit = if chop_dims = 0 then var__treg_ref_uninit_s else var__treg_ref_uninit in
+      let f = trm_add_cstyle (Typ_arguments [typ_alloc]) (trm_var (ref_uninit (List.length real_dims))) in
+      let alloc_instr = trm_apps f real_dims ~ghost_args:[(new_var "T", typ_alloc)] in
+      let instrs = Mlist.of_list (
+        (trm_let (array_var,typ_array) alloc_instr) ::
+        (desync_alloc_ghosts false distrib_dims real_dims array_var (trm_var var_treg))
+      ) in
+      let t = trm_seq_nobrace (Mlist.insert_mark_at (Mlist.length instrs) alloc_mark instrs) in
+      t, (distrib_dims,real_dims), array_var
+    | None ->
+      let (v, ptr_typ, init) = trm_inv ~error:"expected target to point to a matrix allocation or scalar let" trm_let_inv alloc_trm in
+      assert (chop_dims = 0);
+      let (typ, init) = trm_inv ~error:"expected ref inside let" trm_ref_inv init in
+      let init = trm_apps (trm_var var__treg_ref_s) ~ghost_args:[(new_var "T", typ)] [init] in
+      let t = trm_add_mark alloc_mark (trm_let (v, ptr_typ) init) in
+      t, ([], []), v
   ));
   get_handler = (fun _ args -> trm_apps (trm_var var__treg_get) args);
   set_handler = (fun _ args -> trm_apps (trm_var var__treg_set) args);

@@ -111,7 +111,7 @@ let _ = Run.script_cpp_stage (stage_ok) (fun () ->
   !! Instr.move ~dest:[tFirst; cMark "kernel_sequence"] [cCall "kernel_launch"];
   !! Resources.ensure_computed ();
   let fully_typed = Trace.ast () in
-  !! Flags.typechecking_mode := Flags.SemanticsPreserving;
+  Flags.typechecking_mode := Flags.SemanticsPreserving;
   !! Resources.delete_annots [cFunBody "transpose"];
   !! Loop.delete_all_void [cFunBody "transpose"];
   !! Trace.generate_cuda ~check_expected:true ();

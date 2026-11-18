@@ -21,25 +21,26 @@ __global__ void __kernel0(float* d_partial_sums, float* d_arr, int N) /*@*/ {
         d_arr[MINDEX1(N, __bi0 * 512 + (__ti1 * 2 + i))];
   }
   __syncthreads();
-  float* const reduce_arr_12 = &tile[MINDEX2(exact_div(N, 512), 256, 0, 0)];
+  float* const reduce_arr_1 = &tile[MINDEX2(exact_div(N, 512), 256, 0, 0)];
   for (int t = 0; t < 1 << 8; t++) {
   }
   for (int i = 8; i > 0; i--) {
     const int ei = 1 << i - 1;
     const int eii = 1 << i;
     if (__t2 < 1 << i - 1) {
-      reduce_arr_12[MINDEX1(1 << 8, __t2)] =
-          reduce_arr_12[MINDEX1(1 << 8, __t2)] +
-          (&reduce_arr_12[ei])[MINDEX1(ei, __t2)];
+      reduce_arr_1[MINDEX1(1 << 8, __t2)] =
+          reduce_arr_1[MINDEX1(1 << 8, __t2)] +
+          (&reduce_arr_1[ei])[MINDEX1(ei, __t2)];
     } else {
     }
     __syncthreads();
   }
   if (__ti_f3 == 0) {
-    const float sum_temp_13 = reduce_arr_12[MINDEX1(1 << 8, 0)];
+    float* const out_sum = __treg_ref_s(reduce_arr_1[MINDEX1(1 << 8, 0)]);
+    const float sum_temp_2 = *out_sum;
     for (int t = 0; t < 1 << 8; t++) {
     }
-    d_partial_sums[MINDEX1(exact_div(N, 512), __bi0)] = sum_temp_13;
+    d_partial_sums[MINDEX1(exact_div(N, 512), __bi0)] = sum_temp_2;
   } else {
   }
 } /*@*/

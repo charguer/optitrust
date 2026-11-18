@@ -2,10 +2,10 @@ open Optitrust
 open Prelude
 
 let _ = Flags.typechecking_mode := Flags.ProofPreserving
-let _ = Flags.recompute_resources_between_steps := true
+let _ = Flags.recompute_resources_between_steps := false
 let _ = Flags.disable_stringreprs := true
-let _ = Flags.save_ast_for_steps := Some Flags.Steps_script (* Some Flags.Steps_important *)
-let _ = Flags.only_big_steps := true
+let _ = Flags.save_ast_for_steps := Some Flags.Steps_important
+(* let _ = Flags.only_big_steps := true *)
 
 let _ = Run.script_cpp (fun () -> ())
 let int = trm_int
@@ -13,7 +13,7 @@ let log_tpb = 8
 let tpb = 1 lsl log_tpb
 let stride = 2
 
-let stage_ok = fun i -> true
+let stage_ok = fun i -> i = 6
 
 let parallelize_reduction ?(temp_sums: string option) (inner_loop: string) (outer_loop: string) (sum_var: string): unit = begin
   bigstep (Printf.sprintf "parallelize reduction for %s,%s,%s" inner_loop outer_loop sum_var);
@@ -107,20 +107,32 @@ let replace_with_tree_reduce (logN: trm) (sum_instr: target) : unit =
 
 (* Parallelize block-level reduction using tree reduction: *)
 let _ = Run.script_cpp_stage stage_ok (fun () ->
+  (* NOTE: this inserts a Trm_arbitrary. that's why we reparse. *)
   let tree_reduction_path = (Filename.dirname (Trace.get_context ()).prefix) ^ "/tree_reduction.h" in
   !! Sequence.insert ~reparse:true (stmt (File.get_contents tree_reduction_path))[tBefore; cFunDef "reduce"];
+
   let sum_tg = [cFunDef "reduce"; cFor "bi"; cFor "ti"; cArrayWrite "d_partial_sums"] in
   !! Ghost.flatten_expr_rewrites (sum_tg @ [dRHS]);
   !! replace_with_tree_reduce (trm_int log_tpb) sum_tg;
-  !! Flags.with_flag Flags.typechecking_mode Flags.ProofRepairing (fun () -> Function.inline_def [cFunDef "tree_reduce"]);
+
+  !! Resources.ensure_computed ();
+
+  !! Function.inline_def [cFunDef "tree_reduce"];
 
   (* Mask writing of final result to only 1 thread *)
   !! Loop_basic.intro_loop_single_on ~index:"ti_f" (trm_int tpb) [tAfter; cFor "i" ~body:[cFor "t"]] [tAfter; occLast; cArrayWrite "d_partial_sums"];
+
+  !! Resources.ensure_computed ();
+
   (* Inline tile read result *)
-  !! Trace.wrap_proof_repairing (fun () -> Trace.without_resource_computation_between_steps (fun () -> Instr.move ~dest:[tAfter; cVarDef "out_sum"] [cVarDef ~regexp:true "sum_temp_.*"]));
+  !! Instr.move ~dest:[tAfter; cVarDef "out_sum"] [cVarDef ~regexp:true "sum_temp_.*"];
+  !! Resources.ensure_computed ();
+  (* FIXME: this is broken, necessary ?
   !! Variable.inline [cVarDef "out_sum"];
+  !! Resources.ensure_computed (); *)
   (* Don't need to write 0 at the start anymore *)
   !! Instr.delete ~nb_extra:2 [occFirst; tSpanAround [cArrayWrite "d_partial_sums"]];
+  !! Resources.ensure_computed ();
 )
 
 let _ = Run.script_cpp_stage stage_ok (fun () ->
@@ -169,6 +181,12 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Gpu.convert_to_shared_mem ~chop_dims:1 [cVarDef "tile"];
   !! Gpu.convert_to_global_mem [nbAny; cVarDefs ["d_arr"; "d_partial_sums"]];
 
+  (* let out_sum_p = Target.resolve_target_exactly_one [cVarDef "out_sum"] in
+  let (_, out_sum_seq_p) = Path.index_in_seq out_sum_p in
+  !! Variable_basic.init_detach (target_of_path out_sum_p);
+  !! Matrix.intro_malloc0 (fst (find_var "out_sum" [])) (target_of_path out_sum_seq_p); *)
+  !! Gpu.convert_to_register_mem ~chop_dims:0 [cVarDef "out_sum"];
+
   !! Gpu.magic_barrier_to_teardown_sync [occLast; cCall "magic_barrier"];
   !! Gpu.magic_barrier_to_blocksync [cMark "kernel_sequence"] [nbAny; cCall "magic_barrier"];
 
@@ -181,10 +199,12 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   bounds is illegal, but this is just a pure constant, so it can be inlined as a quick fix to the problem. *)
   !! Variable.inline [cVarDef ~regexp:true "N.+"];
 
+  !! Instr.move ~dest:[tFirst; cMark "kernel_sequence"] [cCall "kernel_launch"];
   !! Resources.ensure_computed ();
-  !! Flags.recompute_resources_between_steps := false;
-  !! Trace.wrap_proof_repairing (fun () ->
-    Instr.move ~dest:[tFirst; cMark "kernel_sequence"] [cCall "kernel_launch"];
-    Trace.generate_cuda ~check_expected:true ();
-  )
+  let fully_typed = Trace.ast () in
+  Flags.typechecking_mode := Flags.SemanticsPreserving;
+  !! Resources.delete_annots [cFunBody "reduce"];
+  !! Loop.delete_all_void [cFunBody "reduce"];
+  !! Trace.generate_cuda ~check_expected:true ();
+  !! Trace.set_ast fully_typed;
 )
