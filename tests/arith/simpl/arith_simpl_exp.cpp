@@ -1,4 +1,4 @@
-#include <optitrust.h>
+#include <optitrust_models.h>
 
 int f(int x) {
   __pure();
@@ -72,8 +72,8 @@ void test_int(int a, int b, int c, int d, int e) {
   x = a / (b * b * c) / d;
   y = 3;
   y = 2 * a;
-  y = -a - 4 * b;
-  y = -a + b + c;
+  y = (-a) - 4 * b;
+  y = (-a) + b + c;
   y = 4;
   z = a * a;
   z = a / b / a;
@@ -161,7 +161,7 @@ void test_double(double a, double b, double c, double d, double e) {
 void test_float() {
   __pure();
   float f;
-  f = -2.f / 12.f;
+  f = (-2.f) / 12.f;
   f = 0.f;
 }
 
@@ -170,9 +170,9 @@ void loop_shift(int x) {
   int ls;
   ls = x + 2;
   ls = x;
-  for (int ls2 = 2; ls2 < 12; ls2++) {
+  for (int ls2 = 2; ls2 < 12; ls2++) { // still giving an error
     __strict();
-    __smodifies("&ls ~> UninitCell");
+    __spreserves("&ls ~> UninitCell");
     ls = 10;
   }
 }

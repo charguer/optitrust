@@ -1,8 +1,13 @@
-#include <optitrust.h>
+#include <optitrust_models.h>
 
 int main() {
-  for (int bi = 0; bi < exact_div(9, 3); bi++) {
+  __ghost(assert_prop, "P := (9 = 3 * 3)", "tile_div_check_i <- proof");
+  for (int bi = 0; bi < 3; bi++) {
+    __strict();
     for (int i = 0; i < 3; i++) {
+      __strict();
+      __ghost(tiled_index_in_range,
+              "tile_index := bi, index := i, div_check := tile_div_check_i");
     }
   }
   int r;

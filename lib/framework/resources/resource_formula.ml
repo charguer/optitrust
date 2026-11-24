@@ -307,6 +307,19 @@ let formula_desyncgroup_inv (t: trm): (var * trm * formula) option =
     end
   | _ -> None
 
+let var_desync_ro = toplevel_var "Desync_RO"
+let trm_desync_ro = trm_var var_desync_ro
+let formula_desync_ro (frac: formula) (f: formula) =
+  trm_apps ~annot:formula_annot trm_desync_ro [frac; f]
+
+let formula_desync_ro_inv (t: trm): (formula * formula) option =
+  match trm_apps_inv t with
+  | Some ({ desc = Trm_var v }, [frac; f]) when var_eq v var_desync_ro ->
+    Some (frac, f)
+  | _ -> None
+
+(* Need to add a ghost to go to/from desync_ro to a desyncgroup *)
+
 let var_formula_If = toplevel_var "If"
 let formula_If (cond: formula) (h: formula) = trm_apps ~annot:formula_annot ~typ:typ_hprop (trm_var var_formula_If) [cond; h]
 
@@ -447,6 +460,9 @@ module Pattern = struct
   let formula_read_only f_frac f_formula =
     trm_apps2 (trm_specific_var var_read_only) f_frac f_formula
 
+  let formula_free f_base_ptr f_cells =
+    trm_apps2 (trm_specific_var var_free) f_base_ptr f_cells
+
   let formula_group f_index f_range f_group_body k t =
     match formula_group_inv t with
     | Some (index, range, body) ->
@@ -462,6 +478,14 @@ module Pattern = struct
       let k = f_index k index in
       let k = f_bound k bound in
       let k = f_group_body k body in
+      k
+    | None -> raise Next
+
+  let formula_desync_ro f_frac f_formula k t =
+    match formula_desync_ro_inv t with
+    | Some (frac, formula) ->
+      let k = f_frac k frac in
+      let k = f_formula k formula in
       k
     | None -> raise Next
 
@@ -501,10 +525,21 @@ let formula_map_under_read_only (f_map: formula -> formula) (formula: formula) =
   match formula_read_only_inv formula with
   | Some { frac; formula } ->
     formula_read_only ~frac (f_map formula)
-  | None -> f_map formula
+  | None ->
+    begin match formula_desync_ro_inv formula with
+    | Some (frac, formula) -> formula_desync_ro frac (f_map formula)
+    | None -> f_map formula
+    end
 
 let formula_read_only_inv_all (formula: formula): read_only_formula =
   Pattern.pattern_match formula [
+    Pattern.(formula_read_only !__ !__) (fun frac formula () -> { frac; formula });
+    Pattern.__ (fun () -> {frac = full_frac; formula})
+  ]
+
+let formula_dro_inv_all (formula: formula): read_only_formula =
+  Pattern.pattern_match formula [
+    Pattern.(formula_desync_ro !__ !__) (fun frac formula () -> { frac; formula });
     Pattern.(formula_read_only !__ !__) (fun frac formula () -> { frac; formula });
     Pattern.__ (fun () -> {frac = full_frac; formula})
   ]
@@ -585,6 +620,7 @@ let formula_desyncgroup_range (range: loop_range) : formula -> formula =
 let rec formula_has_desyncgroups (f: formula): bool =
   Pattern.pattern_match f [
     Pattern.(formula_desyncgroup __ __ __) (fun () -> true);
+    Pattern.(formula_desync_ro __ __) (fun () -> true);
     Pattern.(formula_group __ __ !__) (fun body () -> formula_has_desyncgroups body);
     Pattern.(formula_read_only __ !__) (fun inner () -> formula_has_desyncgroups inner);
     Pattern.(__) (fun () -> false)

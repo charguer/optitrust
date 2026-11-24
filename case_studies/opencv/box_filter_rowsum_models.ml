@@ -54,7 +54,7 @@ let _ = Run.script_cpp (fun () ->
     Instr.gather_targets [c; cStrict; cArrayWrite "d"];
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "k"];
     Instr.gather_targets [c; cFor "i"; cArrayWrite "d"];
-  );
+  ); (* Ressource error, for later *)
 
   !! Loop.shift_range ~simpl:Arith.no_simpl (ShiftBy (trm_find_var "c" [cMark "anycn"])) [cMark "anycn"; cFor "i"];
 

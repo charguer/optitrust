@@ -1,3 +1,4 @@
+#include <optitrust_models.h>
 
 int main() {
   int x = 0;

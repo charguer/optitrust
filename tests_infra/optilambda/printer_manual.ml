@@ -321,7 +321,7 @@ let () =
     (loop GpuThread DirDown);
 
   print_example "for magic_thread down_eq"
-    (loop MagicThread DirDownEq);
+    (loop (MagicThread false) DirDownEq);
 
   print_example "for_c"
     (Trm.trm_for_c

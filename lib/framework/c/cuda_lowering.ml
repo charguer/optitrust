@@ -102,7 +102,8 @@ let rec generalize_mem_ops (t: trm): trm = Pattern.pattern_match t [
   Pattern.(trm_apps1 (trm_var (check is_gpu_get_operation)) !__) (fun p () ->
     let p = generalize_mem_ops p in
     trm_get p);
-  Pattern.(trm_prim (check is_any_mem_operation) __) (fun () -> failwith "Host-side memory operations not allowed in device code");
+  Pattern.(trm_prim (check is_any_mem_operation) __) (fun () ->
+    failwith "Host-side memory operations not allowed in device code: %s\n" (Ast_to_c.ast_to_string t));
   Pattern.__ (fun () -> trm_map generalize_mem_ops t)
 ]
 
@@ -111,6 +112,7 @@ let rec lower_syncs (t: trm): trm =
   if (trm_has_cstyle BarrierSequence t) then begin failwith "Term was marked as barrier sequence, but did not simplify to a single barrier" end;
   Pattern.pattern_match t [
     Pattern.(trm_apps0 (trm_var_with_name "blocksync")) (fun () -> trm_apps (trm__syncthreads ()) []);
+    Pattern.(trm_apps0 (trm_var_with_name "blocksync_dro")) (fun () -> trm_apps (trm__syncthreads ()) []);
     Pattern.(trm_apps0 (trm_var_with_name "magic_barrier")) (fun () -> failwith "Magic barriers not allowed in CUDA code");
     Pattern.__ (fun () -> trm_map lower_syncs t)
   ]
@@ -133,7 +135,7 @@ let lower_smem_alloc (t: trm): trm option =
   Pattern.pattern_match_opt t [
     Pattern.(trm_let !__ (typ_ptr !__) (trm_apps (trm_var !__) !__ __ __)) (fun v typ vf args () ->
       Pattern.when_ (vf.name = sprintf "__smem_malloc%d" (List.length args));
-      let smem_ptr_call = (trm_apps (trm__smem_ptr ()) [Matrix_trm.msize args]) in
+      let smem_ptr_call = (trm_apps (trm__smem_ptr ()) [trm_mul_int (trm_sizeof typ) (Matrix_trm.msize args)]) in
       (trm_let (v, typ_ptr typ) (trm_cast (typ_ptr typ) smem_ptr_call))
     )
   ]

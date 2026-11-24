@@ -250,11 +250,13 @@ and loop_mode_to_doc (style : Optilambda_style.style) (mode : loop_mode) : docum
   | Short, Sequential -> string "seq"
   | Short, Parallel -> string "par"
   | Short, GpuThread -> string "gpu_thread"
-  | Short, MagicThread -> string "magic_thread"
+  | Short, MagicThread false -> string "magic_thread"
+  | Short, MagicThread true -> string "magic_thread_one"
   | Full, Sequential -> string "Sequential"
   | Full, Parallel -> string "Parallel"
   | Full, GpuThread -> string "GpuThread"
-  | Full, MagicThread -> string "MagicThread"
+  | Full, MagicThread false -> string "MagicThread"
+  | Full, MagicThread true -> string "MagicThreadOne"
 
 (** [loop_dir_to_doc dir] prints a loop bound direction. *)
 and loop_dir_to_doc (dir : loop_dir) : document =

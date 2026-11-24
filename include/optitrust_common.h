@@ -946,6 +946,7 @@ __AXIOM(shiftr_monotonic, "forall (b: int) (e1: int) (e2: int) (_: e1 <= e2) -> 
 extern const int __rewrite_sequence;
 
 
+// TODO: move ThreadCtx-related ghosts to GPU header ?
 /* ---- DesyncGroup and DMINDEX ghosts ---- */
 
 __GHOST(group_to_desyncgroup) {
@@ -979,6 +980,69 @@ __GHOST(desync_tile_divides) {
 
 __GHOST(desync_untile_divides) {
   __reverts(desync_tile_divides);
+  __admitted();
+}
+
+/* ---- Desync_RO ---- */
+
+__GHOST(desyncro_to_desyncgroup) {
+  __requires("t: int, sz : int, f: _Fraction, H: HProp");
+  __preserves("ThreadsCtx(t ..+ sz)");
+  __consumes("Desync_RO(f, H)");
+  __produces("_RO(f / sz, desync_for i in ..sz -> H)");
+  __admitted();
+}
+
+__GHOST(desyncgroup_to_desyncro) {
+  __reverts(desyncro_to_desyncgroup);
+  __admitted();
+}
+
+/* In the innermost thread loop, a desynchronized read is an ordinary read. */
+__GHOST(desyncro_to_ro) {
+  __requires("t: int, f: _Fraction, H: HProp");
+  __preserves("ThreadsCtx(t ..+ MSIZE0())");
+  __consumes("Desync_RO(f, H)");
+  __produces("_RO(f, H)");
+  __produces("Wand(_RO(f, H), Desync_RO(f, H))");
+  __admitted();
+}
+
+__GHOST(ro_to_desyncro) {
+  // __reverts(desyncro_to_ro);
+  __requires("t: int, f: _Fraction, H: HProp");
+  __preserves("ThreadsCtx(t ..+ MSIZE0())");
+  __consumes("Wand(_RO(f, H), Desync_RO(f, H))");
+  __consumes("_RO(f, H)");
+  __produces("Desync_RO(f, H)");
+  __admitted();
+}
+
+__GHOST(dro_fork_group) {
+  __requires("f: _Fraction, H: HProp, r: Range");
+  __consumes("Desync_RO(f, H)");
+  // __produces("for _ in r -> Desync_RO(f / range_count(r), H)");
+  __produces("Desync_RO(f / range_count(r), for _ in r -> H)");
+  __admitted();
+}
+
+__GHOST(dro_join_group) {
+  __reverts(dro_fork_group);
+  __admitted();
+}
+
+// DEPRECATED MAGIC GHOSTS
+/* Unchecked desyncro_to_ro for the innermost magic thread loop, which has no ThreadsCtx.
+   Gpu.convert_magic_thread_fors replaces it with desyncro_to_ro. */
+__GHOST(magic_desyncro_to_ro) {
+  __requires("f: _Fraction, H: HProp");
+  __consumes("Desync_RO(f, H)");
+  __produces("_RO(f, H)");
+  __admitted();
+}
+
+__GHOST(magic_ro_to_desyncro) {
+  __reverts(magic_desyncro_to_ro);
   __admitted();
 }
 

@@ -1,14 +1,13 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.typechecking_mode := Flags.SemanticsPreserving
+let _ = Flags.typechecking_mode := Flags.ProofPreserving
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Loop_basic.tile (lit "3") ~index:"bi" ~bound:TileDivides [cFor "i"];
-  !! Loop_basic.tile (lit "3") ~index:"bj" ~bound:TileBoundMin [cFor "j"];
-  !! Loop_basic.tile (lit "3") ~index:"bk" ~bound:TileBoundAnd [cFor "k"];
+  !! Loop_basic.tile (trm_int 3) ~index:"bi" ~bound:TileDivides [cFor "i"];
+  !! Loop_basic.tile (trm_int 3) ~index:"bj" ~bound:TileBoundMin [cFor "j"];
+  !! Loop_basic.tile (trm_int 3) ~index:"bk" ~bound:TileBoundAnd [cFor "k"];
 
   !!! (); (* TODO: Find how to eliminate this reparse *)
-
 )

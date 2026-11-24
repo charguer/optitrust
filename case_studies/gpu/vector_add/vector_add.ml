@@ -2,7 +2,6 @@ open Optitrust
 open Prelude
 open Cuda_lowering
 
-(* let _ = Flags.check_validity := true *)
 let _ = Flags.typechecking_mode := Flags.ProofPreserving
 let _ = Flags.recompute_resources_between_steps := false
 let _ = Flags.disable_stringreprs := true
@@ -25,10 +24,12 @@ let _ = Run.script_cpp (fun () ->
 
   (* Stage 2: create thread hierarchy *)
   !! Gpu.convert_tail_thread_for [] [cFor "i"];
+  !! Gpu.convert_magic_thread_fors [cFor "i"];
   !! Resources.ensure_computed ();
 
   (* Stage 3: convert memories *)
   !! Gpu.convert_to_global_mem [nbAny; cVarDefs ["d_a";"d_b";"d_c"]];
+  !! Instr.move ~dest:[tBefore; cCall "magic_barrier"] [cCall "kernel_teardown_begin"];
   !! Gpu.magic_barrier_to_teardown_sync [cCall "magic_barrier"];
   !! Resources.ensure_computed ();
 

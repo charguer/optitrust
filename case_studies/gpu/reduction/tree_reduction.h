@@ -1,4 +1,3 @@
-#include "optitrust_common.h"
 #include <optitrust_gpu.h>
 
 /* ---- Tree Reductions ---- */

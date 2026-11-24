@@ -455,7 +455,7 @@ let update_fields_type ?(reparse : bool = false) (pattern : string) (ty : typ) (
 (** [simpl_proj tg]: expects the target [tg] to point at any node whose descendants can contain struct
     initialization list projections. *)
 let%transfo simpl_proj (tg : target) : unit =
-  Resources.justif_correct "arguments are pure/reproducible";
+  (* Resources.justif_correct "arguments are pure/reproducible"; *)
   apply_at_target_paths (Record_core.simpl_proj_on) tg
 
 (** [struct_modif new_fields f_get f_set use_annot_of tg]: expects the target [tg] to point at a typedef struct,

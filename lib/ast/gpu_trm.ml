@@ -43,7 +43,10 @@ let magic_barrier_inv (t: trm): unit option =
   | _ -> None
 
 let barrier_seq (barrier_fn: trm -> trm) (hs: trms): trm =
-  trm_add_cstyle BarrierSequence (trm_seq (Mlist.of_list (List.map barrier_fn hs)))
+  trm_add_cstyle BarrierSequence (trm_seq_nomarks (List.map barrier_fn hs))
+
+let var_blocksync = toplevel_var "blocksync"
+let var_blocksync_dro = toplevel_var "blocksync_dro"
 
 let barrier_seq_inv (t: trm): trm option =
   if (not (trm_has_cstyle BarrierSequence t)) then None
@@ -54,8 +57,13 @@ let barrier_seq_inv (t: trm): trm option =
     let* hd = List.nth_opt instrs 0 in
     let* (barrier_fn, _) = trm_apps_inv hd in
     let* barrier_fn_v = trm_var_inv barrier_fn in
+    let is_blocksync_var v =
+      var_eq v var_blocksync || var_eq v var_blocksync_dro
+    in
     if (List.for_all (fun instr -> match (trm_apps_inv instr) with
       | Some ({desc = Trm_var v}, []) when (var_eq v barrier_fn_v) ->
+        true
+      | Some ({desc = Trm_var v}, []) when (is_blocksync_var v) && (is_blocksync_var barrier_fn_v) ->
         true
       | _ -> false) instrs) then Some hd else None
   | _ -> None

@@ -3,12 +3,12 @@ open Prelude
 
 (* let _ = Flags.check_validity := true  *)
 let _ = Flags.typechecking_mode := Flags.ProofPreserving
-let _ = Flags.recompute_resources_between_steps := true
+let _ = Flags.recompute_resources_between_steps := false
 let _ = Flags.disable_stringreprs := true
-let _ = Flags.save_ast_for_steps := Some Steps_effectful (* Flags.Steps_script *)
+let _ = Flags.save_ast_for_steps := Some Flags.Steps_effectful
 
 (* let _ = Flags.report_exectime := true *)
-let stage_ok = fun i -> true (* i = 7 *)
+let stage_ok = fun i -> i = 12
 
 let bm = 32
 let bn  = 32
@@ -30,6 +30,9 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
 
   !! Matrix.local_name_tile ~uninit_pre:true ~var:"c" ~local_var:"c_gmem" [cFor "i"];
   !! Matrix.local_name_tile ~uninit_post:true ~var:"a" ~local_var:"a_gmem" [cFor "i"];
+)
+
+let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Matrix.local_name_tile ~uninit_post:true ~var:"b" ~local_var:"b_gmem" [cFor "i"];
   !! Matrix.memcpy [nbMulti; cFor "i1"];
 
@@ -49,11 +52,21 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Loop.reorder_at ~order:["bi"; "bj"; "bkIdx"; "ti"; "tj"; "k"; "i"; "j"] [cPlusEq ~lhs:[cVar "sum"] ()];
 )
 
+(* FIXME: seems like Flags.recompute_resources_between_steps := false broke someting,
+   breaking down in stages works, probably since it triggers typechecking. *)
 let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Loop.hoist_expr ~dest:[tBefore; cFor "bkIdx"; cFor ~body:[cPlusEq ()] "ti"] "a_smem" ~indep:["j"; "tj"] [cArrayRead "a_gmem"];
-  !! Loop.hoist_expr ~dest:[tBefore; cFor "bkIdx"; cFor ~body:[cPlusEq ()] "ti"] "b_smem" ~indep:["i"; "ti"] [cArrayRead "b_gmem"];
+)
 
+let _ = Run.script_cpp_stage stage_ok (fun () ->
+  !! Loop.hoist_expr ~dest:[tBefore; cFor "bkIdx"; cFor ~body:[cPlusEq ()] "ti"] "b_smem" ~indep:["i"; "ti"] [cArrayRead "b_gmem"];
+)
+
+let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Loop.hoist_alloc ~dest:[tBefore; cFor ~body:[cPlusEq ()] "bi"] ~indep:["bkIdx"] [cVarDef "a_smem"];
+)
+
+let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Loop.hoist_alloc ~dest:[tBefore; cFor ~body:[cPlusEq ()] "bi"] ~indep:["bkIdx"] [cVarDef "b_smem"];
 )
 
@@ -127,12 +140,20 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
 )
 
 let _ = Run.script_cpp_stage stage_ok (fun () ->
-  !! Gpu.convert_tail_thread_for [1] [cFor "ti"; cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "tj"]; (* occLast; cWrite *)
+  !! Gpu.seq_for_desync [cFor "bkIdx"];
+  !! Gpu.convert_tail_thread_for [1] [cFor "ti"; cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "tj"];
   !! Gpu.convert_tail_thread_for [1] [cFor "ti"; cFor ~body:[cWrite ~lhs:[cVar "c_gmem"] ()] "tj"];
-  !! Gpu.convert_tail_thread_for [1] [cFor "bi"; cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "bj"];
+  !! Gpu.convert_tail_thread_for ~one_thread_inside:false [1] [cFor "bi"; cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "bj"];
 )
 
 let _ = Run.script_cpp_stage stage_ok (fun () ->
+  !! Instr.move ~dest:[tLast; cForBody "bkIdx"]
+    [cForBody "bkIdx"; tSpan
+      [tBefore; occIndex 0; cInstr [cCall "ro_join_group"]]
+      [tAfter; occIndex 1; cInstr [cCall "ro_join_group"]]];
+  !! Instr.move ~dest:[tLast; cForBody "bkIdx"]
+    [cForBody "bkIdx"; occIndex 0; cInstr [cCall "ro_join_group"]];
+
   !! Gpu.convert_magic_thread_fors ~patch_steps:(fun () ->
     Gpu.insert_threadsctx_rewrite
       (Matrix_trm.msize [(trm_exact_div_int (trm_int 32) (trm_int 8));
@@ -155,7 +176,14 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
         (trm_exact_div_int (trm_int 32) (trm_int 4))])
       [tLast; cForBody ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "bj"];
   ) [nbAny; cFunBody "mm"; cFor ""];
+  !! Resources.ensure_computed ();
 
+  (* FIXME:
+    - need dro_join_group on a_gmem and b_gmem inside bi/bj loop.
+    *)
+)
+
+let _ = Run.script_cpp_stage stage_ok (fun () ->
   !! Gpu.convert_to_global_mem [nbMulti; cVarDefs ["a_gmem"; "b_gmem"; "c_gmem"]];
   !! Gpu.convert_to_shared_mem ~chop_dims:2 [nbMulti; cVarDefs ["a_smem"; "b_smem"]];
   !! Gpu.convert_to_register_mem ~chop_dims:2 [cVarDef "sum"];
@@ -163,14 +191,9 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
 
   (* NOTE: 3/5 first groups of c_gmem don't need to be sync during core computation : bj ti tj *)
   !! Gpu.to_desync_for [nbMulti; cFor ~body:[cVarDef "sum"] "bi"; cCall ~args:[[cTrue]; [cFun ~body:[cFun ~body:[cFun ~body:[cVar "c_gmem"] ()] ()] ()]] "Group"];
-(* )
+  (* NOTE: 2/5 first groups of b_smem don't need to be sync at end of loop. *)
+  (* !! Gpu.to_desync_for [nbMulti; cCall "dro_join_group"; cCall ~args:[[cTrue]; [cFun ~body:[cFun ~body:[cVar "b_smem"] ()] ()]] "Group"]; *)
 
-WEIRD print/parse bug here
-
-Fatal error: exception Failure("File /home/thomas/code/optitrust/case_studies/gpu/matmul/matmul_stg6.cpp, line 264, columns 161-195: Arithmetic operand has a non standard type (Trm_var(float))")
-
-let _ = Run.script_cpp_stage stage_ok (fun () ->
-*)
   let kernel_mark = "kernel_body" in
   !! Marks.add_fake_instr kernel_mark [tAfter; cCall "kernel_launch"];
 
@@ -189,14 +212,28 @@ let _ = Run.script_cpp_stage stage_ok (fun () ->
     (Matrix_trm.msize [(trm_int 8); (trm_int 4)])
     [tAfter; cMark "sync1"];
 
-  !! Instr.delete [occFirst; cFor "bkIdx"; cCall "magic_barrier"];
-  (* FIXME: shouldn't be possible to delete barrier above, should be blocksync as well, nbMulti *)
-  (* LATER: barrier option 2
-   !! Gpu.insert_barrier [tFirst; cForBody "bkIdx"]; *)
+  !! Gpu.magic_barrier_to_blocksync ~mark:"sync2" [cMark kernel_mark] [occFirst; cFor "bkIdx"; cCall "magic_barrier"];
+  !! Gpu.insert_threadsctx_rewrite
+    (Matrix_trm.msize [(trm_int 4); (trm_int 8)])
+    (Matrix_trm.msize [(trm_exact_div_int (trm_int 32) (trm_int 8));
+      (trm_exact_div_int (trm_int 32) (trm_int 4))])
+    [tBefore; cMark "sync2"];
+  !! Gpu.insert_threadsctx_rewrite
+    (Matrix_trm.msize [(trm_exact_div_int (trm_int 32) (trm_int 8));
+      (trm_exact_div_int (trm_int 32) (trm_int 4))])
+    (Matrix_trm.msize [(trm_int 4); (trm_int 8)])
+    [tAfter; cMark "sync2"];
+
+  !! Instr.delete [occFirst; cCall "magic_barrier"];
   !! Instr.delete [occFirst; cCall "magic_barrier"];
   !! Instr.move ~dest:[tBefore; cCall "magic_barrier"] [cCall "kernel_teardown_begin"];
   !! Gpu.magic_barrier_to_teardown_sync [cCall "magic_barrier"];
 
   !! Resources.ensure_computed ();
+  let fully_typed = Trace.ast () in
+  Flags.typechecking_mode := Flags.SemanticsPreserving;
+  !! Resources.delete_annots [cFunBody "mm"];
+  !! Loop.delete_all_void [cFunBody "mm"];
   !! Trace.generate_cuda ~check_expected:true ();
+  !! Trace.set_ast fully_typed;
 )

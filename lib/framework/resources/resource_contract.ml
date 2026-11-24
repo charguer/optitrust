@@ -80,6 +80,18 @@ let _Full = toplevel_var "_Full"
 let rec desugar_formula (formula: formula): formula =
   (* Warning: this function can be called on formulas with unresolved variable ids, therefore, we need to invert it by name *)
   (* With incremental var-id resolution we could heavily simplify this *)
+
+  (* Allow using operators / and - in first argument of RO(_,_) while normally they are reserved for integers *)
+  let rec desugar_frac f =
+    Pattern.pattern_match f [
+      Pattern.(trm_sub !__ !__) (fun frac1 frac2 () ->
+        formula_frac_sub (desugar_frac frac1) (desugar_frac frac2));
+      Pattern.(trm_trunc_div !__ !__) (fun base divisor () ->
+        formula_frac_div (desugar_frac base) divisor);
+      Pattern.(trm_int (eq 1)) (fun () -> full_frac);
+      Pattern.__ (fun () -> f)
+    ]
+  in
   Pattern.pattern_match formula [
     Pattern.(trm_apps2 (trm_var_with_name var_repr.name) !__ (trm_apps (trm_var !__) !__ __ __)) (fun var f args () ->
         if f.name = sprintf "Matrix%d" (List.length args - 1) then
@@ -97,19 +109,11 @@ let rec desugar_formula (formula: formula): formula =
           formula_uninit_matrix ~mem_typ:(mem) var size
         else raise Pattern.Next
       );
-    (* Allow using operators / and - in first argument of RO(_,_) while normally they are reserved for integers *)
     Pattern.(trm_apps2 (trm_var_with_name var_read_only.name) !__ !__) (fun frac hprop () ->
-        let rec desugar_frac f =
-          Pattern.pattern_match f [
-            Pattern.(trm_sub !__ !__) (fun frac1 frac2 () ->
-              formula_frac_sub (desugar_frac frac1) (desugar_frac frac2));
-            Pattern.(trm_trunc_div !__ !__) (fun base divisor () ->
-              formula_frac_div (desugar_frac base) divisor);
-            Pattern.(trm_int (eq 1)) (fun () -> full_frac);
-            Pattern.__ (fun () -> f)
-          ]
-        in
         formula_read_only ~frac:(desugar_frac frac) (desugar_formula hprop)
+      );
+    Pattern.(trm_apps2 (trm_var_with_name var_desync_ro.name) !__ !__) (fun frac hprop () ->
+        formula_desync_ro (desugar_frac frac) (desugar_formula hprop)
       );
     Pattern.__ (fun () -> trm_map desugar_formula formula)
   ]
@@ -150,14 +154,17 @@ let push_fun_contract_clause (clause: fun_contract_clause_type)
   | Writes -> { pre = Resource_set.add_linear (resource_item_uninit res) contract.pre ; post = Resource_set.add_linear res contract.post }
   | Modifies | Preserves -> { pre = Resource_set.add_linear res contract.pre ; post = Resource_set.add_linear res contract.post }
 
-let push_loop_contract_clause (clause: loop_contract_clause_type)
+let push_loop_contract_clause (mode: loop_mode) (clause: loop_contract_clause_type)
     (res: resource_item) (contract: loop_contract) =
   match clause with
   | LoopGhosts -> { contract with loop_ghosts = res :: contract.loop_ghosts }
   | Exclusive Reads ->
     let name, formula = res in
     let frac_var, frac_ghost = new_frac () in
-    let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
+    let ro_formula =
+      if is_gpu_loop mode
+      then formula_desync_ro (trm_var frac_var) formula
+      else formula_read_only ~frac:(trm_var frac_var) formula in
     { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; iter_contract = push_fun_contract_clause Preserves (name, ro_formula) contract.iter_contract }
   | Exclusive clause -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
   | InvariantGhosts -> { contract with invariant = Resource_set.push_front_pure res contract.invariant }
@@ -166,7 +173,10 @@ let push_loop_contract_clause (clause: loop_contract_clause_type)
   | SharedReads ->
     let name, formula = res in
     let frac_var, frac_ghost = new_frac () in
-    let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
+    let ro_formula =
+      if is_gpu_loop mode
+      then formula_desync_ro (trm_var frac_var) formula
+      else formula_read_only ~frac:(trm_var frac_var) formula in
     { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; parallel_reads = (name, ro_formula) :: contract.parallel_reads }
   | Strict -> failwith "Strict should never appear with resources inside"
 
@@ -187,11 +197,23 @@ let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: 'clause_t
       | Resource_clexer.SyntaxError err -> failwith "Failed to lex resources '%s' : %s" desc err
     ) clauses empty_contract
 
-let parallel_reads_inside_loop range par_reads =
-List.map (fun (x, formula) ->
-    let { frac; formula } = formula_read_only_inv_all formula in
-    (x, formula_read_only ~frac:(formula_frac_div frac (formula_range_count (formula_loop_range range))) formula)
-  ) par_reads
+let parallel_reads_inside_loop mode range par_reads =
+  match mode with
+  | Sequential | Parallel ->
+    List.map (fun (x, formula) ->
+      let { frac; formula } = formula_read_only_inv_all formula in
+      (x, formula_read_only ~frac:(formula_frac_div frac (formula_range_count (formula_loop_range range))) formula)
+    ) par_reads
+  | GpuThread | MagicThread false ->
+    List.map (fun (x, formula) ->
+      let (frac, formula) = Option.unsome ~error:"expected DesyncRO" (formula_desync_ro_inv formula) in
+      (x, formula_desync_ro (formula_frac_div frac (formula_range_count (formula_loop_range range))) formula)
+    ) par_reads
+| MagicThread true ->
+    List.map (fun (x, formula) ->
+      let (frac, formula) = Option.unsome ~error:"expected DesyncRO" (formula_desync_ro_inv formula) in
+      (x, formula_read_only ~frac:(formula_frac_div frac (formula_range_count (formula_loop_range range))) formula)
+    ) par_reads
 
 (****************************** GPU thread for handling ***************************************)
 
@@ -279,7 +301,7 @@ let compute_thread_for_ctx_ranges (range: loop_range) (res: resource_set): threa
 let [@warning "-11"] get_loop_contract_generators res loop_mode range contract: (unit -> fun_contract) * (unit -> fun_contract) =
   (match loop_mode with
   | Sequential -> ()
-  | Parallel | GpuThread | MagicThread ->
+  | Parallel | GpuThread | MagicThread _ ->
     if (not (Resource_set.is_empty contract.invariant)) then
       failwith "Loop with mode %s cannot have sequential invariant (non parallelizable contract)" (show_loop_mode loop_mode)
     else ()
@@ -288,7 +310,7 @@ let [@warning "-11"] get_loop_contract_generators res loop_mode range contract: 
   | GpuThread -> Some
     (compute_thread_for_ctx_ranges range res)
   | _ -> None in
-  let par_reads_inside = parallel_reads_inside_loop range contract.parallel_reads in
+  let par_reads_inside = parallel_reads_inside_loop loop_mode range contract.parallel_reads in
 
   let contract_outside_loop () =
     let grp_apply_fn = match threadfor_info with
@@ -300,7 +322,7 @@ let [@warning "-11"] get_loop_contract_generators res loop_mode range contract: 
         )
       | _ ->
         (match loop_mode with
-        | MagicThread -> Resource_set.desyncgroup_range
+        | MagicThread _ -> Resource_set.desyncgroup_range
         | _ -> Resource_set.group_range) in
     let invariant_before = Resource_set.subst_loop_range_start range contract.invariant in
     let pre = grp_apply_fn range contract.iter_contract.pre in
@@ -310,7 +332,13 @@ let [@warning "-11"] get_loop_contract_generators res loop_mode range contract: 
     let post = grp_apply_fn range contract.iter_contract.post in
     let post = match loop_mode with
     | Sequential | Parallel -> Resource_set.add_linear_list contract.parallel_reads post
-    | GpuThread | MagicThread -> Resource_set.union (Resource_set.desyncgroup_range range (Resource_set.make ~linear:par_reads_inside ())) post in
+    | GpuThread | MagicThread _ ->
+      (* The iterations' [Desync_RO(f / n, H)] together form [Desync_RO(f, H)] for the outer ThreadsCtx *)
+      (* let desync_reads, sync_reads = List.partition (fun (_, formula) -> Option.is_some (formula_desync_ro_inv formula)) contract.parallel_reads in *)
+      let post = Resource_set.add_linear_list contract.parallel_reads post in
+      (* Resource_set.union (Resource_set.desyncgroup_range range (Resource_set.make ~linear:(parallel_reads_inside_loop loop_mode range sync_reads) ())) *)
+      post
+    in
     let post = Resource_set.union invariant_after post in
     { pre; post } in
 

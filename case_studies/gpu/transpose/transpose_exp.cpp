@@ -29,14 +29,14 @@ void transpose(float* a, float* b, int W, int H) {
           "0..H -> &d_b[MINDEX2(W, H, x, y)] ~> UninitCellOf(GMem)");
   /*@kernel_sequence*/ {
     __ghost(assume,
+            "P := (exact_div(H, 32) * (exact_div(W, 32)) = MSIZE2(exact_div(H, "
+            "32), exact_div(W, 32)))");
+    __ghost(assume,
             "P := (MSIZE2(exact_div(H, 32), exact_div(W, 32)) = exact_div(H, "
             "32) * (exact_div(W, 32)))");
     __ghost(assume,
             "P := (MSIZE2(exact_div(H, 32), exact_div(W, 32)) * MSIZE2(16, 32) "
             "= MSIZE4(exact_div(H, 32), exact_div(W, 32), 16, 32))");
-    __ghost(assume,
-            "P := (exact_div(H, 32) * (exact_div(W, 32)) = MSIZE2(exact_div(H, "
-            "32), exact_div(W, 32)))");
     kernel_launch(MSIZE2(exact_div(H, 32), exact_div(W, 32)), MSIZE2(16, 32),
                   sizeof(float) * (32 * 32) + 0);
     __ghost(take_smem_token, "tok_sz := sizeof(float) * (32 * 32)");
@@ -99,46 +99,86 @@ void transpose(float* a, float* b, int W, int H) {
         "exact_div(H, 32), n2 := exact_div(W, 32)");
     kernel_setup_end();
     __with("grid_sz := MSIZE4(exact_div(H, 32), exact_div(W, 32), 16, 32)");
+    __ghost(dro_fork_group,
+            "H := d_a ~> Matrix2Of(H, W, GMem, A), r := 0..(exact_div(H, 32))");
     __threadfor;
     for (int by = 0; by < exact_div(H, 32); by++) {
       __strict();
+      __requires("#_7: _Fraction");
       __sreads(
           "KernelParams(MSIZE2(exact_div(H, 32), exact_div(W, 32)), MSIZE2(16, "
           "32), sizeof(float) * (32 * 32) + 0)");
-      __sreads("d_a ~> Matrix2Of(H, W, GMem, A)");
+      __sreads(
+          "Free(tile, desync_for i in ..MSIZE2(exact_div(H, 32), exact_div(W, "
+          "32)) -> for j1 in 0..32 -> for j2 in 0..32 -> "
+          "&tile[MINDEX3(MSIZE2(exact_div(H, 32), exact_div(W, 32)), 32, 32, "
+          "DMINDEX1(MSIZE2(exact_div(H, 32), exact_div(W, 32)), i), j1, j2)] "
+          "~> UninitCellOf(SMem))");
+      __sreads("Free(d_b, d_b ~> UninitMatrix2Of(W, H, GMem))");
+      __sreads("Free(d_a, d_a ~> UninitMatrix2Of(H, W, GMem))");
+      __xconsumes("Desync_RO(#_7, d_a ~> Matrix2Of(H, W, GMem, A))");
+      __xconsumes(
+          "desync_for _v8 in ..exact_div(W, 32) -> for _v9 in 0..32 -> for "
+          "_v10 in 0..32 -> &tile[MINDEX3(exact_div(H, 32) * (exact_div(W, "
+          "32)), 32, 32, DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, "
+          "_v8), _v9, _v10)] ~> UninitCellOf(SMem)");
       __xconsumes(
           "for bx in 0..(exact_div(W, 32)) -> for x in 0..32 -> for y in 0..32 "
           "-> &d_b[MINDEX2(W, H, bx * 32 + x, by * 32 + y)] ~> "
           "UninitCellOf(GMem)");
       __xproduces(
+          "_RO(#_7 / range_count(0..(exact_div(W, 32))), desync_for bx in "
+          "..exact_div(W, 32) -> d_a ~> Matrix2Of(H, W, GMem, A))");
+      __xproduces(
+          "Desync_RO(1 / range_count(0..2) / range_count(0..16), desync_for bx "
+          "in ..exact_div(W, 32) -> for j in 0..2 -> desync_for x in ..16 -> "
+          "for y in 0..32 -> for x in 0..32 -> &tile[MINDEX3(exact_div(H, 32) "
+          "* (exact_div(W, 32)), 32, 32, DMINDEX2(exact_div(H, 32), "
+          "exact_div(W, 32), by, bx), y, x)] ~~>[SMem] A(by * 32 + y, bx * 32 "
+          "+ x))");
+      __xproduces(
           "desync_for bx in ..exact_div(W, 32) -> for j in 0..2 -> desync_for "
           "x in ..16 -> desync_for y in ..32 -> &d_b[MINDEX2(W, H, bx * 32 + "
           "(j * 16 + x), by * 32 + y)] ~~>[GMem] A(by * 32 + y, bx * 32 + (j * "
           "16 + x))");
-      __xwrites(
-          "desync_for bx in ..exact_div(W, 32) -> for y in 0..32 -> for x in "
-          "0..32 -> &tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, "
-          "32, DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), y, x)] "
-          "~~>[SMem] A(by * 32 + y, bx * 32 + x)");
+      __ghost(
+          dro_fork_group,
+          "H := d_a ~> Matrix2Of(H, W, GMem, A), r := 0..(exact_div(W, 32))");
       __threadfor;
       for (int bx = 0; bx < exact_div(W, 32); bx++) {
         __strict();
+        __requires("#_16: _Fraction");
         __sreads(
             "KernelParams(MSIZE2(exact_div(H, 32), exact_div(W, 32)), "
             "MSIZE2(16, 32), sizeof(float) * (32 * 32) + 0)");
-        __sreads("d_a ~> Matrix2Of(H, W, GMem, A)");
+        __sreads(
+            "Free(tile, desync_for i in ..MSIZE2(exact_div(H, 32), "
+            "exact_div(W, 32)) -> for j1 in 0..32 -> for j2 in 0..32 -> "
+            "&tile[MINDEX3(MSIZE2(exact_div(H, 32), exact_div(W, 32)), 32, 32, "
+            "DMINDEX1(MSIZE2(exact_div(H, 32), exact_div(W, 32)), i), j1, j2)] "
+            "~> UninitCellOf(SMem))");
+        __sreads("Free(d_b, d_b ~> UninitMatrix2Of(W, H, GMem))");
+        __sreads("Free(d_a, d_a ~> UninitMatrix2Of(H, W, GMem))");
+        __xconsumes("Desync_RO(#_16, d_a ~> Matrix2Of(H, W, GMem, A))");
+        __xconsumes(
+            "for _v6 in 0..32 -> for _v7 in 0..32 -> "
+            "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, 32, "
+            "DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), _v6, _v7)] "
+            "~> UninitCellOf(SMem)");
         __xconsumes(
             "for x in 0..32 -> for y in 0..32 -> &d_b[MINDEX2(W, H, bx * 32 + "
             "x, by * 32 + y)] ~> UninitCellOf(GMem)");
+        __xproduces("_RO(#_16, d_a ~> Matrix2Of(H, W, GMem, A))");
+        __xproduces(
+            "Desync_RO(1 / range_count(0..2) / range_count(0..16), for j in "
+            "0..2 -> desync_for x in ..16 -> for y in 0..32 -> for x in 0..32 "
+            "-> &tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, 32, "
+            "DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), y, x)] "
+            "~~>[SMem] A(by * 32 + y, bx * 32 + x))");
         __xproduces(
             "for j in 0..2 -> desync_for x in ..16 -> desync_for y in ..32 -> "
             "&d_b[MINDEX2(W, H, bx * 32 + (j * 16 + x), by * 32 + y)] "
             "~~>[GMem] A(by * 32 + y, bx * 32 + (j * 16 + x))");
-        __xwrites(
-            "for y in 0..32 -> for x in 0..32 -> &tile[MINDEX3(exact_div(H, "
-            "32) * (exact_div(W, 32)), 32, 32, DMINDEX2(exact_div(H, 32), "
-            "exact_div(W, 32), by, bx), y, x)] ~~>[SMem] A(by * 32 + y, bx * "
-            "32 + x)");
         __ghost(swap_groups,
                 "outer_range := 0..32, inner_range := 0..32, items := fun (x: "
                 "int) (y: int) -> &d_b[MINDEX2(W, H, bx * 32 + x, by * 32 + "
@@ -149,26 +189,33 @@ void transpose(float* a, float* b, int W, int H) {
                 "in 0..32 -> &tile[MINDEX3(exact_div(H, 32) * (exact_div(W, "
                 "32)), 32, 32, DMINDEX2(exact_div(H, 32), exact_div(W, 32), "
                 "by, bx), y, x)] ~> UninitCellOf(SMem)");
+        __ghost(dro_fork_group,
+                "H := d_a ~> Matrix2Of(H, W, GMem, A), r := 0..2");
         for (int j = 0; j < 2; j++) {
           __strict();
+          __requires("#_25: _Fraction");
           __spreserves(
               "ThreadsCtx(MINDEX3(exact_div(H, 32), exact_div(W, 32), 0, by, "
               "bx, 0)..+MSIZE2(16, 32))");
-          __sreads("d_a ~> Matrix2Of(H, W, GMem, A)");
+          __xconsumes("Desync_RO(#_25, d_a ~> Matrix2Of(H, W, GMem, A))");
           __xconsumes(
               "for y in 0..16 -> for x in 0..32 -> &tile[MINDEX3(exact_div(H, "
               "32) * (exact_div(W, 32)), 32, 32, DMINDEX2(exact_div(H, 32), "
               "exact_div(W, 32), by, bx), j * 16 + y, x)] ~> "
               "UninitCellOf(SMem)");
           __xproduces(
+              "Desync_RO(#_25 / range_count(0..16), desync_for y in ..16 -> "
+              "d_a ~> Matrix2Of(H, W, GMem, A))");
+          __xproduces(
               "desync_for y in ..16 -> desync_for x in ..32 -> "
               "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, 32, "
               "DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), j * 16 + "
               "y, x)] ~~>[SMem] A(by * 32 + (j * 16 + y), bx * 32 + x)");
+          __ghost(dro_fork_group,
+                  "H := d_a ~> Matrix2Of(H, W, GMem, A), r := 0..16");
           __threadfor;
           for (int y = 0; y < 16; y++) {
             __strict();
-            __sreads("d_a ~> Matrix2Of(H, W, GMem, A)");
             __xconsumes(
                 "for x in 0..32 -> &tile[MINDEX3(exact_div(H, 32) * "
                 "(exact_div(W, 32)), 32, 32, DMINDEX2(exact_div(H, 32), "
@@ -179,6 +226,7 @@ void transpose(float* a, float* b, int W, int H) {
                 "(exact_div(W, 32)), 32, 32, DMINDEX2(exact_div(H, 32), "
                 "exact_div(W, 32), by, bx), j * 16 + y, x)] ~~>[SMem] A(by * "
                 "32 + (j * 16 + y), bx * 32 + x)");
+            __xreads("d_a ~> Matrix2Of(H, W, GMem, A)");
             __ghost(
                 tiled_index_in_range,
                 "tile_index := j, index := y, div_check := tile_div_check_y");
@@ -191,6 +239,7 @@ void transpose(float* a, float* b, int W, int H) {
                   "32, DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), j "
                   "* 16 + y, x)] ~~>[SMem] A(by * 32 + (j * 16 + y), bx * 32 + "
                   "x)");
+              __ghost(desyncro_to_ro, "H := d_a ~> Matrix2Of(H, W, GMem, A)");
               __ghost(assert_prop, "P := (H = exact_div(H, 32) * 32)",
                       "tile_div_check_y13 <- proof");
               __ghost(tiled_index_in_range,
@@ -211,58 +260,98 @@ void transpose(float* a, float* b, int W, int H) {
                   __gmem_get(&d_a[MINDEX2(H, W, by * 32 + (j * 16 + y),
                                           bx * 32 + x)]));
               __ghost_end(__ghost_pair_2);
+              __ghost(ro_to_desyncro, "H := d_a ~> Matrix2Of(H, W, GMem, A)");
             }
           }
         }
         __barrier_sequence;
         {
+          blocksync_dro();
+          __with(
+              "H := for j in 0..2 -> desync_for y in ..16 -> d_a ~> "
+              "Matrix2Of(H, W, GMem, A)");
           blocksync();
           __with(
               "H := for j in 0..2 -> desync_for y in ..16 -> desync_for x in "
               "..32 -> &tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), "
               "32, 32, DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), j "
               "* 16 + y, x)] ~~>[SMem] A(by * 32 + (j * 16 + y), bx * 32 + x)");
+          blocksync_dro();
+          __with(
+              "H := Free(tile, desync_for i in ..MSIZE2(exact_div(H, 32), "
+              "exact_div(W, 32)) -> for j1 in 0..32 -> for j2 in 0..32 -> "
+              "&tile[MINDEX3(MSIZE2(exact_div(H, 32), exact_div(W, 32)), 32, "
+              "32, DMINDEX1(MSIZE2(exact_div(H, 32), exact_div(W, 32)), i), "
+              "j1, j2)] ~> UninitCellOf(SMem))");
+          blocksync_dro();
+          __with("H := Free(d_b, d_b ~> UninitMatrix2Of(W, H, GMem))");
+          blocksync_dro();
+          __with("H := Free(d_a, d_a ~> UninitMatrix2Of(H, W, GMem))");
         }
+        for (int j = 0; j < 2; j++) {
+          __strict();
+          __requires("#_25: _Fraction");
+          __xconsumes(
+              "_RO(#_25 / range_count(0..16), for y in 0..16 -> d_a ~> "
+              "Matrix2Of(H, W, GMem, A))");
+          __xproduces("_RO(#_25, d_a ~> Matrix2Of(H, W, GMem, A))");
+          __ghost(ro_join_group,
+                  "H := d_a ~> Matrix2Of(H, W, GMem, A), r := 0..16");
+        }
+        __ghost(ro_join_group,
+                "H := d_a ~> Matrix2Of(H, W, GMem, A), r := 0..2");
         __ghost(untile_divides,
                 "div_check := tile_div_check_y, items := fun (y: int) -> for x "
                 "in 0..32 -> &tile[MINDEX3(exact_div(H, 32) * (exact_div(W, "
                 "32)), 32, 32, DMINDEX2(exact_div(H, 32), exact_div(W, 32), "
                 "by, bx), y, x)] ~~>[SMem] A(by * 32 + y, bx * 32 + x)");
+        __ghost(assert_prop, "P := (32 = 2 * 16)",
+                "tile_div_check_x11 <- proof");
         __ghost(swap_groups,
                 "outer_range := 0..32, inner_range := 0..32, items := fun (y: "
                 "int) (x: int) -> &d_b[MINDEX2(W, H, bx * 32 + x, by * 32 + "
                 "y)] ~> UninitCellOf(GMem)");
-        __ghost(assert_prop, "P := (32 = 2 * 16)",
-                "tile_div_check_x11 <- proof");
         __ghost(tile_divides,
                 "div_check := tile_div_check_x11, items := fun (x: int) -> for "
                 "y in 0..32 -> &d_b[MINDEX2(W, H, bx * 32 + x, by * 32 + y)] "
                 "~> UninitCellOf(GMem)");
+        __ghost(dro_fork_group,
+                "H := for y in 0..32 -> for x in 0..32 -> "
+                "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, 32, "
+                "DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), y, x)] "
+                "~~>[SMem] A(by * 32 + y, bx * 32 + x), r := 0..2");
         for (int j = 0; j < 2; j++) {
           __strict();
+          __requires("#_25: _Fraction");
           __spreserves(
               "ThreadsCtx(MINDEX3(exact_div(H, 32), exact_div(W, 32), 0, by, "
               "bx, 0)..+MSIZE2(16, 32))");
-          __sreads(
-              "for y in 0..32 -> for x in 0..32 -> &tile[MINDEX3(exact_div(H, "
-              "32) * (exact_div(W, 32)), 32, 32, DMINDEX2(exact_div(H, 32), "
-              "exact_div(W, 32), by, bx), y, x)] ~~>[SMem] A(by * 32 + y, bx * "
-              "32 + x)");
+          __xconsumes(
+              "Desync_RO(#_25, for y in 0..32 -> for x in 0..32 -> "
+              "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, 32, "
+              "DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), y, x)] "
+              "~~>[SMem] A(by * 32 + y, bx * 32 + x))");
           __xconsumes(
               "for x in 0..16 -> for y in 0..32 -> &d_b[MINDEX2(W, H, bx * 32 "
               "+ (j * 16 + x), by * 32 + y)] ~> UninitCellOf(GMem)");
           __xproduces(
+              "Desync_RO(#_25 / range_count(0..16), desync_for x in ..16 -> "
+              "for y in 0..32 -> for x in 0..32 -> &tile[MINDEX3(exact_div(H, "
+              "32) * (exact_div(W, 32)), 32, 32, DMINDEX2(exact_div(H, 32), "
+              "exact_div(W, 32), by, bx), y, x)] ~~>[SMem] A(by * 32 + y, bx * "
+              "32 + x))");
+          __xproduces(
               "desync_for x in ..16 -> desync_for y in ..32 -> &d_b[MINDEX2(W, "
               "H, bx * 32 + (j * 16 + x), by * 32 + y)] ~~>[GMem] A(by * 32 + "
               "y, bx * 32 + (j * 16 + x))");
+          __ghost(dro_fork_group,
+                  "H := for y in 0..32 -> for x in 0..32 -> "
+                  "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, "
+                  "32, DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), "
+                  "y, x)] ~~>[SMem] A(by * 32 + y, bx * 32 + x), r := 0..16");
           __threadfor;
           for (int x = 0; x < 16; x++) {
             __strict();
-            __sreads(
-                "for y in 0..32 -> for x in 0..32 -> "
-                "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, 32, "
-                "DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), y, x)] "
-                "~~>[SMem] A(by * 32 + y, bx * 32 + x)");
             __xconsumes(
                 "for y in 0..32 -> &d_b[MINDEX2(W, H, bx * 32 + (j * 16 + x), "
                 "by * 32 + y)] ~> UninitCellOf(GMem)");
@@ -270,6 +359,11 @@ void transpose(float* a, float* b, int W, int H) {
                 "desync_for y in ..32 -> &d_b[MINDEX2(W, H, bx * 32 + (j * 16 "
                 "+ x), by * 32 + y)] ~~>[GMem] A(by * 32 + y, bx * 32 + (j * "
                 "16 + x))");
+            __xreads(
+                "for y in 0..32 -> for x in 0..32 -> "
+                "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, 32, "
+                "DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), y, x)] "
+                "~~>[SMem] A(by * 32 + y, bx * 32 + x)");
             __ghost(
                 tiled_index_in_range,
                 "tile_index := j, index := x, div_check := tile_div_check_x11");
@@ -284,6 +378,11 @@ void transpose(float* a, float* b, int W, int H) {
               __xwrites(
                   "&d_b[MINDEX2(W, H, bx * 32 + (j * 16 + x), by * 32 + y)] "
                   "~~>[GMem] A(by * 32 + y, bx * 32 + (j * 16 + x))");
+              __ghost(desyncro_to_ro,
+                      "H := for y in 0..32 -> for x in 0..32 -> "
+                      "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), "
+                      "32, 32, DMINDEX2(exact_div(H, 32), exact_div(W, 32), "
+                      "by, bx), y, x)] ~~>[SMem] A(by * 32 + y, bx * 32 + x)");
               const __ghost_fn __ghost_pair_5 = __ghost_begin(
                   ro_group_focus,
                   "i := y, items := fun (y: int) -> for x in 0..32 -> "
@@ -312,6 +411,11 @@ void transpose(float* a, float* b, int W, int H) {
                       j * 16 + x)]));
               __ghost_end(__ghost_pair_4);
               __ghost_end(__ghost_pair_5);
+              __ghost(ro_to_desyncro,
+                      "H := for y in 0..32 -> for x in 0..32 -> "
+                      "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), "
+                      "32, 32, DMINDEX2(exact_div(H, 32), exact_div(W, 32), "
+                      "by, bx), y, x)] ~~>[SMem] A(by * 32 + y, bx * 32 + x)");
             }
           }
         }
@@ -322,11 +426,17 @@ void transpose(float* a, float* b, int W, int H) {
     __barrier_sequence;
     {
       __ghost(kernel_teardown_sync,
-              "H := desync_for by in ..exact_div(H, 32) -> desync_for bx in "
-              "..exact_div(W, 32) -> for y in 0..32 -> for x in 0..32 -> "
-              "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, 32, "
-              "DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), y, x)] "
-              "~~>[SMem] A(by * 32 + y, bx * 32 + x)");
+              "H := _RO(1 / range_count(0..(exact_div(H, 32))) / "
+              "range_count(0..(exact_div(W, 32))), desync_for by in "
+              "..exact_div(H, 32) -> desync_for bx in ..exact_div(W, 32) -> "
+              "d_a ~> Matrix2Of(H, W, GMem, A))");
+      __ghost(
+          kernel_teardown_sync_dro,
+          "H := desync_for by in ..exact_div(H, 32) -> desync_for bx in "
+          "..exact_div(W, 32) -> for j in 0..2 -> desync_for x in ..16 -> for "
+          "y in 0..32 -> for x in 0..32 -> &tile[MINDEX3(exact_div(H, 32) * "
+          "(exact_div(W, 32)), 32, 32, DMINDEX2(exact_div(H, 32), exact_div(W, "
+          "32), by, bx), y, x)] ~~>[SMem] A(by * 32 + y, bx * 32 + x)");
       __ghost(
           kernel_teardown_sync,
           "H := desync_for by in ..exact_div(H, 32) -> desync_for bx in "
@@ -336,10 +446,26 @@ void transpose(float* a, float* b, int W, int H) {
     }
     for (int by = 0; by < exact_div(H, 32); by++) {
       __strict();
+      __requires("#_3: _Fraction");
+      __xconsumes(
+          "_RO(#_3 / range_count(0..(exact_div(W, 32))), for bx in "
+          "0..(exact_div(W, 32)) -> d_a ~> Matrix2Of(H, W, GMem, A))");
+      __xconsumes(
+          "_RO(1 / range_count(0..2) / range_count(0..16), for bx in "
+          "0..(exact_div(W, 32)) -> for j in 0..2 -> for x in 0..16 -> for y "
+          "in 0..32 -> for x in 0..32 -> &tile[MINDEX3(exact_div(H, 32) * "
+          "(exact_div(W, 32)), 32, 32, DMINDEX2(exact_div(H, 32), exact_div(W, "
+          "32), by, bx), y, x)] ~~>[SMem] A(by * 32 + y, bx * 32 + x))");
       __xconsumes(
           "for bx in 0..(exact_div(W, 32)) -> for j in 0..2 -> for x in 0..16 "
           "-> for y in 0..32 -> &d_b[MINDEX2(W, H, bx * 32 + (j * 16 + x), by "
           "* 32 + y)] ~~>[GMem] A(by * 32 + y, bx * 32 + (j * 16 + x))");
+      __xproduces("_RO(#_3, d_a ~> Matrix2Of(H, W, GMem, A))");
+      __xproduces(
+          "for _v8 in 0..(exact_div(W, 32)) -> for _v9 in 0..32 -> for _v10 in "
+          "0..32 -> &tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, "
+          "32, DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, _v8), _v9, "
+          "_v10)] ~> UninitCellOf(SMem)");
       __xproduces(
           "for bx in 0..(exact_div(W, 32)) -> for x in 0..32 -> for y in 0..32 "
           "-> &d_b[MINDEX2(W, H, bx * 32 + x, by * 32 + y)] ~~>[GMem] A(by * "
@@ -347,18 +473,54 @@ void transpose(float* a, float* b, int W, int H) {
       for (int bx = 0; bx < exact_div(W, 32); bx++) {
         __strict();
         __xconsumes(
+            "_RO(1 / range_count(0..2) / range_count(0..16), for j in 0..2 -> "
+            "for x in 0..16 -> for y in 0..32 -> for x in 0..32 -> "
+            "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, 32, "
+            "DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), y, x)] "
+            "~~>[SMem] A(by * 32 + y, bx * 32 + x))");
+        __xconsumes(
             "for j in 0..2 -> for x in 0..16 -> for y in 0..32 -> "
             "&d_b[MINDEX2(W, H, bx * 32 + (j * 16 + x), by * 32 + y)] "
             "~~>[GMem] A(by * 32 + y, bx * 32 + (j * 16 + x))");
         __xproduces(
+            "for _v6 in 0..32 -> for _v7 in 0..32 -> "
+            "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, 32, "
+            "DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), _v6, _v7)] "
+            "~> UninitCellOf(SMem)");
+        __xproduces(
             "for x in 0..32 -> for y in 0..32 -> &d_b[MINDEX2(W, H, bx * 32 + "
             "x, by * 32 + y)] ~~>[GMem] A(by * 32 + y, bx * 32 + x)");
+        for (int j = 0; j < 2; j++) {
+          __strict();
+          __requires("#_7: _Fraction");
+          __xconsumes(
+              "_RO(#_7 / range_count(0..16), for x in 0..16 -> for y in 0..32 "
+              "-> for x in 0..32 -> &tile[MINDEX3(exact_div(H, 32) * "
+              "(exact_div(W, 32)), 32, 32, DMINDEX2(exact_div(H, 32), "
+              "exact_div(W, 32), by, bx), y, x)] ~~>[SMem] A(by * 32 + y, bx * "
+              "32 + x))");
+          __xproduces(
+              "_RO(#_7, for y in 0..32 -> for x in 0..32 -> "
+              "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, 32, "
+              "DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), y, x)] "
+              "~~>[SMem] A(by * 32 + y, bx * 32 + x))");
+          __ghost(ro_join_group,
+                  "H := for y in 0..32 -> for x in 0..32 -> "
+                  "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, "
+                  "32, DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), "
+                  "y, x)] ~~>[SMem] A(by * 32 + y, bx * 32 + x), r := 0..16");
+        }
+        __ghost(ro_join_group,
+                "H := for y in 0..32 -> for x in 0..32 -> "
+                "&tile[MINDEX3(exact_div(H, 32) * (exact_div(W, 32)), 32, 32, "
+                "DMINDEX2(exact_div(H, 32), exact_div(W, 32), by, bx), y, x)] "
+                "~~>[SMem] A(by * 32 + y, bx * 32 + x), r := 0..2");
         __ghost(assert_prop, "P := (32 = 2 * 16)",
-                "tile_div_check_y12 <- proof");
+                "tile_div_check_y1 <- proof");
         __ghost(assert_prop, "P := (32 = 2 * 16)",
-                "tile_div_check_x1113 <- proof");
+                "tile_div_check_x112 <- proof");
         __ghost(untile_divides,
-                "div_check := tile_div_check_x1113, items := fun (x: int) -> "
+                "div_check := tile_div_check_x112, items := fun (x: int) -> "
                 "for y in 0..32 -> &d_b[MINDEX2(W, H, bx * 32 + x, by * 32 + "
                 "y)] ~~>[GMem] A(by * 32 + y, bx * 32 + x)");
         __ghost(swap_groups,
@@ -370,7 +532,12 @@ void transpose(float* a, float* b, int W, int H) {
                 "int) (x: int) -> &d_b[MINDEX2(W, H, bx * 32 + x, by * 32 + "
                 "y)] ~~>[GMem] A(by * 32 + y, bx * 32 + x)");
       }
+      __ghost(
+          ro_join_group,
+          "H := d_a ~> Matrix2Of(H, W, GMem, A), r := 0..(exact_div(W, 32))");
     }
+    __ghost(ro_join_group,
+            "H := d_a ~> Matrix2Of(H, W, GMem, A), r := 0..(exact_div(H, 32))");
     __ghost(
         dmindex2_tile,
         "H := fun (f: int * int -> int) -> desync_for di1 in ..exact_div(H, "

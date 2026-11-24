@@ -5,6 +5,7 @@
 
 extern const int __threadfor;
 extern const int __magic_threadfor;
+extern const int __magic_threadfor_one;
 #define __device extern void __device__()
 extern const int __device_call;
 extern const int __barrier_sequence;
@@ -110,10 +111,29 @@ __AXIOM(smem_block_sync_mem, "block_sync_mem(SMem)");
 // LATER: should take a list of HPROP
 void blocksync() {
   __requires("H: HProp, tpb: int, bpg: int, smem_sz: int, t: int");
-  __reads("KernelParams(bpg, tpb, smem_sz)");
+
+  // __reads("KernelParams(bpg, tpb, smem_sz)");
+  __requires("kpf: _Fraction");
+  __consumes("Desync_RO(kpf, KernelParams(bpg, tpb, smem_sz))");
+  __produces("Desync_RO(kpf, KernelParams(bpg, tpb, smem_sz))");
+
   __preserves("ThreadsCtx(t ..+ tpb)");
   __consumes("H");
   __produces("Sync(block_sync_mem, H)");
+  __admitted();
+}
+// LATER: allow non dro variant to be called with an f evar
+void blocksync_dro() {
+  __requires("H: HProp, f: _Fraction, tpb: int, bpg: int, smem_sz: int, t: int");
+
+  // __reads("KernelParams(bpg, tpb, smem_sz)");
+  __requires("kpf: _Fraction");
+  __consumes("Desync_RO(kpf, KernelParams(bpg, tpb, smem_sz))");
+  __produces("Desync_RO(kpf, KernelParams(bpg, tpb, smem_sz))");
+
+  __preserves("ThreadsCtx(t ..+ tpb)");
+  __consumes("Desync_RO(f, H)");
+  __produces("Sync(block_sync_mem, Desync_RO(f, H))");
   __admitted();
 }
 
@@ -123,6 +143,14 @@ __GHOST(kernel_teardown_sync) {
   __reads("KernelTeardownCtx");
   __consumes("H");
   __produces("Sync(block_sync_mem, H)");
+  __admitted();
+}
+// LATER: allow non dro variant to be called with an f evar
+__GHOST(kernel_teardown_sync_dro) {
+  __requires("H: HProp, f: _Fraction");
+  __reads("KernelTeardownCtx");
+  __consumes("Desync_RO(f, H)");
+  __produces("Sync(block_sync_mem, Desync_RO(f, H))");
   __admitted();
 }
 

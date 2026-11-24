@@ -62,11 +62,7 @@ __global__ void __kernel0(float* b_gmem, float* a_gmem, float* c_gmem, int p,
           b_gmem[MINDEX2(p, n, bkIdx * 4 + __k7, __bj1 * 32 + (__tj6 * 4 + j))];
     }
     __syncthreads();
-    for (int i = 0; i < 8; i++) {
-      for (int j = 0; j < 4; j++) {
-      }
-    }
-     for (int k = 0; k < 4; k++) {
+    for (int k = 0; k < 4; k++) {
       float* const a_regs = __treg_ref_uninit1_s<float>(8);
        for (int i = 0; i < 8; i++) {
         a_regs[MINDEX1(8, i)] = a_smem[MINDEX4(
@@ -85,10 +81,7 @@ __global__ void __kernel0(float* b_gmem, float* a_gmem, float* c_gmem, int p,
         }
       }
     }
-    for (int i = 0; i < 8; i++) {
-      for (int j = 0; j < 4; j++) {
-      }
-    }
+    __syncthreads();
   }
    for (int i = 0; i < 8; i++) {
      for (int j = 0; j < 4; j++) {

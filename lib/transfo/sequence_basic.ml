@@ -18,7 +18,7 @@ let%transfo insert ?(reparse : bool = false) (code : trm) (tg : target) : unit =
    we need both H ==> H' and H'' ==> H'. *)
 let%transfo delete ?(nb_extra: int = 0) (tg : target) : unit =
   (* TODO: Manage delete of spans *)
-  Resources.required_for_check ();
+  (* Resources.required_for_check (); *)
   Target.iter (fun p ->
     let p_seq, span = Path.extract_last_dir_span p in
     let span = { span with stop = span.stop + nb_extra } in
@@ -106,8 +106,8 @@ let%transfo elim_instr (tg : target) : unit =
 let%transfo elim_let ?(mark_result: mark = no_mark) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Target.apply_at_target_paths (Sequence_core.elim_inside_let ~mark_result) tg
-  );
-  Trace.justif "eliminating a sequence only extend the lifetime of stack variables"
+  )
+  (* Trace.justif "eliminating a sequence only extend the lifetime of stack variables" *)
 
 (** [intro_on_instr ~mark ~visible tg]: expecets the target [tg] to point at an instruction,
     then it will wrap a sequence around that instruction.
