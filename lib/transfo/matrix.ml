@@ -284,3 +284,52 @@ let%transfo stack_copy ~(var : string) ~(copy_var : string) ~(copy_dims : int) (
 let%transfo tile ?(nb_blocks : trm option) ~(block_size : trm) ~(index_dim : int)
     (tg : target) : unit =
   apply_at_target_paths_in_seq (tile_at ~block_size ?nb_blocks ~index_dim) tg
+
+
+
+(** [pad ... tg] TODO : write documentation *)
+let%transfo pad
+(*   ?(mark_alloc : mark = no_mark)
+  ?(mark_load : mark = no_mark)
+  ?(mark_unload : mark = no_mark)
+  ?(delete: bool = false) ?(indices : string list = [])
+  ?(alloc_instr : target option) ?(elem_ty : typ option)
+  ~(var : string) ?(local_var : string = "")
+  ?(tile : Matrix_core.nd_tile option)
+  ?(uninit_pre : bool = false) ?(uninit_post : bool = false) (* TODO: bool option with inference. *)
+  ?(simpl : target -> unit = Arith.default_simpl) *)
+  ~(_var : string) (total_dimension : int) (padded_dimension : int) (offset : int)
+  (tg : target) : unit =
+
+  if (padded_dimension > total_dimension) || (offset < 0) then
+    failwith "Error message : wrong arguments for transformation"
+  else
+
+  Matrix_basic.pad total_dimension padded_dimension offset tg
+
+
+  (* Marks.with_fresh_mark_on p (fun m ->
+    (* (Option.value ~default:(surrounding_tg @ [cVarDef !v]) alloc_instr *)
+    delete_alias (Option.unsome ~error:"expected alloc_instr with delete" alloc_instr);
+    if rename then
+      Variable_basic.rename ~into:!v.name [cMark m; cVarDef tmp_var];
+  );
+
+
+
+  Trace.tag_valid_by_composition ();
+  let (delete, rename, tmp_var) = if local_var = ""
+    then (true, true, fresh_var_name ())
+    else (delete, false, local_var)
+  in
+  let (var, _) = find_var var tg in
+  let (uninit_pre, uninit_post) = if delete then (true, true) else (uninit_pre, uninit_post) in
+  Marks.with_fresh_mark (fun mark_simpl -> Target.iter (fun p ->
+    let v = ref var in
+    Matrix_basic.local_name_tile
+      ~mark_dims:mark_simpl  ~mark_indices:mark_simpl
+      ~mark_alloc ~mark_load ~mark_unload
+      ~indices ~uninit_pre ~uninit_post ?alloc_instr ?elem_ty
+      ~ret_var:v ~local_var:tmp_var ?tile (target_of_path p);
+    simpl [cMark mark_simpl];
+  ) tg) *)

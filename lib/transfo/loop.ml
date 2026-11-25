@@ -67,7 +67,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int)
     fission_rec next_mark (nest_of - 1) mark_loops m_between
   end
 
-(** Expects the target [tg] to point somewhere inside the body of a simple loop nest.
+(** [fission tg] Expects the target [tg] to point somewhere inside the body of a simple loop nest.
    Splits the outer [nest_of] loops in two at the targeted interstice.
    Parallelizes loop reads using {! Resources.loop_parallelize_reads} if needed.
    Distributes any ghost pairs with {! Ghost_pair.fission} and {! Ghost_pair.minimize_all_in_seq}.

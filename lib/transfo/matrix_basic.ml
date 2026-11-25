@@ -1151,3 +1151,73 @@ let tile_at ?(nb_blocks : trm option) ~(block_size : trm) ~(index_dim : int)
     in
     let new_items = Mlist.merge (Mlist.push_back new_d lfront) lback in
     trm_seq ?result new_items
+
+(* let error = "Matrix.pad: expected target on a let binding" in
+  let (v, ty, body) = trm_inv ~error trm_let_inv t in
+  let body_is_malloc = true in (* todo: change *)
+  if body_is_malloc then
+    let new_body = body in (*where msize is changed to the correct argument*)
+   *)
+
+let is_malloc (v : var) : bool =
+  v.name = "malloc"
+
+(* copy-pasted from module Matrix_trm *)
+(* let msize_inv t =
+match trm_apps_inv t with
+  | Some (f, dims) ->
+    let n = List.length dims in
+    if n <= max_nb_dims then
+      begin match trm_var_inv f with
+      | Some f when var_eq f (msize_var n) -> Some dims
+      | _ -> None
+      end
+    else None
+  | _ -> None *)
+
+let change_dim_matrix_on ~(var : string) (padded_dimension : int) (offset : int) (t : trm) : trm =
+  Pattern.pattern_match t [
+    Pattern.(trm_let (check (fun v -> var = v.name)) __ (trm_apps1 (trm_var (check is_malloc)) (trm_mul !__ __))) (fun msize_call () ->
+      match msize_inv msize_call with
+      | Some dims ->
+        let dims' = List.mapi (fun i dim -> if (i = padded_dimension) then dim + offset else dim) dims in
+        (* Stopped here. Still source of issue since I just found out that writing by hand will probably remove all of the annotations. Is this a problem? *)
+      | None -> t
+      );
+    Pattern.(trm_array_get (trm_var (check (fun v -> var = v.name))) !__) (fun mindex_call () ->
+      match mindex_inv mindex_call with
+      | Some (dims, args) -> failwith "TODO"
+      | None -> t
+    );
+    Pattern.(__) (fun () -> t)
+    ]
+
+let change_dim_matrix ~(var : string) (padded_dimension : int) (offset : int) (t : trm) : trm =
+  trm_map (change_dim_matrix_on ~var padded_dimension offset) t
+
+let pad_on ~(var : string) (total_dimension : int) (padded_dimension : int) (offset : int) (span : Dir.span) (t : trm) : trm =
+  update_span_helper span t (fun span_instrs ->
+    let subst_span_instrs = Mlist.map (change_dim_matrix ~var padded_dimension offset) span_instrs
+  in [TrmMlist subst_span_instrs])
+
+let%transfo pad ~(var : string) (total_dimension : int) (padded_dimension : int) (offset : int)
+  (tg : target) : unit =
+    Target.iter (fun p ->
+      let (p_seq, span) = Path.extract_last_dir_span p in
+      Target.apply_at_path (pad_on ~var total_dimension padded_dimension offset span) p_seq
+    ) tg
+
+    (* TODO:
+  -> select the allocation
+  -> add the ghost loops, with the expected operations. --- Question: I would want to use transformations for that. How do I do it? Do I write a loop by myself, and then apply transformations on it? Then it might change the context.
+  -> modify the specific dimension inside the MSIZE
+  -> modify all of the dimension parts inside the MINDEXs
+      -> How does the framework does to select all of the MINDEXs, and change their contents?
+  -> Where do I stop replacing? I need to stop in the span of the malloc. Is there a way to get the scope of an instruction ?
+  *)
+
+    (* v <- allocated variable
+    ty <- should be a pointer
+    t' <- should be the malloc call.
+    *)
+
