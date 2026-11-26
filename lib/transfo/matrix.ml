@@ -287,8 +287,8 @@ let%transfo tile ?(nb_blocks : trm option) ~(block_size : trm) ~(index_dim : int
 
 
 
-(** [pad ... tg] TODO : write documentation *)
-(** The padded dimension index starts at 1. So, padding the second dimension requires [padded_dimension = 2] *)
+(** [pad ~var tdim pdim offset tg]: expects the target to point to the scope that will be padded. the padded dimension [pdim] is supposed to be smaller than the total dimension [tdim], and [offset] is supposed to be positive.
+The padded dimension index starts at 1. So, padding the second dimension requires [pdim = 2] *)
 let%transfo pad
   ~(var : string) (total_dimension : int) (padded_dimension : int) (offset : int)
   (tg : target) : unit =
