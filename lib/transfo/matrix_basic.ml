@@ -1152,15 +1152,7 @@ let tile_at ?(nb_blocks : trm option) ~(block_size : trm) ~(index_dim : int)
     let new_items = Mlist.merge (Mlist.push_back new_d lfront) lback in
     trm_seq ?result new_items
 
-(* let error = "Matrix.pad: expected target on a let binding" in
-  let (v, ty, body) = trm_inv ~error trm_let_inv t in
-  let body_is_malloc = true in (* todo: change *)
-  if body_is_malloc then
-    let new_body = body in (*where msize is changed to the correct argument*)
-   *)
-
-let is_malloc (v : var) : bool =
-  v.name = "malloc"
+let var_malloc = toplevel_var "malloc"
 
 (* copy-pasted from module Matrix_trm *)
 (* let msize_inv t =
@@ -1175,29 +1167,64 @@ match trm_apps_inv t with
     else None
   | _ -> None *)
 
-let change_dim_matrix_on ~(var : string) (padded_dimension : int) (offset : int) (t : trm) : trm =
-  Pattern.pattern_match t [
-    Pattern.(trm_let (check (fun v -> var = v.name)) __ (trm_apps1 (trm_var (check is_malloc)) (trm_mul !__ __))) (fun msize_call () ->
+let var_array = toplevel_var "array"
+
+let rec change_dim_matrix_on ?(correct_position = false) ~(var : string) (padded_dimension : int) (offset : int) (t : trm) : trm =
+  match t.desc with
+  | Trm_let ((v, ty), body) when (var = v.name) ->
+    (* Printf.printf "in change_dim_matrix: \n a trm_let was recognize in :\n %s\n" (Ast_to_text.ast_to_string t); *)
+    let body' = trm_map (change_dim_matrix_on ~correct_position:true ~var padded_dimension offset) body in
+    if body = body' then t
+    else trm_let (v, ty) body'
+  | _ ->
+  if correct_position then begin
+    match (msize_inv t), (mindex_inv t) with
+    | Some _, Some _ -> failwith "impossible"
+    | Some dims, None ->
+      let dims' = List.mapi (fun i dim -> if (i = (padded_dimension - 1)) then trm_add ~typ:typ_auto dim (trm_int offset) else dim) dims in
+      msize dims'
+    | None, Some (dims, args) ->
+      let dims' = List.mapi (fun i dim -> if (i = (padded_dimension - 1)) then trm_add ~typ:typ_auto dim (trm_int offset) else dim) dims in
+      mindex dims' args
+    | None, None ->
+      (* Printf.printf "in change_dim_matrix: \n Did not recognize a trm_let in :\n %s\n" (Ast_to_text.ast_to_string t);  *)
+      trm_map (change_dim_matrix_on ~correct_position ~var padded_dimension offset) t
+    end
+  else
+    trm_map (change_dim_matrix_on ~correct_position ~var padded_dimension offset) t
+  (* Pattern.pattern_match t [
+    (* Pattern.(trm_let !__ !__ !__) (fun v ty rest () ->
+      Printf.printf "The pattern matching case of 'let' worked succesfully";
+      Pattern.pattern_match rest [ *)
+    Pattern.(__) (fun () -> failwith "TODO");
+    (* Pattern.(trm_cast (__) (trm_apps1 (trm_specific_var var_malloc) (trm_mul !__ !__))) (fun msize_call size_of () ->
+      failwith "TODO" *)
+          (* Pattern.when_ (var = v.name);
       match msize_inv msize_call with
       | Some dims ->
-        let dims' = List.mapi (fun i dim -> if (i = padded_dimension) then dim + offset else dim) dims in
-        (* Stopped here. Still source of issue since I just found out that writing by hand will probably remove all of the annotations. Is this a problem? *)
+        let dims' = List.mapi (fun i dim -> if (i = (padded_dimension - 1)) then trm_add ~typ:typ_auto dim (trm_int offset) else dim) dims in
+          trm_let (v, ty) (trm_apps (trm_var var_malloc) [trm_mul ~typ:typ_auto (msize dims') (size_of)])
       | None -> t
-      );
+
+
+          )] *)
     Pattern.(trm_array_get (trm_var (check (fun v -> var = v.name))) !__) (fun mindex_call () ->
       match mindex_inv mindex_call with
       | Some (dims, args) -> failwith "TODO"
       | None -> t
     );
-    Pattern.(__) (fun () -> t)
-    ]
+    Pattern.(__) (fun () -> Printf.printf "going inside the default case \n";
+    Printf.printf "With the argument : %s\n" (Ast_to_text.ast_to_string t);
+    t)
+    ] *)
 
 let change_dim_matrix ~(var : string) (padded_dimension : int) (offset : int) (t : trm) : trm =
-  trm_map (change_dim_matrix_on ~var padded_dimension offset) t
+  trm_map (change_dim_matrix_on ~correct_position:false ~var padded_dimension offset) t
 
 let pad_on ~(var : string) (total_dimension : int) (padded_dimension : int) (offset : int) (span : Dir.span) (t : trm) : trm =
   update_span_helper span t (fun span_instrs ->
     let subst_span_instrs = Mlist.map (change_dim_matrix ~var padded_dimension offset) span_instrs
+  (* Supposed to modify the call to msize by changing the dimension we want. *)
   in [TrmMlist subst_span_instrs])
 
 let%transfo pad ~(var : string) (total_dimension : int) (padded_dimension : int) (offset : int)

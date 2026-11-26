@@ -10,27 +10,29 @@ TODO :
 
 // Padding by 1, on second coordinate
 int main1() {
+  /* Make sure this is well matched */
   int* const a = (int*) malloc(MSIZE2(32, 32) * sizeof(int));
+  int* const b = (int*) malloc(MSIZE3(32, 32, 32) * sizeof(int));
 
-  for (int i = 0; i < 32; i++) {
-    for (int j = 0; j < 32; j++) {
-      a[MINDEX2(32, 32, i, j)] = i+j;
-    }
-  }
+  // for (int i = 0; i < 32; i++) {
+  //   for (int j = 0; j < 32; j++) {
+  //     a[MINDEX2(32, 32, i, j)] = i+j;
+  //   }
+  // }
 
-  int sum = 0;
+  // int sum = 0;
 
-  for (int i = 0; i < 32; i++) {
-    for (int j = 0; j < 32; j++) {
-      sum += a[MINDEX2(32, 32, i, j)];
-    }
-  }
+  // for (int i = 0; i < 32; i++) {
+  //   for (int j = 0; j < 32; j++) {
+  //     sum += a[MINDEX2(32, 32, i, j)];
+  //   }
+  // }
 
-  free(a);
+  // free(a);
 
   return 0;
 }
-
+/*
 // Padding by 10, on first coordinate
 int main2() {
   int* const a = (int*) malloc(MSIZE2(32, 32) * sizeof(int));
@@ -52,12 +54,12 @@ int main2() {
   free(a);
 
   return 0;
-}
-
+} */
+/*
 int main() {
   return 0;
 }
-
+ */
 /*
 // Testing callocs
 int main2() {

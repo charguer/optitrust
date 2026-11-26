@@ -288,24 +288,16 @@ let%transfo tile ?(nb_blocks : trm option) ~(block_size : trm) ~(index_dim : int
 
 
 (** [pad ... tg] TODO : write documentation *)
+(** The padded dimension index starts at 1. So, padding the second dimension requires [padded_dimension = 2] *)
 let%transfo pad
-(*   ?(mark_alloc : mark = no_mark)
-  ?(mark_load : mark = no_mark)
-  ?(mark_unload : mark = no_mark)
-  ?(delete: bool = false) ?(indices : string list = [])
-  ?(alloc_instr : target option) ?(elem_ty : typ option)
-  ~(var : string) ?(local_var : string = "")
-  ?(tile : Matrix_core.nd_tile option)
-  ?(uninit_pre : bool = false) ?(uninit_post : bool = false) (* TODO: bool option with inference. *)
-  ?(simpl : target -> unit = Arith.default_simpl) *)
-  ~(_var : string) (total_dimension : int) (padded_dimension : int) (offset : int)
+  ~(var : string) (total_dimension : int) (padded_dimension : int) (offset : int)
   (tg : target) : unit =
 
   if (padded_dimension > total_dimension) || (offset < 0) then
     failwith "Error message : wrong arguments for transformation"
   else
 
-  Matrix_basic.pad total_dimension padded_dimension offset tg
+  Matrix_basic.pad ~var total_dimension padded_dimension offset tg
 
 
   (* Marks.with_fresh_mark_on p (fun m ->

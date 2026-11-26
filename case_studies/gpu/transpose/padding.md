@@ -80,7 +80,11 @@ When does a modification risk to cause a problem? We WILL have a problem with th
 Maybe if I understand what the loop fission does inside I won't have an issue. And I still need to resolve that problem of "loop.split_range", which I don't know if it exists. -- Ok it does exists, and it does exactly what I want. 
 ]
 
+My modification would be of the kind :
+"All the MSIZE and MINDEX that are used for my variable will be modified accordingly".
+I would like to use trm_map since it is faster and easier. But I have no way to propagate the information that "this current node is being used by the variable" - whatever this means.
 
+If I had a flag that would tell me whether "this node is used by my variable" then that would make things much easier.
 
 Looking for : either a weakening, or an extract.
 
