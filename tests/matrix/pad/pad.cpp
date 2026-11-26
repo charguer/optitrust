@@ -12,7 +12,9 @@ TODO :
 int main1() {
   /* Make sure this is well matched */
   int* const a = (int*) malloc(MSIZE2(32, 32) * sizeof(int));
-  int* const b = (int*) malloc(MSIZE3(32, 32, 32) * sizeof(int));
+  // int* const b = (int*) malloc(MSIZE3(32, 32, 32) * sizeof(int));
+
+  a[MINDEX2(32, 32, 0, 0)] = 1;
 
   // for (int i = 0; i < 32; i++) {
   //   for (int j = 0; j < 32; j++) {

@@ -1170,24 +1170,33 @@ match trm_apps_inv t with
 let var_array = toplevel_var "array"
 
 let rec change_dim_matrix_on ?(correct_position = false) ~(var : string) (padded_dimension : int) (offset : int) (t : trm) : trm =
+  (* Printf.printf "in change_dim_matrix_on: \n calling with term :\n %s\n" (Ast_to_text.ast_to_string t); *)
   match t.desc with
-  | Trm_let ((v, ty), body) when (var = v.name) ->
-    (* Printf.printf "in change_dim_matrix: \n a trm_let was recognize in :\n %s\n" (Ast_to_text.ast_to_string t); *)
-    let body' = trm_map (change_dim_matrix_on ~correct_position:true ~var padded_dimension offset) body in
-    if body = body' then t
-    else trm_let (v, ty) body'
+  | Trm_let ((v, ty), body) when (var = v.name) -> (* Case of allocation *)
+    trm_map (change_dim_matrix_on ~correct_position:true ~var padded_dimension offset) t
+  | Trm_apps ({desc = Trm_prim (_, Prim_binop Binop_array_access)}, [{desc = Trm_var v}; arg], _, _) when (var = v.name) -> (* Case of access *)
+    Printf.printf "in change_dim_matrix_on: \n found an access term to variable calling with term :\n %s\n
+    With arg of access : %s\n" (Ast_to_text.ast_to_string t) (Ast_to_text.ast_to_string arg);
+    trm_map (change_dim_matrix_on ~correct_position:true ~var padded_dimension offset) t
   | _ ->
   if correct_position then begin
     match (msize_inv t), (mindex_inv t) with
     | Some _, Some _ -> failwith "impossible"
     | Some dims, None ->
-      let dims' = List.mapi (fun i dim -> if (i = (padded_dimension - 1)) then trm_add ~typ:typ_auto dim (trm_int offset) else dim) dims in
+      let dims' =
+        List.mapi (fun i dim ->
+          let dim' = trm_map (change_dim_matrix_on ~correct_position ~var padded_dimension offset) dim in
+          if (i = (padded_dimension - 1)) then trm_add ~typ:typ_auto dim' (trm_int offset) else dim') dims in
       msize dims'
     | None, Some (dims, args) ->
-      let dims' = List.mapi (fun i dim -> if (i = (padded_dimension - 1)) then trm_add ~typ:typ_auto dim (trm_int offset) else dim) dims in
+      Printf.printf "Successfully inverted mindex\n";
+      let dims' =
+        List.mapi (fun i dim ->
+          let dim' = trm_map (change_dim_matrix_on ~correct_position ~var padded_dimension offset) dim in
+          if (i = (padded_dimension - 1)) then trm_add ~typ:typ_auto dim' (trm_int offset) else dim') dims in
       mindex dims' args
     | None, None ->
-      (* Printf.printf "in change_dim_matrix: \n Did not recognize a trm_let in :\n %s\n" (Ast_to_text.ast_to_string t);  *)
+      Printf.printf "in change_dim_matrix: \n Did not recognize a msize or mindex call in :\n %s\n" (Ast_to_text.ast_to_string t);
       trm_map (change_dim_matrix_on ~correct_position ~var padded_dimension offset) t
     end
   else
